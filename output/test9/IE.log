@@ -1,0 +1,5 @@
+Ridley Ionosphere Model, [deg] and [kV]
+nsolve t yy mm dd hh mm ss ms tilt cpcpn cpcps
+       1  0.00000E+00 2005  8 31  9  0  0   0  -13.65  0.00000E+00  0.00000E+00
+       2  5.00000E+00 2005  8 31  9  0  5   0  -13.65  9.20291E+00  9.36163E+00
+       3  1.00000E+01 2005  8 31  9  0 10   0  -13.65  1.94745E+01  1.98551E+01

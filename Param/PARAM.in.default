@@ -1,0 +1,29 @@
+Simple test using VOLS/DIPL/LANL and no SCB calculation.
+
+#DESCRIPTION
+Basic RAM-SCB simulation.
+
+#STARTTIME
+2013			iYear
+3			iMonth
+17			iDay
+00			iHour
+00			iMinute
+0			iSecond
+0.0			FracSecond
+
+#OUTERBOUNDARY
+LANL			NameBoundPlasma
+DIPL 			NameBoundMag
+MAXW			NameDistribution
+
+#USESCB
+F			DoUseScb
+
+#EFIELD
+VOLS			NameEfield
+F			UseEfInd
+
+#STOP
+-1                      MaxIteration
+300                    	tSimulationMax

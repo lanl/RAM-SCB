@@ -1,0 +1,68 @@
+\documentclass[twoside,10pt]{book}
+
+\title{RAM-SCB User Manual \\ 
+       \hfill \\}
+
+\author{Vania Jordanova, Daniel Welling, Christopher Jeffery\\
+       \hfill \\
+       {Los Alamos National Laboratory} 
+       \hfill \\
+       Copyright (c) 2016 
+       \hfill \\
+       All Rights Reserved}
+
+\makeindex
+
+\input HEADER
+
+\chapter{Introduction \label{chp:intro}}
+\input{RAM_SCB_intro}
+
+\chapter{Quick Start Guide \label{chp:quick}}
+\input{RAM_SCB_quickstart}
+
+\chapter{Installation \label{chp:install}}
+\input{RAM_SCB_install}
+
+\chapter{Testing RAM-SCB \label{chp:test}}
+\input{RAM_SCB_testing}
+
+\chapter{Performing Simulations \label{chp:run}}
+\input{RAM_SCB_run}
+
+\chapter{Output Visualization \label{chp:viz}}
+\input{RAM_SCB_viz}
+
+\chapter{RAM-SCB and SWMF \label{chp:swmf}}
+\input{RAM_SCB_swmf}
+
+\chapter{Included Scripts \label{chp:scripts}}
+\input{RAM_SCB_scripts}
+
+% Complete List of Input Commands
+\chapter{Complete List of Input Commands \label{chp:param}}
+
+The content of this chapter is generated from the PARAM.XML file.
+The XML file can be read with an editor and can be used
+for creating PARAM.in files by copying small parts from them.
+
+The transformation of the XML
+format into LaTex is done with the share/Scripts/XmlToTex.pl
+script. This script generates index terms for all commands,
+which are used to create an alphabetical index at the end of this chapter.
+
+\input{RAM_SCBXML}
+
+\newpage
+\addcontentsline{toc}{chapter}{{\bf Index of Input Commands}}
+% Index for the commands
+\input{RAM_SCB.ind}
+
+\newpage
+% Bibliography
+\chapter{Bibliography}
+\input{RAM_SCB_bib}
+
+
+\end{document}
+

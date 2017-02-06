@@ -1,0 +1,230 @@
+Begin session: 1
+
+#ECHO
+T
+
+#TEST
+IM_put_from_gm_line couple_gm_im			StringTest
+
+#TIMEACCURATE
+T			DoTimeAccurate
+
+#PROGRESS
+1			DnShowProgressShort
+100			DnShowProgressLong
+
+#DESCRIPTION
+Test for GM-IE-IM/RAM_SCB
+
+#PLANET
+EARTH			NamePlanet
+
+#SAVERESTART
+F			DoSaveRestart
+
+#ROTATION
+F			UseRotation
+
+#STARTTIME
+2013			iYear
+03			iMonth
+17			iDay
+00			iHour
+0			iMinute
+0			iSecond
+0.0			FracSecond
+
+#COUPLE2
+GM			NameComp1
+IE			NameComp2
+-1			DnCouple
+5.0			DtCouple
+
+#COUPLE1
+IE			NameComp1
+IM			NameComp2
+-1			DnCouple
+5.0			DtCouple
+
+#COUPLE2
+GM			NameComp1
+IM			NameComp2
+-1                      DnCouple
+5.0                    	DtCouple
+
+#COUPLETIME
+GM			NameComp
+F			DoCoupleOnTime
+
+#COUPLETIME
+IM			NameComp
+F			DoCoupleOnTime
+
+#BEGIN_COMP GM ----------------------------------------
+
+#GRID
+1			nRootBlockX
+1			nRootBlockY
+1			nRootBlockZ
+-32.0			xMin
+32.0			xMax
+-32.0			yMin
+32.0			yMax
+-32.0			zMin
+32.0			zMax
+
+!refine inside 1.5*rcurrents, rcurrents = 3.5
+
+#GRIDRESOLUTION
+1/8                     Resolution
+sphere0                 NameArea
+ 5.25                   rSphere
+
+!refine inner magnetosphere
+
+#GRIDRESOLUTION
+1.0                     Resolution
+sphere0                 NameArea
+17.5                    rSphere
+
+!refine the magnetotail
+
+#GRIDRESOLUTION
+4.0                     Resolution
+box                     NameArea
+-224.0                  xMinBox
+ -64.0                  yMinBox
+ -64.0                  zMinBox
+  32.0                  xMaxBox
+  64.0                  yMaxBox
+  64.0                  zMaxBox
+
+#GRIDRESOLUTION
+2.0                     Resolution
+box                     NameArea
+ -96.0                  xMinBox
+ -32.0                  yMinBox
+ -32.0                  zMinBox
+  32.0                  xMaxBox
+  32.0                  yMaxBox
+  32.0                  zMaxBox
+
+#GRIDRESOLUTION
+1.0                     Resolution
+box                     NameArea
+ -48.0                  xMinBox
+ -16.0                  yMinBox
+ -16.0                  zMinBox
+  32.0                  xMaxBox
+  16.0                  yMaxBox
+  16.0                  zMaxBox
+
+#GRIDRESOLUTION
+1/2                     Resolution
+box                     NameArea
+ -32.0                  xMinBox
+  -8.0                  yMinBox
+  -8.0                  zMinBox
+  32.0                  xMaxBox
+   8.0                  yMaxBox
+   8.0                  zMaxBox
+
+#GRIDRESOLUTION
+1/4                     Resolution
+box                     NameArea
+ -32.0                  xMinBox
+  -8.0                  yMinBox
+  -4.0                  zMinBox
+   8.0                  xMaxBox
+   8.0                  yMaxBox
+   4.0                  zMaxBox
+
+#GRIDRESOLUTION
+0.5			Resolution
+initial			StringArea
+
+#TIMESTEPPING
+1			nStage
+0.80			CflExlp
+
+#SCHEME
+1			nOrder
+Rusanov			TypeFlux
+
+#SAVELOGFILE
+T
+RAW			StringLogfile
+1			DnSaveLogfile
+-1.			DtSaveLogfile
+
+#SOLARWIND
+5.0			SwNDim  [n/cc]
+100000.0		SwTDim  [K]
+-400.0			SwUxDim [km/s]
+0.0			SwUyDim [km/s]
+0.0			SwUzDim [km/s]
+0.0			SwBxDim [nT]
+0.0			SwByDim [nT]
+-1.0			SwBzDim [nT]
+
+#SAVEPLOT
+4			nPlotFile
+idl x=0 FUL			StringPlot
+-1			DnSavePlot
+5.			DtSavePlot
+-1.0			DxSavePlot
+idl y=0 FUL			StringPlot
+-1			DnSavePlot
+5.0			DtSavePlot
+-1.0			DxSavePlot
+idl z=0 FUL			StringPlot
+-1			DnSavePlot
+5.0			DtSavePlot
+-1.0			DxSavePlot
+idl eqr MHD			StringPlot
+-1			DnSavePlot
+5.0			DtSavePlot
+20.0			nRadius
+24.0			nLon
+1.75			RadiusMin
+6.5			RadiusMax
+
+#END_COMP GM   ----------------------------------------
+
+#BEGIN_COMP IE ----------------------------------------
+
+#IONOSPHERE
+0			iConductanceModel
+F			UseFullCurrent
+F			UseFakeRegion2
+150.0			F107Flux
+5.0			StarLightPedConductance
+0.25			PolarCapPedConductance
+
+#SAVEPLOT
+1			nPlotFile
+min idl                 StringPlot
+1			DnSavePlot
+-1.0			DtSavePlot
+
+#END_COMP IE   ----------------------------------------
+
+#BEGIN_COMP IM ----------------------------------------
+
+#EVENT
+sep_05			NameEvent
+
+#OUTERBOUNDARY
+SWMF			NameBoundPlasma
+SWMF 			NameBoundMag
+MAXW			NameDistribution
+
+#EFIELD
+IE89			NameEfield
+F			UseEfind
+
+#END_COMP IM   ----------------------------------------
+
+#STOP
+-1			MaxIter
+10.0			TimeMax

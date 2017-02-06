@@ -1,0 +1,68 @@
+This section provides a bare-bones approach for getting started with RAM-SCB. 
+The instructions are aimed at users familiar with Unix-like environments.
+Tutorial-like guides for each step can be found in other chapters.
+
+\section{Installation}
+
+Installation and compilation of RAM-SCB requires a Fortran compiler, 
+Perl interpreter, an MPI library compiled with the preferred Fortran compiler, 
+and several external libraries which have 
+additional 
+requirements (most notably a C compiler, typically standard on Unix-like 
+systems.)  The required libraries are:
+
+\begin{enumerate}
+\item{\href{http://www.ncl.ucar.edu/Download/}{NCAR's Graphics Library}}
+
+\item{\href{http://w3.pppl.gov/rib/repositories/NTCC/files/pspline.tar.gz}{NTCC's Princeton Spline (Pspline) library}}
+
+\item{\href{http://www.unidata.ucar.edu/downloads/netcdf/ftp/netcdf-4.0.1.tar.gz}{Unidata's NetCDF library}}
+\end{enumerate}
+
+If these libraries are installed in non-standard locations, use environment
+variables to make them visible to RAM-SCB.  The three variables to be set are
+{\tt NCARGDIR}, {\tt PSPLINEDIR}, and {\tt NETCDFDIR}.
+
+Installation of RAM-SCB is handled via the Config.pl script found in the
+installation directory.  The {\tt -h} option will print help, but the user 
+will almost exclusively use Config.pl as follows:
+
+\begin{verbatim}
+Config.pl -install -compiler=pgf90 -mpi=mpich2
+\end{verbatim}
+
+Other compiler/MPI combinations are of course available, see Chapter 
+\ref{chp:install}.
+
+Finally, use GNU Make to compile and, if desired, test:
+
+\begin{verbatim}
+make
+make test
+\end{verbatim}
+
+\section{Execution}
+
+RAM-SCB is run from \textit{run directories}, create one via {\tt make}:
+
+\begin{verbatim}
+make rundir RUNDIR=~/desired_run_location
+\end{verbatim}
+
+Run directories are soft-linked to the installation.  This means you can move
+them freely and create multiple run directories for simultaneous simulations.
+A fresh run directory has everything you need to execute the code immediatetly,
+simply start the executable.
+
+\begin{verbatim}
+./ram_scb.exe
+\end{verbatim}
+
+To customize the simulation, edit the PARAM.in file.  Chapter \ref{chp:param}
+has a complete description of all parameters.  Additional input files 
+required must be placed in either the {\tt input\_ram} or {\tt input\_scb}
+subdirectories; output is located in similarly named locations.
+
+Output data come in two formats: simple ASCII and NetCDF files.  While there
+are a plethora of tools available, we recommend users try the Python-based
+tools discussed in Chapter \ref{chp:viz}.

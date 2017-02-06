@@ -1,0 +1,24 @@
+Param file for RAM_SCB test2. 
+Simple test using VOLS/DIPL/LANL with a restart.
+
+
+#DESCRIPTION
+Test 2 part 2: Restart and complete simulation
+
+#RESTART
+
+#OUTERBOUNDARY
+LANL			NameBoundPlasma
+DIPL 			NameBoundMag
+MAXW			NameDistribution
+
+#EFIELD
+VOLS			NameEfield
+F			UseEfInd
+
+#LOGFILE
+60.0			DtWriteLogfile
+
+#STOP
+-1                      MaxIteration
+300                    	tSimulationMax

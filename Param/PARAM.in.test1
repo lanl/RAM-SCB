@@ -1,0 +1,37 @@
+Param file for RAM_SCB test1. 
+Simple test using VOLS/DIPL/LANL and no SCB calculation.
+
+
+#DESCRIPTION
+Test 1: V&S e-field and dipole b-field
+
+#STARTTIME
+2013			iYear
+3			iMonth
+17			iDay
+00			iHour
+00			iMinute
+0			iSecond
+0.0			FracSecond
+
+#OUTERBOUNDARY
+LANL			NameBoundPlasma
+DIPL 			NameBoundMag
+MAXW			NameDistribution
+
+#EFIELD
+VOLS			NameEfield
+F			UseEfInd
+
+#LOGFILE
+60.0			DtWriteLogfile
+
+#SATELLITE
+60.0			DtOutput
+2			nSatellite
+sat1.dat		NameTrajectoryFile
+sat2.dat		NameTrajectoryFile
+
+#STOP
+-1                      MaxIteration
+300                    	tSimulationMax

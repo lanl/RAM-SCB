@@ -1,0 +1,58 @@
+#ECHO
+T
+
+VERBOSE
+10
+
+#PROGRESS
+1			DnShowProgressShort
+10			DnShowProgressLong
+
+TEST
+IM_init_session IM_run
+
+#DESCRIPTION
+Run GM and IE in time accurate mode
+
+#PLANET
+EARTH
+
+#SAVERESTART
+F
+
+#TIMEACCURATE
+T			DoTimeAccurate
+
+#STARTTIME
+2000			iYear
+3			iMonth
+21			iDay
+09			iHour
+45			iMinute
+0			iSecond
+0.0			FracSecond
+
+#IDEALAXES
+! align rotation and magnetic axes with z axis
+
+#ROTATION
+F			UseRotation
+
+#BEGIN_COMP IM ==============================================================
+
+#EVENT
+sep_05			NameEvent
+
+#OUTERBOUNDARY
+SWMF			NameBoundPlasma
+SWMF 			NameBoundMag
+
+#EFIELD
+IE89			NameEfield
+F			UseEfind
+
+#END_COMP IM ================================================================
+
+#STOP
+-1                      MaxIteration
+30                    tSimulationMax

@@ -1,0 +1,586 @@
+<!-- The syntax is described by share/Scripts/CheckParam.pl and the manual -->
+
+<commandList name="RAM_SCB: IM Component">
+
+List of IM commands used in the PARAM.in file
+
+<set name="NameRestartOutDir" type="string" value="$_NameComp/restartOUT"/>
+<set name="NamePlotDir"       type="string" value="$_NameComp/plots"/>
+
+<commandgroup name="OPERATIONAL MODE">
+<command name="SHIELDSRC">
+
+#SHIELDSRC
+
+This command activates \textbf{SHIELDS-RC} mode, an operational version of 
+RAM-SCB and the Ring Current portion of the SHIELDS project.  This mode is best
+suited for long term simulations with operational implications (e.g. monitoring
+$D_{st}$, satellite-specific charging environments, etc.)
+
+In this mode,
+\begin{itemize}
+	\item SCB is deactivated and a simple dipole magnetic field is used.
+	\item $K_{P}$-based Volland-Stern electric field is used.
+	\item Only LANL Geosynchronous flux files can be used for
+	      the plasma outer boundary conditions.
+	\item No full-domain flux files are saved.
+	\item Log file write frequencies are lowered to five minutes.
+	\item Variable time steps are used.
+	\item Output files use date/time naming scheme to prevent overwriting.
+\end{itemize}
+These options can NOT be altered in SHIELDS-RC mode.
+</command>
+</commandgroup>
+
+<commandgroup name="STAND ALONE">
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!Stand-alone group!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+These commands should only be used in Stand-Alone mode.  Many, if not all,
+have analogs in the SWMF PARAM system.  If that is the case, RAM-SCB will
+get values from those commands.
+
+<command name="DESCRIPTION" multiple="T">
+	<parameter name="StringDescription" type="string" length="100" />
+
+#DESCRIPTION
+Simulation of the Sep. 1st, 2005 storm.
+
+The StringDescription string can be used to describe the simulation 
+for which the parameter file is written. The #DESCRIPTION command and 
+the StringDescription string are saved into the restart file, 
+which helps in identifying the restart files.  It is often added to
+NetCDF files to help describe the output.
+
+</command>
+
+<command name="STARTTIME">
+	<parameter name="iYear" type="integer" min="0" default="0" />
+	<parameter name="iMonth" type="integer" min="0" default="0" />
+	<parameter name="iDay" type="integer" min="0" default="0" />
+	<parameter name="iHour" type="integer" min="0" default="0" />
+	<parameter name="iMinute" type="integer" min="0" default="0" />
+	<parameter name="iSecond" type="integer" min="0" default="0" />
+
+#STARTTIME
+2006			iYear
+7			iMonth
+19			iDay
+0			iHour
+0			iMinute
+0			iSecond
+
+The STARTTIME command sets the integer year, month, day, hour, minute and 
+second at which the simulation begins. This command is only used in standalone 
+mode and only for the first session.
+</command>
+
+<command name="RESTART">
+#RESTART
+
+If present, RAM-SCB will restart a simulation using the information stored
+in the restart files that the user must place in the {\tt restartIN}
+folder in the run directory.  Start time and simulation conditions are read
+from the restart files.  This command can not be used with {\tt #STARTTIME}.
+
+See Chapter \ref{subchap:restart} for details on restarting simulations.
+
+</commandgroup>
+
+<command name="STOP" required="$_IsStandAlone" if="$_IsStandAlone">
+	<parameter name="MaxIteration" type="integer" min="-1" default="-1" />
+	<parameter name="tSimulationMax" type="real"  min="-1" default="-1" />
+
+#STOP
+100			MaxIteration
+10.0			tSimulationMax [sec]
+
+This command is only used in stand alone mode.
+
+The MaxIteration variable contains the
+maximum number of iterations {\it since the beginning of the current run}
+(in case of a restart, the time steps done before the restart do not count).
+If nIteration reaches this value the session is finished.
+The tSimulationMax variable contains the maximum simulation time
+relative to the initial time determined by the #STARTTIME command.
+If tSimulation reaches this value the session is finished.
+
+Using a negative value for either variables means that the
+corresponding condition is  not checked. The default values
+are MaxIteration=0 and tSimulationMax = 0.0, so the #STOP command
+must be used in every session.
+</command>
+
+<commandgroup name="NUMERICAL SCHEME">
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!Numerics group!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Options for configuring the schemes and solvers, boundary conditions, 
+and other numerical options.
+
+<command name="OUTERBOUNDARY"
+	required="$_IsFirstSession" if="$_IsFirstSession">
+	<parameter name="NameBoundPlasma" type="string" input="select">
+		   <option name="LANL" default="T"/>
+		   <option name="SWMF"/>
+		   <option name="TM03"/>
+	</parameter>
+	<parameter name="NameBoundMag" type="string" input="select">
+		   <option name="T89C" default="T"/>
+                   <option name="TS04"/>
+                   <option name="SWMF"/>
+                   <option name="LANL"/>
+                   <option name="DIPL"/>
+		   <option name="DIPS"/>
+	</parameter>
+	<parameter name="NameDistribution" type="string" input="select">
+		   <option name="MAXW" default="T"/>
+                   <option name="KAPA"/>
+	</parameter>
+#OUTERBOUNDARY
+LANL		NameBoundPlasma
+T89C 		NameBoundMag
+MAXW            NameDistribution
+
+Set the outer boundary conditions for RAM-SCB.  Based on these settings, 
+different files are expected in the respective input directories to suppy
+magnetic field and energy flux at the outer boundary of the codes.
+
+\noindent
+\emph{\textbf{Current options for plasma boundary conditions:}}
+\begin{enumerate}
+	\item \textbf{LANL}: Use fluxes calculated from LANL Geosynchronous
+	measurements.  Composition is determined from the Young et al. 
+	empirical relationship based on Kp and F10.7.
+	\item \textbf{SWMF}: Use fluxes calculated from the Space Weather
+	Modeling Framework.  If in coupled mode, values are calculated 
+	on-the-fly and no input files are required.
+	\item \textbf{TM03}: Use fluxes calculated from the Tsyganenko-Mukai
+	plasma sheet empirical model.
+\end{enumerate}
+
+\noindent
+\emph{\textbf{Current options for magnetic field boundary conditions:}}
+\begin{enumerate}
+	\item \textbf{DIPS}: Use a simple dipole to constrain the SCB field.
+	\item \textbf{DIPL}: Use a simple dipole throughout; no SCB calculation.
+	\item \textbf{LANL}: Use LANL geosynchronous magnetic field files.
+	\item \textbf{SWMF}: Use the magnetic field from the Space Weather 
+	Modeling Framework.  If RAM-SCB is in coupled mode, these values are
+	calculated and obtained on-the-fly rather than read from input files.
+	\item \textbf{T89C}: Use the Tsyganenko 89c empirical model.  
+	As this field depends only on Kp, 
+	input files are provided in the RAM-SCB distribution.
+	\item \textbf{TS04}: Use the Tsyganenko 2004 empirical model.
+\end{enumerate}
+
+\noindent
+\emph{\textbf{Current options for plasma distribution shape:}}
+\begin{enumerate}
+        \item \textbf{MAXW}: Assume a Maxwellian distribution.
+	\item \textbf{KAPA}: Assume a Kappa distribution.
+\end{enumerate} 
+
+</command>
+
+<command name="MULTISPECIESBCS">
+	<parameter name="DoMultiSpeciesBcs" type="logical" default="F"/>
+	<parameter name="DoElectrons" type="logical" default="F"/>
+#MULTISPECIESBCS
+F	DoMultiSpeciesBcs
+F	DoElectrons
+
+In standalone mode, it may be desireable to still take advantage of 
+multispecies boundary conditions from the Space Weather Modeling Framework
+through the use of several .swf files (one for each species desired.)  Use
+this command to force this behavior.  Note that it disables the application
+of Young et al. composition specification.
+
+In coupled mode, or when the outer boundary plasma conditions are not set 
+to SWMF, this command has no effect.
+
+The parameter DoElectrons sets the calculation of the electron distribution.  
+Note that the electron version of RAM is still under development.
+</command>
+
+<command name="EFIELD" 
+	required="$_IsFirstSession" if="$_IsFirstSession">
+	<parameter name="NameEfield" type="string" length="4" />
+	<parameter name="UseEfInd"   type="logical" default="F"/>
+#EFIELD
+IESC			NameEfield
+F			UseEfInd
+
+Set the source for the convective electric field in RAM-SCB.  The choice made
+will set the type of input file required at runtime.
+
+\emph{\textbf{Current options for the electric field:}}
+\begin{enumerate}
+	\item \textbf{IE89}: SWMF IE-component electric field mapped to the 
+	equatorial plane via T89c field lines.
+	\item \textbf{IESC}: SWMF IE-component electric field mapped to the 
+	equatorial plane via RAM-SCB field lines.
+	\item \textbf{VOLS}: $K_{P}$-based Volland-Stern empirical electric 
+	field (internal VS calculation).
+	\item \textbf{WE01}: Weimer 2001 empirical electric field specified
+	at the equatorial plane by user (read from file).
+	\item \textbf{WESC}: Weimer 2001 empirical electric field mapped to the
+	equatorial plane via RAM-SCB field lines (internal W2K calculation).
+\end{enumerate}
+
+The parameter UseEfInd turns the use of induced electric field on or off.  
+Default is no induced electric field.
+
+The \textbf{IE89} and \textbf{WE01} options require an additional input file 
+for every five minutes of simulation time and at the start time.  These files 
+are three-column ascii files that give the potential at each RAM grid point
+(Local Time - L-Shell combination).
+
+The \textbf{VOLS} and \textbf{WESC} are \textit{internal} calculations and do
+not require these additional files, but carry the requirements of their 
+respective underlying models.  The Volland-Stern model requires the $K_{P}$ 
+index, which is provided for historical simulations.  The Weimer 2000 empirical
+model requires upstream solar wind conditions, which can be obtained from the
+OMNI database.  This data must be placed into the run directory in a file 
+named \textit{omni.txt}.  
+
+Note that these input files can be obtained 
+\href{http://omniweb.gsfc.nasa.gov/form/omni_min.html}{via this web form}.
+
+</command>
+
+<command name="USESCB">
+	<parameter name="DoUseScb" type="logical" default="T"/>
+#USESCB
+T	DoUseScb
+
+This command toggles the use of the 3D Equilibrium Magnetic field code.  
+Activation of the 3DEQ creates the Self-Consistent Magnetic Field (SCB) 
+version of RAM-SCB.  Default is to use 3DEQ.  If switched off, be sure to
+have the hI files available to RAM (from any source you choose) in the 
+IM/output_scb directory.
+
+</command>
+
+<command name="USEPLANE_SCB">
+	<parameter name="DoUsePlane_SCB" type="logical" default="F"/>
+#USEPLANE_SCB
+F	DoUsePlane_SCB
+
+Turn on plasmaspheric density calculation based on an updated {\it
+Rasmussen et al.} [1993] model.  Further sub-options for the
+plasmasphere model are specified in ModRamPl_Ne.f90.
+
+</command>
+
+<command name="USEWPI">
+	<parameter name="DoUseWPI" type="logical" default="F"/>
+#USEWPI
+F	DoUseWPI
+
+Flag to turn on pitch angle diffusion.
+
+</command>
+
+<command name="USEBASDIFF">
+	<parameter name="DoUseBASdiff" type="logical" default="T"/>
+#USEBASDIFF
+T	DoUseBASdiff
+
+Two different options for diffusion coefficients are available. The default
+utilizes Kp-dependent BAS diffusion coefficients; alternatively the
+user may supply their own diffusion coefficients.
+
+</command>
+
+<command name="USEKPDIFF">
+	<parameter name="DoUseKpdiff" type="logical" default="T"/>
+#USEWPI
+F	DoUseKpdiff
+
+The default uses Kp=0 coefficients. Turning this flag on interpolates 
+Kp-dependent diffusion coefficents for Kp in the range (0-4).  
+For Kp$>$4, the Kp=4 coefficients are used.
+
+</command>
+
+<command name="VARIABLEDT">
+	<parameter name="DoVariableDt" type="logical" default="T"/>
+#VARIABLEDT
+T	DoVariableDt
+
+Select between a variable timestep that is governed by the CFL number or 
+a semi-static timestep that only decreases during periods of high geomagnetic
+activity as determined by the Kp index.  The former will allow the timestep
+to grow as large as the CFL number will permit, while the latter will use
+a timestep of 5 seconds during low (less than 5) Kp or 1 second during higher
+Kp.
+</command>
+
+<command name="RAMLIMITER">
+	<parameter name="BetaLim" type="float"  min="1" max="2"
+		default="1.2"/>
+#RAMLIMITER
+1.5	BetaLim
+
+Set the beta factor for the MC limiter implemented in RAM.  A value of 1 is
+equivalent to using the Min-Mod limiter; a value of 2 is equivalent to the
+superbee limiter.  1.5 is the default; many codes that implement this limiter
+use a value of 1.5.
+</command>
+
+<command name="MAXTIMESTEP">
+	<parameter name="MaxHalfStep" type="float" default="5.0"/>
+#MAXTIMESTEP
+5.0	MaxHalfStep
+
+Set the maximum half time step that can be taken by RAM.  Even if the CFL limit
+allows for a larger time step, the code will not surpass the limit set here.
+Note that this is the \emph{half} time step taken in the time-splitting scheme;
+a full timestep is two times the half time step.  
+
+Default vaule is 5 seconds.
+</command>
+
+<command name="SCBSCHEME">
+	<parameter name="DecreaseConvAlphaMin" type="float" default="0.01"/>
+	<parameter name="DecreaseConvAlphaMax" type="float" default="0.01"/>
+	<parameter name="DecreaseConvPsiMin"   type="float" default="0.01"/>
+	<parameter name="DecreaseConvPsiMax"   type="float" default="0.01"/>
+	<parameter name="BlendAlpha"        type="float" default="0.20"/>
+	<parameter name="BlendPsi"          type="float" default="0.20"/>
+#SCBSCHEME
+0.05	DecreaseConvAlphaMin
+0.33	DecreaseConvAlphaMax
+0.05	DecreaseConvPsiMin
+0.33	DecreaseConvPsiMax
+0.20	BlendAlpha
+0.20	BlendPsi
+
+Set options for the 3D-Equillibrium solver.  Default values are 0.05 for all
+DecreaseConv-type variables, 0.20 for all Blend variables.    
+Alpha and Psi refer to the different Euler potential surfaces.  
+DecreaseConv variables
+set the maximum change in the solution between subsequent iterations before
+it is assumed that convergence has been reached.  Blending factors control
+the amount of blending of the previous solution with the current one.
+
+If DecreaseConv* max and min values are not the same, the values are scaled
+as a function of Kp from the minimum to the maximum.  This increases code
+stability as the magnetic field becomes more complex with increased activity.
+Scaling is parabolic up to Kp=6.0; see figure below.
+Because default Max and Min are identical, no activity-based
+scaling occurs until the defaults are changed.
+
+\begin{center}
+\includegraphics[scale=0.5]{convbehavior.ps}
+\end{center}
+
+</command>
+</commandgroup>
+
+
+<commandgroup name="INPUT/OUTPUT">
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!I/O group!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+<command name="NAMEFORMAT">
+	 <parameter name="UseNewFormat" type="logical" default=F>
+#NAMEFORMAT
+F	UseNewFormat
+
+Historically, RAM-SCB output files have the format \textit{prefix_IIII.suffix}
+where \textit{IIII} is a four digit integer that gives the number of intervals
+passed.  The interval is file specific, often set to five minutes or hours.
+This format is simple but useful for marking time passed since the beginning
+of the run when examining a single event.  When performing long simulations,
+however, this format is not only unwieldy but unfeasible as it ultimately
+limits the number of files that can be written.
+
+This command toggles the output file name format from the legacy format 
+described above to \textit{prefix_dYYYYMMDD_tHHMNSS.suffix}, where the 
+simulation date and time are used to organize and differentiate individual 
+files of the same \textit{prefix} and \textit{suffix}.  The default is to use
+the legacy system.
+
+\textit{Developer's Note}: Module {\tt ModRamIO.f90} contains tools to 
+build file names of both types with minimal effort.
+<\command>
+
+<command name="SAVERESTART">
+	 <parameter name="DtSaveRestart" type="float" default="3600.0"/>
+	 <parameter name-"DoSaveFinalRestart" type="logical" default="T"/>
+#SAVERESTART
+3600.0		DtSaveRestart
+T		DoSaveFinalRestart
+
+Configure when restart files are saved.  The first parameter sets the 
+frequency, in seconds, that restart files are saved during a simulation.  The
+second parameter toggles saving restarts at the successful completion of a
+simulation.  Defaults are shown.
+
+</command>
+
+<command name="LOGFILE">
+	 <parameter name="DtWrite" type="float" default="60.0"/>
+#LOGFILE
+60.0	DtWrite
+
+Specify the write frequency of the RAM-SCB log file.  Default value is shown.
+Note that frequent writes for any output file may limit the maximum timestep
+taken by RAM-SCB.
+</command>
+
+<command name="SAVEFLUX">
+	 <parameter name="DoWriteFlux" type="logical" default="F"/>
+#SAVEFLUX
+F	DoSaveFlux
+
+Toggle writing of equatorial flux values for all pitch angles and energies
+to NetCDF file.  These files are powerful research tools but large and may
+be undesirable for long simulations.  Default is to not write flux files.
+
+</command>
+
+<command name="DUMP3DFLUX">
+	<parameter name="DoDump3dFlux" type="logical" default="F"/>
+#DUMP3DFLUX
+F	DoDump3dFlux
+
+Toggle the writing of the full 3D (spatial), pitch angle, energy, and species
+ dependent flux from RAM-SCB.  Default is to not write these values.
+
+Activating this capability comes with heavy caveats due to the immense size
+of these output files.  First, ensure that you have sufficient disk space
+as each file is on the order of tens of gigabytes.  Second, be sure to 
+compile on a 64-bit machine in a 64-bit compatable mode.  The arrays being
+written are so massive that the NetCDF library will choke if it is not in 
+64-bit mode.  Finally, be ready for unexpected behavior due to the large
+amount of data being processed to file.  At current time, this capability is
+best reserved for debugging purposes.  Satellite tracing provides a much
+more compact way to sample the distribution function at discrete points.
+</command>
+
+<command name="OMNIFILE">
+	<parameter name="NameOmniFile" type="string" length="200" default="omni.txt"/>
+#OMNIFILE
+omni.txt	NameOmniFile
+
+The WESC (Weimer electric field traced along SCB field lines) electric field
+selection calculates Weimer's empirical electric field on-the-fly.  To do this,
+solar wind inputs are required from the Omni database.  The ascii file that
+contains these inputs should either be called "omni.txt" and be located in
+the run directory (default behavior) or this command should be used to point
+the code in the correct location.
+</command>
+
+<command name="SATELLITE" if="$_IsFirstSession">
+	 <parameter name="DtOutput" type="float" min="10.0" default="60.0"/>
+	 <parameter name="nSatellite" type="integer" min="0" default="0" />
+	 <for from="1" to="$nSatellite">
+	      <parameter name="NameTrajectoryFile" type="string" length="100"/>
+	      <rule expr="-f $NameTrajectoryFile">
+			Trajectory file $NameTrajectoryFile must exist
+	      </rule>	
+	 </for>
+#SATELLITE
+60.0            DtOutput
+2		nSatellite
+satellite1.dat	NameTrajectoryFile
+satellite2.dat	NameTrajectoryFile
+
+The solution of RAM-SCB can be extracted along a satellite's path as the 
+simulation progresses by using the #SATELLITE command.  Simply set the 
+number of virtual satellites to be included in the simulation, the
+time frequency to write the output in seconds (minimum/default is 10), and
+the location of each corresponding Trajectory File.  For each Trajectory File
+given, RAM-SCB will produce a NetCDF file containing the solution along
+the satellite's trajectory at a time frequency of sixty seconds.  Note that
+reducing DtOutput to small values can reduce the maximum RAM-SCB time step as
+a result of ensuring that the file is written every DtOutput.
+
+Satellite Trajectory Files contain the trajectory of the satellite.  They should
+have the following format:
+\begin{verbatim}
+#START
+ 2004  6  24   0   0  58   0  2.9  -3.1 - 3.7  
+ 2004  6  24   0   1  58   0  2.8  -3.2 - 3.6  
+\end{verbatim}
+
+The file containing the satellite trajectory should include data in the 
+following order:
+\begin{verbatim}
+yr mn dy hr min sec msec x y z
+\end{verbatim}
+with the position variables in units of the body radii or the length scale
+normalization.  Note that this is the same format as BATS-R-US trajectory 
+files with one
+important feature: the position is assumed to be in SM coordinates.  If the 
+input coordinates are in another coordinate system, use the #COOR command to
+specify what system is used in the file.  RAM-SCB will convert from that 
+system to SM.
+
+The maximum number of satellite files allowed is 100.  The maximum
+number of lines in a given satellite file (past the #START command)
+is 100,000.  Both of these can be changed by editing the value of
+MaxRamSat and MaxRamSatLines (respectively) in ModRamSats.f90
+
+Each satellite listed under the #SATELLITE command will produce a 
+NetCDF file in the output_ram folder.  Simulation meta data, such as 
+run parameters, start times, etc., are contained within this file as well as 
+energy and pitch angle grid information.  Magnetic field, flux, spacecraft 
+position, and other values are saved for every DtOutput for which the 
+satellite is within the 3D Equilibrium code's domain.  Each record written 
+takes about ten kilobytes of hard drive space.
+</command>
+
+</commandgroup>
+
+
+<commandgroup name="TESTING">
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!Testing group!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+<command name="TEST">
+	<parameter name="StringTest" type="string" length="100"/>
+
+#TEST
+CON_session::do_session		StringTest
+
+A space separated list of subroutine and function names to be tested. 
+Only subroutines containing the 'call CON_set_do_test(...)' statement
+can be tested. The first argument is the name of the subroutine,
+usually defined as the string parameter 'NameSub'.
+Default is an empty string.
+
+This feature and its conventions has been adopted from the Space 
+Weather Modeling Framework. 
+
+</command>
+
+
+</commandgroup>
+
+<commandgroup name="OTHER">
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!Other group!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+<command name="INCLUDE">
+	<parameter name="NameIncludeFile" type="string" length="100"/>
+#INCLUDE
+Commands.in	NameIncludeFile
+
+The NameIncludeFile parameter contains the name of the file to be included.
+This file can contain any additional PARAM commands and will be included as 
+if the text of NameIncludeFile was located within PARAM.in place of the 
+#INCLUDE command which points to it. This is useful for organizing large
+PARAM.in files into separate, smaller chunks.
+The file name may be followed with a trailing comment if it is separated with 
+at least 3 spaces or one TAB character. The #INCLUDE command can be used 
+anywhere in the parameter file, even in the sections which contain the 
+component specific parameters.  
+</commandgroup>
+
+</commandList>

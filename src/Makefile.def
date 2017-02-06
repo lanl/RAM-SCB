@@ -1,0 +1,13 @@
+#Makefile.def for RAM-SCB
+
+# Set local default so no damage is done by running make sans target.
+localdefault: help
+
+# Directory locations:
+DIR       = ${IMDIR}
+SCRIPTDIR = ${IMDIR}/share/Scripts
+LIBDIR    = ${IMDIR}/src
+SHAREDIR  = ${IMDIR}/share/Library/src
+INCLDIR   = ${IMDIR}/include
+BINDIR    = ${IMDIR}/src
+RUNDIR    = ${IMDIR}/run
