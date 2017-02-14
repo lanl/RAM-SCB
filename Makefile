@@ -76,14 +76,14 @@ rundir:
 		mkdir input_ram input_scb output_swmf;    \
 		mkdir restartIN restartOUT;               \
 		tar xzf ${IMDIR}/input/ramscb_inputs.tgz; \
-		mv w2k.dat ../;			  \
-		mv W05_coeff.dat ../;			\
-		mv omni.txt ../;			  \
-		mv f2ini* *geomlt*.txt input_ram/;	  \
-		cp hI_output_0000.dat output/scb/hI_output_d20050831_t090000.dat;	  \
-		mv hI_output_0000.dat output/scb/;         \
-		mv hI_dipole.dat output/scb/;	          \
-		mv dipole_config.cdf t89*.cdf input_scb/;
+		mv Input_git/w2k.dat ../;			  \
+		mv Input_git/W05_coeff.dat ../;			\
+		mv Input_git/omni.txt ../;			  \
+		mv Input_git/f2ini* Input_git/*geomlt*.txt input_ram/;	  \
+		cp Input_git/hI_output_0000.dat output/scb/hI_output_d20130317_t000000.dat;	  \
+		mv Input_git/hI_output_0000.dat output/scb/;         \
+		mv Input_git/hI_dipole.dat output/scb/;	          \
+		mv Input_git/dipole_config.cdf Input_git/t89*.cdf input_scb/;
 	@(if [ "$(STANDALONE)" != "NO" ]; then \
 		cd ${RUNDIR} ; \
 		cp ${IMDIR}/Param/PARAM.in.default ./PARAM.in; \
