@@ -5,5 +5,8 @@ env:
   global:
     - COMMIT=${TRAVIS_COMMIT::8}
     - REPO=louisvernon/shields
-after_success:
+before_install:
   - docker build -f Dockerfile -t $REPO:$COMMIT 
+
+script:
+  - docker run $REPO:$COMMIT
