@@ -9,4 +9,4 @@ before_install:
   - docker build -t $REPO:$COMMIT . 
 
 script:
-  - docker run $REPO:$COMMIT
+  - docker run -it $REPO:$COMMIT hostname
