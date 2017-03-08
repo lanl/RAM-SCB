@@ -1,0 +1,9 @@
+sudo: required
+services:
+  - docker
+env:
+  global:
+    - COMMIT=${TRAVIS_COMMIT::8}
+    - REPO=louisvernon/shields
+after_success:
+  - docker build -f Dockerfile -t $REPO:$COMMIT 
