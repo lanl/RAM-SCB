@@ -44,5 +44,5 @@ The RAM-SCB License can be found at [RAM-SCB/LICENSE.txt](LICENSE.txt).
 
 ## Contact
 
-For questions about using RAM-SCB please contact [Vania Jordanova](mailto://vania@lanl.gov).
+For questions about using RAM-SCB please contact [Vania Jordanova](http://www.lanl.gov/expertise/profiles/view/vania-jordanova).
 
