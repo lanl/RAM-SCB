@@ -10,3 +10,7 @@ before_install:
 
 script:
   - docker run -it $REPO:$COMMIT /bin/bash -c "make test"
+
+after_success:
+  - docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
+  - docker push $REPO
