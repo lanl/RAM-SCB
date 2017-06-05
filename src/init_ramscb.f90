@@ -96,6 +96,16 @@ subroutine init_ramscb
      call CON_stop(NameSub//': invalid NameBoundMag='//NameBoundMag)
   end select
 
+  ! Initialize Pressures.
+  PPerH  = 0
+  PParH  = 0
+  PPerO  = 0
+  PParO  = 0
+  PPerHe = 0
+  PParHe = 0
+  PPerE  = 0
+  PParE  = 0
+
   if(IsRestart) then
      ! If Restart, read restart params and set timings appropriately.
      if (IsStarttimeSet) call CON_stop(NameSub//&
@@ -112,16 +122,6 @@ subroutine init_ramscb
 
     ! Begin tracking code efficiency.
   call init_timing()
-
-  ! Initialize Pressures.
-  PPerH  = 0
-  PParH  = 0
-  PPerO  = 0
-  PParO  = 0
-  PPerHe = 0
-  PParHe = 0
-  PPerE  = 0
-  PParE  = 0
 
   ! Initialize grid.
   ! Radial distance

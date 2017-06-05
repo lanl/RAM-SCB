@@ -302,15 +302,17 @@ contains
 
     use netcdf
     use ModTimeConvert
+    use Module1
     use ModRamMain, ONLY: nE, nPa, Ekev, wE, Mu, wMu, TimeRamStart
     use ModRamIO,   ONLY: ncdf_check, write_ncdf_globatts, DtWriteSat
 
     character(len=200), intent(in) :: FileNameIn
 
-    integer :: i, iFileID, iStatus, iTimeDim, iEnDim, iPaDim, iXyzDim
+    integer :: i, iFileID, iStatus, iTimeDim, iEnDim, iPaDim, iXyzDim, iBoundDim
     integer :: iTimeVar, iXyzVar, iBVar, iEgridVar, iEwidVar, iPgridVar, iBeVar
     integer :: iHVar, iHeVar, iOVar, ieVar, iStartVar, iDtVar, iEcVar, &
-         iEiVar, iPwidVar, ioHVar, ioHeVar, ioOVar, ioeVar, iFlagVar
+         iEiVar, iPwidVar, ioHVar, ioHeVar, ioOVar, ioeVar, iFlagVar, &
+         iXYZnear, iBnear
 
     logical :: DoTest, DoTestMe
     character(len=100) :: NameSub = NameMod // '::create_sat_file'
@@ -327,6 +329,7 @@ contains
 
     ! Create dimensions for all variables.
     iStatus = nf90_def_dim(iFileID, 'xyz',         3,   iXyzDim)
+    iStatus = nf90_def_dim(iFileID, 'bound',       27,   iBoundDim)
     iStatus = nf90_def_dim(iFileID, 'energy',      nE,  iEnDim)
     iStatus = nf90_def_dim(iFileID, 'pitch_angle', nPa, iPaDim)
     iStatus = nf90_def_dim(iFileID, 'time',  nf90_unlimited, iTimeDim)
@@ -463,6 +466,19 @@ contains
          'Width of each pitch angle bin whose centers are listed in pa_grid.')
     iStatus = nf90_put_att(iFileID, iPwidVar, 'units', 'unitless')
 
+         ! BOUNDING GRID POINTS
+    iStatus = nf90_def_var(iFileID, 'XYZnear', nf90_float, &
+         (/iXyzDim,iBoundDim,iTimeDim/), iXYZnear)
+    iStatus = nf90_put_att(iFileID, iXYZnear, 'title', &
+         'X,Y,Z coordinates of 8 bounding grid points.')
+    iStatus = nf90_put_att(iFileID, iXYZnear, 'units', 'Earth Radii')
+
+    iStatus = nf90_def_var(iFileID, 'Bnear', nf90_float, &
+         (/iXyzDim,iBoundDim,iTimeDim/), iBnear)
+    iStatus = nf90_put_att(iFileID, iBnear, 'title', &
+         'Bx,By,Bz values of 8 bounding grid points.')
+    iStatus = nf90_put_att(iFileID, iBnear, 'units', 'nT')
+
     ! Write meta-data as Global Attributes.
     call write_ncdf_globatts(iFileID)
 
@@ -520,19 +536,22 @@ contains
     ! Fly all virtual satellites; take virtual measurments.  Virtually fun.
     ! Locate virtual sats, interpolate result to position, and write data.
 
+    use ModCoordTransform
     use ModConst,   ONLY: cPi
     use ModRamFunctions
-    use ModRamMain, ONLY: TimeRamElapsed, PathRamOut, nE, nPa, wMu
+    use ModRamMain, ONLY: TimeRamElapsed, PathRamOut, nE, nPa, wMu, TimeRamNow
     use ModRamIO,   ONLY: DoSaveRamSats
     use Module_RAM, ONLY: flux3DEQ, indexPA
     use Module1,    ONLY: x,y,z, nthe, npsi, nzeta, bX, bY, bZ, bnormal, &
          EXConv, EYConv, EZConv, bxintern, byintern, bzintern!, &
         !EXIndEq, EYIndEq, EZIndEq, enormal
+    use ModTimeConvert, ONLY: time_real_to_int
 
-    integer :: i, iPa, iTime, iSat, iLoc(4), jLoc(4), kLoc(4), iTemp(3)
+    integer :: i, iPa, iTime, iSat, iLoc(27), jLoc(27), kLoc(27), iTemp(3)
     real(kind=Real8_) :: xSat(3), dTime, distance(nthe, npsi, nzeta-1), &
-         xNear(4), yNear(4), zNear(4), BtNear(3,4), BeNear(3,4), &
-         EcNear(3,4)!, EiNear(3,4)
+         xNear(27), yNear(27), zNear(27), BtNear(3,27), BeNear(3,27), &
+         EcNear(3,27), xyzNear(3,27), rSat, pSat, tSat, rLoc, pLoc, tLoc!, EiNear(3,4),
+    real(kind=Real8_) :: xNearT(27),yNearT(27),zNearT(27)
     real(kind=Real8_), parameter :: MaxDist = 0.25
 
     character(len=200) :: FileName
@@ -543,11 +562,17 @@ contains
 
     logical :: DoTest, DoTestMe
     character(len=*), parameter :: NameSub = NameMod // '::fly_sats'
+
+    integer :: ix, ii, ij, ik, iS, iE, iT, iA(3)
+    real(kind=Real8_) :: SatFluxNear(4,nE,nPa,27)
+    integer :: ierror
     !-----------------------------------------------------------------------
     call CON_set_do_test(NameSub, DoTest, DoTestMe)
 
     if(.not. DoSaveRamSats) return
 
+!    CALL RECALC_08(2013,76,0,0,0,-400.D0,0.D0,0.D0)
+!    CALL RECALC(2013,76,0,0,0)
     SATLOOP: do iSat=1, nRamSat
        ! If current time is outside bounds of orbit file, do not trace.
        if(  (TimeRamElapsed .lt. SatTime_II(iSat, 1)) .or. &
@@ -568,69 +593,88 @@ contains
        end do
        iSatTime_I(iSat) = iTime ! Save for next time
 
-
+       if ((SatTime_II(iSat,iTime)-SatTime_II(iSat,iTime-1)).gt.600) then
+        xSat = SatTraj_IID(iSat,iTime-1,:)
+        SatB = BadDataFlag; SatEc = BadDataFlag
+        SatFlux = BadDataFlag; OmnFlux = BadDataFlag
+        xyzNear = BadDataFlag; BtNear = BadDataFlag
+        FileName = trim(PathRamOut)//'/'//trim(SatName_I(iSat))//'.nc'
+        call append_sat_record(FileName, iSatRecord(iSat), TimeRamElapsed, &
+             xSat, SatB, SatEc, SatFlux, OmnFlux, xyzNear, BtNear) !, SatEi
+        iSatRecord(iSat) = iSatRecord(iSat) + 1
+        cycle SATLOOP                 ! don't trace this time.
+       else
        ! Set satellite's current position by interpolating to 
        ! current simulation time.
-       dTime = (TimeRamElapsed - SatTime_II(iSat, iTime-1)) / &
-            (SatTime_II(iSat, iTime) - SatTime_II(iSat, iTime-1))
-       xSat = dTime*(SatTraj_IID(iSat,iTime,:) - SatTraj_IID(iSat,iTime-1,:)) &
-            + SatTraj_IID(iSat,iTime-1,:)
-
+        dTime = (TimeRamElapsed - SatTime_II(iSat, iTime-1)) / &
+                (SatTime_II(iSat, iTime) - SatTime_II(iSat, iTime-1))
+        xSat = dTime*(SatTraj_IID(iSat,iTime,:) - SatTraj_IID(iSat,iTime-1,:)) &
+             + SatTraj_IID(iSat,iTime-1,:)
+       end if
        ! Calculate distance to each point in 3DEQ domain.
-       ! Note that we use 2:nzeta as point zeta=1 == zeta=nzeta.
-       distance = (x(:,:,2:nzeta) - xSat(1))**2 + &
-            (y(:,:,2:nzeta) - xSat(2))**2 + &
-            (z(:,:,2:nzeta) - xSat(3))**2
-       
-       ! Collect indices of four nearest neighbors.
-       ! Also collect data values at those points.
-       do i=1, 4
-          iTemp = minloc(distance)           ! find closest point.
-          if(minval(distance) .gt. MaxDist**2) then !&! if outside domain...
-             if(DoTest) then
-                write(*,*) 'Satellite ', SatName_I(iSat), ' out of bounds!'
-                write(*,*) 'Distance = ', minval(distance)
-                write(*,*) 'Sat location = ', xSat
-             end if
-
-             ! Fill in with blank values.
-             SatB=BadDataFlag; SatEc=BadDataFlag; SatEi=BadDataFlag
-             SatFlux=BadDataFlag; OmnFlux=BadDataFlag
-
-             ! Write information to output file.
-             FileName = trim(PathRamOut)//'/'//trim(SatName_I(iSat))//'.nc'
-             call append_sat_record(FileName, iSatRecord(iSat), &
-                  TimeRamElapsed, xSat, SatB, SatEc, SatFlux, OmnFlux) !, SatEi
-
-             ! Increment record location in NCDF file.
-             iSatRecord(iSat) = iSatRecord(iSat) + 1
-
-             cycle SATLOOP                 ! don't trace this time.
-          end if
-          iLoc(i) = iTemp(1)                 !\
-          jLoc(i) = iTemp(2)                 ! Save i,j,k indices.
-          kLoc(i) = iTemp(3)                 !/
-
-          ! Exclude this point in next iteration of this loop.
-          distance(iLoc(i),jLoc(i),kLoc(i)) = 99.0 
-          
-          !Collect position and B-field values at NNs.
-          xNear(i) = x(iTemp(1), iTemp(2), iTemp(3))
-          yNear(i) = y(iTemp(1), iTemp(2), iTemp(3))
-          zNear(i) = z(iTemp(1), iTemp(2), iTemp(3))
-          BtNear(1,i) = bX(iTemp(1), iTemp(2), iTemp(3))
-          BtNear(2,i) = bY(iTemp(1), iTemp(2), iTemp(3))
-          BtNear(3,i) = bZ(iTemp(1), iTemp(2), iTemp(3))
-          BeNear(1,i) = BtNear(1,i) - bxintern(iTemp(1), iTemp(2), iTemp(3))
-          BeNear(2,i) = BtNear(2,i) - byintern(iTemp(1), iTemp(2), iTemp(3))
-          BeNear(3,i) = BtNear(3,i) - bzintern(iTemp(1), iTemp(2), iTemp(3))
-          EcNear(1,i) = EXConv(iTemp(1), iTemp(2), iTemp(3))
-          EcNear(2,i) = EYConv(iTemp(1), iTemp(2), iTemp(3))
-          EcNear(3,i) = EZConv(iTemp(1), iTemp(2), iTemp(3))
-          !EiNear(1,i = EXIndEq(iTemp(1), iTemp(2), iTemp(3))
-          !EiNear(2,i = EYIndEq(iTemp(1), iTemp(2), iTemp(3))
-          !EiNear(3,i = EZIndEq(iTemp(1), iTemp(2), iTemp(3))
-       end do
+       ! Note that we use 1:nzeta-1 as point zeta=1 == zeta=nzeta.
+       distance = (x(:,:,1:nzeta-1) - xSat(1))**2 + &
+                  (y(:,:,1:nzeta-1) - xSat(2))**2 + &
+                  (z(:,:,1:nzeta-1) - xSat(3))**2
+       ! Collect indices of nearest neighbor
+        iTemp = minloc(distance)
+        iLoc(:)=0; jLoc(:)=0; kLoc(:)=0
+        xNear(:)=0.; yNear(:)=0.; zNear(:)=0.; xyzNear(:,:)=0.
+        BtNear(:,:)=0.; BeNear(:,:)=0.; EcNear(:,:)=0.
+        iT = 1
+        iA(1) = 0; iA(2) = -1; iA(3) = 1
+        do ii = 1,3
+         do ij = 1,3
+          do ik = 1,3
+           iLoc(iT) = iTemp(1) + iA(ii)
+           jLoc(iT) = iTemp(2) + iA(ij)
+           kLoc(iT) = iTemp(3) + iA(ik)
+           if (((iLoc(iT).gt.nthe).or.(iLoc(iT).lt.1)).or. &
+               ((jLoc(iT).gt.npsi).or.(jLoc(iT).lt.1)).or. &
+               ((kLoc(iT).gt.nzeta).or.(kLoc(iT).lt.1))) then
+            iT = iT
+!              if(DoTest) then
+!                  write(*,*) 'Satellite ', SatName_I(iSat), ' out of bounds!'
+!                  write(*,*) 'Distance = ', minval(distance)
+!                  write(*,*) 'Sat location = ', xSat
+!              end if
+!              ! Fill in with blank values.
+!              xyzNear=BadDataFlag; xNear=BadDataFlag; yNear=BadDataFlag; zNear=BadDataFlag
+!              BtNear=BadDataFlag; BeNear=BadDataFlag; EcNear=BadDataFlag
+!              SatB=BadDataFlag; SatEc=BadDataFlag; SatFlux=BadDataFlag; OmnFlux=BadDataFlag
+!              ! Write information to output file.
+!              FileName = trim(PathRamOut)//'/'//trim(SatName_I(iSat))//'.nc'
+!              call append_sat_record(FileName, iSatRecord(iSat), TimeRamElapsed, &
+!                                     xSat, SatB, SatEc, SatFlux, OmnFlux, xyzNear, BtNear) !, SatEi
+!              ! Increment record location in NCDF file.
+!              iSatRecord(iSat) = iSatRecord(iSat) + 1
+!              cycle SATLOOP                 ! don't trace this time.
+           else
+            xNear(iT) = x(iLoc(iT), jLoc(iT), kLoc(iT))
+            yNear(iT) = y(iLoc(iT), jLoc(iT), kLoc(iT))
+            zNear(iT) = z(iLoc(iT), jLoc(iT), kLoc(iT))
+            xyzNear(1,iT) = xNear(iT)
+            xyzNear(2,iT) = yNear(iT)
+            xyzNear(3,iT) = zNear(iT)
+            BtNear(1,iT) = bX(iLoc(iT), jLoc(iT), kLoc(iT))
+            BtNear(2,iT) = bY(iLoc(iT), jLoc(iT), kLoc(iT))
+            BtNear(3,iT) = bZ(iLoc(iT), jLoc(iT), kLoc(iT))
+            BeNear(1,iT) = BtNear(1,iT) - bxintern(iLoc(iT), jLoc(iT), kLoc(iT))
+            BeNear(2,iT) = BtNear(2,iT) - byintern(iLoc(iT), jLoc(iT), kLoc(iT))
+            BeNear(3,iT) = BtNear(3,iT) - bzintern(iLoc(iT), jLoc(iT), kLoc(iT))
+            EcNear(1,iT) = EXConv(iLoc(iT), jLoc(iT), kLoc(iT))
+            EcNear(2,iT) = EYConv(iLoc(iT), jLoc(iT), kLoc(iT))
+            EcNear(3,iT) = EZConv(iLoc(iT), jLoc(iT), kLoc(iT))
+            if ((xNear(iT).eq.0).and.(yNear(iT).eq.0).and.(zNear(iT).eq.0)) then
+             iT = iT
+            else
+             iT = iT + 1
+            endif
+           end if
+          end do
+         end do
+        end do
+       iT = iT - 1
 
        if(DoTest) then
           write(*,*) 'Using these indices:'
@@ -650,46 +694,69 @@ contains
        end if
 
        ! Interpolate all variables to this point.
-       ! Magnetic field:
-       SatB(1) = WeightFit(4, xNear, yNear, zNear, BtNear(1,:), xSat)
-       SatB(2) = WeightFit(4, xNear, yNear, zNear, BtNear(2,:), xSat)
-       SatB(3) = WeightFit(4, xNear, yNear, zNear, BtNear(3,:), xSat)
-       SatB(4) = WeightFit(4, xNear, yNear, zNear, BeNear(1,:), xSat)
-       SatB(5) = WeightFit(4, xNear, yNear, zNear, BeNear(2,:), xSat)
-       SatB(6) = WeightFit(4, xNear, yNear, zNear, BeNear(3,:), xSat)
-       SatB = SatB * bnormal ! Convert to correct units (nT)
-
-       ! Convective E:
-       SatEc(1) = WeightFit(4, xNear, yNear, zNear, EcNear(1,:), xSat)
-       SatEc(2) = WeightFit(4, xNear, yNear, zNear, EcNear(2,:), xSat)
-       SatEc(3) = WeightFit(4, xNear, yNear, zNear, EcNear(3,:), xSat)
-       SatEc = SatEc * 1.0/6.4 ! Convert to correct units (mV/m)
-
+       if (iT.le.3) then
+        SatB = BadDataFlag
+        SatEc = BadDataFlag
+        OmnFlux = BadDataFlag
+        SatFlux = BadDataFlag
+       else
+        ! Magnetic Field:
+        CALL DSPNT3D(iT,xNear(1:iT),yNear(1:iT),zNear(1:iT),BtNear(1,1:iT),1,xSat(1),xSat(2),xSat(3),SatB(1),ierror)
+        CALL DSPNT3D(iT,xNear(1:iT),yNear(1:iT),zNear(1:iT),BtNear(2,1:iT),1,xSat(1),xSat(2),xSat(3),SatB(2),ierror)
+        CALL DSPNT3D(iT,xNear(1:iT),yNear(1:iT),zNear(1:iT),BtNear(3,1:iT),1,xSat(1),xSat(2),xSat(3),SatB(3),ierror)
+        CALL DSPNT3D(iT,xNear(1:iT),yNear(1:iT),zNear(1:iT),BeNear(1,1:iT),1,xSat(1),xSat(2),xSat(3),SatB(4),ierror)
+        CALL DSPNT3D(iT,xNear(1:iT),yNear(1:iT),zNear(1:iT),BeNear(2,1:iT),1,xSat(1),xSat(2),xSat(3),SatB(5),ierror)
+        CALL DSPNT3D(iT,xNear(1:iT),yNear(1:iT),zNear(1:iT),BeNear(3,1:iT),1,xSat(1),xSat(2),xSat(3),SatB(6),ierror)
+        SatB = SatB * bnormal ! Convert to correct units (nT)
+        ! Convective E:
+        CALL DSPNT3D(iT,xNear(1:iT),yNear(1:iT),zNear(1:iT),EcNear(1,1:iT),1,xSat(1),xSat(2),xSat(3),SatEc(1),ierror)
+        CALL DSPNT3D(iT,xNear(1:iT),yNear(1:iT),zNear(1:iT),EcNear(2,1:iT),1,xSat(1),xSat(2),xSat(3),SatEc(2),ierror)
+        CALL DSPNT3D(iT,xNear(1:iT),yNear(1:iT),zNear(1:iT),EcNear(3,1:iT),1,xSat(1),xSat(2),xSat(3),SatEc(3),ierror)
+        SatEc = SatEc * 1.0/6.4 ! Convert to correct units (mV/m)
        ! Induced E:
        !SatEi(1) = WeightFit(4, xNear, yNear, zNear, EiNear(1,:), xSat)
        !SatEi(2) = WeightFit(4, xNear, yNear, zNear, EiNear(2,:), xSat)
        !SatEi(3) = WeightFit(4, xNear, yNear, zNear, EiNear(3,:), xSat)
        !SatEi = SatEi * enormal ! Convert to correct units (mV/m)
 
-
        ! Reset Omnidirectional flux.
        OmnFlux(:,:)=0.0
+       SatFlux(:,:,:)=-1.0
        ! Flux for all energies, pitch angles, and species.
-       ! Currently, we'll just use nearest neighbor.
-       do iPa=1, nPa
-          if(indexPA(iLoc(1), jLoc(1), kLoc(1), iPa) .eq. -1)then
-             SatFlux(:,:,iPa) = -1.0
-          else
-             SatFlux(:,:,iPa) = flux3DEQ(:, jLoc(1), kLoc(1), :, &
-                  indexPA(iLoc(1), jLoc(1), kLoc(1), iPa))
-             OmnFlux(:,:) = OmnFlux(:,:) + SatFlux(:,:,iPa)*4.0*cPi*wMu(iPa)
+       do iS=1, 4
+        do iE=1, nE
+         do iPa=1, nPa
+          ix = 0
+          SatFluxNear(iS,iE,iPa,:) = 0.0
+          xNearT = BadDataFlag; yNearT = BadDataFlag; zNearT = BadDataFlag
+          do i=1, iT
+           if(indexPA(iLoc(i), jLoc(i), kLoc(i), iPa).gt.0) then
+            if (flux3DEQ(iS,jLoc(i),kLoc(i),iE,indexPA(iLoc(i),jLoc(i),kLoc(i),iPa)).gt.0.0) then
+             ix = ix + 1
+             SatFluxNear(iS,iE,iPa,ix) = flux3DEQ(iS,jLoc(i),kLoc(i),iE,indexPA(iLoc(i),jLoc(i),kLoc(i),iPa))
+             xNearT(ix) = xNear(i)
+             yNearT(ix) = yNear(i)
+             zNearT(ix) = zNear(i)
+            end if
+           end if
+          end do
+          if (ix.gt.3) then
+           CALL DSPNT3D(ix,xNearT(1:ix),yNearT(1:ix),zNearT(1:ix),SatFluxNear(iS,iE,iPa,1:ix), &
+                        1,xSat(1),xSat(2),xSat(3),SatFlux(iS,iE,iPa),ierror)
+           if (SatFlux(iS,iE,iPa).gt.0.0) then
+            OmnFlux(iS,iE) = OmnFlux(iS,iE) + SatFlux(iS,iE,iPa)*4.0*cPi*wMu(iPa)
+           end if
           end if
+         end do
+        end do
        end do
 
+      end if
+ 
        ! Write information to output file.
        FileName = trim(PathRamOut)//'/'//trim(SatName_I(iSat))//'.nc'
        call append_sat_record(FileName, iSatRecord(iSat), TimeRamElapsed, &
-            xSat, SatB, SatEc, SatFlux, OmnFlux) !, SatEi
+            xSat, SatB, SatEc, SatFlux, OmnFlux, xyzNear, BtNear) !, SatEi
 
        ! Increment record location in NCDF file.
        iSatRecord(iSat) = iSatRecord(iSat) + 1
@@ -700,25 +767,29 @@ contains
 
     !========================================================================
     subroutine append_sat_record(InFileName, iRec, TimeIn, xVec, bVec, &
-         ecVec, FluxIn, OmnFluxIn)! eiVec
+         ecVec, FluxIn, OmnFluxIn, XYZnear, Bnear)! eiVec
       !Open a netCDF file and write new values.
 
       use netcdf
       use ModRamIO,   ONLY: ncdf_check
       use ModRamMain, ONLY: nE, nPa
+      use Module1
 
       ! Arguments:
       integer, intent(in)           :: iRec
       character(len=200), intent(in):: InFileName
       real(kind=Real8_), intent(in) :: xVec(3), bVec(6), ecVec(3)
       real(kind=Real8_), intent(in) :: TimeIn, FluxIn(4,nE,nPa), &
-           OmnFluxIn(4,nE) !, eiVec
+           OmnFluxIn(4,nE), XYZnear(3,27), Bnear(3,27) !, eiVec
       
       ! Local variables:
       real(kind=Real8_) :: Flux(4,nE,nPa), OmFx(4,nE)
       integer :: iStatus, iFileID, iStart1D(1), iStart2D(2), iStart3D(3)
       integer :: iTimeVar, iXyzVar, iBVar, iHVar, iHeVar, iOVar, ieVar, &
-           iEcVar, iBeVar, ioHVar, ioHeVar, ioOVar, ioeVar !iEiVar
+           iEcVar, iBeVar, ioHVar, ioHeVar, ioOVar, ioeVar, iBnear, iXYZnear !iEiVar
+
+      integer :: iXYZnear2, iBnear2, iBVar2, iBeVar2, iEcVar2
+      integer :: iXgrid, iYgrid, iZgrid
 
       logical :: DoTest, DoTestMe
       character(len=100) :: NameSubSub = NameSub // '::append_sat_record'
@@ -759,6 +830,8 @@ contains
       iStatus = nf90_inq_varid(iFileID, 'omniHe',ioHeVar)
       iStatus = nf90_inq_varid(iFileID, 'omniO', ioOVar)
       iStatus = nf90_inq_varid(iFileID, 'omnie', ioeVar)
+      iStatus = nf90_inq_varid(iFileID, 'Bnear', iBnear)
+      iStatus = nf90_inq_varid(iFileID, 'XYZnear', iXYZnear)
       !iStatus = nf90_inq_varid(iFileID, 'Eind_xyz',  iEiVar)
 
       ! Write new values to file:
@@ -778,6 +851,11 @@ contains
            ! Vector induced E-field
       !iStatus = nf90_put_var(iFileID, iEiVar, eiVec, iStart2D)
       !call ncdf_check(iStatus, NameSubSub, NameFileIn=trim(InFileName))
+      iStatus = nf90_put_var(iFileID, iBnear, Bnear, iStart3D)
+      call ncdf_check(iStatus, NameSubSub, NameFileIn=trim(InFileName))
+      iStatus = nf90_put_var(iFileID, iXYZnear, XYZnear, iStart3D)
+      call ncdf_check(iStatus, NameSubSub, NameFileIn=trim(InFileName))
+
            ! Flux for all species.
       where(Flux+1.0 .eq. Flux)
          Flux = -1.0

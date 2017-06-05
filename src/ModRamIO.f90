@@ -220,7 +220,7 @@ contains
 
     use ModIoUnit, ONLY: UnitTMP_
     use ModRamMain, ONLY: TimeRamStart, TimeRamElapsed, nIter, PathRestartOut, &
-         f2, nR, nT, nE, nPA
+         f2, nR, nT, nE, nPA, PParT, PPerT
     
     implicit none
     
@@ -262,6 +262,26 @@ contains
        close(UnitTMP_)
     end do
 
+    NameFile=PathRestartOut//'/restart_ppar.rst'
+    if(DoTest) then
+       call write_prefix
+       write(*,*) 'Restart file for parallel pressure', ' = ', NameFile
+    endif
+    open(unit=UnitTMP_, file=trim(NameFile), status='replace', &
+         form='unformatted')
+    write(UnitTMP_) PParT(:,:,:)
+    close(UnitTMP_)
+
+    NameFile=PathRestartOut//'/restart_pper.rst'
+    if(DoTest) then
+       call write_prefix
+       write(*,*) 'Restart file for perpendicular pressure', ' = ', NameFile
+    endif
+    open(unit=UnitTMP_, file=trim(NameFile), status='replace', &
+        form='unformatted')
+    write(UnitTMP_) PPerT(:,:,:)
+    close(UnitTMP_)
+
   end subroutine write_restart
 
   !==========================================================================
@@ -270,7 +290,7 @@ contains
     use ModIoUnit, ONLY: UnitTMP_
     use ModTimeConvert, ONLY: time_int_to_real, time_real_to_int
     use ModRamMain, ONLY: TimeRamStart, TimeRamElapsed, nIter, PathRestartIn, &
-         f2, nR, nT, nE, nPA, Real8_, TimeRamNow, TimeRestart
+         f2, nR, nT, nE, nPA, Real8_, TimeRamNow, TimeRestart, PParT, PPerT
     
     implicit none
     
@@ -339,6 +359,20 @@ contains
        read(UnitTMP_) F2(s,:,:,:,:)
        close(UnitTMP_)
     end do
+
+    NameFile=PathRestartIn//'/restart_ppar.rst'
+    if(DoTest) write(*,'(3a)') 'RAM: Reading restart file parallel pressure ', &
+         ' = ', NameFile
+    open(unit=UnitTMP_,file=trim(NameFile),status='old',form='unformatted')
+    read(UnitTMP_) PParT(:,:,:)
+    close(UnitTMP_)
+
+    NameFile=PathRestartIn//'/restart_pper.rst'
+    if(DoTest) write(*,'(3a)') 'RAM: Reading restart file perpendicular pressure ', &
+         ' = ', NameFile
+    open(unit=UnitTMP_,file=trim(NameFile),status='old',form='unformatted')
+    read(UnitTMP_) PPerT(:,:,:)
+    close(UnitTMP_)
 
   end subroutine read_restart
   !==========================================================================
