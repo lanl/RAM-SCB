@@ -145,7 +145,7 @@ test1_run:
 
 test1_check:
 	${SCRIPTDIR}/DiffNum.pl -b 			 \
-		${TESTDIR}/output_ram/Dsbnd/ds_0108_h.dat \
+		${TESTDIR}/output_ram/Dsbnd/ds_0000_h.dat \
 		${IMDIR}/output/test1/dsbnd.ref          \
 		> test1.diff
 	${SCRIPTDIR}/DiffNum.pl -b 		        \
@@ -168,10 +168,10 @@ test1_check:
 	#	${TESTDIR}/output_ram/sat2.nc   \
 	#	${IMDIR}/output/test1/sat2.ref  \
 	#	>> test1.diff
-	${SCRIPTDIR}/DiffNum.pl -b		  \
-		${TESTDIR}/output_ram/ram000_o.l  \
-		${IMDIR}/output/test1/ram_o.l.ref \
-		>> test1.diff	
+	#${SCRIPTDIR}/DiffNum.pl -b		  \
+	#	${TESTDIR}/output_ram/ram000_o.l  \
+	#	${IMDIR}/output/test1/ram_o.l.ref \
+	#	>> test1.diff	
 	${SCRIPTDIR}/DiffNum.pl -b		  \
 		${TESTDIR}/output_ram/ram000_o.t  \
 		${IMDIR}/output/test1/ram_o.t.ref \
@@ -243,11 +243,11 @@ test3_run:
 
 test3_check:
 	${SCRIPTDIR}/DiffNum.pl -b 		        	    \
-		${TESTDIR}/output_ram/pressure_d20050831_t091000.in \
+		${TESTDIR}/output_ram/pressure_d20130317_t001000.in \
 		${IMDIR}/output/test3/pressure.ref      	    \
 		> test3.diff
 	${SCRIPTDIR}/DiffNum.pl -b		  		  \
-		${TESTDIR}/output_ram/efield_d20050831_t090000.in \
+		${TESTDIR}/output_ram/efield_d20130317_t000000.in \
 		${IMDIR}/output/test3/efield.ref 		  \
 		>> test3.diff
 	${SCRIPTDIR}/DiffNum.pl -b 		      \
@@ -255,11 +255,11 @@ test3_check:
 		${IMDIR}/output/test3/log.ref         \
 		>> test3.diff
 	${SCRIPTDIR}/DiffNum.pl -b 				      \
-		${TESTDIR}/output_scb/hI_output_d20050831_t091000.dat \
+		${TESTDIR}/output_scb/hI_output_d20130317_t001000.dat \
 		${IMDIR}/output/test3/hI.ref 		 	      \
 		>> test3.diff
 	${SCRIPTDIR}/DiffNum.pl -b 		   \
-		${TESTDIR}/output_scb/currents.nc  \
+		${TESTDIR}/output_scb/ionospheric_potential.nc  \
 		${IMDIR}/output/test3/currents.ref \
 		>> test3.diff
 	@echo "Test Successful!"

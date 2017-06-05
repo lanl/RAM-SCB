@@ -201,6 +201,7 @@
     subroutine TauFill(R, ap, f10p7, mLong, mLat, Kp)
         use ModRamPl_Ne, ONLY: UseSCB_nondipole, useFixedTau, Real8_
         use ModPlane, ONLY: mlt, L, vol, n0, tau0, NL, NLT, RE_cm, day, sec
+        use ModIoUnit,      ONLY: UnitTmp_
 	implicit none
 
 	real, intent(in) :: R, ap, f10p7, mLong, mLat, Kp
@@ -216,11 +217,11 @@
         if(useFixedTau) then
 
 !	vania addition, Jan 1997
-           open(11,file='newtau.dat',status='old')
+           open(UnitTmp_,file='newtau.dat',status='old')
            do i=1,nl
-              read(11,*) (tau0(i,j),j=0,nlt)
+              read(UnitTmp_,*) (tau0(i,j),j=0,nlt)
            enddo
-           close(11)
+           close(UnitTmp_)
 
         else
 
@@ -506,6 +507,7 @@
 !
     real function Bfield(L,mlto)
       use ModRamPl_Ne, ONLY: UseSCB_nondipole, hI_file_name, Nd, NLsh, Nmlt, Npa
+      use ModIoUnit,      ONLY: UnitTmp_
       implicit none
       real, intent(in) :: L,mlto
 
@@ -516,19 +518,19 @@
 
       if(UseSCB_nondipole) then
 
-         open(11,file=hI_file_name,status='old')
-         read(11,*)
-         read(11,*)
+         open(UnitTmp_,file=hI_file_name,status='old')
+         read(UnitTmp_,*)
+         read(UnitTmp_,*)
          do i=1,NLsh
             do j=1,Nmlt
                read(11,*) Lsh(i), mlt(j), (data_hold(k),k=1,5), Bz(i,j), data_hold(6), fluxVolume(i,j)
 
                do k=1,Npa-1
-                  read(11,*)
+                  read(UnitTmp_,*)
                enddo
             enddo
          enddo
-	 close(11)
+	 close(UnitTmp_)
 ! bilinear interpolation
   
          if(L<Lsh(1)) then
@@ -587,7 +589,7 @@
     real function volume_nondipole(Lo,mlto)
       use ModRamPl_Ne, ONLY: UseSCB_nondipole, hI_file_name, Nd, NLsh, Nmlt, Npa
       use ModPlane, ONLY: vol,L
-
+      use ModIoUnit,      ONLY: UnitTmp_
       implicit none
       real, intent(in) :: Lo,mlto
 
@@ -596,15 +598,15 @@
       real :: L1,L2,T1,T2,vol11,vol12,vol21,vol22,volave
       integer, dimension(1) :: temp
 
-      open(11,file=hI_file_name,status='old')
-      read(11,*)
-      read(11,*)
+      open(UnitTmp_,file=hI_file_name,status='old')
+      read(UnitTmp_,*)
+      read(UnitTmp_,*)
       do i=1,NLsh
          do j=1,Nmlt
-            read(11,*) Lsh(i), mlt(j), (data_hold(k),k=1,5), Bz(i,j), data_hold(6), fluxVolume(i,j)
+            read(UnitTmp_,*) Lsh(i), mlt(j), (data_hold(k),k=1,5), Bz(i,j), data_hold(6), fluxVolume(i,j)
 
             do k=1,Npa-1
-               read(11,*)
+               read(UnitTmp_,*)
             enddo
          enddo
       enddo
@@ -810,8 +812,6 @@
 	  RMLT(J)=RPHI(J)*12./PI	! Magnetic local time in hour
 	END DO
 
-!	open(10, file='efplane.dat',status='unknown')
-!	write (10,*) '  L     MLT     CWE[kV]'
 	do i = 0, NL+1
 	 do j = 0, NLT
 	  call ELINTP2(LZ, RMLT, wpot, NR+1, NT, L(i), mlt(j), Y, IER)

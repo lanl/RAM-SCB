@@ -31,6 +31,7 @@ F			UseEfInd
 2			nSatellite
 sat1.dat		NameTrajectoryFile
 sat2.dat		NameTrajectoryFile
+F			DoUseVAPini
 
 #STOP
 -1                      MaxIteration
