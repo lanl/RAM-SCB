@@ -33,6 +33,10 @@ contains
     type(timetype),   intent(in) :: StartTime, EndTime
     character(len=*), intent(in) :: NameFile
 
+    integer :: is, fmday
+    character(len=100) :: header
+    real(kind=Real8_) :: tmpF107
+
     integer :: i, j, nline, iError, cmday, iYY, iMM, iDD
     character(len=100) :: StringLine, StringFmt
     real(kind=Real8_) :: tmpKp(8)
@@ -50,33 +54,97 @@ contains
     call CON_set_do_test(NameSub, DoTest, DoTestMe)
     if(DoTest) write(*,*)'Loading indices from ', trim(NameFile)
 
-    ! Find starting point in kyoto file by determining the number
-    ! of lines up to starting position.
-    if( mod(StartTime%iYear,4)==0 )then
-       cmday = leapday(StartTime%iMonth)
-    else
-       cmday = monthday(StartTime%iMonth)
-    end if
-    nline = 365*(StartTime%iYear - 1958) &
-         + (StartTime%iyear-1958+1)/4 + cmday + StartTime%iDay
-
-    ! Open file and fast forward to current position.
+    ! Open file and find the starting date of file
     open(unit=UNITTMP_, FILE=NameFile, STATUS='OLD', IOSTAT=iError)
     if(iError /=0 ) call CON_stop &
          (NameSub//' Error opening file '//NameFile)
-    write(StringFmt, "('(',i10,'(/)a)')") nLine-1
-    read(UNITTMP_, trim(StringFmt)) StringLine
-    if(DoTest)then
-       write(*,'(a, i4, 2("-",i2.2),1x, i2.2,2(":",i2.2))') 'Start Time = ', &
-            StartTime%iYear, StartTime%iMonth, StartTime%iDay, &
-            StartTime%iHour, StartTime%iMinute, StartTime%iSecond
-       write(*,'(a, i4, 2("-",i2.2),1x, i2.2,2(":",i2.2))') 'End Time   = ', &
-            EndTime%iYear, EndTime%iMonth, EndTime%iDay, &
-            EndTime%iHour, EndTime%iMinute, EndTime%iSecond
-       write(*,*) NameSub//': Line before requested date:'
-       write(*,*) StringLine
-    end if
+    read(UNITTMP_,*) header
+    i = 1
+    read(UNITTMP_, '(i4, i2, i2, 8(1x,f3.1), 1x, f5.1)') &
+                     iYY, iMM, iDD, tmpKp, tmpF107
 
+    if ((StartTime%iYear.eq.iYY).and. &
+        (StartTime%iMonth.eq.iMM).and. &
+        (StartTime%iDay.eq.iDD)) then
+       is = 2
+       if (DoTest) then
+          write(*,'(a, i4, 2("-",i2.2),1x, i2.2,2(":",i2.2))') 'Start Time = ', &
+                   StartTime%iYear, StartTime%iMonth, StartTime%iDay, &
+                   StartTime%iHour, StartTime%iMinute, StartTime%iSecond
+          write(*,*) NameSub//': Requested start date matches RamIndices start date'
+       end if
+    else
+       is = 1
+       ! Find starting point in kyoto file by determining the number
+       ! of lines up to starting position.
+       if( mod(StartTime%iYear,4)==0 )then
+          cmday = leapday(StartTime%iMonth)
+       else
+          cmday = monthday(StartTime%iMonth)
+       end if
+       if( mod(iYY,4)==0 )then
+          fmday = leapday(iMM)
+       else
+          fmday = monthday(iMM)
+       end if
+       nline = 365*(StartTime%iYear - iYY) + (StartTime%iyear - iYY + 1)/4 &
+               + (cmday + StartTime%iDay) - (fmday + iDD)
+
+       if (nline.lt.1) then
+          call CON_stop( &
+            NameSub//': Requested start date is before RamIndices start date')
+       elseif (nline.eq.1) then
+          if(DoTest)then
+             write(*,'(a, i4, 2("-",i2.2),1x, i2.2,2(":",i2.2))') 'Start Time = ', &
+                   StartTime%iYear, StartTime%iMonth, StartTime%iDay, &
+                   StartTime%iHour, StartTime%iMinute, StartTime%iSecond
+             write(*,'(a, i4, 2("-",i2.2),1x, i2.2,2(":",i2.2))') 'End Time   = ', &
+                   EndTime%iYear, EndTime%iMonth, EndTime%iDay, &
+                   EndTime%iHour, EndTime%iMinute, EndTime%iSecond
+             write(*,*) NameSub//': Line before requested date is start of RamIndices'
+          end if
+       elseif (nline.eq.2) then
+          read(UNITTMP_, *, IOSTAT=iError) StringLine
+          if (iError.lt.0) then
+             call CON_stop( &
+               NameSub//': End date outside of range of RamIndices file')
+          elseif (iError.gt.0) then
+             call CON_stop( &
+               NameSub//': Error in formating of RamIndices file')
+          end if
+          if(DoTest)then
+             write(*,'(a, i4, 2("-",i2.2),1x, i2.2,2(":",i2.2))') 'Start Time = ', &
+                      StartTime%iYear, StartTime%iMonth, StartTime%iDay, &
+                      StartTime%iHour, StartTime%iMinute, StartTime%iSecond
+             write(*,'(a, i4, 2("-",i2.2),1x, i2.2,2(":",i2.2))') 'End Time   = ', &
+                      EndTime%iYear, EndTime%iMonth, EndTime%iDay, &
+                      EndTime%iHour, EndTime%iMinute, EndTime%iSecond
+             write(*,*) NameSub//': Line before requested date:'
+             write(*,*) StringLine
+          end if
+       else
+          ! Fast forward to current position.
+          write(StringFmt, "('(',i10,'(/)a)')") nLine-2
+          read(UNITTMP_, trim(StringFmt),IOSTAT=iError) StringLine
+          if (iError.lt.0) then
+             call CON_stop( &
+               NameSub//': End date outside of range of RamIndices file')
+          elseif (iError.gt.0) then
+             call CON_stop( &
+               NameSub//': Error in formating of RamIndices file')
+          end if
+          if(DoTest)then
+             write(*,'(a, i4, 2("-",i2.2),1x, i2.2,2(":",i2.2))') 'Start Time = ', &
+                      StartTime%iYear, StartTime%iMonth, StartTime%iDay, &
+                      StartTime%iHour, StartTime%iMinute, StartTime%iSecond
+             write(*,'(a, i4, 2("-",i2.2),1x, i2.2,2(":",i2.2))') 'End Time   = ', &
+                      EndTime%iYear, EndTime%iMonth, EndTime%iDay, &
+                      EndTime%iHour, EndTime%iMinute, EndTime%iSecond
+             write(*,*) NameSub//': Line before requested date:'
+             write(*,*) StringLine
+          end if
+       end if
+    end if
 
     ! Allocate arrays based on number of days required.
     nRawF107 = ceiling((EndTime%Time-StartTime%Time)/86400.0)+1
@@ -91,10 +159,27 @@ contains
        write(*,*) NameSub//': Number of KP vals to read=', nRawKp
     end if
 
+    if (is.eq.2) then
+       rawF107(1) = tmpF107
+       call time_int_to_real((/iYY, iMM, iDD, 0,0,0,0/), timeF107(i))
+       do j=1, 8
+          rawKp(8*(i-1)+j) = tmpKp(j)
+          call time_int_to_real((/iYY, iMM, iDD, kptime(j),30,0,0/),&
+               timeKp(8*(i-1)+j))
+       end do
+    end if
+
     ! Read and store all data for entire interval.
-    do i=1, nRawF107
-       read(UNITTMP_, '(i4, i2, i2, 8(1x,f3.1), 1x, f5.1)') &
+    do i=is, nRawF107
+       read(UNITTMP_, '(i4, i2, i2, 8(1x,f3.1), 1x, f5.1)',IOSTAT=iError) &
             iYY, iMM, iDD, tmpKp, rawF107(i)
+       if (iError.lt.0) then
+          call CON_stop( &
+            NameSub//': End date outside of range of RamIndices file')
+       elseif (iError.gt.0) then
+          call CON_stop( &
+            NameSub//': Error in formating of RamIndices file')
+       end if
        call time_int_to_real((/iYY, iMM, iDD, 0,0,0,0/), timeF107(i))
        do j=1, 8
           rawKp(8*(i-1)+j) = tmpKp(j)
