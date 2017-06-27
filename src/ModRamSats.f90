@@ -268,10 +268,14 @@ contains
     ! to existing files upon restart.  Collect file information for future
     ! writing.
 
-    use ModRamMain, ONLY: IsRestart, PathRamOut
+    use ModRamMain, ONLY: IsRestart, PathRamOut, TimeRamStart, TimeRestart
+    use ModRamIO, ONLY: RamFileName
+    use ModTimeConvert, ONLY: time_real_to_int, TimeType
+
+    type(TimeType) :: TimeRamRestart
 
     character(len=200) :: FileName
-
+    character(len=100) :: SatFileName
     integer :: i
 
     logical :: DoTest, DoTestMe
@@ -279,17 +283,17 @@ contains
     !-----------------------------------------------------------------------
     call CON_set_do_test(NameSub, DoTest, DoTestMe)
 
-
     do i=1, nRamSat
-       ! Replace now-useless input file name with output file name.
-       SatFileName_I(i) = trim(PathRamOut)//'/'//trim(SatName_I(i))//'.nc'
-       if(IsRestart) then
-          ! On restart, attempt to continue existing output file.
-          call resume_sat_file(SatFileName_I(i), iSatRecord(i))
-       else
-          ! else create a new file from scratch.
-          call create_sat_file(SatFileName_I(i))
-       end if
+      if(IsRestart) then
+         TimeRamRestart%Time = TimeRamStart%Time + TimeRestart
+         call time_real_to_int(TimeRamRestart)
+         SatFileName = RamFileName(SatName_I(i),'nc',TimeRamRestart)
+      else
+         SatFileName = RamFileName(SatName_I(i),'nc',TimeRamStart)
+      end if
+      ! Replace now-useless input file name with output file name.
+      SatFileName_I(i) = trim(PathRamOut)//'/'//trim(SatFileName)
+      call create_sat_file(SatFileName_I(i))
     end do
 
   end subroutine init_sats
@@ -539,13 +543,16 @@ contains
     use ModCoordTransform
     use ModConst,   ONLY: cPi
     use ModRamFunctions
-    use ModRamMain, ONLY: TimeRamElapsed, PathRamOut, nE, nPa, wMu, TimeRamNow
-    use ModRamIO,   ONLY: DoSaveRamSats
+    use ModRamMain, ONLY: TimeRamElapsed, PathRamOut, nE, nPa, wMu, TimeRamNow, &
+                          TimeRamStart, TimeRestart, IsRestart
+    use ModRamIO,   ONLY: DoSaveRamSats, RamFileName
     use Module_RAM, ONLY: flux3DEQ, indexPA
     use Module1,    ONLY: x,y,z, nthe, npsi, nzeta, bX, bY, bZ, bnormal, &
          EXConv, EYConv, EZConv, bxintern, byintern, bzintern!, &
         !EXIndEq, EYIndEq, EZIndEq, enormal
-    use ModTimeConvert, ONLY: time_real_to_int
+    use ModTimeConvert, ONLY: time_real_to_int, TimeType
+
+    type(TimeType) :: TimeRamRestart
 
     integer :: i, iPa, iTime, iSat, iLoc(27), jLoc(27), kLoc(27), iTemp(3)
     real(kind=Real8_) :: xSat(3), dTime, distance(nthe, npsi, nzeta-1), &
@@ -555,6 +562,7 @@ contains
     real(kind=Real8_), parameter :: MaxDist = 0.25
 
     character(len=200) :: FileName
+    character(len=100) :: SatFileName
 
     ! Buffers to write to file:
     real(kind=Real8_) :: SatB(6), SatEc(3), SatEi(3), &
@@ -570,7 +578,7 @@ contains
     call CON_set_do_test(NameSub, DoTest, DoTestMe)
 
     if(.not. DoSaveRamSats) return
-
+   
 !    CALL RECALC_08(2013,76,0,0,0,-400.D0,0.D0,0.D0)
 !    CALL RECALC(2013,76,0,0,0)
     SATLOOP: do iSat=1, nRamSat
@@ -598,7 +606,14 @@ contains
         SatB = BadDataFlag; SatEc = BadDataFlag
         SatFlux = BadDataFlag; OmnFlux = BadDataFlag
         xyzNear = BadDataFlag; BtNear = BadDataFlag
-        FileName = trim(PathRamOut)//'/'//trim(SatName_I(iSat))//'.nc'
+        if(IsRestart) then
+           TimeRamRestart%Time = TimeRamStart%Time + TimeRestart
+           call time_real_to_int(TimeRamRestart)
+           SatFileName = RamFileName(SatName_I(iSat),'nc',TimeRamRestart)
+        else
+           SatFileName = RamFileName(SatName_I(iSat),'nc',TimeRamStart)
+        end if
+        FileName = trim(PathRamOut)//'/'//trim(SatFileName)
         call append_sat_record(FileName, iSatRecord(iSat), TimeRamElapsed, &
              xSat, SatB, SatEc, SatFlux, OmnFlux, xyzNear, BtNear) !, SatEi
         iSatRecord(iSat) = iSatRecord(iSat) + 1
