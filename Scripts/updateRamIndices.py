@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+'''Retrieve definitive F10.7 flux and Kp data, and append to RamIndices input file
+'''
 import datetime as dt
 import re, ftplib, cStringIO
 import numpy as np
@@ -33,9 +36,9 @@ currdate = dt.datetime.now()
 ndaysreq = (currdate-lastdate).days
 startjd = j2000jd + 1 + (lastdate-j2000date).days
 endjd = j2000jd + (currdate-j2000date).days
-print(startjd, endjd)
+#print(startjd, endjd)
 
-outJDs = [startjd + n for n in xrange(int(endjd-startjd))]
+outJDs = [startjd + n + 0.5 for n in xrange(int(endjd-startjd))] #add a half to make noontime flux
 outdates = [lastdate+dt.timedelta(days=n+1) for n in xrange(int(endjd-startjd))]
 
 #download updated F10.7 from ftp://ftp.geolab.nrcan.gc.ca/data/solar_flux/daily_flux_values/fluxtable.txt
@@ -53,8 +56,10 @@ conts = io_store.read()
 char1idx = re.search('\d', conts).start()
 conts = conts[char1idx:].split()
 jds = np.array(conts[2::7]).astype(float)
-ursiflux = np.array(conts[6::7]).astype(float)
-outflux = np.interp(outJDs, jds, ursiflux)
+#atmflux = np.array(conts[4::7]).astype(float)  #F10.7 observed flux adjusted for atmospheric loss (i.e. estimate for top of atmosphere)
+#ursiflux = np.array(conts[6::7]).astype(float) #URSI Series D flux specification
+AU1flux = np.array(conts[5::7]).astype(float)  #F10.7 normalized to value at 1AU
+outflux = np.interp(outJDs, jds, AU1flux)
 
 #now get Kp values...
 #start with first month
@@ -63,7 +68,10 @@ io_store = cStringIO.StringIO()
 ftp = ftplib.FTP('ftp.gfz-potsdam.de')
 ftp.login()
 ftp.cwd('pub/home/obs/kp-ap/tab')
-ftp.retrlines('RETR kp{0:02d}{1:02d}.tab'.format(year%100,month), io_store.write)
+try:
+    ftp.retrlines('RETR kp{0:02d}{1:02d}.tab'.format(year%100,month), io_store.write)
+except (ftplib.error_perm):
+    exit()
 io_store.seek(0)
 conts = io_store.read()
 kp_thismonth = map(''.join, zip(*[iter(conts)]*49))
@@ -74,7 +82,10 @@ for od, of in zip(outdates, outflux):
         #read new Kp file
         year, month = od.year, od.month
         io_store = cStringIO.StringIO()
-        ftp.retrlines('RETR kp{0:02d}{1:02d}.tab'.format(year%100,month), io_store.write)
+        try:
+            ftp.retrlines('RETR kp{0:02d}{1:02d}.tab'.format(year%100,month), io_store.write)
+        except (ftplib.error_perm):
+            break
         io_store.seek(0)
         conts = io_store.read()
         kp_thismonth = map(''.join, zip(*[iter(conts)]*49))
@@ -89,5 +100,5 @@ for od, of in zip(outdates, outflux):
     kpvals = [floatkp(x) for x in kpstrs]
     printme = ''.join(['{0: 2.1f}'.format(k) for k in kpvals])
     with open('../input/RamIndices.txt', 'a') as fh:
-        fh.write('{0}{1} {2:3.1f}\n'.format(od.strftime('%Y%m%d'), printme, of))
+        fh.write('{0}{1} {2:05.1f}\n'.format(od.strftime('%Y%m%d'), printme, of))
 
