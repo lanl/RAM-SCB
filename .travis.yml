@@ -9,7 +9,7 @@ before_install:
   - docker build -t $REPO:$COMMIT -t $REPO:latest . 
 
 script:
-  - docker run -it $REPO:$COMMIT /bin/bash -c "cd SHIELDS && make test3"
+  - docker run -it $REPO:$COMMIT /bin/bash -c "cd SHIELDS && make test"
 
 after_success:
   - docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
