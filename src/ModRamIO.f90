@@ -220,13 +220,14 @@ contains
 
     use ModIoUnit, ONLY: UnitTMP_
     use ModRamMain, ONLY: TimeRamStart, TimeRamElapsed, nIter, PathRestartOut, &
-         f2, nR, nT, nE, nPA, PParT, PPerT
+         f2, nR, nT, nE, nPA, PParT, PPerT, TimeRamNow, PathRestartIn
     
     implicit none
     
     integer                       :: s
+    integer                       :: stat
     character(len=2), dimension(4):: NameSpecies = (/'e_','h_','he','o_'/)
-    character(len=100)            :: NameFile
+    character(len=200)            :: NameFile,CWD
 
     character(len=*), parameter :: NameSub='write_restart'
     logical :: DoTest, DoTestMe
@@ -236,8 +237,9 @@ contains
     if(DoTest)write(*,'(a,f11.2)') 'RAM-SCB: Writing restarts at t=',&
          TimeRamElapsed
 
+    stat = getcwd(CWD)
     ! Write ascii portion of restart.
-    NameFile=PathRestartOut//'/restart_info.txt'
+    NameFile=RamFileName(PathRestartOut//'/restart_info','txt',TimeRamNow)
     open(unit=UnitTMP_, file=trim(NameFile), status='replace')
     write(UnitTMP_, *) 'TIMING:'
     write(UnitTMP_, '(a, i4.4, 2i2.2, 1x, 3i2.2)')'Start (YYYYMMDD HHMMSS)= ', &
@@ -248,10 +250,13 @@ contains
     write(UnitTMP_, *)'GRID:'
     write(UnitTMP_, '(a, 4i3)') 'nR, nL, nE, nPA        = ', nR, nT, nE, nPA
     close(unitTMP_)
+    stat = system(trim('ln -s -f '//trim(CWD)//'/'//trim(NameFile)//' '// &
+                       trim(CWD)//'/'//PathRestartIn//'/restart_info.txt'))
+!    CALL SYMLINK(PathRestartIn//'/restart_info.txt',NameFile)
 
     ! Write binary portions of restart.
     do s=1, 4
-       NameFile=PathRestartOut//'/restart_'//NameSpecies(s)//'.rst'
+       NameFile=RamFileName(PathRestartOut//'/restart_'//NameSpecies(s),'rst',TimeRamNow)
        if(DoTest) then
           call write_prefix
           write(*,*) 'Restart file for ', NameSpecies(s), ' = ', NameFile
@@ -260,9 +265,12 @@ contains
             form='unformatted')
        write(UnitTMP_) F2(s,:,:,:,:)
        close(UnitTMP_)
+       stat = system(trim('ln -s -f '//trim(CWD)//'/'//trim(NameFile)//' '// &
+                          trim(CWD)//'/'//PathRestartIn//'/restart_'//NameSpecies(s)//'.rst'))
+!       CALL SYMLINK(PathRestartIn//'/restart_'//NameSpecies(s)//'.rst',NameFile)
     end do
 
-    NameFile=PathRestartOut//'/restart_ppar.rst'
+    NameFile=RamFileName(PathRestartOut//'/restart_ppar','rst',TimeRamNow)
     if(DoTest) then
        call write_prefix
        write(*,*) 'Restart file for parallel pressure', ' = ', NameFile
@@ -271,8 +279,11 @@ contains
          form='unformatted')
     write(UnitTMP_) PParT(:,:,:)
     close(UnitTMP_)
+    stat = system(trim('ln -s -f '//trim(CWD)//'/'//trim(NameFile)//' '// &
+                       trim(CWD)//'/'//PathRestartIn//'/restart_ppar.rst'))
+!    CALL SYMLINK(PathRestartIn//'/restart_ppar.rst',NameFile)
 
-    NameFile=PathRestartOut//'/restart_pper.rst'
+    NameFile=RamFileName(PathRestartOut//'/restart_pper','rst',TimeRamNow)
     if(DoTest) then
        call write_prefix
        write(*,*) 'Restart file for perpendicular pressure', ' = ', NameFile
@@ -281,6 +292,9 @@ contains
         form='unformatted')
     write(UnitTMP_) PPerT(:,:,:)
     close(UnitTMP_)
+    stat = system(trim('ln -s -f '//trim(CWD)//'/'//trim(NameFile)//' '// &
+                       trim(CWD)//'/'//PathRestartIn//'/restart_pper.rst'))
+!    CALL SYMLINK(PathRestartIn//'/restart_pper.rst',NameFile)
 
   end subroutine write_restart
 
@@ -307,6 +321,7 @@ contains
     write(*,*) 'Loading restart files.'
 
     ! Open ascii info file, read start time, elapsed time, and grid info.
+    
     NameFile=PathRestartIn//'/restart_info.txt'
     open(unit=UnitTMP_, file=trim(NameFile), status='old')
     read(UnitTMP_,*)StringLine
