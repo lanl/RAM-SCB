@@ -202,7 +202,6 @@ test2_run:
 	cd ${TESTDIR}; \
 	rm PARAM.in; ln -s PARAM.in.test2.1st PARAM.in; \
 	${MPIRUN} ./ram_scb.exe > runlog1; \
-	mv IM/restartOUT/* IM/restartIN/;  \
 	rm PARAM.in; ln -s PARAM.in.test2.2nd PARAM.in; \
 	${MPIRUN} ./ram_scb.exe > runlog2;	
 
@@ -227,8 +226,8 @@ test3:
 	make test3_rundir PARAMFILE=PARAM.in.test3
 	@echo "test3_run..." >> test3.diff
 	make test3_run MPIRUN=
-#	@echo "test3_check..." >> test3.diff
-#	make test3_check
+	@echo "test3_check..." >> test3.diff
+	make test3_check
 
 test3_compile:
 	make
