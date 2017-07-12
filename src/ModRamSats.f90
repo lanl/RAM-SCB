@@ -21,6 +21,7 @@ module ModRamSats
   integer            :: nSatPoints_I(MaxRamSat)
   integer            :: iSatTime_I(MaxRamSat) = 1
   character(len=200) :: SatFileName_I(MaxRamSat), SatName_I(MaxRamSat)
+  character(len=200) :: SatFileName_O(MaxRamSat)
   character(len=3)   :: TypeSatCoord_I(MaxRamSat)
 
   ! Info about the sat output netcdf files.
@@ -292,8 +293,8 @@ contains
          SatFileName = RamFileName(SatName_I(i),'nc',TimeRamStart)
       end if
       ! Replace now-useless input file name with output file name.
-      SatFileName_I(i) = trim(PathRamOut)//'/'//trim(SatFileName)
-      call create_sat_file(SatFileName_I(i))
+      SatFileName_O(i) = trim(PathRamOut)//trim(SatFileName)
+      call create_sat_file(SatFileName_O(i))
     end do
 
   end subroutine init_sats
@@ -327,7 +328,7 @@ contains
          ' Creating NetCDF File ', trim(FileNameIn)
 
     ! Open file; check for success.
-    iStatus = nf90_create(FileNameIn, nf90_clobber, iFileID)
+    iStatus = nf90_create(trim(FileNameIn), nf90_clobber, iFileID)
     call ncdf_check(iStatus, NameSub)
 
 
@@ -606,15 +607,14 @@ contains
         SatB = BadDataFlag; SatEc = BadDataFlag
         SatFlux = BadDataFlag; OmnFlux = BadDataFlag
         xyzNear = BadDataFlag; BtNear = BadDataFlag
-        if(IsRestart) then
-           TimeRamRestart%Time = TimeRamStart%Time + TimeRestart
-           call time_real_to_int(TimeRamRestart)
-           SatFileName = RamFileName(SatName_I(iSat),'nc',TimeRamRestart)
-        else
-           SatFileName = RamFileName(SatName_I(iSat),'nc',TimeRamStart)
-        end if
-        FileName = trim(PathRamOut)//'/'//trim(SatFileName)
-        call append_sat_record(FileName, iSatRecord(iSat), TimeRamElapsed, &
+!        if(IsRestart) then
+!           TimeRamRestart%Time = TimeRamStart%Time + TimeRestart
+!           call time_real_to_int(TimeRamRestart)
+!           SatFileName = RamFileName(SatName_I(iSat),'nc',TimeRamRestart)
+!        else
+!           SatFileName = RamFileName(SatName_I(iSat),'nc',TimeRamStart)
+!        end if
+        call append_sat_record(SatFileName_O(iSat), iSatRecord(iSat), TimeRamElapsed, &
              xSat, SatB, SatEc, SatFlux, OmnFlux, xyzNear, BtNear) !, SatEi
         iSatRecord(iSat) = iSatRecord(iSat) + 1
         cycle SATLOOP                 ! don't trace this time.
@@ -769,8 +769,7 @@ contains
       end if
  
        ! Write information to output file.
-       FileName = trim(PathRamOut)//'/'//trim(SatName_I(iSat))//'.nc'
-       call append_sat_record(FileName, iSatRecord(iSat), TimeRamElapsed, &
+       call append_sat_record(trim(SatFileName_O(iSat)), iSatRecord(iSat), TimeRamElapsed, &
             xSat, SatB, SatEc, SatFlux, OmnFlux, xyzNear, BtNear) !, SatEi
 
        ! Increment record location in NCDF file.

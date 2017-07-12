@@ -252,7 +252,6 @@ contains
     close(unitTMP_)
     stat = system(trim('ln -s -f '//trim(CWD)//'/'//trim(NameFile)//' '// &
                        trim(CWD)//'/'//PathRestartIn//'/restart_info.txt'))
-!    CALL SYMLINK(PathRestartIn//'/restart_info.txt',NameFile)
 
     ! Write binary portions of restart.
     do s=1, 4
@@ -267,7 +266,6 @@ contains
        close(UnitTMP_)
        stat = system(trim('ln -s -f '//trim(CWD)//'/'//trim(NameFile)//' '// &
                           trim(CWD)//'/'//PathRestartIn//'/restart_'//NameSpecies(s)//'.rst'))
-!       CALL SYMLINK(PathRestartIn//'/restart_'//NameSpecies(s)//'.rst',NameFile)
     end do
 
     NameFile=RamFileName(PathRestartOut//'/restart_ppar','rst',TimeRamNow)
@@ -281,7 +279,6 @@ contains
     close(UnitTMP_)
     stat = system(trim('ln -s -f '//trim(CWD)//'/'//trim(NameFile)//' '// &
                        trim(CWD)//'/'//PathRestartIn//'/restart_ppar.rst'))
-!    CALL SYMLINK(PathRestartIn//'/restart_ppar.rst',NameFile)
 
     NameFile=RamFileName(PathRestartOut//'/restart_pper','rst',TimeRamNow)
     if(DoTest) then
@@ -294,7 +291,6 @@ contains
     close(UnitTMP_)
     stat = system(trim('ln -s -f '//trim(CWD)//'/'//trim(NameFile)//' '// &
                        trim(CWD)//'/'//PathRestartIn//'/restart_pper.rst'))
-!    CALL SYMLINK(PathRestartIn//'/restart_pper.rst',NameFile)
 
   end subroutine write_restart
 
