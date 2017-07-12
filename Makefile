@@ -161,17 +161,13 @@ test1_check:
 		${IMDIR}/output/test1/log.ref         \
 		>> test1.diff
 	#${SCRIPTDIR}/DiffNum.pl -b 	        \
-	#	${TESTDIR}/output_ram/sat1.nc   \
+	#	${TESTDIR}/output_ram/sat1_d20130317_t000000.nc   \
 	#	${IMDIR}/output/test1/sat1.ref  \
 	#	>> test1.diff
 	#${SCRIPTDIR}/DiffNum.pl -b 	        \
-	#	${TESTDIR}/output_ram/sat2.nc   \
+	#	${TESTDIR}/output_ram/sat2_d20130317_t000000.nc   \
 	#	${IMDIR}/output/test1/sat2.ref  \
 	#	>> test1.diff
-	#${SCRIPTDIR}/DiffNum.pl -b		  \
-	#	${TESTDIR}/output_ram/ram000_o.l  \
-	#	${IMDIR}/output/test1/ram_o.l.ref \
-	#	>> test1.diff	
 	${SCRIPTDIR}/DiffNum.pl -b		  \
 		${TESTDIR}/output_ram/ram000_o.t  \
 		${IMDIR}/output/test1/ram_o.t.ref \
@@ -197,6 +193,7 @@ test2_rundir:
 	rm -rf ${TESTDIR}
 	make rundir RUNDIR=${TESTDIR} STANDALONE="YES"
 	cp Param/${PARAMFILE}.* ${TESTDIR}/
+	cp input/sat*.dat ${TESTDIR}/
 
 test2_run:
 	cd ${TESTDIR}; \
