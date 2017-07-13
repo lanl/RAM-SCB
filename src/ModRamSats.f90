@@ -769,7 +769,7 @@ contains
       end if
  
        ! Write information to output file.
-       call append_sat_record(trim(SatFileName_O(iSat)), iSatRecord(iSat), TimeRamElapsed, &
+       call append_sat_record(SatFileName_O(iSat), iSatRecord(iSat), TimeRamElapsed, &
             xSat, SatB, SatEc, SatFlux, OmnFlux, xyzNear, BtNear) !, SatEi
 
        ! Increment record location in NCDF file.

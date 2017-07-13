@@ -1,14 +1,34 @@
 #!/usr/bin/env python
 
-import os, re, copy, bisect, ftplib, cStringIO
+import os, re, copy, bisect, ftplib
+from optparse import OptionParser
 from itertools import izip_longest
 import datetime as dt
 import numpy as np
 import spacepy.time as spt
+#Py3k/Py2 imports
 try:
     import urllib2 as url
 except:
-    import urllib.request as url #python3
+    import urllib.request as url
+try:
+    import cStringIO as io
+except:
+    import io
+
+defaults = {'rundir': os.path.abspath('../rtRun')}
+
+def parserSetup():
+    # Define a command-line option parser and add the options we need
+    parser = OptionParser(  usage="%prog [options] PARAMfile",\
+                            version="%prog Version 1.00 (June 28, 2017)"  )
+
+    parser.add_option("-d", "--rundir",      dest="rundir",
+                            help="Full path to RAM run directory. Default is evaluated as '../rtRun' ")
+
+
+    return parser
+
 
 def floatkp(kpstring):
     n = int(kpstring[0])
@@ -45,6 +65,22 @@ def validLine(instr):
 
 
 if __name__=='__main__':
+    parser = parserSetup()
+    # Parse the args that were (potentially) given to us on the command line
+    (options, in_args) = parser.parse_args()
+
+    #roll defaults into options dict and do any checking
+    valid_opt = 0
+    for key in options.__dict__.keys():
+        if options.__dict__[key] != None:
+            valid_opt += 1
+        try:
+            if options.__dict__[key] == None:
+                options.__dict__[key] = defaults[key]
+        except KeyError:
+            pass
+
+    #Now we're done with the option parser setup, start the data managament
     Ap2Kp_vec = np.vectorize(Ap2Kp)
     
     #provisional kp, last month
@@ -52,9 +88,8 @@ if __name__=='__main__':
     #provisional 'quicklook' Kp, current month
     kp_thismm = 'http://www-app3.gfz-potsdam.de/kp_index/qlyymm.tab'
     
-    #TODO:read data from last, this, (concat), then get provisional 10.7 (somehow)
+    #read data from last, this, (concat), then get provisional 10.7 (somehow)
     #write all out to file
-    
     response = url.urlopen(kp_lastmm)
     indata = response.read()
     try:
@@ -98,7 +133,7 @@ if __name__=='__main__':
 
     #download updated F10.7 from ftp://ftp.geolab.nrcan.gc.ca/data/solar_flux/daily_flux_values/fluxtable.txt
     #only has data from 2004-10-28 (prior data are in different files)
-    io_store = cStringIO.StringIO()
+    io_store = io.StringIO()
     ftp = ftplib.FTP('ftp.geolab.nrcan.gc.ca')
     ftp.login()
     ftp.cwd('data/solar_flux/daily_flux_values')
@@ -119,11 +154,7 @@ if __name__=='__main__':
     #############################################
     #Now get 45-day Air Force forecast to add...#
     #############################################
-    ram_inputdir = '/home/smorley/projects/github/RAM-SCB/input'
-    ram_indices = os.path.join(ram_inputdir, 'RamIndices.txt')
-    rt_rundir = '/home/smorley/projects/github/RAM-SCB/run1'
-    #rt_indices = os.path.join(rt_rundir, 'RamIndices.txt')
-    rt_indices = 'test.txt'
+    rt_indices = os.path.join(options.rundir, 'RamIndices.txt')
     
     #45 day forecast has daily Ap and F10.7 flux
     latest107file = 'http://services.swpc.noaa.gov/text/45-day-ap-forecast.txt'
@@ -180,6 +211,7 @@ if __name__=='__main__':
 
     #now write to RamIndices-formatted file
     with open(rt_indices, 'w') as fh:
+        fh.write('Provisional RamIndices (Date, Kp, F10.7)\n') #RAM requires 1 header line to read correctly
         for idx, od in enumerate(data['DateTime']):
             of = data['F10.7'][idx]
             usekp = data['Kp'][idx,:].tolist()

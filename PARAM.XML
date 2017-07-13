@@ -62,6 +62,7 @@ NetCDF files to help describe the output.
 	<parameter name="iHour" type="integer" min="0" default="0" />
 	<parameter name="iMinute" type="integer" min="0" default="0" />
 	<parameter name="iSecond" type="integer" min="0" default="0" />
+	<parameter name="fracSecond" type="real" min="0" default="0" />
 
 #STARTTIME
 2006			iYear
@@ -70,6 +71,7 @@ NetCDF files to help describe the output.
 0			iHour
 0			iMinute
 0			iSecond
+0.0                     fracSecond
 
 The STARTTIME command sets the integer year, month, day, hour, minute and 
 second at which the simulation begins. This command is only used in standalone 
@@ -90,11 +92,11 @@ See Chapter \ref{subchap:restart} for details on restarting simulations.
 
 <command name="STOP" required="$_IsStandAlone" if="$_IsStandAlone">
 	<parameter name="MaxIteration" type="integer" min="-1" default="-1" />
-	<parameter name="tSimulationMax" type="real"  min="-1" default="-1" />
+	<parameter name="tSimulationMax" type="integer"  min="-1" default="-1" />
 
 #STOP
 100			MaxIteration
-10.0			tSimulationMax [sec]
+10  			tSimulationMax [sec]
 
 This command is only used in stand alone mode.
 
@@ -108,7 +110,7 @@ If tSimulation reaches this value the session is finished.
 
 Using a negative value for either variables means that the
 corresponding condition is  not checked. The default values
-are MaxIteration=0 and tSimulationMax = 0.0, so the #STOP command
+are MaxIteration=0 and tSimulationMax = 0, so the #STOP command
 must be used in every session.
 </command>
 
@@ -252,8 +254,12 @@ Note that these input files can be obtained
 
 <command name="USESCB">
 	<parameter name="DoUseScb" type="logical" default="T"/>
+	<parameter name="DoWriteB" type="logical" default="F"/>
+	<parameter name="DoWriteCur" type="logical" default="F"/>
 #USESCB
 T	DoUseScb
+F       DoWriteB
+F       DoWriteCur
 
 This command toggles the use of the 3D Equilibrium Magnetic field code.  
 Activation of the 3DEQ creates the Self-Consistent Magnetic Field (SCB) 
@@ -276,32 +282,18 @@ plasmasphere model are specified in ModRamPl_Ne.f90.
 
 <command name="USEWPI">
 	<parameter name="DoUseWPI" type="logical" default="F"/>
+	<parameter name="DoUseBASdiff" type="logical" default="F"/>
+	<parameter name="DoUseKpdiff" type="logical" default="F"/>
 #USEWPI
 F	DoUseWPI
-
-Flag to turn on pitch angle diffusion.
-
-</command>
-
-<command name="USEBASDIFF">
-	<parameter name="DoUseBASdiff" type="logical" default="T"/>
-#USEBASDIFF
-T	DoUseBASdiff
-
-Two different options for diffusion coefficients are available. The default
-utilizes Kp-dependent BAS diffusion coefficients; alternatively the
-user may supply their own diffusion coefficients.
-
-</command>
-
-<command name="USEKPDIFF">
-	<parameter name="DoUseKpdiff" type="logical" default="T"/>
-#USEWPI
+F	DoUseBASdiff
 F	DoUseKpdiff
 
-The default uses Kp=0 coefficients. Turning this flag on interpolates 
-Kp-dependent diffusion coefficents for Kp in the range (0-4).  
-For Kp$>$4, the Kp=4 coefficients are used.
+Flag to turn on pitch angle diffusion. The default setting for the 
+Kp-based version uses Kp=0 coefficients. Turning this flag on 
+interpolates Kp-dependent diffusion coefficents for Kp in the 
+range (0-4). For Kp$>$4, the Kp=4 coefficients are used. Different
+options are available if selecting DoUseBASDiff.
 
 </command>
 
@@ -484,11 +476,13 @@ the code in the correct location.
 			Trajectory file $NameTrajectoryFile must exist
 	      </rule>	
 	 </for>
+         <parameter name="DoUseVAPini" type="logical" default="F"/>
 #SATELLITE
 60.0            DtOutput
 2		nSatellite
 satellite1.dat	NameTrajectoryFile
 satellite2.dat	NameTrajectoryFile
+F               DoUseVAPini
 
 The solution of RAM-SCB can be extracted along a satellite's path as the 
 simulation progresses by using the #SATELLITE command.  Simply set the 
