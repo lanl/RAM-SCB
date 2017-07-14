@@ -254,8 +254,8 @@ test3_check:
 		${TESTDIR}/output_scb/hI_output_d20130317_t001000.dat \
 		${IMDIR}/output/test3/hI.ref 		 	      \
 		>> test3.diff
-	${SCRIPTDIR}/DiffNum.pl -b 		   \
-		${TESTDIR}/output_scb/ionospheric_potential.nc  \
-		${IMDIR}/output/test3/currents.ref \
-		>> test3.diff
+	#${SCRIPTDIR}/DiffNum.pl -b 		   \
+	#	${TESTDIR}/output_scb/ionospheric_potential.nc  \
+	#	${IMDIR}/output/test3/currents.ref \
+	#	>> test3.diff
 	@echo "Test Successful!"
