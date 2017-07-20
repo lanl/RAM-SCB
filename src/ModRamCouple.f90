@@ -45,7 +45,7 @@ module ModRamCouple
   integer, public, parameter   :: nPointsMax = 200
   integer, public :: nRadSWMF, nRadSwmfVar, nRadSwmfVarInner, &
        nLonSWMF, nLinesSWMF, nPoints
-  real(kind=Real8_), public :: iEnd(2*(nR+1)*nT)
+  real(kind=Real8_), public :: iEnd(2*nRextend*nT)
   real(kind=Real8_), public, allocatable :: MhdLines_IIV(:,:,:)
   real(kind=Real8_), public, allocatable :: xSWMF(:,:,:), ySWMF(:,:,:), &
        zSWMF(:,:,:), LatSWMF(:,:), LonSWMF(:,:)
@@ -68,8 +68,8 @@ contains
     
     implicit none
 
-    character(len=200), intent(in) :: NameVarIn
-    integer, intent(in)            :: nVarIn
+    character(len=*), intent(in) :: NameVarIn
+    integer, intent(in)          :: nVarIn
 
     character(len=200) :: NameVar
     integer :: i, nChar
@@ -176,9 +176,12 @@ contains
           cycle NewLine
        end if
 
+       ! Grab all points on current line:
        do while(BufferLine_VI(1,iPointBuff)==iLine)
-          ! As long as we're on the same line, sort those points.
           MhdLines_IIV(iLine, iPointLine, :) = BufferLine_VI(:, iPointBuff)
+          ! Do not exceed buffer:
+          if (iPointBuff == nPointIn) exit
+          ! Continue along line: 
           iPointBuff = iPointBuff + 1
           iPointLine = iPointLine + 1
        end do
@@ -246,6 +249,9 @@ contains
 
     ! Save equatorial values, working backwards towards missing values.
     ! Note that the repeated longitude (0 and 2*pi) is skipped the 2nd time.
+    ! This section is for debug file writing and is not currently leveraged by
+    ! SCB.  In the future, this section should be checked as indices do not
+    ! line up correctly.
     do j=nT-1, 1, -1
        do i=nR+1, 1, -1
           ! Find corresponding trace.
@@ -256,10 +262,10 @@ contains
           pEqSWMF(i,j) = MhdLines_IIV(iLine,1,TotalPres_)*1.0E9 !Pa->nPa
           nEqSWMF(i,j) = MhdLines_IIV(iLine,1,TotalRho_ )*1.67E-23 !amu->cm3
           ! For missing lines filled w/ dipole, grab last good values.
-          if (iEnd(iLine) == -1) then
-             pEqSWMF(i,j) = pEqSWMF(i+1,j)
-             nEqSWMF(i,j) = nEqSWMF(i+1,j)
-          end if
+          !if (iEnd(iLine) == -1) then
+          !   pEqSWMF(i,j) = pEqSWMF(i+1,j)
+          !   nEqSWMF(i,j) = nEqSWMF(i+1,j)
+          !end if
        end do
     end do
   
