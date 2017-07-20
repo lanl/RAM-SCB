@@ -30,8 +30,8 @@ SUBROUTINE Computational_domain(i_comp_domain)
   CHARACTER*10           :: timeChar
   CHARACTER*4            :: KpTrunc
   CHARACTER*1             :: KpFl, KpCe
-  REAL(SP)                :: tiltSP
-  REAL(DP)                :: tiltDP
+  REAL(SP)                :: tiltSP = 0.0
+  REAL(DP)                :: tiltDP = 0.0
   REAL(DP)                :: KpReal, ratioFl=1
   REAL(SP), ALLOCATABLE :: xFl(:,:,:), yFl(:,:,:), zFl(:,:,:), xCe(:,:,:), yCe(:,:,:), zCe(:,:,:) ! SP for SWMF
   REAL(DP), ALLOCATABLE :: xFlDbl(:,:,:), yFlDbl(:,:,:), zFlDbl(:,:,:), &
