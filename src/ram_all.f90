@@ -1485,7 +1485,7 @@
     implicit none
     save
     integer :: UR, i, j, j0, j1, k, l, n
-    real(kind=Real8_) :: p4, qs, x, fup, r, corr, cgr1, cgr2, cgr3
+    real(kind=Real8_) :: p4, qs, x, fup, r, corr, cgr1, cgr2, cgr3, ctemp
     real(kind=Real8_) :: CGR(NR,NT,NE,NPA),RGR(NR,NT,NE,NPA), DtsNextLocal
     real(kind=Real8_) :: F(NR+2),FBND(NR),C(NR,NT),LIMITER,CR(NR,NT)
 
@@ -1520,7 +1520,8 @@
             CGR(I,J,K,L)=CGR3/(FNHS(I,J,L)+FNHS(I+1,J,L))*P4/2./(BNES(I,J)+BNES(I+1,J))/(Z(I)+0.5*DR)
             C(I,J)=CR(I,J)+CGR(I,J,K,L)
             RGR(I,J,K,L)=C(I,J)*DR/DT
-            DTsNextLocal = min( DTsNextLocal, FracCFL*DT/abs(C(I,J)))
+            ctemp = max(abs(C(I,J)), 1E-10)
+            DTsNextLocal = min( DTsNextLocal, FracCFL*DT/ctemp)
             ISGN(I,J)=1
             IF (C(I,J).NE.ABS(C(I,J))) ISGN(I,J)=-1
           END DO
@@ -1573,7 +1574,7 @@
     implicit none
     save
     integer :: i, iSign, j, j1, k, l, n
-    real(kind=Real8_) :: x, fup, r, corr, ome, DtsNextLocal
+    real(kind=Real8_) :: x, fup, r, corr, ome, DtsNextLocal, ctemp
     real(kind=Real8_) :: C(NR,NT,NE,NPA),VPA(NR,NT,NE,NPA), &
                          AGR(NR,NT,NE,NPA),GPA1,GPA2,GPA
     real(kind=Real8_) :: FBND(NT),F(NT),LIMITER
@@ -1597,7 +1598,8 @@
             C(I,J,K,L)=((VT(I+1,J)+VT(I+1,J1)-VT(I-1,J)-VT(I-1,J1))*P1(I)-P2(I,K)*GPA/(FNHS(I,J,L)+FNHS(I,J1,L)) &
                       -(EIR(I,J1)+EIR(I,J))/Z(I)*DT/DPHI)/(BNES(I,J)+BNES(I,J1))+OME*DT/DPHI
             AGR(I,J,K,L)=C(I,J,K,L)*DPHI/DT
-            DTsNextLocal = min(DTsNextLocal, FracCFL*DT/abs(C(I,J,K,L)))
+            ctemp = max(abs(C(I,J,K,L)), 1E-10 ) 
+            DTsNextLocal = min(DTsNextLocal, FracCFL*DT/ctemp)
             ISIGN=1
             IF (C(I,J,K,L).NE.ABS(C(I,J,K,L))) ISIGN=-1
             X=F(J1)-F(J)
@@ -1642,7 +1644,7 @@
     save
     integer :: i, isign, j, j0, j2, k, l, n
     real(kind=Real8_) :: ezero,gpa,gpr1,gpr2,gpr3,gpp1,gpp2,edt1,qs, &
-                         drdt, dpdt, dbdt1, didt1, x, fup, r, corr, ome, DtsNextLocal
+         drdt, dpdt, dbdt1, didt1, x, fup, r, corr, ome, DtsNextLocal, ctemp
     real(kind=Real8_) :: GRZERO, DRD1(NR,NT),DPD1(NR,NT),GPR(NR,NT,NPA), &
                          GPP(NR,NT,NPA),DRD2(NR,NT,NPA),DPD2(NR,NT,NPA), &
                          EGR(NR,NT,NE,NPA)
@@ -1690,7 +1692,8 @@
             dIdt1=-dIdt(I,J,L)*Z(I)/FNHS(I,J,L)
             C(K)=EDOT(I,K)*(GPR(I,J,L)*DRDT+GPP(I,J,L)*DPDT+dBdt1+dIdt1)
             EGR(I,J,K,L)=C(K)/DT
-            DTsNextLocal = min(DTsNextLocal, FracCFL*DT*DE(K)/abs(C(K)))
+            ctemp = max( abs(C(K)), 1E-10 )
+            DTsNextLocal = min(DTsNextLocal, FracCFL*DT*DE(K)/ctemp)
             ISIGN=1
             IF(C(K).NE.ABS(C(K))) ISIGN=-1
             X=F(K+1)-F(K)
@@ -1731,9 +1734,9 @@
     save
     integer :: i, j, j0, j1, k, l, n
     real(kind=Real8_) :: gmr1, gmr2, gmr3, gmp1, gmp2, qs, &
-                         drdm, dpdm, dbdt2, dibndt2, x, fup, r, corr, ome, DtsNextLocal
+         drdm, dpdm, dbdt2, dibndt2, x, fup, r, corr, ome, DtsNextLocal, ctemp
     real(kind=Real8_) :: CMUDOT(NR,NT,NPA),EDT(NPA),GMR(NR,NT,NPA), &
-                         GMP(NR,NT,NPA),DRM2(NR,NT,NPA),DPM2(NR,NT,NPA),UGR(NR,NT,NE,NPA)
+         GMP(NR,NT,NPA),DRM2(NR,NT,NPA),DPM2(NR,NT,NPA),UGR(NR,NT,NE,NPA)
     real(kind=Real8_) :: FBND(NPA),F(NPA+1),C(NPA),LIMITER,DRM1(NR,NT), &
                          DPM1(NR,NT)
     integer :: URP(NPA),ISGM(NPA)
@@ -1777,7 +1780,8 @@
             dIbndt2=dIbndt(I,J,L)*Z(I)/BOUNIS(I,J,L)
             C(L)=-CMUDOT(I,J,L)*(GMR(I,J,L)*DRDM+GMP(I,J,L)*DPDM+dBdt2+dIbndt2)
             UGR(I,J,K,L)=C(L)/DT
-            DTsNextLocal=min(DTsNextLocal,FracCFL*DT*DMU(L)/max(1e-32,abs(C(L))))
+            ctemp = max( 1e-32, abs(C(L)) )
+            DTsNextLocal=min(DTsNextLocal,FracCFL*DT*DMU(L)/ctemp)
             ISGM(L)=1
             IF(C(L).NE.ABS(C(L))) ISGM(L)=-1
             IF (ISGM(L).EQ.1) THEN
