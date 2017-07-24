@@ -118,7 +118,6 @@ module IM_wrapper
          Coord2_I = Phi(1:nT)+0.0,           & ! longitudinal coordinates
          TypeCoord= 'SMG',                   & ! solar magnetic coord
          nVar=7,                             & ! Number of "fluid" vars.
-         !NameVar='p rho')  ! Names of "fluid" vars.
          NameVar = 'rho p ppar Hpp Opp Hprho Oprho')
     ! For nVar/NameVar, RAM-SCB+BATS-R-US coupling does not need this
     ! convention.  Placeholders are used ONLY.
@@ -305,7 +304,7 @@ module IM_wrapper
        ! These are used for building Euler potential surfaces:
        nRadSWMF = nRextend
        nLonSWMF = nT
-       nLinesSWMF = (nRextend)*nT*2
+       nLinesSWMF = nRextend*nT*2
        
        ! These bind the max latitude of the SCB domain to the 
        ! footpoints of field lines that pass near L=6.75
@@ -315,7 +314,7 @@ module IM_wrapper
        ! Allocate array to hold sorted line data:
        if(.not. allocated(MhdLines_IIV)) &
             allocate(MhdLines_IIV(nLinesSWMF, nPointsMax, nVarLine))
-       
+
        ! Use NameVar to determine what type of MHD 
        ! simulation is being used and set indices.
        call set_type_mhd(NameVar, nVarLine)
@@ -375,7 +374,8 @@ module IM_wrapper
     call sort_mhd_lines(nVarLine, nPointLine, BufferLine_VI)
     
     ! Extract BATS plasma density and pressure at the outer boundary.
-    iR = 20; iT=1
+    ! Need values at first outer ghost cell.
+    iR = nR+2; iT=1  !!! CHECK HERE PLZ.
     do iPoint = 1, nPointLine
        ! Search for first point in line that matches
        ! the line index for our current rad/lon pair:
