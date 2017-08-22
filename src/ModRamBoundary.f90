@@ -34,10 +34,10 @@ end subroutine
 !==============================================================================
 subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
 
-  use ModRamMain,   ONLY: Real8_, S
-  use ModRamTiming, ONLY: TimeRamNow, TimeRamElapsed, TimeRamStart, Dt_bc
-  use ModRamParams, ONLY: electrons, boundary
-  use ModRamGrids,  ONLY: NT, NE, NEL, NEL_prot, NBD
+  use ModRamMain,      ONLY: Real8_, S
+  use ModRamTiming,    ONLY: TimeRamNow, TimeRamElapsed, TimeRamStart, Dt_bc
+  use ModRamParams,    ONLY: electrons, boundary
+  use ModRamGrids,     ONLY: NT, NE, NEL, NEL_prot, NBD
   use ModRamVariables, ONLY: EKEV, MLT, FGEOS, timeOffset, StringFileDate, &
                              flux_SIII, fluxLast_SII, eGrid_SI, avgSats_SI, lGrid_SI
 
@@ -185,15 +185,14 @@ end subroutine get_geomlt_flux
 !**************************************************************************
   SUBROUTINE GEOSB
 
-    use ModRamMain,    ONLY: Real8_, S, PathSwmfOut, PathRamOut
-    use ModRamParams,  ONLY: DoAnisoPressureGMCoupling, IsComponent, boundary, &
-                             DoMultiBcsFile
-    use ModRamGrids,   ONLY: NTL, NEL, NT, NE, NR
-    use ModRamTiming,  ONLY: TimeRamElapsed, TimeRamNow, TimeRamStart
+    use ModRamMain,      ONLY: Real8_, S, PathSwmfOut, PathRamOut
+    use ModRamParams,    ONLY: DoAnisoPressureGMCoupling, IsComponent, boundary, &
+                               DoMultiBcsFile
+    use ModRamGrids,     ONLY: NTL, NEL, NT, NE, NR
+    use ModRamTiming,    ONLY: TimeRamElapsed, TimeRamNow, TimeRamStart
     use ModRamVariables, ONLY: FFACTOR, UPA, EKEV, Kp, F107
-
-    use ModRamCouple,  ONLY: FluxBats_IIS, generate_flux, TypeMHD, MhdDensPres_VII, &
-                             FluxBats_anis
+    use ModRamCouple,    ONLY: FluxBats_IIS, generate_flux, TypeMHD, MhdDensPres_VII, &
+                               FluxBats_anis
 
     use ModRamIO, ONLY: write_dsbnd
 

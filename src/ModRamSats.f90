@@ -4,7 +4,7 @@ module ModRamSats
 !    All rights reserved.
 
   use ModRamMain, ONLY: Real8_
-!  use ModRamIO,   ONLY: RamFileName, ncdf_check, write_ncdf_globatts
+
   implicit none
   save
   private !except...
@@ -13,7 +13,6 @@ module ModRamSats
   public:: read_sat_input
   public:: init_sats
   public:: fly_sats
-
   integer, public :: nRamSat=0               ! Default is no virtual sats.
 
   ! Info about the sat input files.
@@ -93,12 +92,10 @@ contains
     ! Based on (stolen from?) the version used in BATS-R-US (Umich, Toth).
     ! Note that, for the time being, parallel execution is disabled.
 
-!    use ModRamMain, ONLY: Real8_
     use ModRamTiming, ONLY: TimeRamStart
 
     use ModTimeConvert, ONLY: time_int_to_real
     use ModIoUnit,      ONLY: UnitTmp_
-!    use ModRamMpi,      ONLY: iProc
     use CON_axes
 
     integer :: iError, i, iSat , nPoint
@@ -267,16 +264,16 @@ contains
   end subroutine read_sat_input
 
 !============================================================================
-  subroutine init_sats
-    
+  subroutine init_sats    
     ! Either create new virtual satellite output files or resume writing
     ! to existing files upon restart.  Collect file information for future
     ! writing.
 
-    use ModRamMain, ONLY: PathRamOut
-    use ModRamTiming, ONLY: TimeRamRealStart
+    use ModRamMain,      ONLY: PathRamOut
+    use ModRamTiming,    ONLY: TimeRamRealStart
     use ModRamFunctions, ONLY: RamFileName
-    use ModTimeConvert, ONLY: time_real_to_int, TimeType
+
+    use ModTimeConvert,  ONLY: time_real_to_int, TimeType
 
 
     character(len=200) :: FileName
@@ -299,17 +296,16 @@ contains
 
 !============================================================================
   subroutine create_sat_file(FileNameIn)
-
     ! Build a new netCDF satellite output file.  Enter all meta data into
     ! the file.
 
     use netcdf
     use ModTimeConvert
-    use ModRamTiming, ONLY: TimeRamStart, DtWriteSat
-    use ModRamGrids,  ONLY: NE, NPA
-!    use ModRamInit,   ONLY: EKEV, WE, WMU, MU
+    use ModRamTiming,    ONLY: TimeRamStart, DtWriteSat
+    use ModRamGrids,     ONLY: NE, NPA
     use ModRamVariables, ONLY: EKEV, WE, WMU, MU
-    use ModRamNCDF,        ONLY: ncdf_check, write_ncdf_globatts
+
+    use ModRamNCDF, ONLY: ncdf_check, write_ncdf_globatts
 
     character(len=200), intent(in) :: FileNameIn
 
@@ -329,8 +325,6 @@ contains
 
     ! Open file; check for success.
     iStatus = nf90_create(trim(FileNameIn), nf90_clobber, iFileID)
-!    call ncdf_check(iStatus, NameSub)
-
 
     ! Create dimensions for all variables.
     iStatus = nf90_def_dim(iFileID, 'xyz',         3,   iXyzDim)
@@ -489,7 +483,6 @@ contains
 
     ! Leave the "define mode" of the file.
     iStatus = nf90_enddef(iFileID)
-!    call ncdf_check(iStatus, NameSub)
 
     ! Write static (no time dimension) variables.
     iStatus = nf90_put_var(iFileID, iEgridVar, Ekev)
@@ -498,43 +491,11 @@ contains
     iStatus = nf90_put_var(iFileID, iPwidVar,  wMu)
     iStatus = nf90_put_var(iFileID, iDtVar,    DtWriteSat)  
     iStatus = nf90_put_var(iFileID, iFlagVar,  BadDataFlag)
-    !call time_int_to_real(TimeRamStart)
-    !iStatus = nf90_put_var(iFileID, iStartVar, TimeRamStart % String)
-!    call ncdf_check(iStatus, NameSub)
 
     ! Close the file.
     iStatus = nf90_close(iFileID)
-!    call ncdf_check(iStatus, NameSub)
 
   end subroutine create_sat_file
-
-!============================================================================
-  subroutine resume_sat_file(FileNameIn, iRecordOut)
-
-    ! If restarting, it is possible to resume writing to any netCDF
-    ! virtual satellite output file.  This subroutine examines a
-    ! virtual satellite output file, determines if it matches the 
-    ! current format, locates the record at which to continue writing, 
-    ! and saves this information so that writing may continue as this
-    ! simulation continues.
-
-    ! The logical path this subroutine takes is as follows:
-    ! 1) check to see if FileNameIn exists.
-    ! 2) check if FileNameIn matches the format (size, variables) required.
-    ! If either of these fail, a new output file is created.
-    ! If both succeed, the proper location to begin adding new records
-    ! is returned as iRecordOut.
-
-    character(len=200), intent(in) :: FileNameIn
-    integer, intent(out)           :: iRecordOut
-
-    character(len=*), parameter :: NameSub = NameMod//'::resume_sat_file'
-    !-----------------------------------------------------------------------
-
-    call CON_stop(NameSub // ' This subroutine is not ready for use.')
-    return
-
-  end subroutine resume_sat_file
 
 !============================================================================
   subroutine fly_sats
@@ -648,23 +609,12 @@ contains
            if (((iLoc(iT).gt.nthe).or.(iLoc(iT).lt.1)).or. &
                ((jLoc(iT).gt.npsi).or.(jLoc(iT).lt.1)).or. &
                ((kLoc(iT).gt.nzeta).or.(kLoc(iT).lt.1))) then
-            iT = iT
-!              if(DoTest) then
-!                  write(*,*) 'Satellite ', SatName_I(iSat), ' out of bounds!'
-!                  write(*,*) 'Distance = ', minval(distance)
-!                  write(*,*) 'Sat location = ', xSat
-!              end if
-!              ! Fill in with blank values.
-!              xyzNear=BadDataFlag; xNear=BadDataFlag; yNear=BadDataFlag; zNear=BadDataFlag
-!              BtNear=BadDataFlag; BeNear=BadDataFlag; EcNear=BadDataFlag
-!              SatB=BadDataFlag; SatEc=BadDataFlag; SatFlux=BadDataFlag; OmnFlux=BadDataFlag
-!              ! Write information to output file.
-!              FileName = trim(PathRamOut)//'/'//trim(SatName_I(iSat))//'.nc'
-!              call append_sat_record(FileName, iSatRecord(iSat), TimeRamElapsed, &
-!                                     xSat, SatB, SatEc, SatFlux, OmnFlux, xyzNear, BtNear) !, SatEi
-!              ! Increment record location in NCDF file.
-!              iSatRecord(iSat) = iSatRecord(iSat) + 1
-!              cycle SATLOOP                 ! don't trace this time.
+              iT = iT
+              if (DoTest) then
+                  write(*,*) 'Satellite ', SatName_I(iSat), ' out of bounds!'
+                  write(*,*) 'Distance = ', minval(distance)
+                  write(*,*) 'Sat location = ', xSat
+              end if
            else
             xNear(iT) = x(iLoc(iT), jLoc(iT), kLoc(iT))
             yNear(iT) = y(iLoc(iT), jLoc(iT), kLoc(iT))
@@ -786,7 +736,6 @@ contains
       !Open a netCDF file and write new values.
 
       use netcdf
-!      use ModRamIO,    ONLY: ncdf_check
       use ModRamGrids, ONLY: nE, nPa
 
       ! Arguments:
@@ -828,7 +777,6 @@ contains
 
       ! Open the NetCDF file.
       iStatus = nf90_open(trim(InFileName), nf90_write, iFileID)
-!      call ncdf_check(iStatus, NameSubSub, NameFileIn=trim(InFileName))
 
       ! Collect variable IDs.
       iStatus = nf90_inq_varid(iFileID, 'Time',      iTimeVar)
@@ -851,29 +799,19 @@ contains
       ! Write new values to file:
            ! Time
       iStatus = nf90_put_var(iFileID, iTimeVar, TimeIn, iStart1D)
-!      call ncdf_check(iStatus, NameSubSub, NameFileIn=trim(InFileName))
            ! Satelite position
       iStatus = nf90_put_var(iFileID, iXyzVar, xVec, iStart2D)
-!      call ncdf_check(iStatus, NameSubSub, NameFileIn=trim(InFileName))
            ! Vector magnetic field.
       iStatus = nf90_put_var(iFileID, iBVar, bVec(1:3), iStart2D)
       iStatus = nf90_put_var(iFileID, iBeVar,bVec(4:6), iStart2D)
-!      call ncdf_check(iStatus, NameSubSub, NameFileIn=trim(InFileName))
            ! Vector convection E-field
       iStatus = nf90_put_var(iFileID, iEcVar, ecVec, iStart2D)
-!      call ncdf_check(iStatus, NameSubSub, NameFileIn=trim(InFileName))
            ! Vector induced E-field
       !iStatus = nf90_put_var(iFileID, iEiVar, eiVec, iStart2D)
-      !call ncdf_check(iStatus, NameSubSub, NameFileIn=trim(InFileName))
+           ! Neighboring Positions and B Field
       iStatus = nf90_put_var(iFileID, iBnear, Bnear, iStart3D)
-!      call ncdf_check(iStatus, NameSubSub, NameFileIn=trim(InFileName))
       iStatus = nf90_put_var(iFileID, iXYZnear, XYZnear, iStart3D)
-!      call ncdf_check(iStatus, NameSubSub, NameFileIn=trim(InFileName))
 
-           ! Flux for all species.
-!      where(Flux+1.0 .eq. Flux)
-!         Flux = -1.0
-!      end where
       iStatus = nf90_put_var(iFileID, ieVar,  Flux(1,:,:), iStart3D)
       iStatus = nf90_put_var(iFileID, iHVar,  Flux(2,:,:), iStart3D)
       iStatus = nf90_put_var(iFileID, iHeVar, Flux(3,:,:), iStart3D)
@@ -882,7 +820,6 @@ contains
       iStatus = nf90_put_var(iFileID, ioHVar, OmFx(2,:), iStart2D)
       iStatus = nf90_put_var(iFileID, ioHeVar,OmFx(3,:), iStart2D)
       iStatus = nf90_put_var(iFileID, ioOVar, OmFx(4,:), iStart2D)
-!      call ncdf_check(iStatus, NameSubSub, NameFileIn=trim(InFileName))
       
       ! Close NCDF file.
       iStatus = nf90_close(iFileID)

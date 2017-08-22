@@ -1,14 +1,6 @@
 MODULE ModRamEField
 ! Contains subroutines related to getting the electric field for RAM
 
-!  use ModRamMain, ONLY: Real8_
-!  use ModRamGrids, ONLY: NR, NT
-
-!  implicit none
-
-!  real(kind=Real8_), dimension(NR+1,NT) :: VT, EIR, EIP, VTOL, VTN
-!  real(kind=Real8_) :: TOLV
-
   use ModRamVariables, ONLY: VT, VTOL, VTN, TOLV, EIR, EIP
 
   implicit none
@@ -19,16 +11,13 @@ MODULE ModRamEField
 !==============================================================================
 subroutine get_electric_field
 
-  use ModRamMain,    ONLY: Real8_
-  use ModRamTiming,  ONLY: TimeRamNow, DtEfi, T
-  use ModRamConst,   ONLY: RE
-  use ModRamParams,  ONLY: electric, IsComponent
-  use ModRamGrids,   ONLY: NR, NT
-!  use ModRamIndices, ONLY: KP
-!  use ModRamInit,    ONLY: PHI, LZ, PHIOFS
+  use ModRamMain,      ONLY: Real8_
+  use ModRamTiming,    ONLY: TimeRamNow, DtEfi, T
+  use ModRamConst,     ONLY: RE
+  use ModRamParams,    ONLY: electric, IsComponent
+  use ModRamGrids,     ONLY: NR, NT
   use ModRamVariables, ONLY: KP, PHI, LZ, PHIOFS
-
-  use ModRamCouple,  ONLY: SwmfPot_II
+  use ModRamCouple,    ONLY: SwmfPot_II
 
   use ModTimeConvert, ONLY: TimeType, time_real_to_int
 
@@ -85,9 +74,9 @@ subroutine ram_gen_efilename(TimeIn,NameOut)
 !******************************************************************************
 
   use ModRamFunctions, ONLY: RamFileName
-  use ModRamMain,   ONLY: PathRamIn
-  use ModScbMain,   ONLY: PathScbOut
-  use ModRamParams, ONLY: electric
+  use ModRamMain,      ONLY: PathRamIn
+  use ModScbMain,      ONLY: PathScbOut
+  use ModRamParams,    ONLY: electric
 
   use ModTimeConvert, ONLY: TimeType
 
@@ -136,16 +125,15 @@ subroutine ram_get_electric(NextEfile, EOut_II)
   ! Open E-field file "NextFile", collect E-field and indices, update
   ! "NextFile" and return all of the above to the caller.
 
-  use ModRamMain,   ONLY: Real8_, PathRamIn, PathScbOut
-!  use ModScbMain,   ONLY: PathScbOut
-  Use ModRamTiming, ONLY: TimeRamElapsed
-  use ModRamParams, ONLY: electric, IsComponent
-  use ModRamGrids,  ONLY: NR, NT
-
+  use ModRamMain,      ONLY: Real8_, PathRamIn, PathScbOut
+  Use ModRamTiming,    ONLY: TimeRamElapsed
+  use ModRamParams,    ONLY: electric, IsComponent
+  use ModRamGrids,     ONLY: NR, NT
   use ModRamVariables, ONLY: PHIOFS
 
   use ModTimeConvert, ONLY: TimeType
   use ModIOUnit,      ONLY: UNITTMP_
+
   implicit none
 
   ! Arguments

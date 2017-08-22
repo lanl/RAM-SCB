@@ -5,24 +5,23 @@ module ModRamRestart
 !   Copyright (c) 2016, Los Alamos National Security, LLC
 !   All rights reserved.
 !******************************************************************************
-
-    use ModRamMain,     ONLY: PathRestartOut, PathRestartIn, niter
+    !!!! Module Variables
+    use ModRamMain,      ONLY: PathRestartOut, PathRestartIn, niter
     use ModRamFunctions, ONLY: RamFileName
-    use ModRamTiming,   ONLY: TimeRamElapsed, TimeRamStart, TimeRamNow, DtsNext
-    use ModRamGrids,    ONLY: NR, NT, NE, NPA
+    use ModRamTiming,    ONLY: TimeRamElapsed, TimeRamStart, TimeRamNow, DtsNext
+    use ModRamGrids,     ONLY: NR, NT, NE, NPA
     use ModRamVariables, ONLY: F2, PParT, PPerT, FNHS, FNIS, BOUNHS, BOUNIS, &
                                BNES, HDNS, EIR, EIP, dBdt, dIdt, dIbndt, VTN, &
                                VTOL, VT, EIR, EIP, FGEOS, PParH, PPerH, PParO, &
                                PPerO, PParHe, PPerHe, PParE, PPerE
-
-    use ModRamScb, ONLY: indexPA, FLUX3DEQ
-
-    use ModScbGrids, ONLY: nthe, npsi, nzeta, nzetap
+    use ModRamScb,       ONLY: indexPA, FLUX3DEQ
+    use ModScbGrids,     ONLY: nthe, npsi, nzeta, nzetap
     use ModScbVariables, ONLY: x, y, z, bX, bY, bZ, bf, alfa, psi, alphaVal, psiVal
-
+    !!!! Module Subroutines/Functions
     use ModRamNCDF, ONLY: ncdf_check, write_ncdf_globatts
-
+    !!!! Share Modules
     use ModIOUnit, ONLY: UNITTMP_
+    !!!! NetCdf Modules
     use netcdf
 
   implicit none

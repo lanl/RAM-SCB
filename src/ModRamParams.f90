@@ -83,7 +83,7 @@ module ModRamParams
 
  ! Type of file name format, default will be to use new standard
  ! once the new standard is ready.
- logical :: UseNewFmt = .false.
+ logical :: UseNewFmt = .true.
 
 end Module ModRamParams
 !==============================================================================

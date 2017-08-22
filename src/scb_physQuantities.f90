@@ -6,9 +6,8 @@ SUBROUTINE metrics
   ! Copyright (c) 2016, Los Alamos National Security, LLC
   ! All rights reserved.
   !****************************************************************************
-
-  use ModRamParams, ONLY: boundary
-
+  !!!! Module Variables
+  use ModRamParams,    ONLY: boundary
   use ModScbMain,      ONLY: iConvE, iInducedE, isotropy
   use ModScbGrids,     ONLY: nzeta, npsi, nthe, nzetap, npsim, dt, dr, dpPrime
   use ModScbVariables, ONLY: x, y, z, xx, yy, alfa, bX, bY, bZ, f, fzet, dela, &
@@ -24,10 +23,11 @@ SUBROUTINE metrics
                              dPPerdAlpha, dBsqdAlpha, dBsqdPsi, dPPerdPsi, &
                              dPhiIonodAlpha, dAlphadT, ppar, dPPerdTheta, &
                              curvaturePsi, curvatureGradPsi, radialCurvature
-
+  !!!! Module Subroutine/Functions
   use ModScbSpline, ONLY: Spline_coord_derivs
-
+  !!!! PSPLINE Modules
   use ezcdf
+  !!!! NR Modules
   use nrtype, ONLY: DP, SP, twopi_d, pi_d
 
   IMPLICIT NONE
@@ -522,4 +522,4 @@ SUBROUTINE metrics
 
      RETURN
 
-   END SUBROUTINE metrics
+END SUBROUTINE metrics

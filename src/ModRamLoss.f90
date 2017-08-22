@@ -2,15 +2,6 @@ MODULE ModRamLoss
 ! Contains subroutines for calculating particle loss and loss rates
 ! currently contains charge exchange and atmospheric loss
 
-!  use ModRamMain,  ONLY: Real8_
-!  use ModRamGrids, ONLY: NR, NT, NE, NPA
-
-!  implicit none
-!  save
-
-!  real(kind=Real8_), dimension(NR,NT,NE,NPA) :: ACHAR
-!  real(kind=Real8_), dimension(NR,NE)        :: ATLOS
-
   use ModRamVariables, ONLY: ACHAR, ATLOS
 
   implicit none
@@ -22,11 +13,10 @@ MODULE ModRamLoss
 !       Routine calculates the charge exchange and atmosphere loss rates
 !**************************************************************************
   SUBROUTINE CEPARA
-
-    use ModRamMain,   ONLY: Real8_, S!, HDNS
-    use ModRamGrids,  ONLY: NE, NR, NT, NPA
-    use ModRamTiming, ONLY: DTs
-!    use ModRamInit,   ONLY: EKEV, V, RLZ
+    !!!! Module Variables
+    use ModRamMain,      ONLY: Real8_, S
+    use ModRamGrids,     ONLY: NE, NR, NT, NPA
+    use ModRamTiming,    ONLY: DTs
     use ModRamVariables, ONLY: EKEV, V, RLZ, HDNS
 
     implicit none
@@ -99,9 +89,9 @@ MODULE ModRamLoss
 !               Calculate the decay due to charge exchange
 !************************************************************************
   SUBROUTINE CHAREXCHANGE
-
-    use ModRamMain,  ONLY: S!, F2
-    use ModRamGrids, ONLY: NE, NT, NR, NPA
+    !!!! Module Variables
+    use ModRamMain,      ONLY: S
+    use ModRamGrids,     ONLY: NE, NT, NR, NPA
     use ModRamVariables, ONLY: F2
 
     implicit none
@@ -127,10 +117,9 @@ MODULE ModRamLoss
 !               Calculate loss to the atmosphere due to collisions
 !************************************************************************
   SUBROUTINE ATMOL
-
-    use ModRamMain,  ONLY: S!, F2, FNHS
-    use ModRamGrids, ONLY: NE, NT, NR, NPA
-!    use ModRamInit,  ONLY: UPA
+    !!!! Module Variables
+    use ModRamMain,      ONLY: S
+    use ModRamGrids,     ONLY: NE, NT, NR, NPA
     use ModRamVariables, ONLY: F2, FNHS, UPA
 
     implicit none

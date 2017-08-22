@@ -1,24 +1,6 @@
 MODULE ModRamInit
 ! Contains subroutines for initialization of RAM
 
-!  use ModRamMain, ONLY: Real8_
-!  use ModRamGrids, ONLY: NS, NE, NR, NT, NPA, Slen
-
-!  implicit none
-
-!  real(kind=Real8_), dimension(NS) :: RMAS
-!  real(kind=Real8_), dimension(NS,NE) :: V, VBND, GREL, GRBND, FACGR, EPP, ERNH
-!  real(kind=Real8_), dimension(NR) :: UPA
-!  real(kind=Real8_), dimension(NE) :: WE, DE, EKEV, EBND
-!  real(kind=Real8_), dimension(NT) :: PHI, LT, MLT
-!  real(kind=Real8_), dimension(NPA) :: MU, DMU, WMU, PAbn
-!  real(kind=Real8_), dimension(NR+1) :: LZ, RLZ
-!  real(kind=Real8_), dimension(Slen) :: AMLA
-!  real(kind=Real8_), dimension(NR+1, Slen) :: BE
-!  real(kind=Real8_), dimension(NR,NPA,Slen) :: ZRPabn
-!  real(kind=Real8_), dimension(NS,NR,NE,NPA) :: FFACTOR
-!  real(kind=Real8_) :: PHIOFS, IR1, DL1, MDR, dPhi, IP1, CONF1, CONF2, RFACTOR
-
   use ModRamVariables, ONLY: RMAS, V, VBND, GREL, GRBND, FACGR, EPP, ERNH, &
                              UPA, WE, DE, EKEV, EBND, PHI, LT, MLT, MU, DMU, &
                              WMU, PAbn, LZ, RLZ, AMLA, BE, ZRPabn, FFACTOR, &
@@ -32,7 +14,7 @@ MODULE ModRamInit
 
 !==============================================================================
 subroutine ram_init
-
+  !!!! Module Variables
   use ModRamParams,    ONLY: DoUseWPI, DoUseBASDiff
   use ModRamMain,      ONLY: Real8_, S
   use ModRamTiming,    ONLY: TimeRamStart, TimeMax, TimeRamRealStart
@@ -40,10 +22,10 @@ subroutine ram_init
   use ModRamVariables, ONLY: PParH, PPerH, PParHe, PPerHe, PParO, PPerO, PParE, &
                              PPerE, LSDR, LSCHA, LSATM, LSCOE, LSCSC, LSWAE, ELORC, &
                              SETRC, XNN, XND, ENERN, ENERD, LNCN, LNCD, LECN, LECD
-
+  !!!! Modules Subroutines/Functions
   use ModRamWPI,     ONLY: WAPARA_HISS, WAPARA_BAS, WAPARA_CHORUS, WAVEPARA1, WAVEPARA2
   use ModRamIndices, ONLY: init_indices
-
+  !!!! Share Modules
   use ModTimeConvert, ONLY: TimeType, time_real_to_int
   use ModNumConst,    ONLY: cTwoPi
 
@@ -149,12 +131,12 @@ END
 !                       Set up all the arrays
 !**************************************************************************
   SUBROUTINE ARRAYS
-
+    !!!! Module Variables
     use ModRamMain,  ONLY: Real8_, S
     use ModRamConst, ONLY: RE, PI, M1, MP, CS, Q, HMIN
     use ModRamGrids, ONLY: RadiusMax, RadiusMin, NR, NPA, Slen, NT, NE, &
                            NS, NLT
-
+    !!!! Module Subroutines/Functions
     use ModRamFunctions, ONLY: ACOSD, ASIND, COSD, SIND
 
     implicit none
@@ -348,19 +330,18 @@ END
 
 !==============================================================================
 subroutine init_input
-
+  !!!! Module Variables
   use ModRamMain,      ONLY: Real8_, S, PathRamIn
   use ModRamParams,    ONLY: IsRestart, IsStarttimeSet, electric, IsComponent
   use ModRamGrids,     ONLY: NR, NT, NE, NPA
   use ModRamTiming,    ONLY: DtEfi, T, TimeRamNow, TimeRamElapsed
   use ModRamVariables,  ONLY: F2, XNN, XND, ENERD, ENERN, FNHS, Kp, F107, TOLV
-
+  !!!! Module Subroutines/Functions
   use ModRamRestart,   ONLY: read_restart
   use ModRamIndices,   ONLY: get_indices
   use ModRamFunctions, ONLY: FUNT
   use ModRamIO,        ONLY: read_hI_file
-
-  use ModTimeConvert
+  !!!! Share Modules
   use ModIOUnit,      ONLY: UNITTMP_
   use ModTimeConvert, ONLY: TimeType
 

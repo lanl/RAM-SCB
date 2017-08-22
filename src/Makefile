@@ -72,7 +72,7 @@ CPL_OBJECTS=            \
         ModScbCouple.o
 
 EXT_OBJECTS=       \
-	nr.o       \
+	nrmod.o    \
 	nrtype.o   \
 	nrutil.o   \
 	recipes1.o \

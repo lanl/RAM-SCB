@@ -38,24 +38,10 @@ module ModRamMain
   integer :: nIter=0  ! Tracks iteration, including restart.
 !!!!!
 
-!!!!! MAIN RAM VARIABLES (Pressures, Fluxes, and hI variables)
-!  real(kind=Real8_), dimension(NS,NR,NT,NE,NPA) :: F2, FLUX
-!  real(kind=Real8_), dimension(NR,NT) :: PPerH, PParH, PPerO, PParO, PPerHe, &
-!                                         PParHe, PPerE, PParE, PAllSum, PParSum
-!  real(kind=Real8_), dimension(NS,NR,NT) :: PPerT, PParT
-!  real(kind=Real8_), dimension(NR+1,NT,NPA) :: dIdt, dIbndt, HDNS, FNHS, FNIS, &
-!                                               BOUNHS, BOUNIS
-!  real(kind=Real8_), dimension(NR+1,NT) :: BNES, dBdt
-!!!!!
-
 !\
 ! PARAMS Block.
 !/
 integer :: S
-
-!character(len=3) :: ST0, ST1
-!character(len=2) :: ST2
-!character(len=19):: ST7
 
 end Module ModRamMain
 !==============================================================================

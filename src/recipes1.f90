@@ -24,7 +24,7 @@ SUBROUTINE tridag_ser(a,b,c,r,u)
 !===
         RECURSIVE SUBROUTINE tridag_par(a,b,c,r,u)
         USE nrtype; USE nrutil, ONLY : assert_eq,nrerror
-        USE nr, ONLY : tridag_ser
+        USE nrmod, ONLY : tridag_ser
         IMPLICIT NONE
         REAL(DP), DIMENSION(:), INTENT(IN) :: a,b,c,r
         REAL(DP), DIMENSION(:), INTENT(OUT) :: u
@@ -91,7 +91,7 @@ END SUBROUTINE trapzd
 !==============================================================================
         FUNCTION gcf_s(a,x,gln)
         USE nrtype; USE nrutil, ONLY : nrerror
-        USE nr, ONLY : gammln
+        USE nrmod, ONLY : gammln
         IMPLICIT NONE
         REAL(DP), INTENT(IN) :: a,x
         REAL(DP), OPTIONAL, INTENT(OUT) :: gln
@@ -132,7 +132,7 @@ END SUBROUTINE trapzd
 !===
         FUNCTION gcf_v(a,x,gln)
         USE nrtype; USE nrutil, ONLY : assert_eq,nrerror
-        USE nr, ONLY : gammln
+        USE nrmod, ONLY : gammln
         IMPLICIT NONE
         REAL(DP), DIMENSION(:), INTENT(IN) :: a,x
         REAL(DP), DIMENSION(:), OPTIONAL, INTENT(OUT) :: gln
@@ -182,7 +182,7 @@ END SUBROUTINE trapzd
 !==============================================================================
         FUNCTION gser_s(a,x,gln)
         USE nrtype; USE nrutil, ONLY : nrerror
-        USE nr, ONLY : gammln
+        USE nrmod, ONLY : gammln
         IMPLICIT NONE
         REAL(DP), INTENT(IN) :: a,x
         REAL(DP), OPTIONAL, INTENT(OUT) :: gln
@@ -215,7 +215,7 @@ END SUBROUTINE trapzd
 !===
         FUNCTION gser_v(a,x,gln)
         USE nrtype; USE nrutil, ONLY : assert_eq,nrerror
-        USE nr, ONLY : gammln
+        USE nrmod, ONLY : gammln
         IMPLICIT NONE
         REAL(DP), DIMENSION(:), INTENT(IN) :: a,x
         REAL(DP), DIMENSION(:), OPTIONAL, INTENT(OUT) :: gln
@@ -301,7 +301,7 @@ END SUBROUTINE trapzd
 !==============================================================================
         FUNCTION gammp_s(a,x)
         USE nrtype; USE nrutil, ONLY : assert
-        USE nr, ONLY : gcf,gser
+        USE nrmod, ONLY : gcf,gser
         IMPLICIT NONE
         REAL(DP), INTENT(IN) :: a,x
         REAL(DP) :: gammp_s
@@ -315,7 +315,7 @@ END SUBROUTINE trapzd
 !===
         FUNCTION gammp_v(a,x)
         USE nrtype; USE nrutil, ONLY : assert,assert_eq
-        USE nr, ONLY : gcf,gser
+        USE nrmod, ONLY : gcf,gser
         IMPLICIT NONE
         REAL(DP), DIMENSION(:), INTENT(IN) :: a,x
         REAL(DP), DIMENSION(size(x)) :: gammp_v
@@ -418,7 +418,7 @@ END SUBROUTINE polint
 !==============================================================================
 FUNCTION qtrap(func,a,b)
   USE nrtype; USE nrutil, ONLY : nrerror
-  USE nr, ONLY : trapzd
+  USE nrmod, ONLY : trapzd
   IMPLICIT NONE
   REAL(DP), INTENT(IN) :: a,b
   REAL(DP) :: qtrap
@@ -447,7 +447,7 @@ END FUNCTION qtrap
 !==============================================================================
 FUNCTION qromb(func,a,b)
   USE nrtype; USE nrutil, ONLY : nrerror
-  USE nr, ONLY : polint, trapzd
+  USE nrmod, ONLY : polint, trapzd
   IMPLICIT NONE
   REAL(DP), INTENT(IN) :: a, b
   REAL(DP) :: qromb

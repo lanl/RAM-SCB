@@ -1,22 +1,23 @@
 SUBROUTINE ionospheric_potential
-
-  use ModRamMain, ONLY: PathSwmfOut
-  use ModRamTiming, ONLY: TimeRamNow
-  use ModRamParams, ONLY: IsComponent, electric
-  use ModRamCouple, ONLY: SwmfIonoPot_II, nIePhi, nIeTheta
-  use ModRamIndices, ONLY: NameOmniFile
-
-  use ModScbMain,  ONLY: iConvE
-  use ModScbGrids, ONLY: npsi, nzeta, nthe, nzetap
+  !!!! Module Variables
+  use ModRamMain,      ONLY: PathSwmfOut
+  use ModRamTiming,    ONLY: TimeRamNow
+  use ModRamParams,    ONLY: IsComponent, electric
+  use ModRamCouple,    ONLY: SwmfIonoPot_II, nIePhi, nIeTheta
+  use ModRamIndices,   ONLY: NameOmniFile
+  use ModScbMain,      ONLY: iConvE
+  use ModScbGrids,     ONLY: npsi, nzeta, nthe, nzetap
   use ModScbVariables, ONLY: phiiono, x, y, z, r0Start, dPhiIonodAlpha, &
                              dPhiIonodBeta, f, fzet, zetaVal, rhoVal, tilt
-
+  !!!! Module Subroutine/Functions
   use ModScbSpline, ONLY: Spline_2D_derivs, Spline_2D_periodic
-
-  use w05
-  use nrtype, ONLY: DP
+  !!!! Share Modules
   use ModTimeConvert, ONLY: n_day_of_year
   use ModIOUnit, ONLY: UNITTMP_
+  !!!! Extra Modules
+  use w05
+  !!!! NR Modules
+  use nrtype, ONLY: DP
 
   IMPLICIT NONE
 

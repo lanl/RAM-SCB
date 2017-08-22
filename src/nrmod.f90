@@ -1,4 +1,4 @@
-MODULE nr
+MODULE nrmod
         INTERFACE
                 SUBROUTINE airy(x,ai,bi,aip,bip)
                 USE nrtype
@@ -3202,4 +3202,4 @@ MODULE nr
                 LOGICAL(LGT), INTENT(IN) :: polish
                 END SUBROUTINE zroots
         END INTERFACE
-END MODULE nr
+END MODULE nrmod

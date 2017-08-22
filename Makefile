@@ -81,9 +81,8 @@ rundir:
 		mv Input_git/W05_coeff.dat ../;			\
 		mv Input_git/omni.txt ../;			  \
 		mv Input_git/f2ini* Input_git/*geomlt*.txt input_ram/;	  \
-		cp Input_git/hI_output_0000.dat output/scb/hI_output_d20130317_t000000.dat;	  \
-		mv Input_git/hI_output_0000.dat output/scb/;         \
-		mv Input_git/hI_dipole.dat output/scb/;	          \
+		mv Input_git/hI_output_0000.dat input_scb/;         \
+		mv Input_git/hI_dipole.dat input_scb/;	          \
 		mv Input_git/dipole_config.cdf Input_git/t89*.cdf input_scb/;
 	@(if [ "$(STANDALONE)" != "NO" ]; then \
 		cd ${RUNDIR} ; \
@@ -154,7 +153,7 @@ test1_check:
 		${IMDIR}/output/test1/dsbnd.ref                 \
 		> test1.diff
 	${SCRIPTDIR}/DiffNum.pl -b		                \
-		${TESTDIR1}/output_ram/pressure_d20130317_t001500.in         \
+		${TESTDIR1}/output_ram/pressure_d20130317_t001500.dat         \
 		${IMDIR}/output/test1/pressure.ref              \
 		>> test1.diff			        \
 	#${SCRIPTDIR}/DiffNum.pl -b			        \
@@ -218,8 +217,8 @@ test2_run:
 	${MPIRUN} ./ram_scb.exe > runlog2;	
 
 test2_check:
-	${SCRIPTDIR}/DiffNum.pl -b -a=1e-10		                      \
-		${TESTDIR2}/output_ram/pressure_d20130317_t001500.in  \
+	${SCRIPTDIR}/DiffNum.pl -b 		                      \
+		${TESTDIR2}/output_ram/pressure_d20130317_t001500.dat \
 		${IMDIR}/output/test1/pressure.ref                    \
 		> test2.diff
 	#${IMDIR}/Scripts/CatLog.py ${TESTDIR2}/output_ram/log_n*.log
@@ -275,7 +274,7 @@ test3_run:
 
 test3_check:
 	${SCRIPTDIR}/DiffNum.pl -b                                     \
-		${TESTDIR3}/output_ram/pressure_d20130317_t001500.in   \
+		${TESTDIR3}/output_ram/pressure_d20130317_t001500.dat  \
 		${IMDIR}/output/test3/pressure.ref      	       \
 		> test3.diff
 	#${SCRIPTDIR}/DiffNum.pl -b		  		       \
@@ -348,7 +347,7 @@ test4_run:
 
 test4_check:
 	${SCRIPTDIR}/DiffNum.pl -b                                    \
-                ${TESTDIR4}/output_ram/pressure_d20130317_t001500.in  \
+                ${TESTDIR4}/output_ram/pressure_d20130317_t001500.dat \
                 ${IMDIR}/output/test3/pressure.ref                    \
                 > test4.diff
 	#${IMDIR}/Scripts/CatLog.py ${TESTDIR4}/output_ram/log_n*.log

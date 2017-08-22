@@ -10,6 +10,10 @@ MODULE ModScbMain
                          BEarth = 0.31_dp*1.E-4_dp, &
                          REarth = 6.4_dp*1.E6_dp 
 
+  character(len=200) :: prefixIn     = trim(PathScbIn)  // '/'
+  character(len=200) :: prefixOut    = trim(PathScbOut) // '/'
+  character(len=200) :: prefixRAMOut = trim(PathRamOut) // '/'
+
 !!! Intilization
   integer  :: method               = 2,     &
               iCountPressureCall   = 0,     &
@@ -100,9 +104,5 @@ MODULE ModScbMain
   ! iTilt = 1   ! Case with non-zero magnetic tilt
 
   integer :: iHourChoice = 0 ! More than 1 equilibrium calculation (for RAM-SCB)
-
-  character(len=200) :: prefixIn     = trim(PathScbIn)  // '/'
-  character(len=200) :: prefixOut    = trim(PathScbOut) // '/'
-  character(len=200) :: prefixRAMOut = trim(PathRamOut) // '/'
 
 END MODULE ModScbMain

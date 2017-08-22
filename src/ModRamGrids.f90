@@ -35,12 +35,6 @@ integer, parameter :: Slen = 55, &
 real, parameter :: RadiusMin = 1.75, &
                    RadiusMax = 6.5
 
-integer, parameter ::  &   ! grid points for chorus diffusion coefficients:
-   NR_Dxx  = 20,       &   ! in radial direction
-   NT_Dxx  = 25,       &   ! in local time direction
-   NE_Dxx  = 45,       &   ! number of energy bins
-   NPA_Dxx = 72            ! number of pitch angles
-
 integer, parameter :: Nx  = NPA             ! Grid points for PA in mixed diffusion solver
 integer, parameter :: Ny = 37
 integer, parameter :: NyE = 300             ! Grid points for energy    "     "

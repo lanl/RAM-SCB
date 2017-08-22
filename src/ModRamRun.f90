@@ -6,7 +6,8 @@ MODULE ModRamRun
   use ModRamVariables, ONLY: SETRC, ELORC, LSDR, LSCHA, LSATM, LSCOE, LSCSC, &
                              LSWAE, XNN, XND, LNCN, LNCD, LECN, LECD, ENERN, &
                              ENERD, ATEW, ATAW, ATAC, ATEC, ATMC, ATAW_EMIC, &
-                             NECR
+                             NECR, PParH, PPerH, PParO, PPerO, PParE, PPerE, &
+                             PParHe, PPerHe, PParT, PPerT, F2
   implicit none
   save
 
@@ -15,21 +16,19 @@ MODULE ModRamRun
 !==============================================================================
   SUBROUTINE ram_run
 
-    ! Mod Variables
-    use ModRamMain,    ONLY: Real8_, S
-    use ModRamParams,  ONLY: electric, DoUseWPI, DoUseBASdiff, DoUseKpDiff
-    use ModRamConst,   ONLY: RE
-    use ModRamGrids,   ONLY: NR, NE, NT, NPA
-    use ModRamTiming,  ONLY: UTs, T, DtEfi, Dt_hI
+    !!!! Module Variables
+    use ModRamMain,      ONLY: Real8_, S
+    use ModRamParams,    ONLY: electric, DoUseWPI, DoUseBASdiff, DoUseKpDiff
+    use ModRamConst,     ONLY: RE
+    use ModRamGrids,     ONLY: NR, NE, NT, NPA
+    use ModRamTiming,    ONLY: UTs, T, DtEfi, Dt_hI
     use ModRamVariables, ONLY: Kp, VT, VTOL, VTN, TOLV, LZ, PHI, PHIOFS, MU, &
-                               WMU, FFACTOR
-
-    ! Mod Subroutines/Functions
+                               WMU, FFACTOR, FLUX, FNHS
+    !!!! Module Subroutines/Functions
     use ModRamDrift, ONLY: DRIFTPARA, DRIFTR, DRIFTP, DRIFTE, DRIFTMU
     use ModRamLoss,  ONLY: CEPARA, CHAREXCHANGE, ATMOL
     use ModRamWPI,   ONLY: WAPARA_KP, WPADIF, WAVELO
-
-    ! Share Modules
+    !!!! Share Modules
     use ModTimeConvert, ONLY: TimeType
 
     implicit none
@@ -50,7 +49,7 @@ MODULE ModRamRun
        ENDDO
     ENDDO
 
-    T     = UTs
+    T = UTs
 
     do iS=1,4
        S = sorder(iS)
@@ -115,11 +114,27 @@ MODULE ModRamRun
           call WAPARA_Kp()
        end if
 
-!ME Testing how much of a slow down we get if we calculate the pressure at every
-!   step
-       IF (MOD(INT(T),INT(DT_hI)).EQ.0) CALL ANISCH ! pressure anis calcs
-!       CALL ANISCH
+       CALL ANISCH
     end do
+
+    ! Update species pressures
+    PPerO  = PPerT(4,:,:); PParO  = PParT(4,:,:)
+    PPerHe = PPerT(3,:,:); PParHe = PParT(3,:,:)
+    PPerE  = PPerT(1,:,:); PParE  = PParT(1,:,:)
+    PPerH  = PPerT(2,:,:); PParH  = PParT(2,:,:)
+
+    ! Update flux
+    DO iS = 1,4
+       DO I = 2, NR
+          DO K = 2, NE
+             DO L = 2, NPA
+                DO J = 1, NT-1
+                   FLUX(iS,I,J,K,L) = F2(iS,I,J,K,L)/FFACTOR(iS,I,K,L)/FNHS(I,J,L)
+                ENDDO
+             ENDDO
+          ENDDO
+       ENDDO
+    ENDDO
 
     RETURN
   END
@@ -129,10 +144,9 @@ MODULE ModRamRun
 !               Calculate the total energy & energy loss 
 !************************************************************************
   SUBROUTINE SUMRC
-
-    use ModRamMain,  ONLY: Real8_, S!, F2
-    use ModRamGrids, ONLY: NR, NE, NPA, NT
-!    use ModRamInit,  ONLY: EKEV, WE, WMU
+    !!!! Module Variables
+    use ModRamMain,      ONLY: Real8_, S
+    use ModRamGrids,     ONLY: NR, NE, NPA, NT
     use ModRamVariables, ONLY: EKEV, WE, WMU, F2
 
     implicit none
@@ -164,23 +178,16 @@ MODULE ModRamRun
 !               Calculate pressure in equatorial plane
 !*************************************************************************
   SUBROUTINE ANISCH
-
-    ! Mod Variables
-    use ModRamMain,    ONLY: Real8_, S!, F2, PPART, PPERT, FNHS, BNES, BOUNHS
-    use ModRamConst,   ONLY: CS, PI, Q
-    use ModRamParams,  ONLY: DoUseWPI, DoUsePLane_SCB, DoUseBASdiff
-    use ModRamGrids,   ONLY: NR, NT, NPA, ENG, SLEN, NCO, NCF, Nx, Ny, NE
-    use ModRamTiming,  ONLY: Dt_bc, T
-!    use ModRamInit,    ONLY: IP1, UPA, WMU, FFACTOR, MU, EKEV, LZ, PHI, MLT, &
-!                             PAbn, RMAS, GREL, IR1, EPP, ERNH
-!    use ModRamWPI,     ONLY: CDAAR, BDAAR, ENOR, NDAAJ, fpofc
-!    use ModRamIndices, ONLY: Kp
+    ! Module Variables
+    use ModRamMain,      ONLY: Real8_, S
+    use ModRamConst,     ONLY: CS, PI, Q
+    use ModRamParams,    ONLY: DoUseWPI, DoUsePLane_SCB, DoUseBASdiff
+    use ModRamGrids,     ONLY: NR, NT, NPA, ENG, SLEN, NCO, NCF, Nx, Ny, NE
+    use ModRamTiming,    ONLY: Dt_bc, T
     use ModRamVariables, ONLY: IP1, UPA, WMU, FFACTOR, MU, EKEV, LZ, PHI, MLT, &
                                PAbn, RMAS, GREL, IR1, EPP, ERNH, CDAAR, BDAAR, &
-                               ENOR, NDAAJ, fpofc, Kp, PParT, PPerT, BOUNHS, &
-                               FNHS, BNES, F2, XNE
-
-    ! Mod Subroutines/Functions
+                               ENOR, NDAAJ, fpofc, Kp, BOUNHS, FNHS, BNES, XNE
+    ! Module Subroutines/Functions
     use ModRamFunctions, ONLY: ACOSD
 
     implicit none
@@ -208,7 +215,7 @@ MODULE ModRamRun
       I1=(I-2)*IR1+3
       DO J=1,NT
         J1=(J-1)*IP1
-        if (S.EQ.1.and.I.eq.2.and.J.eq.1) write (*,*) " Need to specify Ne if using WPI"
+!        if (S.EQ.1.and.I.eq.2.and.J.eq.1) write (*,*) " Need to specify Ne if using WPI"
         klo=2
         PPERT(S,I,J)=0.
         PPART(S,I,J)=0.

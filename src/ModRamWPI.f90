@@ -2,32 +2,6 @@ MODULE ModRamWPI
 ! Contains subroutines related to wave particle interactions
 ! and electron lifetimes
 
-!  use ModRamMain,  ONLY: Real8_
-!  use ModRamGrids, ONLY: NR, NE, NCR, ENG, NPA
-
-!  implicit none
-
-!  integer, parameter :: NKpDiff = 5, Kp_Chorus = (/0,1,2,3,4/)
-!  integer, parameter ::  &   ! grid points for chorus diffusion coefficients:
-!     NR_Dxx  = 20,       &   ! in radial direction
-!     NT_Dxx  = 25,       &   ! in local time direction
-!     NE_Dxx  = 45,       &   ! number of energy bins
-!     NPA_Dxx = 72            ! number of pitch angles
-  
-!  real(kind=Real8_) :: CDAAR_Chorus(NR_Dxx,NT_Dxx,NE_Dxx,NKpDiff)
-!  real(kind=Real8_), dimension(NR,NE)          :: WALOS1, WALOS2, WALOS3
-!  real(kind=Real8_), dimension(NCF)            :: fpofc
-!  real(kind=Real8_), dimension(NR,ENG,NPA,NCF) :: NDVVJ, NDAAJ
-!  real(kind=Real8_), dimension(ENG)            :: ENOR, ECHOR
-!  real(kind=Real8_), dimension(NR,NT,ENG,NPA)  :: BDAAR
-!  real(kind=Real8_), dimension(NR,NT,NE,NPA)   :: CDAAR
-
-  ! Arrays to store bounce-averaged BAS diffusion coefficients.
-!  real(kind=Real8_), dimension(NR_Dxx)  :: RCHOR_Dxx
-!  real(kind=Real8_), dimension(NT_Dxx)  :: TCHOR_Dxx
-!  real(kind=Real8_), dimension(NE_Dxx)  :: ECHOR_Dxx
-!  real(kind=Real8_), dimension(NPA_Dxx) :: PACHOR_Dxx
-
   use ModRamVariables, ONLY: NKpDiff, Kp_Chorus, NR_Dxx, NT_Dxx, NE_Dxx, NPA_Dxx, &
                              CDAAR_Chorus, WALOS1, WALOS2, WALOS3, fpofc, NDVVJ, &
                              NDAAJ, ENOR, ECHOR, BDAAR, CDAAR, RCHOR_Dxx, TCHOR_Dxx, &
@@ -41,9 +15,8 @@ MODULE ModRamWPI
 !**************************************************************************
   SUBROUTINE WAVEPARA1
 
-    use ModRamMain,  ONLY: Real8_
-    use ModRamGrids, ONLY: NE, NR
-!    use ModRamInit,  ONLY: EKEV, LZ
+    use ModRamMain,      ONLY: Real8_
+    use ModRamGrids,     ONLY: NE, NR
     use ModRamVariables, ONLY: EKEV, LZ
 
     implicit none
@@ -97,8 +70,8 @@ MODULE ModRamWPI
     rlife(5,8)=473.75
 
     ! Calculates the losses due to the w-p interaction
-    DO 22 K=2,NE
-      DO 22 II=2,NR
+    DO K=2,NE
+      DO II=2,NR
         xE=EKEV(K)/1000.
         xL=LZ(II)
         if (xL.ge.1.65.and.xL.le.5.0) then
@@ -108,7 +81,7 @@ MODULE ModRamWPI
                 clife(j)=(log10(rlife(j,i-1))-log10(rlife(j,i)))/(rL(i-1)-rL(i))*(xL-rL(i))+log10(rlife(j,i))
                 clife(j)=10.**clife(j)
               enddo
-              goto 822
+              EXIT
             endif
           enddo
         elseif (xL.gt.5.0) then
@@ -123,34 +96,29 @@ MODULE ModRamWPI
           enddo
         endif
 
-822     continue
-
         if (xE.ge.0.2.and.xE.lt.2.0) then
           do i=1,4
             if (xE.ge.rEa(i).and.xE.lt.rEa(i+1)) then
               xlife=(log10(clife(i+1))-log10(clife(i)))/(log10(rEa(i+1)) &
                     -log10(rEa(i)))*(log10(xE)-log10(rEa(i)))+log10(clife(i))
               xlife=10.**xlife
-              goto 823
+              EXIT
             endif
           enddo
         elseif (xE.lt.0.2) then
           xlife=(log10(clife(2))-log10(clife(1)))/(log10(rEa(2)) &
                 -log10(rEa(1)))*(log10(xE)-log10(rEa(1)))+log10(clife(1))
           xlife=10.**xlife
-          goto 823
         elseif (xE.ge.2.0) then
           xlife=(log10(clife(5))-log10(clife(4)))/(log10(rEa(5)) &
                 -log10(rEa(4)))*(log10(xE)-log10(rEa(5)))+log10(clife(5))
           xlife=10.**xlife
-          goto 823
         endif
 
-823     continue
-
         tau_wave=xlife*60.*60.*24.  ! day -> sec
-
-22  WALOS1(II,K)=tau_wave
+        WALOS1(II,K)=tau_wave
+      ENDDO
+    ENDDO
 
     RETURN
   END
@@ -160,13 +128,12 @@ MODULE ModRamWPI
 !       Another life time due to diffusion not everywhere strong
 !**************************************************************************
   SUBROUTINE WAVEPARA2
-
-    use ModRamMain,  ONLY: Real8_, S
-    use ModRamConst, ONLY: HMIN, RE, PI
-    use ModRamGrids, ONLY: NE, NR
-!    use ModRamInit,  ONLY: EKEV, LZ, RLZ, V
+    !!!! Module Variables
+    use ModRamMain,      ONLY: Real8_, S
+    use ModRamConst,     ONLY: HMIN, RE, PI
+    use ModRamGrids,     ONLY: NE, NR
     use ModRamVariables, ONLY: EKEV, LZ, RLZ, V
-
+    !!!! Module Subroutines/Functions
     use ModRamFunctions, ONLY: asind
 
     implicit none
@@ -174,8 +141,8 @@ MODULE ModRamWPI
     integer :: i, k
     real(kind=Real8_):: TAU_WAVE,EMEV,R1,R2,CONE(NR+4),CLC
 
-    DO 22 K=2,NE
-      DO 22 I=2,NR
+    DO K=2,NE
+      DO I=2,NR
         EMEV=EKEV(K)*0.001
         R1=0.08*EMEV**(-1.32)
         R2=0.4*10.**(2.*LZ(I)-6.+0.4*log10(29.*EMEV))
@@ -183,7 +150,8 @@ MODULE ModRamWPI
         tau_wave=1.0/tau_wave
         tau_wave=tau_wave*60.*60.*24.  ! day -> sec
         WALOS2(I,K)=tau_wave
-22  CONTINUE
+      ENDDO
+    ENDDO
 
     ! CONE - in degree
     DO I=1,NR
@@ -210,12 +178,11 @@ MODULE ModRamWPI
 !       Routine reading normalized Energy & PA hiss diffusion coeff
 !**************************************************************************
   SUBROUTINE WAPARA_HISS
-
-    use ModRamMain,  ONLY: PathRamIn
-    use ModRamGrids, ONLY: NR, NCF, ENG, NPA
-!    use ModRamInit,  ONLY: LZ
+    !!!! Module Variables
+    use ModRamMain,      ONLY: PathRamIn
+    use ModRamGrids,     ONLY: NR, NCF, ENG, NPA
     use ModRamVariables, ONLY: LZ
-
+    !!!! Share Modules
     use ModIoUnit,   ONLY: UNITTMP_
 
     implicit none
@@ -225,17 +192,17 @@ MODULE ModRamWPI
     character(len=3) ST4
     character(len=2) ST3, ST2
 
-    DO 10 I=1,NR
+    DO I=1,NR
       fpofc(1)=2.
       write(ST4,'(I3.3)') INT(LZ(I)*100)
-      DO 15 IX=1,NCF
+      DO IX=1,NCF
         write(ST3,'(I2.2)') INT(fpofc(ix))
         OPEN(UNIT=UNITTMP_,FILE=trim(PathRamIn)//'/whis_L'//ST4//'_'//ST3//ST2//'.aan',STATUS='old')
         READ(UNITTMP_,20) HEADER
-        DO 100 KN=1,ENG
+        DO KN=1,ENG
           read(UNITTMP_,17) ENOR(KN)
           read(UNITTMP_,27)(ndaaj(i,kn,l,ix),l=1,npa)
-100     CONTINUE
+        ENDDO
         ndvvj = 0
         IF (IX.LT.NCF) fpofc(ix+1)=fpofc(ix)+4.
 
@@ -244,8 +211,8 @@ MODULE ModRamWPI
             if (ndaaj(i,kn,l,ix).lt.1e-20) ndaaj(i,kn,l,ix)=1e-20
           ENDDO
         ENDDO
-15    CONTINUE
-10  CONTINUE
+      ENDDO
+    ENDDO
     CLOSE(UNITTMP_)
 
 17  FORMAT(E13.4)
@@ -260,12 +227,11 @@ MODULE ModRamWPI
 !       Routine reading bounce-aver PA wave diffusion coeff
 !**************************************************************************
   SUBROUTINE WAPARA_CHORUS
-
-    use ModRamMain,    ONLY: Real8_, PathRamIn
-    use ModRamGrids,   ONLY: NR, NT, ENG, NPA
-!    use ModRamIndices, ONLY: KP
+    !!!! Module Variables
+    use ModRamMain,      ONLY: Real8_, PathRamIn
+    use ModRamGrids,     ONLY: NR, NT, ENG, NPA
     use ModRamVariables, ONLY: KP
-
+    !!!! Share Modules
     use ModIoUnit, ONLY: UNITTMP_
 
     implicit none
@@ -284,38 +250,40 @@ MODULE ModRamWPI
     READ(UNITTMP_) HEADER
     print*,'in WAPARA_CHORUS: ',trim(HEADER)
 
-    DO 10 I=1,NR
-      DO 10 J=1,NT
+    DO I=1,NR
+      DO J=1,NT
         READ(UNITTMP_,20) HEADER
-        DO 15 KN=1,ENG
+        DO KN=1,ENG
           read(UNITTMP_,17) ECHOR(KN)
           read(UNITTMP_,27)(RLDAA(kn,l),l=1,npa)
-15      CONTINUE
+        ENDDO
         DO KN=1,ENG
           DO L=1,NPA
             if (RLDAA(kn,l).lt.1e-20) RLDAA(kn,l)=1e-20
           ENDDO
         ENDDO
-10  CONTINUE
+      ENDDO
+    ENDDO
     CLOSE(UNITTMP_)
 
     OPEN(UNIT=UNITTMP_,FILE=trim(PathRamIn)//'/wuppcho_Kp'//ST3//ST2//'.aan',STATUS='old')
     READ(UNITTMP_,20) HEADER
 
-    DO 11 I=1,NR
-      DO 11 J=1,NT
+    DO I=1,NR
+      DO J=1,NT
         READ(UNITTMP_,20) HEADER
-        DO 16 KN=1,ENG
+        DO KN=1,ENG
           read(UNITTMP_,17) ECHOR(KN)
           read(UNITTMP_,27)(RUDAA(kn,l),l=1,npa)
-16          CONTINUE
+        ENDDO
         DO KN=1,ENG
           DO L=1,NPA
             if (RUDAA(kn,l).lt.1e-20) RUDAA(kn,l)=1e-20
             BDAAR(i,j,kn,l)=(RLDAA(kn,l)+RUDAA(kn,l))
           ENDDO
         ENDDO
-11  CONTINUE
+      ENDDO
+    ENDDO
     CLOSE(UNITTMP_)
 
 17  FORMAT(E13.4)
@@ -331,7 +299,6 @@ MODULE ModRamWPI
 !**************************************************************************
   SUBROUTINE WAPARA_Kp()
 
-!    use ModRamIndices, ONLY: Kp
     use ModRamVariables, ONLY: KP
 
     implicit none
@@ -361,15 +328,14 @@ MODULE ModRamWPI
 !       Routine reading normalized Energy & PA wave diffusion coeff
 !**************************************************************************
   SUBROUTINE WAPARA_BAS
-
-    use ModRamMain,   ONLY: Real8_
-    use ModRamParams, ONLY: DoUseKpDiff
-    use ModRamGrids,  ONLY: NPA, NT, NE, NR
-!    use ModRamInit,   ONLY: MU
+    !!!! Module Variables
+    use ModRamMain,      ONLY: Real8_
+    use ModRamParams,    ONLY: DoUseKpDiff
+    use ModRamGrids,     ONLY: NPA, NT, NE, NR
     use ModRamVariables, ONLY: MU
-
+    !!!! Module Subroutines/Functions
     use ModRamFunctions, ONLY: ACOSD
-
+    !!!! Share Modules
     use ModIoUnit, ONLY: UNITTMP_
 
     implicit none
@@ -442,11 +408,9 @@ MODULE ModRamWPI
 !************************************************************************
   SUBROUTINE WAVELO
 
-    use ModRamMain,    ONLY: Real8_, S!, F2
-    use ModRamGrids,   ONLY: NE, NR, NT, NPA
-    use ModRamTiming,  ONLY: Dts
-!    use ModRamIndices, ONLY: KP
-!    use ModRamInit,    ONLY: LZ, IP1, EKEV, IR1
+    use ModRamMain,      ONLY: Real8_, S
+    use ModRamGrids,     ONLY: NE, NR, NT, NPA
+    use ModRamTiming,    ONLY: Dts
     use ModRamVariables, ONLY: F2, KP, LZ, IP1, IR1, EKEV
 
     implicit none
@@ -465,10 +429,10 @@ MODULE ModRamWPI
       ENDDO
     ENDDO
 
-    DO 10 K=2,NE
-      DO 10 I=2,NR
-        DO 10 J=1,NT
-          DO 10 L=2,NPA
+    DO K=2,NE
+      DO I=2,NR
+        DO J=1,NT
+          DO L=2,NPA
             IF (LZ(I).LE.RLpp(J)) THEN
               TAU_LIF=WALOS1(I,K)*((10./Bw)**2)
             ELSEIF (LZ(I).GT.RLpp(J)) THEN
@@ -486,7 +450,10 @@ MODULE ModRamWPI
               ENDIF
             ENDIF
             F2(S,I,J,K,L)=F2(S,I,J,K,L)*EXP(-DTs/TAU_LIF)
-10  CONTINUE
+          ENDDO
+        ENDDO
+      ENDDO
+    ENDDO
 
     RETURN
   END
@@ -497,14 +464,12 @@ MODULE ModRamWPI
 !        due to WPI pitch angle diffusion using implicit scheme
 !*************************************************************************
   SUBROUTINE WPADIF
-
-    use ModRamMain,   ONLY: Real8_, PathRamOut, S!, F2, FNHS
-    use ModRamGrids,  ONLY: NT, NR, NE, NPA
-    use ModRamTiming, ONLY: Dts, T
-!    use ModRamInit,   ONLY: MU, DMU, WMU, 
-!    use ModRamRun,    ONLY: ATAC, ATAW
+    !!!! Module Variables
+    use ModRamMain,      ONLY: Real8_, PathRamOut, S
+    use ModRamGrids,     ONLY: NT, NR, NE, NPA
+    use ModRamTiming,    ONLY: Dts, T
     use ModRamVariables, ONLY: F2, FNHS, MU, DMU, WMU, ATAC, ATAW
-
+    !!!! Share Modules
     use ModIoUnit, ONLY: UNITTMP_
 
     implicit none
@@ -512,9 +477,9 @@ MODULE ModRamWPI
     integer :: i, j, k, l
     real(kind=Real8_) :: F(NPA),AN,BN,GN,RP,DENOM,RK(NPA),RL(NPA),FACMU(NPA)
 
-    DO 1 J=1,NT
-      DO 1 I=2,NR
-        DO 1 K=2,NE
+    DO J=1,NT
+      DO I=2,NR
+        DO K=2,NE
           DO L=2,NPA
             FACMU(L)=FNHS(I,J,L)*MU(L)
             F(L)=F2(S,I,J,K,L)/FACMU(L)
@@ -549,7 +514,9 @@ MODULE ModRamWPI
           DO L=1,NPA
             F2(S,I,J,K,L)=F2(S,I,J,K,L)*FACMU(L)
           ENDDO
-1   CONTINUE
+        ENDDO
+      ENDDO
+    ENDDO
 
     RETURN
   END

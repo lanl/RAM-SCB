@@ -1,6 +1,6 @@
 Module ModScbCouple
 
-  use ModScbMain, ONLY: DP
+  use ModScbMain,   ONLY: DP
   use ModRamCouple, ONLY: nRadSWMF, nLonSWMF, nRadSwmfVar, nRadSwmfVarInner, &
                           nPoints, iEnd, MhdLines_IIV, xSWMF, ySWMF, zSWMF, &
                           LatSWMF, LonSWMF, xEqSWMF, yEqSWMF, pEqSWMF, nEqSWMF, &

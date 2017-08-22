@@ -54,9 +54,6 @@ module ModRamIndices
         if (iError.lt.0) then
            call CON_stop( &
                 NameSub//': Start date outside of range of RamIndices file')
-!        elseif (iError.gt.0) then
-!           call CON_stop( &
-!                NameSub//': Error in formating of RamIndices file')
         end if
         if ((StartTime%iYear.eq.iYY).and. &
             (StartTime%iMonth.eq.iMM).and. &

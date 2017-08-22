@@ -1,6 +1,5 @@
 module ModRamTiming
 !    A module for tracking code efficiency and other timing metrics.
-!    This is NOT for handling simulation time.
 !    Copyright (c) 2016, Los Alamos National Security, LLC
 !    All rights reserved.
 
@@ -31,8 +30,8 @@ module ModRamTiming
                        DT_bc        = 300.0,  &  ! How often the boundary fluxes are updated
                        DTEfi        = 300.0,  &  ! How often the electric field is updated
                        DTRestart    = 3600.0, &  ! How often restart files are written (configurable in PARAM)
-                       DtLogFile    = 60.0,   &
-                       DtWriteSat   = 60.0
+                       DtLogFile    = 60.0,   &  ! How often the log file is written to (configurable in PARAM)
+                       DtWriteSat   = 60.0       ! How often satellite files are written to (configurable in PARAM)
   real(kind=Real8_) :: T, UTs
   real(kind=Real8_) :: Efficiency = 0.0, SysTimeStart, SysTimeNow
   real(kind=Real8_) :: dtPrintTiming = 300.0

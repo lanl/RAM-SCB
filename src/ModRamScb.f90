@@ -6,6 +6,7 @@ Module ModRamScb
   use ModScbGrids, ONLY: nthe, npsi, nzeta, nAzimRam, nXRaw
 
   implicit none
+  save
 
   INTEGER :: INDEXPA(nthe,npsi,nzeta,NPA) ! Index that maps the pitch angle on each point of a field line to the equatorial (RAM) one
   REAL(DP) :: flux3DEQ(NS, npsi,nzeta,NE,NPA)
@@ -15,6 +16,7 @@ Module ModRamScb
   REAL(DP) :: chiMirror(NPA)
   REAL(DP), DIMENSION(nthe) :: derivs2, dBdTheta, dThetadB, derivs4, &
                                distance, dyDummyDens
+  REAL(DP) :: BNESPrev(NR+1,NT), FNISPrev(NR+1,NT,NPA), BOUNISPrev(NR+1,NT,NPA)
 
 contains
 
@@ -38,8 +40,9 @@ SUBROUTINE computehI(flux_volume)
   !  All rights reserved.
   !****************************************************************************
 
-  use ModRamVariables, ONLY: Kp, F107, FLUX
-  use ModRamTiming,    ONLY: TimeRamNow, TimeRamStart
+  use ModRamVariables, ONLY: Kp, F107, FLUX, FNHS, FNIS, BNES, HDNS, dBdt, &
+                             dIdt, dIbndt, BOUNHS, BOUNIS, EIR, EIP
+  use ModRamTiming,    ONLY: TimeRamNow, TimeRamStart, DT_hI
   use ModRamConst,     ONLY: RE, HMIN, ME
   use ModRamParams,    ONLY: electric, IsComponent, NameBoundMag
   use ModRamCouple,    ONLY: SwmfPot_II
@@ -51,12 +54,12 @@ SUBROUTINE computehI(flux_volume)
                              i_Cart_interp, bZEq_Cart, flux_vol_cart, bZ, &
                              hdens_Cart, radRaw, azimRaw, nThetaEquator
 
-  use ModRamFunctions, ONLY: RamFileName
+  use ModRamFunctions, ONLY: RamFileName, COSD, FUNT, FUNI
 
   use ModScbSpline, ONLY: Spline_2D_point, spline, splint
   use ModScbInterp, ONLY: Interpolation_natgrid_2D
 
-  USE nr,        ONLY: qtrap, qromb, locate
+  USE nrmod,     ONLY: qtrap, qromb, locate
   use nrtype,    ONLY: DP, pi_d
   USE ModIOUnit, ONLY: UNITTMP_
 
@@ -523,6 +526,51 @@ SUBROUTINE computehI(flux_volume)
               I_Cart_interp(i,j,NPA) = I_Cart_interp(i,j,NPA-1)
            END DO
         END DO
+
+        ! Update h and I values if Dt_hI has passed
+           DO I=2,NR+1
+              DO J=1,NT
+                 BNESPrev(I,J)=BNES(I,J)
+                 DO L=1,NPA
+                    FNISPrev(I,J,L)=FNIS(I,J,L)
+                    BOUNISPrev(I,J,L)=BOUNIS(I,J,L)
+                    ! SCB Variables -> RAM Variables
+                    FNHS(I,J,L)   = h_Cart(I-1,J,L)
+                    FNIS(I,J,L)   = i_Cart(I-1,J,L)
+                    BNES(I,J)     = bZEq_Cart(I-1,J)
+                    HDNS(I,J,L)   = hdens_Cart(I-1,J,L)
+                    BOUNHS(I,J,L) = h_Cart_interp(I-1,J,L)
+                    BOUNIS(I,J,L) = i_Cart_interp(I-1,J,L)
+                    !
+                    dIdt(I,J,L)=(FNIS(I,J,L)-FNISPrev(I,J,L))/DT_hI
+                    dIbndt(I,J,L)=(BOUNIS(I,J,L)-BOUNISPrev(I,J,L))/DT_hI
+                 ENDDO
+                 IF (J.LT.8.or.J.GT.18) THEN
+                    DO L=15,2,-1
+                       if (FNHS(I,J,L-1).gt.FNHS(I,J,L)) then
+                          FNHS(I,J,L-1)=0.99*FNHS(I,J,L)
+                       endif
+                    ENDDO
+                 ENDIF
+                 BNES(I,J)=BNES(I,J)/1e9 ! to convert in [T]
+                 dBdt(I,J)=(BNES(I,J)-BNESPrev(I,J))/DT_hI
+              ENDDO
+           ENDDO
+           DO J=1,NT ! use dipole B at I=1
+              BNES(1,J)=0.32/LZ(1)**3/1.e4
+              dBdt(1,J) = 0.
+              EIR(1,J) = 0.
+              EIP(1,J) = 0.
+              DO L=1,NPA
+                 FNHS(1,J,L) = FUNT(MU(L))
+                 FNIS(1,J,L) = FUNI(MU(L))
+                 BOUNHS(1,J,L)=FUNT(COSD(PAbn(L)))
+                 BOUNIS(1,J,L)=FUNI(COSD(PAbn(L)))
+                 HDNS(1,J,L)=HDNS(2,J,L)
+                 dIdt(1,J,L)=0.
+                 dIbndt(1,J,L)=0.
+              ENDDO
+           ENDDO
 
         ! Writes output file for RAM (hI...dat)
         ! Use correct naming convention.

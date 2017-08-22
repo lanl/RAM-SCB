@@ -1,4 +1,3 @@
-!==============================================================================
 module ModScbParams
 
   use ModScbMain, ONLY: DP
@@ -18,4 +17,3 @@ module ModScbParams
               blendMax             = 0.5
 
 end Module ModScbParams
-!==============================================================================

@@ -2,17 +2,6 @@ MODULE ModRamDrift
 ! Contains subroutines responsible for calculating flux changes due to
 ! different drifts
 
-!  use ModRamMain,  ONLY: Real8_
-!  use ModRamGrids, ONLY: NR, NE, NPA
-
-!  implicit none
-
-!  real(kind=Real8_), dimension(NR)     :: P1, VR
-!  real(kind=Real8_), dimension(NR,NE)  :: P2, EDOT
-!  real(kind=Real8_), dimension(NR,NPA) :: MUDOT
-!  real(kind=Real8_) :: DTDriftR, DTDriftP, DTDriftE, DTDriftMu
-!  real(kind=Real8_) :: FracCFL = 0.8 !the percent of the CFL timestep that we will use.
-
   use ModRamVariables, ONLY: P1, P2, VR, EDOT, DtDriftR, DtDriftP, DtDriftE, &
                              DtDriftMu, FracCFL, MUDOT
 
@@ -27,12 +16,10 @@ contains
 !**************************************************************************
   SUBROUTINE DRIFTPARA
 
-    use ModRamMain,   ONLY: Real8_, S
-    use ModRamConst,  ONLY: PI
-    use ModRamGrids,  ONLY: NS, NR, NT, NE, NPA
-    use ModRamTiming, ONLY: Dts
-!    use ModRamInit,   ONLY: RLZ, MDR, DPHI, EKEV, GREL, WMU, EBND, GRBND, &
-!                            PHIOFS, MU
+    use ModRamMain,      ONLY: Real8_, S
+    use ModRamConst,     ONLY: PI
+    use ModRamGrids,     ONLY: NS, NR, NT, NE, NPA
+    use ModRamTiming,    ONLY: Dts
     use ModRamVariables, ONLY: RLZ, MDR, DPHI, EKEV, GREL, WMU, EBND, GRBND, &
                                PHIOFS, MU
 
@@ -79,13 +66,10 @@ contains
 !************************************************************************
   SUBROUTINE DRIFTR
 
-    use ModRamMain,     ONLY: Real8_, S!, F2, BNES, FNIS, FNHS
-    use ModRamGrids,    ONLY: NR, NT, NE, NPA
-    use ModRamTiming,   ONLY: Dts, DtsNext
-    use ModRamParams,   ONLY: BetaLim
-!    use ModRamInit,     ONLY: MDR, EKEV, GREL, DPHI, RLZ, CONF1, CONF2
-!    use ModRamBoundary, ONLY: FGEOS
-!    use ModRamEField,   ONLY: VT, EIP
+    use ModRamMain,      ONLY: Real8_, S
+    use ModRamGrids,     ONLY: NR, NT, NE, NPA
+    use ModRamTiming,    ONLY: Dts, DtsNext
+    use ModRamParams,    ONLY: BetaLim
     use ModRamVariables, ONLY: F2, BNES, FNIS, FNHS, MDR, EKEV, GREL, DPHI, &
                                RLZ, CONF1, CONF2, FGEOS, VT, EIP
     implicit none
@@ -174,12 +158,10 @@ contains
 !************************************************************************
   SUBROUTINE DRIFTP
 
-    use ModRamMain,   ONLY: Real8_, S!, F2, FNIS, FNHS, BNES
-    use ModRamParams, ONLY: BetaLim
-    use ModRamGrids,  ONLY: NR, NT, NE, NPA
-    use ModRamTiming, ONLY: DtsNext, Dts
-!    use ModRamEField, ONLY: VT, EIR
-!    use ModRamInit,   ONLY: RLZ, MDR, DPHI
+    use ModRamMain,      ONLY: Real8_, S
+    use ModRamParams,    ONLY: BetaLim
+    use ModRamGrids,     ONLY: NR, NT, NE, NPA
+    use ModRamTiming,    ONLY: DtsNext, Dts
     use ModRamVariables, ONLY: F2, FNIS, FNHS, BNES, VT, EIR, RLZ, MDR, DPHI
 
     implicit none
@@ -248,13 +230,11 @@ contains
 !**************************************************************************
   SUBROUTINE DRIFTE
 
-    use ModRamMain,   ONLY: Real8_, S!, F2, BNES, FNIS, FNHS, dBdt, dIdt
-    use ModRamConst,  ONLY: CS, Q
-    use ModRamParams, ONLY: BetaLim
-    use ModRamGrids,  ONLY: NR, NT, NE, NPA
-    use ModRamTiming, ONLY: DtsNext, Dts
-!    use ModRamInit,   ONLY: EKEV, WE, RMAS, DPHI, RLZ, MDR, EBND, GREL, GRBND, DE
-!    use ModRamEField, ONLY: VT, EIR, EIP
+    use ModRamMain,      ONLY: Real8_, S
+    use ModRamConst,     ONLY: CS, Q
+    use ModRamParams,    ONLY: BetaLim
+    use ModRamGrids,     ONLY: NR, NT, NE, NPA
+    use ModRamTiming,    ONLY: DtsNext, Dts
     use ModRamVariables, ONLY: F2, BNES, FNIS, FNHS, dBdt, dIdt, EKEV, WE, RMAS, &
                                DPHI, RLZ, MDR, EBND, GREL, GRBND, DE, VT, EIR, EIP
 
@@ -345,13 +325,10 @@ contains
 !**************************************************************************
   SUBROUTINE DRIFTMU
 
-    use ModRamMain,   ONLY: Real8_, S!, F2, BNES, BOUNIS, BOUNHS, FNHS, &
-!                            dBdt, dIbndt
-    use ModRamParams, ONLY: BetaLim
-    use ModRamGrids,  ONLY: NR, NT, NE, NPA
-    use ModRamTiming, ONLY: DtsNext, Dts
-!    use ModRamInit,   ONLY: RLZ, DPHI, MDR, GREL, EKEV, DMU, WMU, MU
-!    use ModRamEField, ONLY: VT, EIP, EIR
+    use ModRamMain,      ONLY: Real8_, S
+    use ModRamParams,    ONLY: BetaLim
+    use ModRamGrids,     ONLY: NR, NT, NE, NPA
+    use ModRamTiming,    ONLY: DtsNext, Dts
     use ModRamVariables, ONLY: F2, BNES, BOUNIS, BOUNHS, FNHS, dBdt, dIbndt, &
                                RLZ, DPHI, MDR, GREL, EKEV, DMU, WMU, MU, &
                                VT, EIP, EIR

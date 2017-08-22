@@ -73,13 +73,10 @@ Module ModRamVariables
 ! ModRamBoundary variables
   real(kind=Real8_), dimension(NS,NT,NE,NPA) :: FGEOS
   logical :: IsInitialized = .false.
-
   ! Start time offset in seconds.
   real(kind=Real8_) :: timeOffset
-
   ! Date of file:
   character(len=8) :: StringFileDate
-
   ! Values that are read and stored from file:
   real(kind=Real8_), allocatable :: flux_SIII(:,:,:,:), fluxLast_SII(:,:,:), eGrid_SI(:,:), avgSats_SI(:,:)
   real(kind=Real8_) :: lGrid_SI(2,0:25)

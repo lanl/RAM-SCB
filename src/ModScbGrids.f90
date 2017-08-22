@@ -30,9 +30,10 @@ integer, parameter :: nthe   = 51,        &  !  nthe is the number of theta grid
                       nyp2   = ny + 2
 
 ! Various quantities for the finite difference schemes
-real(DP), parameter ::  dr      = 1._dp/REAL(npsi - 1, dp),     &   ! d(rho)
+real(DP), parameter ::  &
+             dr      = 1._dp/REAL(npsi - 1, dp),     &   ! d(rho)
              dt      = pi_d/REAL(nthe - 1, dp),      &   ! d(theta)
-             dpPrime = 2*pi_d / REAL(nzeta -1, dp), &   ! d(zeta)
+             dpPrime = 2*pi_d / REAL(nzeta -1, dp),  &   ! d(zeta)
              rdr     = 1._dp / dr,                   &
              rdt     = 1._dp / dt,                   &
              rdp     = 1._dp / dpPrime,              &

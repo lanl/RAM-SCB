@@ -1,5 +1,5 @@
 SUBROUTINE test_Convergence_anisotropic
-
+  !!!! Module Variables
   use ModScbMain,      ONLY: prefixOut
   USE ModScbGrids,     ONLY: nthe, npsi, nzeta, dt, dr, dpPrime
   USE ModScbVariables, ONLY: thetaVal, rhoVal, zetaVal, x, y, z, bsq, bf, &
@@ -8,10 +8,11 @@ SUBROUTINE test_Convergence_anisotropic
                              GradRhoGradZeta, ppar, pper, nThetaEquator, &
                              normJxB, f, fzet, nZetaMidnight, &
                              dPPerdRho, dPPerdZeta, dPPerdTheta
-
+  !!!! Module Subroutine/Function
   use ModScbSpline, ONLY: Spline_coord_derivs
-
+  !!!! Share Modules
   USE ModIoUnit, ONLY: UNITTMP_
+  !!!! NR Modules
   use nrtype,    ONLY: DP
 
   IMPLICIT NONE
@@ -298,7 +299,6 @@ SUBROUTINE test_Convergence_anisotropic
   !  Norms of |jxB-grad P|,      |jxB|,      |gradP| 
   WRITE(*, '(3 (3X, E14.5))') normDiff, normJxB, normGradP
 !  WRITE(iUnitLog, '(3 (3X, E14.5))') normDiff, normJxB, normGradP
-
 
   RETURN
 

@@ -1,10 +1,10 @@
 Module ModScbVariables
 
-use nrtype, ONLY: DP
-use ModScbGrids
+  use nrtype, ONLY: DP
+  use ModScbGrids
 
-implicit none
-save
+  implicit none
+  save
 
 ! Figure out
 REAL(DP), DIMENSION(nthe,npsi,nzeta+1) :: &

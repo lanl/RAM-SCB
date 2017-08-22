@@ -16,7 +16,6 @@ module ModRamIO
   save
 
   logical :: IsFramework = .false. 
-  character(len=7) :: StringPrefix = 'IM:'
 
   ! File output names and units
   integer :: iUnitLog ! Logfile IO unit
@@ -91,7 +90,6 @@ contains
        call init_sats
     end if
 
-
   end subroutine init_output
 
 !==============================================================================
@@ -101,20 +99,18 @@ contains
     ! 2) if it's time to write that output
     ! If so, call the proper routines to write the output.
 
+    !!!! Module Variables
     use ModRamParams,    ONLY: DoSaveRamSats
     use ModRamTiming,    ONLY: Dt_hI, DtRestart, DtWriteSat, TimeRamNow, TimeRamElapsed
     use ModRamGrids,     ONLY: NR, NT
     use ModRamVariables, ONLY: PParH, PPerH, PParHe, PPerHe, PParE, PPerE, &
                                PParO, PPerO, VT
-
     use ModScbVariables, ONLY: DstBiot, DstBiotInsideGeo, DstDPS, DstDPSInsideGeo
-
-    ! Mod Subroutines/Functions
+    !!!! Module Subroutines/Functions
     use ModRamSats,      ONLY: fly_sats
     use ModRamFunctions, ONLY: ram_sum_pressure, get_ramdst
     use ModRamRestart,   ONLY: write_restart
-
-    ! External Modules
+    ! Share Modules
     use ModIOUnit, ONLY: UNITTMP_
 
     implicit none
@@ -171,13 +167,14 @@ contains
 !==============================================================================
 subroutine read_geomlt_file(NameParticle)
 
-  use ModRamMain,   ONLY: PathRamIN
-  use ModRamTiming, ONLY: TimeRamNow, Dt_bc
-  use ModRamGrids,  ONLY: NE, NEL, NEL_prot, NBD
-  use ModRamParams, ONLY: boundary
+  !!!! Module Variables
+  use ModRamMain,      ONLY: PathRamIN
+  use ModRamTiming,    ONLY: TimeRamNow, Dt_bc
+  use ModRamGrids,     ONLY: NE, NEL, NEL_prot, NBD
+  use ModRamParams,    ONLY: boundary
   use ModRamVariables, ONLY: EKEV, FGEOS, IsInitialized, timeOffset, StringFileDate, &
                              flux_SIII, fluxLast_SII, eGrid_SI, avgSats_SI, lGrid_SI
-
+  !!!! Share Modules
   use ModIOUnit, ONLY: UNITTMP_
 
   implicit none
@@ -337,24 +334,22 @@ end subroutine read_geomlt_file
 
 !===========================================================================
   subroutine read_hI_file
-
-     use ModRamMain,   ONLY: PathScbOut!, FNHS, FNIS, BOUNHS, BOUNIS, &
-!                             BNES, HDNS, dIdt, dBdt, dIbndt
-     use ModRamTiming, ONLY: TimeRamNow
-     use ModRamParams, ONLY: NameBoundMag, UseEfInd
-     use ModRamGrids,  ONLY: NR, NT, NPA
-!     use ModRamEField, ONLY: EIR, EIP
-!     use ModRamInit,   ONLY: LZ, MU, PAbn
+     !!!! Module Variables
+     use ModRamMain,      ONLY: PathScbIn
+     use ModRamTiming,    ONLY: TimeRamNow
+     use ModRamParams,    ONLY: NameBoundMag, UseEfInd
+     use ModRamGrids,     ONLY: NR, NT, NPA
      use ModRamVariables, ONLY: FNHS, FNIS, BOUNHS, BOUNIS, BNES, HDNS, dIdt, &
                                 dBdt, dIbndt, LZ, MU, PAbn, EIR, EIP
-
+     !!!! Module Subroutines/Functions
      use ModRamFunctions, ONLY: COSD, FUNT, FUNI
-
+     !!!! Share Modules
      use ModIoUnit,       ONLY: UNITTMP_
 
      implicit none
      save
 
+     logical :: THERE=.false.
      integer :: I, J, K, L
      integer :: IPA, nFive
 
@@ -364,13 +359,11 @@ end subroutine read_geomlt_file
      character(len=200) :: hIFile
 
      IF (NameBoundMag .EQ. 'DIPL') THEN
-        hIfile=trim(PathScbOut)//'hI_dipole.dat'
+        hIfile=trim(PathScbIn)//'hI_dipole.dat'
      ELSE
-        if (UseNewFmt) then
-           hIFile=trim(PathScbOut)//RamFileName('hI_output','dat',TimeRamNow)
-        else
-           write(hIFile,'(a,i4.4,a)')trim(PathScbOut)//'hI_output_',nFive,'.dat'
-        end if
+        hIFile=trim(PathScbIn)//RamFileName('hI_output','dat',TimeRamNow)
+        INQUIRE(FILE=trim(hIFile), EXIST=THERE)
+        if (.not.THERE) hIfile=trim(PathScbIn)//'hI_dipole.dat'
      END IF
 
      OPEN(UNITTMP_,FILE=trim(hIfile),STATUS='OLD')
@@ -426,20 +419,20 @@ end subroutine read_geomlt_file
 
   end subroutine read_hI_file
 
-
 !============================!
 !==== OUTPUT SUBROUTINES ====!
 !============================!
 !===========================================================================
   subroutine ram_write_pressure(StringIter)
-
-    use ModRamMain,    ONLY: PathRamOut
-    use ModRamTiming,  ONLY: TimeRamNow, TimeRamStart, TimeRamElapsed
-    use ModRamParams,  ONLY: DoAnisoPressureGMCoupling
-    use ModRamGrids,   ONLY: NR, NT
+! Creates RAM pressure files (output_ram/pressure_d{Date and Time}.dat)
+    !!!! Module Variables
+    use ModRamMain,      ONLY: PathRamOut
+    use ModRamTiming,    ONLY: TimeRamNow, TimeRamStart, TimeRamElapsed
+    use ModRamParams,    ONLY: DoAnisoPressureGMCoupling
+    use ModRamGrids,     ONLY: NR, NT
     use ModRamVariables, ONLY: PParH, PPerH, PParHe, PPerHe, PParO, PPerO, &
                                PPerE, PParE, PAllSum, PParSum, KP, LZ, PHI
-   
+    !!!! Share Modules
     use ModIOUnit, ONLY: UNITTMP_
 
     implicit none
@@ -451,7 +444,7 @@ end subroutine read_geomlt_file
     integer                      :: iError, i, j
     !------------------------------------------------------------------------
     ! Create Ram pressure output file.
-    FileName = trim(PathRamOut)//trim(RamFileName('/pressure','in',TimeRamNow))
+    FileName = trim(PathRamOut)//trim(RamFileName('/pressure','dat',TimeRamNow))
     open(unit=UNITTMP_, status='REPLACE', iostat=iError, file=FileName)
     if(iError /= 0) call CON_stop(NameSub//' Error opening file '//FileName)
 
@@ -491,12 +484,13 @@ end subroutine read_geomlt_file
 
 !==============================================================================
 subroutine write_dsbnd
-
-  use ModRamMain,     ONLY: PathRamOut, S
-  use ModRamTiming,   ONLY: TimeRamNow, TimeRamElapsed
-  use ModRamGrids,    ONLY: NE, NR, NT
+! Creates boundary flux files (output_ram/Dsbnd/ds_{Species}_d{Date and Time}.dat)
+  !!!! Module Variables
+  use ModRamMain,      ONLY: PathRamOut, S
+  use ModRamTiming,    ONLY: TimeRamNow, TimeRamElapsed
+  use ModRamGrids,     ONLY: NE, NR, NT
   use ModRamVariables, ONLY: EKEV, FFACTOR, FGEOS, KP, F107
-
+  !!!! Share Modules
   use ModIoUnit,      ONLY: UNITTMP_
 
   implicit none
