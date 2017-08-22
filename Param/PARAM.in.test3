@@ -28,6 +28,13 @@ T			DoElectrons
 #NAMEFORMAT
 T			UseNewFormat
 
+#SATELLITE
+60.0                    DtOutput
+2                       nSatellite
+sat1.dat                NameTrajectoryFile
+sat2.dat                NameTrajectoryFile
+F                       DoUseVAPini
+
 #STOP
 -1                      MaxIteration
-600                    	tSimulationMax
+900                    	tSimulationMax

@@ -6,7 +6,13 @@ module ModRamCouple
 !    All rights reserved.
 !==============================================================================
 
-  use ModRamMain, ONLY: nT, nR, nE, nPa, Real8_, nRextend
+  use ModRamMain, ONLY: Real8_, PathRamOut
+  use ModRamConst, ONLY: M1
+  use ModRamGrids, ONLY: NR, NE, NT, NPA, NRExtend
+  use ModRamTiming, ONLY: TimeRamElapsed, TimeRamNow
+  use ModRamVariables, ONLY: KP, F107, EKEV, MU, PHI, LZ
+
+  use ModRamParams
 
   implicit none
   save
@@ -39,7 +45,7 @@ module ModRamCouple
   real(kind=Real8_), public :: MhdDensPres_VII(3,nT,4)
   real(kind=Real8_), public :: FluxBats_IIS(nE, nT, 1:4) = 0
   real(kind=Real8_), public :: PMhdGhost(nT)=0! MHD pressure at RAM ghost cells.
- real(kind=Real8_), public :: FluxBats_anis(nE,nPa,nT,1:4) = 0.
+  real(kind=Real8_), public :: FluxBats_anis(nE,nPa,nT,1:4) = 0.
 
   ! Variables for B-field coupling with MHD:
   integer, public, parameter   :: nPointsMax = 200
@@ -145,8 +151,6 @@ contains
     ! Extend field lines in preparation for calculation of Euler potential
     ! surfaces.  Create equatorial variables.
     
-    use ModRamMain,     ONLY: Real8_, nR, nT, lz, phi, NameBoundMag, &
-         IsComponent, nRextend
     use ModRamFunctions,ONLY: get_dipole_trace
 
     implicit none
@@ -271,9 +275,6 @@ contains
 
     use ModIoUnit, ONLY: UnitTmp_
     use ModConst,  ONLY: cProtonMass, cElectronCharge, cPi
-    use ModRamMain,ONLY: Real8_, Kp, F107, nT, nE, PathRamOut,&
-                         EBND, WE, EKEV, TimeRamElapsed, TimeRamNow, &
-                         Mu, M1, NameDistrib
     implicit none
 
     real, parameter :: cMass2Num = 1.0E6 * cProtonMass
@@ -581,7 +582,6 @@ contains
   !===========================================================================
   subroutine write_FluxGM
     ! Quickly write out flux from GM to files for stand-alone RAM.
-    use ModRamMain, ONLY: nT, nE, TimeRamElapsed,PathRamOut
     use ModIoUnit,      ONLY: UnitTmp_
     implicit none
     
@@ -621,7 +621,6 @@ contains
     ! and total plasma temperature (again, in eV) to receive new density based 
     ! on energy window for a Maxwellian particle distribution.
     
-    use ModRamMain, ONLY: Real8_
     use ModConst,   ONLY: cElectronCharge, cPi
     implicit none
 

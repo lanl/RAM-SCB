@@ -1,0 +1,33 @@
+Simple test using W2K/T89-SCB/LANL and electrons.
+
+#DESCRIPTION
+RAM-SCB Test 3: T89, Weimer2K, and electrons.
+
+#RESTART
+
+#OUTERBOUNDARY
+LANL			NameBoundPlasma
+T89C 			NameBoundMag
+MAXW			NameDistribution
+
+#EFIELD
+WESC			NameEfield
+F			UseEfInd
+
+#MULTISPECIESBCS
+F			DoMultiSpeiesBcs
+T			DoElectrons
+
+#NAMEFORMAT
+T			UseNewFormat
+
+#SATELLITE
+60.0                    DtOutput
+2                       nSatellite
+sat1.dat                NameTrajectoryFile
+sat2.dat                NameTrajectoryFile
+F                       DoUseVAPini
+
+#STOP
+-1                      MaxIteration
+900                    	tSimulationMax

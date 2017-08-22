@@ -35,4 +35,4 @@ F			DoUseVAPini
 
 #STOP
 -1                      MaxIteration
-300                    	tSimulationMax
+900                    	tSimulationMax

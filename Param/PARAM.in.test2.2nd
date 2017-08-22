@@ -26,6 +26,9 @@ sat1.dat                NameTrajectoryFile
 sat2.dat                NameTrajectoryFile
 F                       DoUseVAPini
 
+#NAMEFORMAT
+T			UseNewFmt
+
 #STOP
 -1                      MaxIteration
-300                    	tSimulationMax
+900                    	tSimulationMax

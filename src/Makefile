@@ -24,155 +24,68 @@ INCL_EXTRA   = -I${PSPLINE_PATH} -I${NETCDF_PATH}
 PRECISION = 
 
 # List of fortran object files:
-RAM_OBJECTS=                \
-	ModRamMain.o	    \
-	mpi.o               \
-	ModRamMpi.o         \
-	nrtype.o            \
-	nrutil.o            \
-	Module1.o           \
-	ModRamIO.o          \
-	ModRamCouple.o      \
-	ModRamFunctions.o   \
-	ModRamTiming.o      \
-	ModRamIndices.o     \
-	ModRamGeomlt.o	    \
-	ModPlane.o          \
-	ModRamPl_Ne.o       \
-	nr.o                \
-	adi_fast.o          \
-	erf.o               \
-	fct-source.o        \
-	irisub_2012.o       \
-	iritec.o            \
-	iri87.o             \
-	igrf.o              \
-	iriflip.o           \
-	iridreg.o           \
-	irifun_2012.o       \
-	Module_RAM.o        \
-	ModRamSats.o        \
-	msis86.o            \
-	nrlmsise00_sub.o    \
-	recipes2.o          \
-	IM_set_parameters.o \
-	init_ramscb.o       \
-	ram_update_electric.o \
-	run_ramscb.o \
-	finalize_ramscb.o   \
-	TM03_DensPres.o
-
-SCB_OBJECTS= \
-	ram_all.o \
-	alfges.o\
-	anisEq.o\
-	barycoord_mine_2D.o\
-	baryth.o\
-	bounextp.o\
-	closed_field.o\
-	Computational_domain.o\
-	computeBandJacob_initial.o\
-	computeEquilibrium.o\
-	covsrt.o\
-	cubic.o\
-	directAlpha.o\
-	directPsi.o\
-	dmat_solve.o\
-	dps_general.o\
-	d_swap.o\
-	energy.o\
-	entropy.o\
-	extap.o\
-	fdriv.o\
-	findR.o\
-	findx.o\
-	gammln.o\
-	gammp.o\
-	gaussj.o\
-	gcf.o\
+RAM_OBJECTS=                  \
+	ModRamBoundary.o      \
+	ModRamConst.o         \
+	ModRamDrift.o         \
+	ModRamEField.o        \
+	ModRamFunctions.o     \
+	ModRamGrids.o         \
+	ModRamIndices.o       \
+	ModRamInit.o          \
+	ModRamIO.o            \
+	ModRamLoss.o          \
+	ModRamMain.o          \
+	ModRamNCDF.o          \
+	ModRamParams.o        \
+	ModRamRestart.o       \
+	ModRamRun.o           \
+	ModRamSats.o          \
+	ModRamTiming.o        \
+        ModRamVariables.o     \
+	ModRamWPI.o           \
+	IM_set_parameters.o
+        
+SCB_OBJECTS=                  \
+        ModScbEquation.o      \
+	ModScbEuler.o         \
+	ModScbFunctions.o     \
+	ModScbGrids.o         \
+	ModScbInit.o          \
+	ModScbInterp.o        \
+	ModScbIO.o            \
+	ModScbMain.o          \
+	ModScbParams.o        \
+	ModScbRun.o           \
+	ModScbSpline.o        \
+        ModScbVariables.o     \
+        scb_ionoPot.o         \
+        scb_physQuantities.o  \
+        scb_testConvergence.o \
 	Geopack-2008_dp.o\
-	gser.o\
-	handle_err.o\
-	hRAM.o\
-	input.o\
-	interpolatepsi.o\
-	interpolatepsiR.o\
-	Interpolation_delaunay_2D.o\
-	iterateAlpha.o\
-	iteratePsi.o\
-	locate.o\
-	latitudes.o\
-	mapalpha.o\
-	mappsi.o\
-	maptheta.o\
-	mapthe1d.o\
-	mapthe1d_down.o\
-	matrixInversion.o\
-	metrica.o\
-	metric.o\
-	metrics.o\
-	module_Gauss.o\
-	Module_inversion.o\
-	Module_points.o\
-	module_test.o\
-	my_flush.o\
-	netcdf_density_dump.o\
-	netcdf_flux_dump.o\
-	netcdf_flux_dump_3D.o\
-	newj.o\
-	newk.o\
-	newlin2.o\
-	PARALLEL_3D_EQ.o\
-	plane_scb.o\
-	plot_physical.o\
-	polint.o\
-	pressure.o\
-	pressureRad.o\
-	psiFunctions.o\
-	psiges.o\
-	qromb.o\
-	qtrap.o\
-	quad2.o\
-	quad.o\
-	secant.o\
-	Spline_2D_array.o\
-	Spline_2D_derivs.o\
-	Spline_2D_point.o\
-	Spline_2D_periodic.o\
-	Spline_coord_2nd_derivs.o\
-	Spline_coord_derivs.o\
-	Spline_coord_derivs_large.o\
-	Spline_derivs_1D.o\
-	Spline_derivs_1D_zeta.o\
-	Spline_1D_periodic.o\
-	spline.o\
-	splint.o\
-	svbksb.o\
-	test_Convergence_anisotropic.o\
-	trapzd.o\
-	tridag.o\
-	Write_BEandJacob.o\
-	Write_pressure_anisotropic.o\
-	Write_pressure_isotropic.o\
-	pRoeRad.o\
-	Interpolation_natgrid_2D.o\
-	Interpolation_natgrid_ShellBuild.o\
-	SavGol.o\
-	SavGol7.o\
-	SavGol1D.o\
-	ionospheric_potential.o\
-	Euler_derivatives.o \
-	Interpolation_delaunay_Euler_2D.o \
-	Write_ionospheric_potential.o \
 	w2k_r8.o\
 	w05.o
+
+CPL_OBJECTS=            \
+        ModRamCouple.o  \
+        ModRamScb.o     \
+        ModScbCouple.o
+
+EXT_OBJECTS=       \
+	nr.o       \
+	nrtype.o   \
+	nrutil.o   \
+	recipes1.o \
+	recipes2.o \
+	mpi.o      \
+	ModRamMpi.o 
 
 SLATEC_OBJECTS = ../srcSlatec/*.o
 ${SLATEC_OBJECTS}:
 	cd ../srcSlatec; make slatec
 
 
-OBJECTS = ${RAM_OBJECTS} ${SCB_OBJECTS}
+OBJECTS = ${RAM_OBJECTS} ${SCB_OBJECTS} ${CPL_OBJECTS} ${EXT_OBJECTS}
 
 # List of objects required for executable:
 OBJECTS_EXE = Main.o

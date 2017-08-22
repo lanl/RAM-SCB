@@ -4,14 +4,36 @@ module ModRamTiming
 !    Copyright (c) 2016, Los Alamos National Security, LLC
 !    All rights reserved.
 
-  use ModTimeConvert
-  use ModRamMpi,     ONLY: iProc
-  use ModRamMain,    ONLY: Real8_, PathRamOut, nIter, &
-       TimeRamElapsed, TimeRestart
+  use ModRamMain, ONLY: Real8_, niter, PathRamOut
+  use ModRamParams, ONLY: DoSaveRamSats
+
+  use ModTimeConvert, ONLY: TimeType
 
   implicit none
   save
 
+  type(TimeType) :: TimeRamNow, TimeRamStart, TimeRamStop, TimeRamRealStart
+
+  real(kind=Real8_) :: TimeRestart    = 0.0, &
+                       TimeRamElapsed = 0.0
+
+  integer :: TimeMax, &  ! Simulation max in seconds.
+             MaxIter     ! Simulation max iterations
+
+  !!!!! TEMPORAL GRIDS
+  real(kind=Real8_) :: DTs          = 5.0,    &  ! Variable that stores the current time step (changes during run)
+                       DTsNext      = 5.0,    &  ! Variable that decides the next time step (changes during run)
+                       DTsMin       = 1.0,    &  ! Minimum time step the code will take (doesn't actually adhear to this)
+                       DTsMax       = 100.0,  &  ! Max time step the code will take (configurable in PARAM)
+                       DTsFramework = 1000.0, &  ! Variable that dictates SWMF time steps (changes during run)
+                       DTOutput     = 3600.0, &  ! How often certain outputs are written
+                       DT_hI        = 300.0,  &  ! How often the SCB calculations are done
+                       DT_bc        = 300.0,  &  ! How often the boundary fluxes are updated
+                       DTEfi        = 300.0,  &  ! How often the electric field is updated
+                       DTRestart    = 3600.0, &  ! How often restart files are written (configurable in PARAM)
+                       DtLogFile    = 60.0,   &
+                       DtWriteSat   = 60.0
+  real(kind=Real8_) :: T, UTs
   real(kind=Real8_) :: Efficiency = 0.0, SysTimeStart, SysTimeNow
   real(kind=Real8_) :: dtPrintTiming = 300.0
 
@@ -35,8 +57,6 @@ contains
 
     character(len=*), parameter :: NameSub = NameMod // '::init_timing'
     !-------------------------------------------------------------------------
-    if(iProc .ne. 0) return
-
     !Set system time for beginning of simulation.
     call cpu_time(SysTimeStart)
 
@@ -59,12 +79,12 @@ contains
 
   !===========================================================================
   subroutine do_timing()
-    use ModRamMpi, ONLY: iProc
-    use ModRamIO,  ONLY: write_prefix
+
+!    use ModRamMpi, ONLY: iProc
+!    use ModRamIO,  ONLY: write_prefix
+
     real(kind=Real8_) :: CpuTimeNow
     !-------------------------------------------------------------------------
-    if(iProc .ne. 0) return
-
     ! Update system time.
     call cpu_time(CpuTimeNow)
     SysTimeNow = CpuTimeNow - SysTimeStart
@@ -78,7 +98,7 @@ contains
 
     ! Write timing report.
     if(mod(TimeRamElapsed, dtPrintTiming) .eq. 0) then
-       call write_prefix
+!       call write_prefix
        write(*,'(a, f12.2, a, f12.2, a, f10.6, a)') &
             'Simulated ', TimeRamElapsed, 's in ', SysTimeNow, &
             's (',Efficiency,'x real-time)'
@@ -89,7 +109,7 @@ contains
   !===========================================================================
   subroutine finalize_timing()
     
-    use ModRamIO, ONLY: write_prefix
+!    use ModRamIO, ONLY: write_prefix
 
     real(kind=Real8_) :: CpuTimeNow
     !-------------------------------------------------------------------------
@@ -102,12 +122,56 @@ contains
     ! Update timing metrics (only efficiency so far...)
     Efficiency = (TimeRamElapsed-TimeRestart)/SysTimeNow
 
-    call write_prefix
+!    call write_prefix
     write(*,'(a, f12.2, a, f12.2, a, f12.8, a)') &
          'Simulated ', TimeRamElapsed, 's in ', SysTimeNow, &
          's (',Efficiency,'X)'
 
   end subroutine finalize_timing
+
+  !===========================================================================
+  function max_output_timestep(TimeIn)
+    ! Return the largest timestep RAM-SCB can take before it must stop
+    ! and write output.  For example, at time=0s, if satellite files are
+    ! written every 5 minutes and logfiles every 1 minute, the largest time
+    ! step is one minute.  Similarly, at t=30s, DtMax=30s.  This function
+    ! ensures that writing output is never skipped by taking large timesteps.
+    ! Because RAM uses a time-splitting approach, the answer is divided by
+    ! two (because each step moves forward in time by Dt twice.)
+
+    ! Arguments:
+    real(kind=Real8_) :: max_output_timestep
+    real(kind=Real8_), intent(in) :: TimeIn
+
+    real(kind=Real8_) :: DtSatTemp=999999.9
+
+    logical :: DoTest, DoTestMe
+    character(len=*), parameter :: NameSub='max_output_timestep'
+    !------------------------------------------------------------------------
+    call CON_set_do_test(NameSub, DoTest, DoTestMe)
+
+    ! Only include sats if we are writing them.
+    if(DoSaveRamSats) DtSatTemp=DtWriteSat
+
+    ! Biggest timestep we can take is the smallest difference of the amount
+    ! of time that passed since the file was last written and the write
+    ! frequency.  Divide by two because of time splitting.
+    max_output_timestep=min( &
+         DtLogfile-mod(TimeIn, DtLogfile), &
+         DtSatTemp-mod(TimeIn, DtSatTemp), &
+         Dt_hI    -mod(TimeIn, Dt_hI    ), &
+         DtRestart-mod(TimeIn, DtRestart)  ) / 2.0
+
+    if(DoTestMe)then
+       call write_prefix
+       write(*,'(2a,f11.2,a)')NameSub,' using these values at t=',TimeIn,':'
+       write(*,'(a,f8.2)')'    DtLogfile=',DtLogfile
+       write(*,'(a,f8.2)')'    DtSats   =',DtSatTemp
+       write(*,'(a,f8.2)')'    DtRestart=',DtRestart
+       write(*,'(a,f8.2)')'    DtScb    =',Dt_hI
+       write(*,'(a,f8.2)')' MaxDtOutput=', max_output_timestep
+    end if
+  end function max_output_timestep
 
   !===========================================================================
 end module ModRamTiming
