@@ -15,21 +15,22 @@ use ModRamParams,    ONLY: DoSaveFinalRestart, DoVarDt, IsComponent
 use ModRamTiming,    ONLY: DtsFramework, DtsMax, DtsMin, DtsNext, Dts, Dt_hI, &
                            TimeRamStart, TimeRamNow, TimeMax, TimeRamElapsed, &
                            TimeRamStop, T, UTs, Dt_bc, DtEfi
-use ModRamVariables, ONLY: Kp, F107
+use ModRamVariables, ONLY: Kp, F107, DTDriftR, DTDriftP, DTDriftE, DTDriftMu
 use ModScbGrids,     ONLY: npsi, nzeta
 !!!! Module Subroutines and Functions
+use ModRamCouple,    ONLY: RAMCouple_Allocate, RAMCouple_Deallocate
 use ModRamFunctions, ONLY: ram_sum_pressure
 use ModRamIndices,   ONLY: get_indices
 use ModRamTiming,    ONLY: max_output_timestep, init_timing, finalize_timing, do_timing
 use ModRamIO,        ONLY: init_output, handle_output, ram_write_pressure
 use ModRamRestart,   ONLY: write_restart
-use ModRamInit,      ONLY: ram_init, init_input
+use ModRamInit,      ONLY: ram_allocate, ram_init, init_input, ram_deallocate
 use ModRamRun,       ONLY: ram_run
 use ModRamBoundary,  ONLY: get_boundary_flux
 use ModRamEField,    ONLY: get_electric_field
-use ModScbInit,      ONLY: scb_init
+use ModScbInit,      ONLY: scb_allocate, scb_init, scb_deallocate
 use ModScbRun,       ONLY: scb_run
-use ModRamScb,       ONLY: computehI
+use ModRamScb,       ONLY: ramscb_allocate, computehI, ramscb_deallocate
 !!!! External Modules (share/Library/src)
 use ModReadParam
 use CON_planet,      ONLY: set_planet_defaults
@@ -43,9 +44,11 @@ use ModRamMpi
 implicit none
 
 real(kind=Real8_) :: DtOutputMax, DtEndMax
-real(kind=Real8_) :: fluxVolume(npsi,nzeta)
+real(kind=Real8_), ALLOCATABLE :: fluxVolume(:,:)
 
 !----------------------------------------------------------------------------
+ALLOCATE(fluxVolume(npsi,nzeta))
+
 ! Ensure code is set to StandAlone mode.
 IsComponent = .false.
 
@@ -63,6 +66,12 @@ call init_timing()
 call read_file('PARAM.in', iComm)
 call read_init('  ', iSessionIn=1, iLineIn=0)
 call IM_set_parameters
+
+! Allocate Arrays
+call ram_allocate
+call RAMCouple_Allocate
+call scb_allocate
+call ramscb_allocate
 
 ! Initialize RAM_SCB
 call ram_init
@@ -123,8 +132,7 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
 !!!!!!!!!! RUN RAM
       ! Broadcast current call to ram_all
       call write_prefix
-      write(*,'(1x, a, 1x, F8.1, 3x, F5.1, 3x, F5.3)') &
-              'Calling ram_all for UTs, DTs,Kp = ', UTs, DTs, Kp
+      write(*,*) 'Calling ram_all for UTs, DTs,Kp = ', UTs, Dts, DTDriftR, DTDriftP, DTDriftE, DTDriftMu, Kp
 
       ! Call RAM for each species.
       call ram_run
@@ -179,6 +187,12 @@ if ((.not.IsComponent)) then
 
      ! Stop timing Ram; write final timing report.
      call finalize_timing
+
+     ! Deallocate arrays
+     call ram_deallocate
+     call RAMCouple_deallocate
+     call scb_deallocate
+     call ramscb_deallocate
 
      write(*,*) &
           '==============================================================='

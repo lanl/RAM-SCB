@@ -505,10 +505,10 @@ contains
     use ModCoordTransform
     use ModConst,        ONLY: cPi
     use ModRamFunctions
-    use ModRamMain, ONLY: PathRamOut
-    use ModRamTiming, ONLY: TimeRamElapsed, TimeRamNow, TimeRamStart
-    use ModRamGrids, ONLY: NE, NPA
-    use ModScbGrids, ONLY: nthe, npsi, nzeta
+    use ModRamMain,      ONLY: PathRamOut
+    use ModRamTiming,    ONLY: TimeRamElapsed, TimeRamNow, TimeRamStart
+    use ModRamGrids,     ONLY: NE, NPA
+    use ModScbGrids,     ONLY: nthe, npsi, nzeta
     use ModRamVariables, ONLY: WMU
     use ModScbVariables, ONLY: x, y, z, bX, bY, bZ, bnormal, EXConv, EYConv, &
                                EZConv, bXIntern, bYIntern, bZIntern
@@ -517,21 +517,24 @@ contains
     use ModRamScb, ONLY: flux3DEQ, indexPA
     use ModTimeConvert,  ONLY: time_real_to_int, TimeType
 
+    implicit none
     type(TimeType) :: TimeRamRestart
 
     integer :: i, iPa, iTime, iSat, iLoc(27), jLoc(27), kLoc(27), iTemp(3)
-    real(kind=Real8_) :: xSat(3), dTime, distance(nthe, npsi, nzeta-1), &
+    real(kind=Real8_) :: xSat(3), dTime, &
          xNear(27), yNear(27), zNear(27), BtNear(3,27), BeNear(3,27), &
          EcNear(3,27), xyzNear(3,27), rSat, pSat, tSat, rLoc, pLoc, tLoc!, EiNear(3,4),
     real(kind=Real8_) :: xNearT(27),yNearT(27),zNearT(27)
     real(kind=Real8_), parameter :: MaxDist = 0.25
+
+    real(kind=Real8_), ALLOCATABLE :: distance(:,:,:)
 
     character(len=200) :: FileName
     character(len=100) :: SatFileName
 
     ! Buffers to write to file:
     real(kind=Real8_) :: SatB(6), SatEc(3), SatEi(3), &
-         SatFlux(4, nE, nPa)=0.0, OmnFlux(4, nE)=0.0
+         SatFlux(4, nE, nPa), OmnFlux(4, nE)
 
     logical :: DoTest, DoTestMe
     character(len=*), parameter :: NameSub = NameMod // '::fly_sats'
@@ -544,9 +547,11 @@ contains
 
     if(.not. DoSaveRamSats) return
    
-!    CALL RECALC_08(2013,76,0,0,0,-400.D0,0.D0,0.D0)
-!    CALL RECALC(2013,76,0,0,0)
+    ALLOCATE(distance(nthe,npsi,nzeta-1))
+
     SATLOOP: do iSat=1, nRamSat
+       distance = 0.0
+
        ! If current time is outside bounds of orbit file, do not trace.
        if(  (TimeRamElapsed .lt. SatTime_II(iSat, 1)) .or. &
             (TimeRamElapsed .ge. SatTime_II(iSat, nSatPoints_I(iSat))) ) then
@@ -591,13 +596,13 @@ contains
        ! Collect indices of nearest neighbor
         iTemp = minloc(distance)
         iLoc(:)=0; jLoc(:)=0; kLoc(:)=0
-        xNear(:)=BadDataFlag
-        yNear(:)=BadDataFlag
-        zNear(:)=BadDataFlag
-        xyzNear(:,:)=BadDataFlag
-        BtNear(:,:)=BadDataFlag
-        BeNear(:,:)=BadDataFlag
-        EcNear(:,:)=BadDataFlag
+        xNear(:)=0.!BadDataFlag
+        yNear(:)=0.!BadDataFlag
+        zNear(:)=0.!BadDataFlag
+        xyzNear(:,:)=0.!BadDataFlag
+        BtNear(:,:)=0.!BadDataFlag
+        BeNear(:,:)=0.!BadDataFlag
+        EcNear(:,:)=0.!BadDataFlag
         iT = 1
         iA(1) = 0; iA(2) = -1; iA(3) = 1
         do ii = 1,3
@@ -686,14 +691,14 @@ contains
        !SatEi = SatEi * enormal ! Convert to correct units (mV/m)
 
        ! Reset Omnidirectional flux.
-       OmnFlux(:,:)=BadDataFlag
+       OmnFlux(:,:)=0.0
        SatFlux(:,:,:)=BadDataFlag
        ! Flux for all energies, pitch angles, and species.
        do iS=1, 4
         do iE=1, nE
          do iPa=1, nPa
           ix = 0
-          SatFluxNear(iS,iE,iPa,:) = BadDataFlag
+          SatFluxNear(iS,iE,iPa,:) = 0.0
           xNearT = BadDataFlag; yNearT = BadDataFlag; zNearT = BadDataFlag
           do i=1, iT
            if(indexPA(iLoc(i), jLoc(i), kLoc(i), iPa).gt.0) then
@@ -727,6 +732,8 @@ contains
        iSatRecord(iSat) = iSatRecord(iSat) + 1
 
     end do SATLOOP
+
+  DEALLOCATE(distance)
 
   contains
 

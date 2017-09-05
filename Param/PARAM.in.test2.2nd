@@ -1,12 +1,43 @@
 Param file for RAM_SCB test2. 
-Simple test using VOLS/DIPL/LANL with a restart.
-
+Simple test using VOLS/DIPL/LANL and no SCB calculation, with restart
 
 #DESCRIPTION
-Test 2 part 2: Restart and complete simulation
+Test 2: V&S e-field and dipole b-field, with restart
 
+*************** TIMING BLOCK ********************
 #RESTART
 
+#MAXTIMESTEP
+100.0			MaxHalfStep
+
+#VARIABLEDT
+T			DoVarDt
+
+#COMPONENT_TIMESTEPS
+300.0			SCBTimeStep
+300.0			BCTimeStep
+300.0			EFTimeStep
+
+#STOP
+-1			MaxIteration
+900			tSimulationMax
+*************************************************
+
+**************** SPATIAL BLOCK ******************
+#RAMGRID
+20			nR
+25			nT
+35			nE
+72			nPa
+
+#SCBGRID
+51			nTheta
+35			nPsi
+61			nZeta
+
+*************************************************
+
+*************** COMPONENT BLOCK *****************
 #OUTERBOUNDARY
 LANL			NameBoundPlasma
 DIPL 			NameBoundMag
@@ -16,19 +47,60 @@ MAXW			NameDistribution
 VOLS			NameEfield
 F			UseEfInd
 
+#USEWPI
+F			DoUseWPI
+F			DoUseBASDiff
+F			doUseKpDiff
+
+#MULTISPECIESBCS
+F			DoMultiSpeciesBcs
+T			DoElectrons
+
+#RAMLIMITER
+1.5			LimiterBeta
+
+#SCBSCHEME
+0.5                     decreaseConvAlphaMin
+0.5                     decreaseConvAlphaMax
+0.5                     decreaseConvPsiMin
+0.5                     decreaseConvPsiMax
+0.2                     blendAlphaInit
+0.2                     blendPsiInit
+0.01                    blendMin
+0.5                     blendMax
+*************************************************
+
+***************** INPUT BLOCK *******************
+#OMNIFILE
+omni.txt		NameOmniFile
+
+#INDICES_FILE
+RamIndices.txt		NameIndicesFile
+*************************************************
+
+***************** OUTPUT BLOCK ******************
+#SAVERESTART
+3600.0			DtSaveRestart
+T			DoSaveFinalRestart
+
 #LOGFILE
-60.0			DtWriteLogfile
+60.0			DtLogFileWrite
+
+#OUTPUT_FREQUENCY
+300.0			DtPressureFileWrite
+300.0			DthIFileWrite
+3600.0			DtEFieldFileWrite
+
+#SAVEFLUX
+F			DoSaveFlux
+
+#DUMP3DFLUX
+F			DoDump3DFlux
 
 #SATELLITE
-60.0                    DtOutput
-2                       nSatellite
-sat1.dat                NameTrajectoryFile
-sat2.dat                NameTrajectoryFile
-F                       DoUseVAPini
-
-#NAMEFORMAT
-T			UseNewFmt
-
-#STOP
--1                      MaxIteration
-900                    	tSimulationMax
+60.0			DtOutput
+2			nSatellite
+sat1.dat		NameTrajectoryFile
+sat2.dat		NameTrajectoryFile
+F			DoUseVAPini
+*************************************************

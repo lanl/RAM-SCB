@@ -13,8 +13,10 @@ SUBROUTINE tridag_ser(a,b,c,r,u)
         do j=2,n
                 gam(j)=c(j-1)/bet
                 bet=b(j)-a(j-1)*gam(j)
-                if (bet == 0.0) &
-                        call nrerror('tridag_ser: Error at code stage 2')
+                if (bet == 0.0) then
+                  write(*,*) j, b(j), a(j-1), gam(j)
+                  call nrerror('tridag_ser: Error at code stage 2')
+                end if
                 u(j)=(r(j)-a(j-1)*u(j-1))/bet
         end do
         do j=n-1,1,-1

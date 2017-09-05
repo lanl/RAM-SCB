@@ -16,9 +16,13 @@ MODULE ModScbInterp
     USE nrtype,          ONLY: DP, pi_d
     USE ModScbVariables, ONLY: x, y, z, nThetaEquator
     USE ModScbMain,      ONLY: prefixOut
-  
+
+    use ModRamGrids, ONLY: NPA
+ 
     IMPLICIT NONE
   
+    integer, parameter :: NN = 8
+
     REAL(DP), INTENT(IN) :: r_local(:), azim_local(:)
     REAL(DP), INTENT(IN) :: hFlux_l(:,:,:), IFlux_l(:,:,:), bZEqFlux_l(:,:), &
          flux_vol_l(:,:), hdensFlux_l(:,:,:)
@@ -50,11 +54,16 @@ MODULE ModScbInterp
   
     REAL(DP), ALLOCATABLE :: xScatter(:), yScatter(:), radSqScatter(:), bZScatter(:), EpotScatter(:)
     REAL(DP), ALLOCATABLE :: hScatter(:,:), IScatter(:,:), hdensScatter(:,:), fluxVolScatter(:)
-  
     REAL(DP) :: coordPoint(2)
   
     INTEGER :: jy, it, isInTriangle,iDim, itMin, inBigSphere
-  
+ 
+!
+    REAL(DP), ALLOCATABLE :: distance(:)
+    REAL(DP), DIMENSION(NN) :: xNear, yNear, bZNear, fluxVolNear, EPotNear
+    REAL(DP), DIMENSION(NN,NPA) :: hNear, INear, hDensNear
+    INTEGER, DIMENSION(1) :: iTemp
+!
     npsil = SIZE(hFlux_l,1)
     nzetal = SIZE(hFlux_l,2) + 1 ! Since only 2:nzeta is being passed
     npal = SIZE(hFlux_l,3)
@@ -62,7 +71,9 @@ MODULE ModScbInterp
     nyl = SIZE(hCart_l,2)
   
     nTotal = npsil*(nzetal-1) + 1
-  
+
+    if (.not.ALLOCATED(distance)) ALLOCATE(distance(nTotal), stat=ierr) 
+
     IF(.NOT.ALLOCATED(xScatter))   ALLOCATE(xScatter(nTotal), stat = ierr)
     IF(.NOT.ALLOCATED(yScatter))   ALLOCATE(yScatter(nTotal), stat = ierr)
     IF(.NOT.ALLOCATED(radSqScatter))   ALLOCATE(radSqScatter(nTotal), stat = ierr)
@@ -96,82 +107,40 @@ MODULE ModScbInterp
        END DO k_Loop
        j = j+1
     END DO j_loop
-  
-    ! Add a point in the center for proper triangulation
-    ! iTotal = iTotal + 1
-    ! xScatter(iTotal) = 0._dp
-    ! yScatter(iTotal) = 0._dp
-    ! radSqScatter(iTotal) = 0._dp
-    ! bZScatter(iTotal) = bZEqFlux_l(1,nZetaMidnight) 
-    ! DO L = 1, NPAL
-    !   hScatter(iTotal, L) = hFlux_l(1,nZetaMidnight,L)
-    !   IScatter(iTotal, L) = IFlux_l(1,nZetaMidnight,L)
-    ! end DO
-  
-    CALL NNPNTINITD(iTotal, xScatter(1:iTotal), yScatter(1:iTotal), bZScatter(1:iTotal))
+
     DO ix = 1, nxl
        DO jy = 1, nyl
           coordPoint(1) = r_local(ix) * COS(azim_local(jy)*2._dp*pi_d/24._dp - pi_d)
           coordPoint(2) = r_local(ix) * SIN(azim_local(jy)*2._dp*pi_d/24._dp - pi_d)
-          CALL NNPNTD(coordPoint(1),coordPoint(2),bZEqCart_l(ix,jy))
+!!!!!!!!!!!!!!
+! ME My basic attempt at a nearest neighbor search
+          distance = (xScatter - coordPoint(1))**2 &
+                    +(yScatter - coordPoint(2))**2
+          do i = 1,NN
+             iTemp = minloc(distance)
+             xNear(i)       = xScatter(iTemp(1))
+             yNear(i)       = yScatter(iTemp(1))
+             bZNear(i)      = bZScatter(iTemp(1))
+             fluxVolNear(i) = fluxVolScatter(iTemp(1))
+             hNear(i,:)     = hScatter(iTemp(1),:)
+             INear(i,:)     = IScatter(iTemp(1),:)
+             hDensNear(i,:) = hDensScatter(iTemp(1),:)
+             If (ALLOCATED(EPotScatter)) EPotNear(i) = EPotScatter(iTemp(1))
+             distance(iTemp(1)) = 999999.9
+          end do
+          CALL DSPNT2D(NN,xNear,yNear,bZNear,1,coordPoint(1),coordPoint(2),bZEqCart_l(ix,jy),ierr)
+          CALL DSPNT2D(NN,xNear,yNear,fluxVolNear,1,coordPoint(1),coordPoint(2),flux_vol_Cart_l(ix,jy),ierr)
+          do L = 1,NPAL
+             CALL DSPNT2D(NN,xNear,yNear,hNear(:,L),1,coordPoint(1),coordPoint(2),hCart_l(ix,jy,L),ierr)
+             CALL DSPNT2D(NN,xNear,yNear,INear(:,L),1,coordPoint(1),coordPoint(2),ICart_l(ix,jy,L),ierr)
+             CALL DSPNT2D(NN,xNear,yNear,hDensNear(:,L),1,coordPoint(1),coordPoint(2),hDensCart_l(ix,jy,L),ierr)
+          end do
+          if (PRESENT(Epot_l)) CALL DSPNT2D(NN,xNear,yNear,EPotNear,1,coordPoint(1),coordPoint(2),EPotCart_l(ix,jy),ierr)
+!!!!!!!!!!!!!!
        END DO
     END DO
-    CALL NNPNTENDD()
   
-    CALL NNPNTINITD(iTotal, xScatter(1:iTotal), yScatter(1:iTotal), fluxVolScatter(1:iTotal))
-    DO ix = 1, nxl
-       DO jy = 1, nyl
-          coordPoint(1) = r_local(ix) * COS(azim_local(jy)*2._dp*pi_d/24._dp - pi_d)
-          coordPoint(2) = r_local(ix) * SIN(azim_local(jy)*2._dp*pi_d/24._dp - pi_d)
-          CALL NNPNTD(coordPoint(1),coordPoint(2),flux_vol_Cart_l(ix,jy))
-       END DO
-    END DO
-    CALL NNPNTENDD()
-  
-    IF (PRESENT(Epot_l)) THEN
-       CALL NNPNTINITD(iTotal, xScatter(1:iTotal), yScatter(1:iTotal), EpotScatter(1:iTotal))
-       DO ix = 1, nxl
-          DO jy = 1, nyl
-             coordPoint(1) = r_local(ix) * COS(azim_local(jy)*2._dp*pi_d/24._dp - pi_d)
-             coordPoint(2) = r_local(ix) * SIN(azim_local(jy)*2._dp*pi_d/24._dp - pi_d)
-             CALL NNPNTD(coordPoint(1),coordPoint(2),EpotCart_l(ix,jy))
-          END DO
-       END DO
-       CALL NNPNTENDD()
-    END IF
-  
-    DO L = 1, NPAL
-       CALL NNPNTINITD(iTotal, xScatter(1:iTotal), yScatter(1:iTotal), hScatter(1:iTotal,L))
-       DO ix = 1, nxl
-          DO jy = 1, nyl
-             coordPoint(1) = r_local(ix) * COS(azim_local(jy)*2._dp*pi_d/24._dp - pi_d)
-             coordPoint(2) = r_local(ix) * SIN(azim_local(jy)*2._dp*pi_d/24._dp - pi_d)
-             CALL NNPNTD(coordPoint(1),coordPoint(2),hCart_l(ix,jy,L))
-          END DO
-       END DO
-       CALL NNPNTENDD()
-  
-       CALL NNPNTINITD(iTotal, xScatter(1:iTotal), yScatter(1:iTotal), hdensScatter(1:iTotal,L))
-       DO ix = 1, nxl
-          DO jy = 1, nyl
-             coordPoint(1) = r_local(ix) * COS(azim_local(jy)*2._dp*pi_d/24._dp - pi_d)
-             coordPoint(2) = r_local(ix) * SIN(azim_local(jy)*2._dp*pi_d/24._dp - pi_d)
-             CALL NNPNTD(coordPoint(1),coordPoint(2),hdensCart_l(ix,jy,L))
-          END DO
-       END DO
-       CALL NNPNTENDD()
-  
-       CALL NNPNTINITD(iTotal, xScatter(1:iTotal), yScatter(1:iTotal), IScatter(1:iTotal,L))
-       DO ix = 1, nxl
-          DO jy = 1, nyl
-             coordPoint(1) = r_local(ix) * COS(azim_local(jy)*2._dp*pi_d/24._dp - pi_d)
-             coordPoint(2) = r_local(ix) * SIN(azim_local(jy)*2._dp*pi_d/24._dp - pi_d)
-             CALL NNPNTD(coordPoint(1),coordPoint(2),ICart_l(ix,jy,L))
-          END DO
-       END DO
-       CALL NNPNTENDD()
-  
-    END DO
+    if (ALLOCATED(distance)) DEALLOCATE(distance, stat=ierr)
   
     IF(ALLOCATED(xScatter))  DEALLOCATE(xScatter, stat = ierr)
     IF (ALLOCATED(yScatter))  DEALLOCATE(yScatter, stat = ierr)

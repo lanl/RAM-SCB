@@ -3,10 +3,10 @@ MODULE ModScbEuler
   ! and psi (actually alpha) Euler potentials
   
   use ModScbVariables, ONLY: psi, psiSav1, psiSav2, alfa, alfaSav1, alfaSav2, &
-                               alphaVal, alphaValInitial, psiVal, blendAlpha, &
-                               blendPsi, diffmx, rjac, decreaseConvAlpha, &
-                               decreaseConvPsi, errorAlpha, errorAlphaPrev, &
-                               errorPsi, errorPsiPrev, iAlphaMove, iPsiMove
+                             alphaVal, alphaValInitial, psiVal, blendAlpha, &
+                             blendPsi, diffmx, rjac, decreaseConvAlpha, &
+                             decreaseConvPsi, errorAlpha, errorAlphaPrev, &
+                             errorPsi, errorPsiPrev, iAlphaMove, iPsiMove
   
   use ModScbFunctions, ONLY: extap
   
@@ -52,8 +52,8 @@ MODULE ModScbEuler
     !  (on Earth surface)
   
     INTEGER, INTENT(IN) :: iSmoothMove
-    REAL(DP), DIMENSION(nzetap) :: xOld, yOld, zOld, alfaOld, x2derivs, y2derivs, &
-                                  z2derivs
+    REAL(DP), DIMENSION(nzeta+1) :: xOld, yOld, zOld, alfaOld, x2derivs, y2derivs, &
+                                    z2derivs
     REAL(DP), DIMENSION(nthe,npsi,nzeta+1) :: xPrev, yPrev, zPrev
     REAL(DP) :: blend
     INTEGER :: i, j, k, ierr
@@ -79,7 +79,7 @@ MODULE ModScbEuler
              yOld(1:nzetap) = y(i,j,1:nzetap)
              zOld(1:nzetap) = z(i,j,1:nzetap)
              alfaOld(1:nzetap) = alfa(i,j,1:nzetap)
-  
+
              CALL spline(alfaOld, xOld, 1.E31_dp, 1.E31_dp, x2derivs)
              CALL spline(alfaOld, yOld, 1.E31_dp, 1.E31_dp, y2derivs)
              CALL spline(alfaOld, zOld, 1.E31_dp, 1.E31_dp, z2derivs)
@@ -456,6 +456,7 @@ MODULE ModScbEuler
   
     alfaPrev = alfa
     nisave = 0
+
     psiloop: DO  jz = 2, npsi-1
        ni = 1
        anormf = 0._dp
@@ -468,7 +469,7 @@ MODULE ModScbEuler
        Iterations: DO WHILE (ni <= nimax)
   
           anormResid = 0._dp
-  
+
           zetaloop: DO k = 2, nzeta
              kp = k + 1
              km = k - 1
@@ -490,7 +491,7 @@ MODULE ModScbEuler
                 alfa(iz,jz,k) = alfa(iz,jz,k) + om(jz) * resid / vecd(iz,jz,k)
              END DO thetaloop
           END DO zetaloop
-  
+
           om(jz) = omegaOpt
           IF (isSorDetailNeeded == 1) THEN
              IF (MOD(ni, 50) == 1 .AND. jz == 2) THEN
@@ -533,7 +534,7 @@ MODULE ModScbEuler
           CALL extap(alfa(i,4,k),alfa(i,3,k),alfa(i,2,k),alfa(i,1,k)) ! This is never a problem - very close to Earth
        END DO
     END DO
-  
+
     !...  set "blending" in alpha for outer iteration loop
     DO  j = 1, npsi
        DO  i = 1, nthe

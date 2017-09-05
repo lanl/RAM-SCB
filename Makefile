@@ -148,18 +148,14 @@ test1_run:
 	cd ${TESTDIR1}; ${MPIRUN} ./ram_scb.exe > runlog
 
 test1_check:
-	${SCRIPTDIR}/DiffNum.pl -b 			        \
-		${TESTDIR1}/output_ram/Dsbnd/ds_h_d20130317_t001000.dat      \
-		${IMDIR}/output/test1/dsbnd.ref                 \
+	${SCRIPTDIR}/DiffNum.pl -b 			                \
+		${TESTDIR1}/output_ram/Dsbnd/ds_h_d20130317_t001000.dat \
+		${IMDIR}/output/test1/dsbnd.ref                         \
 		> test1.diff
-	${SCRIPTDIR}/DiffNum.pl -b		                \
-		${TESTDIR1}/output_ram/pressure_d20130317_t001500.dat         \
-		${IMDIR}/output/test1/pressure.ref              \
-		>> test1.diff			        \
-	#${SCRIPTDIR}/DiffNum.pl -b			        \
-	#	${TESTDIR1}/output_ram/efield_000.in            \
-	#	${IMDIR}/output/test1/weq01.ref                 \
-	#	>> test1.diff
+	${SCRIPTDIR}/DiffNum.pl -b		                        \
+		${TESTDIR1}/output_ram/pressure_d20130317_t001500.dat   \
+		${IMDIR}/output/test1/pressure.ref                      \
+		>> test1.diff			        
 	${SCRIPTDIR}/DiffNum.pl -b 		                \
 		${TESTDIR1}/output_ram/log_n000000.log          \
 		${IMDIR}/output/test1/log.ref                   \
@@ -180,10 +176,6 @@ test1_check:
 		${TESTDIR1}/output_ram/sat2.test                \
 		${IMDIR}/output/test1/sat2.ref                  \
 		>> test1.diff
-	#${SCRIPTDIR}/DiffNum.pl -b		                \
-	#	${TESTDIR1}/output_ram/ram000_o.t               \
-	#	${IMDIR}/output/test1/ram_o.t.ref               \
-	#	>> test1.diff	
 	@echo "Test Successful!"
 
 #TEST 2----------------------------------
@@ -212,8 +204,8 @@ test2_run:
 	rm PARAM.in; ln -s PARAM.in.test2.1st PARAM.in; \
 	${MPIRUN} ./ram_scb.exe > runlog1;              \
 	rm PARAM.in; ln -s PARAM.in.test2.2nd PARAM.in; \
-	mv restartOUT/restart_d20130317_t000800.nc restartIN/restart.nc; \
-	mv restartOUT/restart_info_d20130317_t000800.txt restartIN/restart_info.txt; \
+	mv restartOUT/restart.nc restartIN/restart.nc; \
+	mv restartOUT/restart_info.txt restartIN/restart_info.txt; \
 	${MPIRUN} ./ram_scb.exe > runlog2;	
 
 test2_check:
@@ -221,11 +213,6 @@ test2_check:
 		${TESTDIR2}/output_ram/pressure_d20130317_t001500.dat \
 		${IMDIR}/output/test1/pressure.ref                    \
 		> test2.diff
-	#${IMDIR}/Scripts/CatLog.py ${TESTDIR2}/output_ram/log_n*.log
-	#${SCRIPTDIR}/DiffNum.pl -b		                      \
-	#	${TESTDIR2}/output_ram/log_n000000.log                \
-	#	${IMDIR}/output/test1/log.ref                         \
-	#	>> test2.diff
 	ncrcat ${TESTDIR2}/output_ram/sat1_d20130317_t000000.nc       \
 	       ${TESTDIR2}/output_ram/sat1_d20130317_t000800.nc       \
 	       ${TESTDIR2}/output_ram/sat1.nc
@@ -277,10 +264,6 @@ test3_check:
 		${TESTDIR3}/output_ram/pressure_d20130317_t001500.dat  \
 		${IMDIR}/output/test3/pressure.ref      	       \
 		> test3.diff
-	#${SCRIPTDIR}/DiffNum.pl -b		  		       \
-	#	${TESTDIR3}/output_ram/efield_d20130317_t000000.in     \
-	#	${IMDIR}/output/test3/efield.ref 		       \
-	#	>> test3.diff
 	${SCRIPTDIR}/DiffNum.pl -b 		                       \
 		${TESTDIR3}/output_ram/log_n000000.log                 \
 		${IMDIR}/output/test3/log.ref                          \
@@ -305,19 +288,11 @@ test3_check:
                 ${TESTDIR3}/output_ram/sat2.test                       \
                 ${IMDIR}/output/test3/sat2.ref                         \
                 >> test3.diff
-	#ncdump -v "FluxH+","B_xyz"                                     \
-        #       ${TESTDIR3}/output_scb/ionospheric_potential.nc         \
-        #       | sed -e '1,/data:/d' >                                 \
-        #       ${TESTDIR3}/output_scb/ionospheric_potential.test
-	#${SCRIPTDIR}/DiffNum.pl -b 		                       \
-	#	${TESTDIR3}/output_scb/ionospheric_potential.test      \
-	#	${IMDIR}/output/test3/currents.ref                     \
-	#	>> test3.diff
 	@echo "Test Successful!"
 
 #TEST 4----------------------------------
 test4:
-	@echo "starting..." > test2.diff
+	@echo "starting..." > test4.diff
 	@echo "test4_compile..." >> test4.diff
 	make test4_compile
 	@echo "test4_rundir..." >> test4.diff
@@ -341,8 +316,8 @@ test4_run:
 	rm PARAM.in; ln -s PARAM.in.test4.1st PARAM.in;  \
 	${MPIRUN} ./ram_scb.exe > runlog1;               \
 	rm PARAM.in; ln -s PARAM.in.test4.2nd PARAM.in;  \
-	mv restartOUT/restart_d20130317_t000800.nc restartIN/restart.nc; \
-	mv restartOUT/restart_info_d20130317_t000800.txt restartIN/restart_info.txt; \
+	mv restartOUT/restart.nc restartIN/restart.nc; \
+	mv restartOUT/restart_info.txt restartIN/restart_info.txt; \
 	${MPIRUN} ./ram_scb.exe > runlog2;      
 
 test4_check:
@@ -350,11 +325,6 @@ test4_check:
                 ${TESTDIR4}/output_ram/pressure_d20130317_t001500.dat \
                 ${IMDIR}/output/test3/pressure.ref                    \
                 > test4.diff
-	#${IMDIR}/Scripts/CatLog.py ${TESTDIR4}/output_ram/log_n*.log
-	#${SCRIPTDIR}/DiffNum.pl -b                                    \
-        #        ${TESTDIR4}/output_ram/log_n000000.log                \
-        #        ${IMDIR}/output/test3/log.ref                         \
-        #        >> test4.diff
 	ncrcat ${TESTDIR4}/output_ram/sat1_d20130317_t000000.nc       \
                ${TESTDIR4}/output_ram/sat1_d20130317_t000800.nc       \
                ${TESTDIR4}/output_ram/sat1.nc

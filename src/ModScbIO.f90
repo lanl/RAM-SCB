@@ -244,7 +244,7 @@ MODULE ModScbIO
     IF (ALLOCATED(yCeDbl)) DEALLOCATE(yCeDbl, STAT = ierr)
     IF (ALLOCATED(zCeDbl)) DEALLOCATE(zCeDbl, STAT = ierr)
   
-  !  tsygcorrect = 0  ! If = 1, forces N-S symmetry, taking southern mapping data
+    tsygcorrect = 0  ! If = 1, forces N-S symmetry, taking southern mapping data
   
     IF (tsygcorrect /= 1) THEN
        x(:,:,1) = x(:,:,nzeta)

@@ -4,14 +4,16 @@
 !==============================================================================
 subroutine IM_set_parameters
 
-  use ModRamMain, ONLY: PathRestartIn, nIter
-  use ModRamGrids, ONLY: NEL, NTL
-  use ModRamTiming, ONLY: TimeRamElapsed, TimeRamStart, TimeRamRealStart, TimeRamNow, &
-                          DtLogFile, DtRestart, DtsMax, TimeMax, TimeRestart, MaxIter
-  use ModRamIndices, ONLY: NameOmniFile
+  use ModRamMain,    ONLY: PathRestartIn, nIter
+  use ModRamGrids,   ONLY: NEL, NTL, NR, NT, NE, NPA
+  use ModRamTiming,  ONLY: TimeRamElapsed, TimeRamStart, TimeRamRealStart, &
+                           TimeRamNow, DtLogFile, DtRestart, DtsMax, TimeMax, &
+                           TimeRestart, MaxIter, Dt_hI, Dt_bc, DtEfi, DtW_hI, &
+                           DtW_Pressure, DtW_EField
   use ModRamParams
 
-  use ModScbMain, ONLY: method
+  use ModScbMain,  ONLY: method
+  use ModScbGrids, ONLY: nthe, npsi, nzeta
   use ModScbParams
 
   use ModRamSats, ONLY: read_sat_params  
@@ -24,7 +26,7 @@ subroutine IM_set_parameters
   integer :: iPressure, iDomain
   character(len=4) :: sPressure, sDomain
 
-  integer :: iDate, nrIn, ntIn, neIn, npaIn
+  integer :: iDate, nrIn, ntIn, neIn, npaIn, dummyi
   logical :: TempLogical
   character(len=100) :: StringLine, NameCommand, NameFile
   character(len=*), parameter  :: NameSub = 'IM_set_parameters'
@@ -41,6 +43,33 @@ subroutine IM_set_parameters
      !!!!!!!!!!!!!!!!!!!!!!!!!!!!
      case('#EVENT')
         call read_var('NameEvent', event)
+
+     case('#RAMGRID')
+        call read_var('nR',  NR)
+        call read_var('nT',  NT)
+        call read_var('nE',  NE)
+        call read_var('nPa', NPA)
+
+     case('#SCBGRID')
+        call read_var('nTheta', nthe)
+        call read_var('nPsi',   npsi)
+        call read_var('nZeta',  nzeta)
+
+     case('#INDICES_FILE')
+        call read_var('NameIndicesFile', NameIndexFile)
+
+     case('#COMPONENT_TIMESTEPS')
+        call read_var('SCBTimeStep', Dt_hI)
+        call read_var('BCTimeStep',  Dt_bc)
+        call read_var('EFTimeStep',  DtEfi)
+
+     case('#OUTPUT_FREQUENCY')
+        call read_var('DtPressureFileWrite', DtW_Pressure)
+        if (DtW_Pressure.le.0.1) DtW_Pressure = 9999999999.9
+        call read_var('DthIFileWrite',       DtW_hI)
+        if (DtW_hI.le.0.1) DtW_hI = 9999999999.9
+        call read_var('DtEFieldFileWrite',   DtW_EField)
+        if (DtW_EField.le.0.1) DtW_EField = 9999999999.9
 
      case('#USESCB')
         call read_var('DoUseScb',   DoUseScb)

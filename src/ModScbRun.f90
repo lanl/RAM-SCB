@@ -26,7 +26,8 @@
                                alphaVal, blendAlpha, blendPsi, iAlphaMove, iPsiMove, &
                                decreaseConvAlpha, decreaseConvPsi, errorAlpha, errorPsi, &
                                diffmx, errorAlphaPrev, errorPsiPrev, x, y, z, sumb, &
-                               sumdb, jacobian
+                               sumdb, jacobian, xzero3, psiin, psiout, psitot, &
+                               xpsiin, xpsiout, f, fp
     use ModScbParams,    ONLY: decreaseConvAlphaMin, decreaseConvPsiMin, blendMin, &
                                decreaseConvAlphaMax, decreaseConvPsiMax, blendMax
     !!!! Module Subroutine/Functions
@@ -43,15 +44,17 @@
   
     REAL(DP), intent(out) :: fluxVolume(npsi,nzeta)
     INTEGER  :: iconv, nisave1, ierr, iCountEntropy
-    INTEGER  :: i
+    INTEGER  :: i, j
     REAL(DP) :: sumdbconv, errorfirstalpha, diffmxfirstalpha, &
                 errorfirstpsi, diffmxfirstpsi
-    REAL(DP) :: sumb1, sumdb1, diffmx1
+    REAL(DP) :: sumb1, sumdb1, diffmx1, xpsitot, xpl, psis
     REAL(DP) :: entropyFixed(npsi,nzeta)
     REAL(DP), DIMENSION(:,:,:), ALLOCATABLE :: vecd, vec1, vec2, vec3, vec4, vec6, &
                                                vec7, vec8, vec9, vecx, vecr
     REAL(DP), ALLOCATABLE, SAVE :: xPrev(:,:,:), yPrev(:,:,:), zPrev(:,:,:)
-  
+ 
+    REAL(DP), PARAMETER :: pow = 1.0_dp, TINY = 1.E-15_dp
+
     decreaseConvAlpha = decreaseConvAlphaMin + (decreaseConvAlphaMax - decreaseConvAlphaMin) &
                         *(MIN(Kp,6._dp))**2/36.
     decreaseConvPsi   = decreaseConvPsiMin + (decreaseConvPsiMax - decreaseConvPsiMin) &
@@ -82,9 +85,28 @@
     iConvGlobal = 0
   
     call computational_domain
+
+    !c  Need to make sure that psival is a monotonically increasing function of
+    !j
+    !c  define psival grids that correspond to dipole psivals for j=1 and j=npsi
+    !c  define psival grids that correspond to equal equatorial distance grids
+    !in
+    !the midnight sector
+    psiin   = -xzero3/xpsiin
+    psiout  = -xzero3/xpsiout
+    psitot  = psiout-psiin
+    xpsitot = xpsiout - xpsiin
+    DO j = 1, npsi
+       psis = REAL(j-1, DP) / REAL(npsi-1, DP)
+       xpl = xpsiin + xpsitot * psis**pow
+       psival(j) = -xzero3 / xpl
+       f(j) = (xzero3 / xpl**2) * xpsitot * pow * psis**(pow-1.)
+       fp(j) = 0._dp ! If pow = 1
+    END DO
+
     call psiges
     call alfges
-  
+
     IF (iAMR == 1) THEN
        CALL findR
        CALL InterpolatePsiR
@@ -92,12 +114,12 @@
        CALL psifunctions
        CALL maptheta
     ENDIF
-  
+
     Outeriters: DO
   
        CALL computeBandJacob_initial
        CALL metrica(vecd,vec1,vec2,vec3,vec4,vec6,vec7,vec8,vec9)
-  
+
        !   define the right-hand side of the betaEuler equation
        CALL pressure(entropyFixed, fluxVolume, iCountEntropy)   ! Entropy etc. for some isotropic press. calculations, not used here
   
@@ -124,7 +146,7 @@
              alfaSav1(:,:,:) = alfa(:,:,:)
              alfaSav2(:,:,:) = alfa(:,:,:) ! Before the calculation
           END IF
-  
+
           blendAlpha = MAX(blendAlpha,blendMin)
           blendAlpha = MIN(blendAlpha,blendMax)
           SELECT CASE (method)
@@ -166,7 +188,7 @@
           xPrev = x
           yPrev = y
           zPrev = z
-  
+
           Move_points_in_alpha_theta: DO
              !cc  move zeta grid points along constant alphaEuler and theta
              !lines
@@ -175,6 +197,7 @@
              !lines
              CALL maptheta
              CALL metric(vecd,vec1,vec2,vec3,vec4,vec6,vec7,vec8,vec9)
+
              IF (MINVAL(jacobian) < 0._dp) THEN
                    !C             iAlphaMove = iAlphaMove+1
                 blendAlpha = damp * blendAlpha
@@ -198,7 +221,7 @@
           ELSE
              alfaSav2(:,:,:) = alfa(:,:,:)
           END IF
-  
+
           IF (iAMR == 1) THEN
              CALL findR
              CALL InterpolatePsiR
@@ -206,7 +229,7 @@
              CALL psifunctions
              CALL maptheta
           ENDIF
-  
+
           IF (MOD(iteration,nrelax) == 0) blendAlpha = relax * blendAlpha
   
           IF (isotropy == 1) CALL entropy(entropyFixed, fluxVolume, iCountEntropy)
@@ -224,7 +247,7 @@
              psiSav1(:,:,:) = psi(:,:,:)
              psiSav2(:,:,:) = psi(:,:,:) ! Before the calculation
           END IF
-  
+
           blendPsi = MAX(blendPsi,blendMin)
           blendPsi = MIN(blendPsi,blendMax)
           SELECT CASE (method)
@@ -233,7 +256,7 @@
             CASE(2)
               CALL iteratePsi(vecd,vec1,vec2,vec3,vec4,vec6,vec7,vec8,vec9,vecr)
           END SELECT
-  
+
           errorPsi = diffmx
           IF (iteration==1) errorPsiPrev = errorPsi
   
@@ -285,7 +308,7 @@
           ELSE
              psiSav2(:,:,:) = psi(:,:,:)
           END IF
-  
+
        IF (MOD(iteration,nrelax) == 0) blendPsi = relax * blendPsi
        ! PRINT*, 'CE: blendPsi = ', blendPsi
   
@@ -305,7 +328,7 @@
              CALL psiFunctions
              CALL maptheta
           ENDIF
-  
+
           IF (iConvGlobal == 1) THEN
              PRINT*, 'Approaching convergence.'
              sumdbconv = sumdb1
@@ -334,7 +357,7 @@
     end if
   
     IF (boundary /= 'SWMF') PRINT*, "End of calculation."
-  
+
     IF (iteration > numit) lconv = 1
     nitry = nisave
   
@@ -361,7 +384,7 @@
        CALL ionospheric_potential
        PRINT*, '3DEQ: mapping iono. potentials along SCB-field lines'
     END IF
-  
+
     ! Compute physical quantities: currents, field components etc..
     CALL metrics
     ! extrapolate to the fixed boundary
@@ -383,7 +406,7 @@
     DEALLOCATE(vec9, stat = ierr)
     DEALLOCATE(vecx, stat = ierr)
     DEALLOCATE(vecr, stat = ierr)
-  
+
     RETURN
   
   END SUBROUTINE scb_run
@@ -989,7 +1012,8 @@ SUBROUTINE pressure(entropy_local, vol_local, icount_local)
     use ModRamParams,    ONLY: boundary 
     use ModScbMain,      ONLY: iCountPressureCall, iLossCone, iOuterMethod, iSm2, &
                                iReduceAnisotropy, isotropy
-    USE ModScbGrids,     ONLY: nthe, npsi, nzeta, nzetap, nXRaw, nYRaw, nAzimRAM
+    USE ModScbGrids,     ONLY: nthe, npsi, nzeta, nzetap, nXRaw, nXRawExt, nYRaw, &
+                               nAzimRAM
     use ModScbVariables, ONLY: x, y, z, xx, yy, bf, bsq, rhoVal, zetaVal, thetaVal, &
                                nZetaMidnight, nThetaEquator, pnormal, f, fzet, alfa, &
                                dela, azimRaw, radGrid, angleGrid, ratioEq, dPPerdRho, &
@@ -1032,6 +1056,7 @@ SUBROUTINE pressure(entropy_local, vol_local, icount_local)
     INTEGER, PARAMETER :: nXRoeGeo = 8 ! Index of first Roeder radius > 6.6 RE (or less, if overlapping is chosen) !
     !C (more if GEO data to be more efficient in determining the fit)
     !C INTEGER, PARAMETER :: nXRaw = 121, nYRaw = 49 ! For DMSP runs
+    !C INTEGER, PARAMETER :: nXRawExt = 171, nAzimRAM = 49 ! For DMSP runs
     REAL(DP) :: xRaw(nXRaw,nYRaw), YRaw(nXRaw,nYRaw),pressProtonPerRaw(nXRaw,nYRaw), pressProtonParRaw(nXRaw,nYRaw), &
                 pressOxygenPerRaw(nXRaw,nYRaw), pressOxygenParRaw(nXRaw,nYRaw), pressHeliumPerRaw(nXRaw,nYRaw), &
                 pressHeliumParRaw(nXRaw,nYRaw), pressPerRaw(nXRaw,nYRaw), pressParRaw(nXRaw,nYRaw), &
@@ -1040,18 +1065,12 @@ SUBROUTINE pressure(entropy_local, vol_local, icount_local)
                 radRoe(nXRoe), azimRoe(nYRoe), energRoe(0:nEnergRoe), PARoe(nPARoe), fluxRoe(nXRoe, nYRoe, nEnergRoe, 18), &
                 pressProtonPerRoe(nXRoe, nYRoe), pressProtonParRoe(nXRoe, nYRoe), &
                 pressPerRoe(nXRoe, nYRoe), pressParRoe(nXRoe, nYRoe), ratioRoe(nXRoe, nYRoe)
-    !C INTEGER, PARAMETER :: nXRawExt = 171, nYRawExt = 49 ! For DMSP runs
-    INTEGER, PARAMETER :: nXRawExt = nXRaw+2, nYRawExt = nAzimRAM
-    ! To extend the domain to 10 RE, w/ the standard RAM resolution we need extra 14 radial cells, thus nXRawExt = nXRaw+14 = 33
-    ! To extend the domain to 11 RE, w/ the standard RAM resolution we need extra 18 radial cells, thus nXRawExt = nXRaw+18 = 37
-    ! (The domain over which pressure is defined has to include the domain delimited by magnetic boundaries)
-  
-    REAL(DP) :: xRawExt(nXRawExt,nYRawExt), YRawExt(nXRawExt,nYRawExt),pressPerRawExt(nXRawExt,nYRawExt), & 
-         pressParRawExt(nXRawExt,nYRawExt), radRawExt(nXRawExt), azimRawExt(nYRawExt), ratioRawExt(nXRawExt,nYRawExt)
+    REAL(DP) :: xRawExt(nXRawExt,nAzimRAM), YRawExt(nXRawExt,nAzimRAM),pressPerRawExt(nXRawExt,nAzimRAM), & 
+         pressParRawExt(nXRawExt,nAzimRAM), radRawExt(nXRawExt), azimRawExt(nAzimRAM), ratioRawExt(nXRawExt,nAzimRAM)
     REAL(DP), PARAMETER :: l0 = 50._dp
     CHARACTER(len=93)  :: firstLine, secondLine
     CHARACTER(len=200) :: header
-    INTEGER, PARAMETER :: ISLIM = nXRaw*nYRaw, NUMXOUT = npsi, NUMYOUT = nzeta-1
+    !  INTEGER, PARAMETER :: ISLIM = nXRaw*nYRaw, NUMXOUT = npsi, NUMYOUT = nzeta-1
     !  INTEGER, PARAMETER :: IDIM = 2*NUMXOUT*NUMYOUT
     !  REAL(dp) :: X_neighbor(ISLIM), Y_neighbor(ISLIM), Z_neighbor(ISLIM), indexPsi(npsi,nzeta), &
     !       indexAlpha(npsi,nzeta)
@@ -1066,20 +1085,20 @@ SUBROUTINE pressure(entropy_local, vol_local, icount_local)
     INTEGER, PARAMETER :: lwrk = 50000, lwrk1 = 500000, lwrk2 = 500000
     INTEGER :: iopt(3), iopt1, ider(2), nu, nv
     INTEGER, SAVE :: nxout, nyout, nxoutPer, nxoutPar, nyoutPer, nyoutPar
-    REAL :: pressPerRawRowExt(nXRawExt*nYRawExt), pressParRawRowExt(nXRawExt*nYRawExt)
+    REAL :: pressPerRawRowExt(nXRawExt*nAzimRAM), pressParRawRowExt(nXRawExt*nAzimRAM)
   
     REAL :: wrk(lwrk), wrk1(lwrk1), wrk2(lwrk2)
     REAL :: fpResids, fpResidsPer, fpResidsPar
     REAL :: smoothFactor, smoothFactorPer, smoothFactorPar  
-    INTEGER, PARAMETER :: kwrk = 50000, kwrk1 = 5000, nuest = nXRaw+7, nvest = nYRaw+7 !C nuest = nXRawExt + 7, nvest = nYRawExt+7
+    INTEGER, PARAMETER :: kwrk = 50000, kwrk1 = 5000!, nuest = nXRaw+7, nvest = nYRaw+7 !C nuest = nXRawExt + 7, nvest = nAzimRAM+7
     INTEGER, PARAMETER :: kx = 3, ky = 3  ! Must be 3 for polar, can vary for surfit
     !C  INTEGER, PARAMETER :: nxest = 24, nyest = 12, nmax = MAX(nxest, nyest)
     INTEGER, PARAMETER :: nxest = 15, nyest = 15, nmax = MAX(nxest, nyest) 
     ! For Roeder expansion, not wise to go for larger nx, ny as it might force an unnatural spline
-    REAL :: coeff((nuest-4)*(nvest-4))
+    REAL :: coeff((nXRaw+7-4)*(nYRaw+7-4))
     REAL, SAVE :: coeff1((nxest-kx-1)*(nyest-ky-1)), coeff2((nxest-kx-1)*(nyest-ky-1))
     INTEGER :: iwrk(kwrk), iwrk1(kwrk1)
-    REAL :: tu(nuest), tv(nvest)
+    REAL :: tu(nXRaw+7), tv(nYRaw+7)
     REAL, SAVE :: tx(nxest), ty(nyest), txPer(nxest), txPar(nxest), tyPer(nxest), tyPar(nxest)
     REAL :: radCenter, radDisk, radMin, radMax, phiBeg, phiEnd, z0, val 
     REAL :: t, tout, ydriv, epsFit, epsdriv, deltaDev
@@ -1205,13 +1224,13 @@ SUBROUTINE pressure(entropy_local, vol_local, icount_local)
              radRawExt(j1) = radRaw_local(nXRaw) + REAL(j1-nXRaw, DP)*(radRaw_local(nXRaw)-radRaw_local(1))/(REAL(nXRaw-1, DP))
           END DO
   
-          azimRawExt(1:nYRawExt) = azimRaw(1:nYRaw) ! nYRaw = nYRawExt
+          azimRawExt(1:nAzimRAM) = azimRaw(1:nYRaw) ! nYRaw = nAzimRAM
   
           pressPerRawExt(1:nXRaw,:) = pressPerRaw(1:nXRaw,:)
           pressParRawExt(1:nXRaw,:) = pressParRaw(1:nXRaw,:)
           ratioRawExt(1:nXRaw,:) = ratioRaw(1:nXRaw,:)
           
-          DO k1 = 1, nYRawExt
+          DO k1 = 1, nAzimRAM
              DO j1 = nXRaw+1, nXRawExt
                 ! Alternatively, extrapolate the pressure assuming SK dependence in regions where we don't know it instead of f(R) extrapolation; 
                 ! or, decrease the order of the polynomial extrapolation
@@ -1243,8 +1262,8 @@ SUBROUTINE pressure(entropy_local, vol_local, icount_local)
           END DO
   
           IF (iSm2 == 1) THEN ! Savitzky-Golay smoothing (possibly multiple) for the pressure
-             pressPerRawExt(1:nXRawExt,1:nYRawExt) = SavGol7(pressPerRawExt(1:nXRawExt,1:nYRawExt))
-             pressParRawExt(1:nXRawExt,1:nYRawExt) = SavGol7(pressParRawExt(1:nXRawExt,1:nYRawExt))
+             pressPerRawExt(1:nXRawExt,1:nAzimRAM) = SavGol7(pressPerRawExt(1:nXRawExt,1:nAzimRAM))
+             pressParRawExt(1:nXRawExt,1:nAzimRAM) = SavGol7(pressParRawExt(1:nXRawExt,1:nAzimRAM))
           END IF
   
           !Cubic spline interpolation
@@ -1355,12 +1374,12 @@ SUBROUTINE pressure(entropy_local, vol_local, icount_local)
              radRawExt(j1) = radRaw_local(nXRaw) + REAL(j1-nXRaw, DP)*(radRaw_local(nXRaw)-radRaw_local(1))/(REAL(nXRaw-1, DP))
           END DO
   
-          azimRawExt(1:nYRawExt) = azimRaw(1:nYRaw) ! nYRaw = nYRawExt
+          azimRawExt(1:nAzimRAM) = azimRaw(1:nYRaw) ! nYRaw = nAzimRAM
           
           pressPerRawExt(1:nXRaw,:) = pressPerRaw(1:nXRaw,:)
           pressParRawExt(1:nXRaw,:) = pressParRaw(1:nXRaw,:)
          
-          DO k1 = 1, nYRawExt
+          DO k1 = 1, nAzimRAM
              DO j1 = nXRaw+1, nXRawExt
                 ! Alternatively, extrapolate the pressure assuming SK dependence in regions where we don't know it instead of f(R) extrapolation; 
                 ! or, decrease the order of the polynomial extrapolation
@@ -1370,8 +1389,8 @@ SUBROUTINE pressure(entropy_local, vol_local, icount_local)
           END DO
   
           IF (iSm2 == 1) THEN ! Savitzky-Golay smoothing (possibly multiple) for the pressure
-             pressPerRawExt(1:nXRawExt,1:nYRawExt) = SavGol7(pressPerRawExt(1:nXRawExt,1:nYRawExt))
-             pressParRawExt(1:nXRawExt,1:nYRawExt) = SavGol7(pressParRawExt(1:nXRawExt,1:nYRawExt))
+             pressPerRawExt(1:nXRawExt,1:nAzimRAM) = SavGol7(pressPerRawExt(1:nXRawExt,1:nAzimRAM))
+             pressParRawExt(1:nXRawExt,1:nAzimRAM) = SavGol7(pressParRawExt(1:nXRawExt,1:nAzimRAM))
           END IF
   
   

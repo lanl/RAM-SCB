@@ -38,32 +38,61 @@ module ModRamCouple
 
   ! Coupling P to SWMF:
   ! The iono footprints from BATS should be stored here:
-  real(kind=Real8_), public :: IonoMap_DSII(3,2,nRextend,nT) = 0.0
+  real(kind=Real8_), public, allocatable :: IonoMap_DSII(:,:,:,:)
 
   ! Container for MHD density and pressure at outer boundary.
   ! Indices are (dens:pres,Local Time,species[all, h, he, O])
-  real(kind=Real8_), public :: MhdDensPres_VII(3,nT,4)
-  real(kind=Real8_), public :: FluxBats_IIS(nE, nT, 1:4) = 0
-  real(kind=Real8_), public :: PMhdGhost(nT)=0! MHD pressure at RAM ghost cells.
-  real(kind=Real8_), public :: FluxBats_anis(nE,nPa,nT,1:4) = 0.
+  real(kind=Real8_), public, allocatable :: MhdDensPres_VII(:,:,:)
+  real(kind=Real8_), public, allocatable :: FluxBats_IIS(:,:,:)
+  real(kind=Real8_), public, allocatable :: PMhdGhost(:)! MHD pressure at RAM ghost cells.
+  real(kind=Real8_), public, allocatable :: FluxBats_anis(:,:,:,:)
 
   ! Variables for B-field coupling with MHD:
   integer, public, parameter   :: nPointsMax = 200
   integer, public :: nRadSWMF, nRadSwmfVar, nRadSwmfVarInner, &
        nLonSWMF, nLinesSWMF, nPoints
-  real(kind=Real8_), public :: iEnd(2*(nR+1)*nT)
+  real(kind=Real8_), public, allocatable :: iEnd(:)
   real(kind=Real8_), public, allocatable :: MhdLines_IIV(:,:,:)
   real(kind=Real8_), public, allocatable :: xSWMF(:,:,:), ySWMF(:,:,:), &
        zSWMF(:,:,:), LatSWMF(:,:), LonSWMF(:,:)
-  real(kind=Real8_), public, dimension(nR+1,nT-1) :: &
-       xEqSWMF, yEqSWMF, pEqSWMF, nEqSWMF
+  real(kind=Real8_), public, allocatable :: xEqSWMF(:,:), yEqSWMF(:,:), &
+       pEqSWMF(:,:), nEqSWMF(:,:)
   
 
   ! Variables for coupling to SWMF-IE component:
   integer, public :: nIePhi=0, nIeTheta=0
   real(kind=Real8_), public, allocatable :: SwmfIonoPot_II(:,:)
-  real(kind=Real8_), public              :: SwmfPot_II(nR+1, nT) = 0.0
+  real(kind=Real8_), public, allocatable :: SwmfPot_II(:,:)
 contains
+
+!==============================================================================
+  subroutine RAMCouple_Allocate
+
+    use ModRamGrids, ONLY: nT, nE, nRExtend, nR
+
+    implicit none
+
+    ALLOCATE(IonoMap_DSII(3,2,nRextend,nT), MhdDensPres_VII(3,nT,4), FluxBats_IIS(nE, nT, 1:4), &
+             PMhdGhost(nT), FluxBats_anis(nE,nPa,nT,1:4), iEnd(2*(nR+1)*nT), xEqSWMF(nR+1,nT-1), &
+             yEqSWMF(nR+1,nT-1), pEqSWMF(nR+1,nT-1), nEqSWMF(nR+1,nT-1), SwmfPot_II(nR+1, nT))
+
+    SWMFPot_II = 0.
+    FluxBats_anis = 0.
+    PMhdGhost = 0.
+    FluxBats_IIS = 0.
+    IonoMap_DSII = 0.
+
+  end subroutine RAMCouple_Allocate
+
+!==============================================================================
+  subroutine RAMCouple_Deallocate
+
+    implicit none
+
+    DEALLOCATE(IonoMap_DSII, MhdDensPres_VII, FluxBats_IIS, PMhdGhost, iEnd, &
+               FluxBats_anis, xEqSWMF, yEqSWMF, pEqSWMF, nEqSWMF, SwmfPot_II)
+
+  end subroutine RAMCouple_Deallocate
 
   !===========================================================================
   subroutine set_type_mhd(NameVarIn, nVarIn)

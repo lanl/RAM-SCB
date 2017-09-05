@@ -101,7 +101,8 @@ contains
 
     !!!! Module Variables
     use ModRamParams,    ONLY: DoSaveRamSats
-    use ModRamTiming,    ONLY: Dt_hI, DtRestart, DtWriteSat, TimeRamNow, TimeRamElapsed
+    use ModRamTiming,    ONLY: Dt_hI, DtRestart, DtWriteSat, TimeRamNow, &
+                               TimeRamElapsed, DtW_Pressure
     use ModRamGrids,     ONLY: NR, NT
     use ModRamVariables, ONLY: PParH, PPerH, PParHe, PPerHe, PParE, PPerE, &
                                PParO, PPerO, VT
@@ -124,11 +125,10 @@ contains
     !-------------------------------------------------------------------------
     call CON_set_do_test(NameSub, DoTest, DoTestMe)
 
-    ! Get current Dst.
-    call get_ramdst(dst)
-
     ! Write Logfile
     if(mod(TimeIn, DtLogfile)==0.0)then
+       ! Get current Dst.
+       call get_ramdst(dst)
        open(UNITTMP_, FILE=NameFileLog, POSITION='APPEND')
        write(UNITTMP_, *) TimeIn, TimeRamNow%iYear, TimeRamNow%iMonth, &
                          TimeRamNow%iDay, TimeRamNow%iHour, TimeRamNow%iMinute, &
@@ -148,12 +148,16 @@ contains
                           dstDPS, dstDPSInsideGeo, DstBiot, DstBiotInsideGeo, &
                           maxval(VT), minval(VT)
        close(UNITTMP_)
+    end if
 
+    ! Write Pressure File
+    if (mod(TimeIn, DtW_Pressure)==0.0) then
        write(StrScbIter,'(I4.4)') int(TimeRamElapsed/Dt_hI)
        call ram_sum_pressure
        call ram_write_pressure(StrScbIter)
     end if
 
+    ! Update Satellite Files
     if (DoSaveRamSats .and. (mod(TimeRamElapsed,DtWriteSat) .eq. 0)) call fly_sats
 
     ! Write restarts.

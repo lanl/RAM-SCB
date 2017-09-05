@@ -54,9 +54,9 @@ module ModRamRestart
     if(DoTest)write(*,'(a,f11.2)') 'RAM-SCB: Writing restarts at t=',&
          TimeRamElapsed
 
-!    stat = getcwd(CWD)
     ! Write ascii portion of restart.
-    NameFile=RamFileName(PathRestartOut//'/restart_info','txt',TimeRamNow)
+    !NameFile=RamFileName(PathRestartOut//'/restart_info','txt',TimeRamNow)
+    NameFile=PathRestartOut//'/restart_info.txt'
     open(unit=UnitTMP_, file=trim(NameFile), status='replace')
     write(UnitTMP_, *) 'TIMING:'
     write(UnitTMP_, '(a, i4.4, 2i2.2, 1x, 3i2.2)')'Start (YYYYMMDD HHMMSS)= ', &
@@ -67,11 +67,10 @@ module ModRamRestart
     write(UnitTMP_, *)'GRID:'
     write(UnitTMP_, '(a, 4i3)') 'nR, nL, nE, nPA        = ', nR, nT, nE, nPA
     close(unitTMP_)
-!    stat = system(trim('ln -s -f '//trim(CWD)//'/'//trim(NameFile)//' '// &
-!                       trim(CWD)//'/'//PathRestartIn//'/restart_info.txt'))
 
     ! OPEN FILE
-    NameFile = RamFileName(PathRestartOut//'/restart','nc',TimeRamNow)
+    !NameFile = RamFileName(PathRestartOut//'/restart','nc',TimeRamNow)
+    NameFile = PathRestartOut//'/restart.nc'
     iStatus = nf90_create(trim(NameFile), nf90_clobber, iFileID)
     call ncdf_check(iStatus, NameSub)
     call write_ncdf_globatts(iFileID)
@@ -240,8 +239,6 @@ module ModRamRestart
     ! CLOSE FILE
     iStatus = nf90_close(iFileID)
     call ncdf_check(iStatus, NameSub)
-!    stat = system(trim('ln -s -f '//trim(CWD)//'/'//trim(NameFile)//' '// &
-!                       trim(CWD)//'/'//PathRestartIn//'/restart.nc'))
 
   end subroutine write_restart
 

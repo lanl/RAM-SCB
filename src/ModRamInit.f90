@@ -1,16 +1,98 @@
 MODULE ModRamInit
 ! Contains subroutines for initialization of RAM
 
-  use ModRamVariables, ONLY: RMAS, V, VBND, GREL, GRBND, FACGR, EPP, ERNH, &
-                             UPA, WE, DE, EKEV, EBND, PHI, LT, MLT, MU, DMU, &
-                             WMU, PAbn, LZ, RLZ, AMLA, BE, ZRPabn, FFACTOR, &
-                             PHIOFS, IR1, DL1, MDR, dPhi, IP1, CONF1, CONF2, &
-                             RFACTOR, GridExtend
+  use ModRamVariables!, ONLY: RMAS, V, VBND, GREL, GRBND, FACGR, EPP, ERNH, &
+                     !        UPA, WE, DE, EKEV, EBND, PHI, LT, MLT, MU, DMU, &
+                     !        WMU, PAbn, LZ, RLZ, AMLA, BE, ZRPabn, FFACTOR, &
+                     !        PHIOFS, IR1, DL1, MDR, dPhi, IP1, CONF1, CONF2, &
+                     !        RFACTOR, GridExtend
 
   implicit none
   save
 
   contains
+!==============================================================================
+subroutine ram_allocate
+
+  use ModRamGrids,     ONLY: RadiusMax, RadiusMin, nR, nRExtend, nT, nE, nPa, &
+                             Slen, ENG, NCF, NL, nS, nX
+
+  implicit none
+
+  nRExtend = NR + 3
+  nX = NPA
+
+!!!!!!!! Allocate Arrays
+! Main RAM Variables
+  ALLOCATE(F2(NS,NR,NT,NE,NPA), FLUX(NS,NR,NT,NE,NPA),PPerH(NR,NT), PParH(NR,NT), &
+           PPerE(NR,NT), PParE(NR,NT), PPerO(NR,NT),PParO(NR,NT), PPerHe(NR,NT), &
+           PParHe(NR,NT), PAllSum(NR,NT), PParSum(NR,NT), PPerT(NS,NR,NT), &
+           PParT(NS,NR,NT), FNHS(NR+1,NT,NPA), FNIS(NR+1,NT,NPA), BOUNHS(NR+1,NT,NPA), &
+           BOUNIS(NR+1,NT,NPA), dIdt(NR+1,NT,NPA), dBdt(NR+1,NT), dIbndt(NR+1,NT,NPA), &
+           HDNS(NR+1,NT,NPA), BNES(NR+1,NT))
+! ModRamInit Variables
+  ALLOCATE(RMAS(NS), V(NS,NE), VBND(NS,NE), GREL(NS,NE), GRBND(NS,NE), FACGR(NS,NE), &
+           EPP(NS,NE), ERNH(NS,NE), UPA(NR), WE(NE), DE(NE), EKEV(NE), EBND(NE), &
+           PHI(NT), LT(NT), MLT(NT), MU(NPA), DMU(NPA), WMU(NPA), PAbn(NPA), LZ(NR+1), &
+           RLZ(NR+1), AMLA(Slen), BE(NR+1,Slen), GridExtend(NRExtend), ZRPabn(NR,NPA,Slen), &
+           FFACTOR(NS,NR,NE,NPA), PA(NPA))
+! ModRamWPI Variables
+  ALLOCATE(WALOS1(NR,NE), WALOS2(NR,NE), WALOS3(NR,NE), fpofc(NCF), NDVVJ(NR,ENG,NPA,NCF), &
+           NDAAJ(NR,ENG,NPA,NCF), ENOR(ENG), ECHOR(ENG), BDAAR(NR,NT,ENG,NPA), &
+           CDAAR(NR,NT,NE,NPA))
+! ModRamLoss Variables
+  ALLOCATE(ATLOS(NR,NE), ACHAR(NR,NT,NE,NPA))
+! ModRamEField Variables
+  ALLOCATE(VT(NR+1,NT), EIR(NR+1,NT), EIP(NR+1,NT), VTOL(NR+1,NT), VTN(NR+1,NT))
+! ModRamBoundary Variables
+  ALLOCATE(FGEOS(NS,NT,NE,NPA))
+! ModRamDrift Variables
+  ALLOCATE(P1(NR), VR(NR), P2(NR,NE), EDOT(NR,NE), MUDOT(NR,NPA), CDriftR(NR,NT,NE,NPA), &
+           sgnDriftR(NR,NT,NE,NPA), CDriftP(NR,NT,NE,NPA), CDriftE(NR,NT,NE,NPA), &
+           CDriftMu(NR,NT,NE,NPA))
+! ModRamRun Variables
+  ALLOCATE(SETRC(NS), ELORC(NS), LSDR(NS), LSCHA(NS), LSATM(NS), LSCOE(NS), &
+           LSCSC(NS), LSWAE(NS), XNN(NS,NR), XND(NS,NR), LNCN(NS,NR), LNCD(NS,NR), &
+           LECN(NS,NR), LECD(NS,NR), ENERN(NS,NR), ENERD(NS,NR), ATEW(NR,NT,NE,NPA), &
+           ATAW(NR,NT,NE,NPA), ATAC(NR,NT,NE,NPA), ATEC(NR,NT,NE,NPA), XNE(NR,NT), &
+           ATMC(NR,NT,NE,NPA), ATAW_emic(NR,NT,NE,NPA), NECR(NL,0:48))
+!!!!!!!!!
+
+end subroutine ram_allocate
+
+!==============================================================================
+subroutine ram_deallocate
+
+  implicit none
+
+!!!!!!!! Deallocate Arrays
+! Main RAM Variables
+  DEALLOCATE(F2, FLUX,PPerH, PParH, PPerE, PParE, PPerO, PParO, PPerHe, PParHe, &
+             PAllSum, PParSum, PPerT, PParT, FNHS, FNIS, BOUNHS, BOUNIS, dIdt, &
+             dBdt, dIbndt, HDNS, BNES)
+! ModRamInit Variables
+  DEALLOCATE(RMAS, V, VBND, GREL, GRBND, FACGR, EPP, ERNH, UPA, WE, DE, EKEV, &
+             EBND, PHI, LT, MLT, MU, DMU, WMU, PAbn, LZ, RLZ, AMLA, BE, GridExtend, &
+             ZRPabn, FFACTOR)
+! ModRamWPI Variables
+  DEALLOCATE(WALOS1, WALOS2, WALOS3, fpofc, NDVVJ, NDAAJ, ENOR, ECHOR, BDAAR, &
+             CDAAR)
+! ModRamLoss Variables
+  DEALLOCATE(ATLOS, ACHAR)
+! ModRamEField Variables
+  DEALLOCATE(VT, EIR, EIP, VTOL, VTN)
+! ModRamBoundary Variables
+  DEALLOCATE(FGEOS)
+! ModRamDrift Variables
+  DEALLOCATE(P1, VR, P2, EDOT, MUDOT, CDriftR, sgnDriftR, CDriftE, CDriftP, &
+             CDriftMu)
+! ModRamRun Variables
+  DEALLOCATE(SETRC, ELORC, LSDR, LSCHA, LSATM, LSCOE, LSCSC, LSWAE, XNN, XND, &
+             LNCN, LNCD, LECN, LECD, ENERN, ENERD, ATEW, ATAW, ATAC, ATEC, &
+             XNE, ATMC, ATAW_emic, NECR)
+!!!!!!!!!
+
+end subroutine ram_deallocate
 
 !==============================================================================
 subroutine ram_init
@@ -143,7 +225,7 @@ END
 
     real(kind=Real8_) :: degrad, camlra, elb, rw, rwu
     real(kind=Real8_) :: clc, spa
-    real(kind=Real8_) :: CONE(NR+4),RLAMBDA(NPA),PA(NPA),MUBOUN
+    real(kind=Real8_) :: CONE(NR+4),RLAMBDA(NPA),MUBOUN
 
     integer :: i, j, k, l, iml, ic, ip
 

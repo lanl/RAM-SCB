@@ -151,11 +151,11 @@ SUBROUTINE ionospheric_potential
 
      PRINT*, 'IP: Year, Day, Hour, Min, Bt, By, Bz, V, N, Pdyn, AL, SYMH'
      Read_data_from_file: DO i = 1, iLines
-        READ(UNITTMP_,101) iYear_l, iDoy_l, iHour_l, iMin_l, bTot_l, byimf_l, bzimf_l, Vk_l, Nk_l, pdyn_l, AL_l, SymH_l
+        READ(UNITTMP_,*) iYear_l, iDoy_l, iHour_l, iMin_l, bTot_l, byimf_l, bzimf_l, Vk_l, Nk_l, pdyn_l, AL_l, SymH_l
         doy = n_day_of_year(TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay)
         if ((TimeRamNow%iYear.eq.iyear_l).and.(doy.eq.idoy_l).and. &
             (TimeRamNow%iHour.eq.ihour_l).and.(TimeRamNow%iMinute.eq.imin_l)) then
-           WRITE(*,101) iYear_l, iDoy_l, iHour_l, iMin_l, bTot_l, byimf_l, bzimf_l, Vk_l, Nk_l, pdyn_l, AL_l, SymH_l           
+           WRITE(*,*) iYear_l, iDoy_l, iHour_l, iMin_l, bTot_l, byimf_l, bzimf_l, Vk_l, Nk_l, pdyn_l, AL_l, SymH_l           
            EXIT Read_data_from_file
         END IF
         ! ACHTUNG this assumes the same starting file in omni file, and same cadence of E-field update as the B-field update in RAM-SCB !!! 

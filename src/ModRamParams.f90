@@ -78,6 +78,9 @@ module ModRamParams
  character(len=6) :: event = 'de_flt'
  character(len=4) :: boundary, electric, NameDistrib
 
+ character(len=200) :: NameIndexFile = 'RamIndices.txt'
+ character(len=200) :: NameOmniFile  = 'omni.txt'
+
  ! File write logicals:
  logical :: DoSaveRamSats=.false.
 

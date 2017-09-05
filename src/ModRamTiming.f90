@@ -31,7 +31,10 @@ module ModRamTiming
                        DTEfi        = 300.0,  &  ! How often the electric field is updated
                        DTRestart    = 3600.0, &  ! How often restart files are written (configurable in PARAM)
                        DtLogFile    = 60.0,   &  ! How often the log file is written to (configurable in PARAM)
-                       DtWriteSat   = 60.0       ! How often satellite files are written to (configurable in PARAM)
+                       DtWriteSat   = 60.0,   &  ! How often satellite files are written to (configurable in PARAM)
+                       DtW_Pressure = 300.0,  &
+                       DtW_hI       = 300.0,  &
+                       DtW_EField   = 3600.0
   real(kind=Real8_) :: T, UTs
   real(kind=Real8_) :: Efficiency = 0.0, SysTimeStart, SysTimeNow
   real(kind=Real8_) :: dtPrintTiming = 300.0
@@ -156,10 +159,15 @@ contains
     ! of time that passed since the file was last written and the write
     ! frequency.  Divide by two because of time splitting.
     max_output_timestep=min( &
-         DtLogfile-mod(TimeIn, DtLogfile), &
-         DtSatTemp-mod(TimeIn, DtSatTemp), &
-         Dt_hI    -mod(TimeIn, Dt_hI    ), &
-         DtRestart-mod(TimeIn, DtRestart)  ) / 2.0
+         DtLogfile   -mod(TimeIn, DtLogfile   ), &
+         DtSatTemp   -mod(TimeIn, DtSatTemp   ), &
+         Dt_hI       -mod(TimeIn, Dt_hI       ), &
+         Dt_bc       -mod(TimeIn, Dt_bc       ), &
+         DtEfi       -mod(TimeIn, DtEfi       ), &
+         DtRestart   -mod(TimeIn, DtRestart   ), &
+         DtW_Pressure-mod(TimeIn, DtW_Pressure), &
+         DtW_EField  -mod(TimeIn, DtW_EField  ), &
+         DtW_hI      -mod(TimeIn, DtW_hI      )) / 2.0
 
     if(DoTestMe)then
        call write_prefix

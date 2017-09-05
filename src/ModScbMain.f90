@@ -46,11 +46,6 @@ MODULE ModScbMain
 
   integer :: iInterpMethod = 1 ! DO NOT CHANGE FOR RAM-SCB ! PSPLINE interpolation
 
-  !method = 2 ! DO NOT CHANGE FOR RAM-SCB 
-  ! SOR computation of PDE; faster than direct method for N larger than about 41
-  ! ! method = 3 means no calculation
-  ! method NOW SET IN INIT_RAMSCB.F90; DEFAULTS TO 2.
-
   ! iWantAlphaExtrapolation = 0 ! Do not extrapolate alpha (beta) on the
   ! first/last flux surface
   integer :: iWantAlphaExtrapolation = 1 ! Extrapolate alpha (beta) on the first/last flux surface

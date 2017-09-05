@@ -8,9 +8,9 @@ module ModRamIndices
   ! the PARAM interface, allows the user to select source of indices, gather
   ! and interpolate the values to the current simulation time.
 
-  use ModRamVariables, ONLY: NameIndexSource, NameIndexFile, NameOmniFile, &
-                             nRawKp, nRawF107, kptime, Kp, F107, timeKp, &
-                             timeF107, rawKp, rawF107
+  use ModRamParams,    ONLY: NameIndexFile, NameOmniFile
+  use ModRamVariables, ONLY: NameIndexSource, nRawKp, nRawF107, kptime, Kp, &
+                             F107, timeKp, timeF107, rawKp, rawF107
 
   implicit none
   save
@@ -101,8 +101,8 @@ module ModRamIndices
     nRawKp   = 8*nRawF107
     allocate(timeKp(nRawKp))
     allocate(rawKp(nRawKp))
-    allocate(rawF107(nline))
-    allocate(timeF107(nline))
+    allocate(rawF107(nRawF107))
+    allocate(timeF107(nRawF107))
 
     if(DoTest)then
        write(*,*) NameSub//': Number of lines to read = ', nRawF107

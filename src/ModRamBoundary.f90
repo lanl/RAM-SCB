@@ -54,7 +54,7 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   real(kind=Real8_), allocatable :: flux_II(:,:),logFlux_II(:,:),logELan(:),logERam(:)
 
   ! Usual debug variables.
-  logical :: DoTest, DoTestMe
+  logical :: DoTest, DoTestMe, IsInitialized=.true.
   character(len=*), parameter :: NameSub='get_geomlt_flux'
   !------------------------------------------------------------------------
 
@@ -76,14 +76,14 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
        TimeRamNow%iHour, TimeRamNow%iMinute
 
   ! Initialize both species on first call.
-!  if(.not.IsInitialized)then
-  if (S.eq.1) then
+  if(.not.IsInitialized)then
+    !if (S.eq.1) then
      if(DoTest)write(*,*)NameSub//': Initializing fluxes...'
      call read_geomlt_file('prot')
      if(electrons) call read_geomlt_file('elec')
      timeOffset=3600.0*TimeRamStart%iHour + 60.0*TimeRamStart%iMinute + &
           TimeRamStart%iSecond + TimeRamStart%FracSecond
-!     IsInitialized=.true.
+     IsInitialized=.true.
   end if
 
   ! Check date of file against current date.

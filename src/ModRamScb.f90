@@ -2,23 +2,47 @@ Module ModRamScb
 ! Contains subroutines and functions necessary to couple RAM and SCB
 
   use nrtype, ONLY: DP
-  use ModRamGrids, ONLY: NS, NT, NR, NE, NPA, RadiusMax
-  use ModScbGrids, ONLY: nthe, npsi, nzeta, nAzimRam, nXRaw
 
   implicit none
   save
 
-  INTEGER :: INDEXPA(nthe,npsi,nzeta,NPA) ! Index that maps the pitch angle on each point of a field line to the equatorial (RAM) one
-  REAL(DP) :: flux3DEQ(NS, npsi,nzeta,NE,NPA)
-  INTEGER, PARAMETER :: NRAD = nXRaw+1
+  INTEGER, allocatable :: INDEXPA(:,:,:,:) ! Index that maps the pitch angle on each point of a field line to the equatorial (RAM) one
+  REAL(DP), allocatable :: flux3DEQ(:,:,:,:,:)
+  INTEGER :: NRAD
   INTEGER :: INCFD, j, k, L
-  REAL(DP) :: bfMirror(NPA), bfInterm(NPA)
-  REAL(DP) :: chiMirror(NPA)
-  REAL(DP), DIMENSION(nthe) :: derivs2, dBdTheta, dThetadB, derivs4, &
-                               distance, dyDummyDens
-  REAL(DP) :: BNESPrev(NR+1,NT), FNISPrev(NR+1,NT,NPA), BOUNISPrev(NR+1,NT,NPA)
+  REAL(DP), allocatable :: bfMirror(:), bfInterm(:)
+  REAL(DP), allocatable :: chiMirror(:)
+  REAL(DP), allocatable :: derivs2(:), dBdTheta(:), dThetadB(:), derivs4(:), &
+                           distance(:), dyDummyDens(:)
 
 contains
+
+!==============================================================================
+subroutine ramscb_allocate
+
+  use ModRamGrids, ONLY: NS, NE, NPA
+  use ModScbGrids, ONLY: nthe, npsi, nzeta, nXRaw
+
+  implicit none
+
+  ALLOCATE(INDEXPA(nthe,npsi,nzeta,NPA), Flux3DEq(NS,npsi,nzeta,NE,NPA), &
+           bfMirror(NPA), bfInterm(NPA), chiMirror(NPA), derivs2(nthe), &
+           dBdTheta(nthe), dThetadB(nthe), derivs4(nthe), distance(nthe), &
+           dyDummyDens(nthe))
+  
+  NRAD = nXRaw
+end subroutine ramscb_allocate
+
+
+!==============================================================================
+subroutine ramscb_deallocate
+
+  implicit none
+
+  DEALLOCATE(INDEXPA, Flux3DEq, bfMirror, bfInterm, chiMirror, derivs2, &
+             dBdTheta, dThetadB, derivs4, distance, dyDummyDens)
+
+end subroutine ramscb_deallocate
 
 !==============================================================================
 SUBROUTINE computehI(flux_volume)
@@ -41,14 +65,17 @@ SUBROUTINE computehI(flux_volume)
   !****************************************************************************
 
   use ModRamVariables, ONLY: Kp, F107, FLUX, FNHS, FNIS, BNES, HDNS, dBdt, &
-                             dIdt, dIbndt, BOUNHS, BOUNIS, EIR, EIP
+                             dIdt, dIbndt, BOUNHS, BOUNIS, EIR, EIP, DPHI, PHI, &
+                             RLZ, LZ, MU, DMU, WMU, MLT, PAbn, PA
   use ModRamTiming,    ONLY: TimeRamNow, TimeRamStart, DT_hI
   use ModRamConst,     ONLY: RE, HMIN, ME
   use ModRamParams,    ONLY: electric, IsComponent, NameBoundMag
   use ModRamCouple,    ONLY: SwmfPot_II
+  use ModRamGrids,     ONLY: nR, nT, nPa, nE, RadiusMax
 
   USE ModScbMain,      ONLY: rHour, HourDecimal, Day, HourDecShort, iElectric, &
                              prefixOut
+  use ModScbGrids,     ONLY: nthe, npsi, nzeta, nXRaw, nAzimRAM
   use ModScbVariables, ONLY: bf, chiVal, nZetaMidnight, x, y, z, bnormal, PhiIono, &
                              radGrid, angleGrid, h_Cart, I_Cart, h_Cart_interp, &
                              i_Cart_interp, bZEq_Cart, flux_vol_cart, bZ, &
@@ -65,19 +92,18 @@ SUBROUTINE computehI(flux_volume)
 
   IMPLICIT NONE
 
+  REAL(DP) :: BNESPrev(NR+1,NT), FNISPrev(NR+1,NT,NPA), BOUNISPrev(NR+1,NT,NPA)
   INTEGER :: I, IC, iCount, ierr, IP1, j1, k1, NWK, ncdfId, iFix, iDomain
   INTEGER, DIMENSION(3) :: dimlens 
   INTEGER, PARAMETER :: LIMIT = 10000, INF = 1
-  REAL(DP) :: LZ(NRAD), RAD(NRAD), CONE(NRAD+4), PHI(NT), MLT(NT), PA(NPA), PAbn(NPA),  &
-       DMU(NPA), WMU(NPA), MU(NPA)
+  REAL(DP) :: CONE(NRAD+4)
   REAL(DP) :: MUEQ
   REAL(DP), DIMENSION(2*nthe) :: WK
   REAL(DP) :: switch, start_time, end_time, yLowerLimit, chiHalf, bfHalf
   REAL(DP) :: r0(npsi, nzeta)
-  REAL(DP) :: MUBOUN, RWU, DL1, DR, IR1, DPHI, CLC, dyDummy
+  REAL(DP) :: MUBOUN, RWU, DL1, CLC, dyDummy
   INTEGER, PARAMETER :: LENIW = LIMIT, LENW = 4*LENIW+1
-  INTEGER, PARAMETER :: nXRaw_local = nXRaw+1, nYRaw = nAzimRAM
-  REAL(DP) :: bZEqDiff_Cart(nXRaw_local,nYRaw), Epot_Cart(0:nXRaw_local,nYRaw), beqdip_Cart(nXRaw_local)
+  REAL(DP) :: bZEqDiff_Cart(nR,nT), Epot_Cart(0:nR,nT), beqdip_Cart(nR)
   INTEGER :: iwork(LENIW)  
   INTEGER :: NEVAL, LAST, myAlphaBegin, myAlphaEnd, nratio, alphaRangeDiff
   REAL(DP) :: work(LENW)
@@ -102,7 +128,7 @@ SUBROUTINE computehI(flux_volume)
   CHARACTER(LEN=100) :: HEADER(4)
   INTEGER :: nm_local
   LOGICAL :: SKIP = .FALSE.
-  REAL(DP), PARAMETER :: radOut = RadiusMax+0.25_dp ! 9.25_dp ! 6.75_dp ! 10.25_dp ! Outer domain radius
+  REAL(DP) :: radOut = RadiusMax+0.25_dp ! 9.25_dp ! 6.75_dp ! 10.25_dp ! Outer domain radius
 
   INTEGER :: iSpecies
   REAL(DP) :: EKEV2(NE), MU2(NPA)
@@ -134,81 +160,22 @@ SUBROUTINE computehI(flux_volume)
 
   yLowerLimit = 0._dp
 
-  DO j1 = 0, nXRaw_local
-     radRaw(j1) = 1.75_dp + (radOut-1.75_dp) * REAL(j1,DP)/REAL(nXRaw_local,DP)
+  DO j1 = 0, nR
+     radRaw(j1) = 1.75_dp + (radOut-1.75_dp) * REAL(j1,DP)/REAL(nR,DP)
   END DO
-  DO k1 = 1, nYRaw
-     azimRaw(k1) = 24._dp * REAL(k1-1,DP)/REAL(nYRaw-1,DP)
+  DO k1 = 1, nT
+     azimRaw(k1) = 24._dp * REAL(k1-1,DP)/REAL(nT-1,DP)
   END DO
-
-  !       NPA=no. of grids in equatorial pitch angle
-  !       NPA=72  loss cone at 200 km
-  DL1 = (radOut-2.25_dp)/REAL(NRAD-2, dp)     ! Grid size of L shell
-  IR1=DL1/0.25_dp
-  DR=DL1*RE               ! Grid size for RAD = RO
-  DO I=1,NRAD
-     LZ(I)=2.+(I-2)*DL1
-     RAD(I)=RE*LZ(I)
-  END DO
-
-  DPHI=2._dp*PI_D/(NT-1)      ! Grid size for local time [rad]
-  DO J=1,NT
-     PHI(J)=(J-1)*DPHI     ! Magnetic local time in radian
-     MLT(J)=PHI(J)*12./PI_D  ! Magnetic local time in hour
-  END DO
-  IP1=(MLT(2)-MLT(1))/0.5_dp
 
   !.......CONE - pitch angle loss cone in degree
   DO I = 1,NRAD
-     CLC = (RE+HMIN)/RAD(I)
+     CLC = (RE+HMIN)/RLZ(I)
      CONE(I) = 180._dp/pi_d*ASIN(SQRT(CLC**3/SQRT(4.-3.*CLC)))
   END DO
   CONE(NRAD+1)=2.5_dp          ! to calculate PA grid near 0 deg
   CONE(NRAD+2)=1.5_dp
   CONE(NRAD+3)=1._dp
   CONE(NRAD+4)=0._dp
-
-
-  !.......PA is equatorial pitch angle in deg - PA(1)=90, PA(NPA)=0.
-  !       MU is cosine of equatorial PA
-  PA(1) = 90._dp
-  MU(1) = 0._dp
-  PA(NPA) = 0._dp
-  MU(NPA) = 1._dp
-  RWU = 0.98_dp
-  WMU(1) = (MU(NPA)-MU(1))/32._dp
-
-  !                                    ! |_._|___.___|____.____|______.______|
-  DO L = 1, 46                   !    MU    <  DMU   >    <     WMU     >
-     WMU(L+1) = WMU(L)*RWU
-     DMU(L) = 0.5_dp*(WMU(L)+WMU(L+1))
-     MU(L+1) = MU(L)+DMU(L)
-     PA(L+1) = 180._dp/pi_d*ACOS(MU(L+1))
-  END DO
-
-  PA(48) = 18.7_dp
-  MU(48) = COS(pi_d/180._dp*PA(48))
-  DMU(47) = (MU(48)-MU(47))
-  IC = 2
-  DO L = 48, NPA-1
-     PA(L+1) = CONE(IC)
-     IF(L == 49) THEN
-        PA(50) = 16._dp
-     ELSE
-        IC = IC+1
-     ENDIF
-     MU(L+1) = COS(pi_d/180._dp*PA(L+1))
-     DMU(L) = (MU(L+1)-MU(L))       ! Grid size in cos pitch angle
-     WMU(L) = 2._dp*(DMU(L-1) - 0.5*WMU(L-1))
-     IF(L > 55)WMU(L) = 0.5_dp*(DMU(L)+DMU(L-1))
-  END DO
-  DMU(NPA) = DMU(NPA-1)
-  WMU(NPA) = DMU(NPA-1)
-  DO L = 1, NPA-1
-     MUBOUN = MU(L)+0.5_dp*WMU(L)
-     PAbn(L) = 180._dp/pi_d*ACOS(MUBOUN)          ! PA at boundary of grid
-  ENDDO
-  PAbn(NPA)=0._dp
 
   INCFD = 1
   NWK = 2*(nthe-nThetaEquator+1)
@@ -219,8 +186,8 @@ SUBROUTINE computehI(flux_volume)
      DO L = 1, NPA
         DO K = 1, NE
            !Cubic spline interpolation
-           CALL Spline_2D_point(radRaw(1:nXRaw), azimRaw*pi_d/12.0, &
-                                REAL(FLUX(iSpecies, 1:nXRaw,1:nYRaw,K,L),DP), &   
+           CALL Spline_2D_point(radRaw(1:nR), azimRaw*pi_d/12.0, &
+                                REAL(FLUX(iSpecies, 1:nR,1:nT,K,L),DP), &   
                                 radGrid(1:npsi,2:nzeta), angleGrid(1:npsi,2:nzeta), &
                                 flux3DEQ(iSpecies, 1:npsi,2:nzeta,K,L), iDomain) 
         END DO
@@ -463,44 +430,44 @@ SUBROUTINE computehI(flux_volume)
         ! Interpolate data for output in POLAR coordinates (for RAM)
 
      IF (electric=='IESC'.OR.electric=='WESC'.OR.electric=='W5SC') THEN ! Need potential mapping along SC B-field lines
-        CALL Interpolation_natgrid_2D(radRaw(1:nXRaw_local), azimRaw, h_value(1:npsi,2:nzeta,1:NPA), &
+        CALL Interpolation_natgrid_2D(radRaw(1:nR), azimRaw, h_value(1:npsi,2:nzeta,1:NPA), &
                 I_value(1:npsi,2:nzeta,1:NPA), &
                 bZ(nThetaEquator,1:npsi,2:nzeta)*bnormal-beqdip(1:npsi,2:nzeta), &
                 flux_volume(1:npsi,2:nzeta)/bnormal, hdens_value(1:npsi,2:nzeta,1:NPA), &
-                h_Cart(1:nXRaw_local,1:nYRaw,1:NPA), I_Cart(1:nXRaw_local,1:nYRaw,1:NPA), &
-                bZEqDiff_Cart(1:nXRaw_local,1:nYRaw), flux_vol_Cart(1:nXRaw_local,1:nYRaw), &
-                hdens_Cart(1:nXRaw_local,1:nYRaw,1:NPA), PhiIono(1:npsi,2:nzeta), &
-                Epot_Cart(1:nXRaw_local,1:nYRaw))
+                h_Cart(1:nR,1:nT,1:NPA), I_Cart(1:nR,1:nT,1:NPA), &
+                bZEqDiff_Cart(1:nR,1:nT), flux_vol_Cart(1:nR,1:nT), &
+                hdens_Cart(1:nR,1:nT,1:NPA), PhiIono(1:npsi,2:nzeta), &
+                Epot_Cart(1:nR,1:nT))
         Epot_Cart(0,:) = Epot_Cart(1,:) ! 3Dcode domain only extends to 2 RE; at 1.75 RE the potential is very small anyway
      ELSE
-        CALL Interpolation_natgrid_2D(radRaw(1:nXRaw_local), azimRaw, h_value(1:npsi,2:nzeta,1:NPA), &
+        CALL Interpolation_natgrid_2D(radRaw(1:nR), azimRaw, h_value(1:npsi,2:nzeta,1:NPA), &
                 I_value(1:npsi,2:nzeta,1:NPA), bZ(nThetaEquator,1:npsi,2:nzeta)*bnormal-beqdip(1:npsi,2:nzeta), &
                 flux_volume(1:npsi,2:nzeta)/bnormal, hdens_value(1:npsi,2:nzeta,1:NPA), &
-                h_Cart(1:nXRaw_local,1:nYRaw,1:NPA), I_Cart(1:nXRaw_local,1:nYRaw,1:NPA), &
-                bZEqDiff_Cart(1:nXRaw_local,1:nYRaw), flux_vol_Cart(1:nXRaw_local,1:nYRaw), &
-                hdens_Cart(1:nXRaw_local,1:nYRaw,1:NPA))
+                h_Cart(1:nR,1:nT,1:NPA), I_Cart(1:nR,1:nT,1:NPA), &
+                bZEqDiff_Cart(1:nR,1:nT), flux_vol_Cart(1:nR,1:nT), &
+                hdens_Cart(1:nR,1:nT,1:NPA))
      END IF
 
      ! Add Bdip 
-     beqdip_Cart(1:nXRaw_local) = b0dip/radRaw(1:nXRaw_local)**3
+     beqdip_Cart(1:nR) = b0dip/radRaw(1:nR)**3
 
      ! If 3D code domain does not extend to radOut: (ACHTUNG!!!)
      ! print*, 'computehI: max(x), radOut = ', real(maxval(abs(x)),sp), real(radOut,SP)
      IF (MAXVAL(ABS(x)) <= radOut) THEN
-        h_Cart(nXRaw_local,:,:) = h_Cart(nXRaw_local-1,:,:)
-        I_Cart(nXRaw_local,:,:) = I_Cart(nXRaw_local-1,:,:)
-        bZEqDiff_Cart(nXRaw_local,:) = bZEqDiff_Cart(nXRaw_local-1,:)
-        hdens_Cart(nXRaw_local,:,:) = hdens_Cart(nXRaw_local-1,:,:)
-        IF (iElectric == 1) Epot_Cart(nXRaw_local,:) = Epot_Cart(nXRaw_local-1,:)
+        h_Cart(nR,:,:) = h_Cart(nR-1,:,:)
+        I_Cart(nR,:,:) = I_Cart(nR-1,:,:)
+        bZEqDiff_Cart(nR,:) = bZEqDiff_Cart(nR-1,:)
+        hdens_Cart(nR,:,:) = hdens_Cart(nR-1,:,:)
+        IF (iElectric == 1) Epot_Cart(nR,:) = Epot_Cart(nR-1,:)
      END IF
 
      ! Add dipole field
-     DO j = 1, nYRaw
+     DO j = 1, nT
         bZEq_Cart(:,j)  = bZEqDiff_Cart(:,j) + beqdip_Cart
      END DO
 
      ! Make field quasi-dipole as R -> 2 RE
-     DO i = 1, nXRaw_local
+     DO i = 1, nR
         IF (radRaw(i) <= 3.0) bZEq_Cart(i,:) = EXP(-2.*(radRaw(i)-3.0)**2)*bZEq_Cart(i,:) + &
              (1.-EXP(-2.*(RadRaw(i)-3.0)**2))*beqdip_Cart(i)
      END DO
@@ -513,8 +480,8 @@ SUBROUTINE computehI(flux_volume)
 
 !     Master_rank:  IF (rank == 0) THEN
         ! Cubic spline interpolation with natural boundaries to get h and I at muboun 
-        DO j = 1, nYRaw
-           DO i = 1, nXRaw_local
+        DO j = 1, nT
+           DO i = 1, nR
               CALL spline(PA(1:NPA),h_Cart(i,j,1:NPA),1.E31_dp,1.E31_dp,dyDummy1(1:NPA))
               CALL spline(PA(1:NPA),I_Cart(i,j,1:NPA),1.E31_dp,1.E31_dp,dyDummy2(1:NPA))
               DO L = 1, NPA-1
@@ -580,8 +547,8 @@ SUBROUTINE computehI(flux_volume)
 !     WRITE(UNITTMP_, 15) 'T= ', rHour
      WRITE(UNITTMP_, 25) '   Lsh        MLT    NPA    h(Lsh,MLT,NPA)  hBoun(Lsh,MLT,NPA) '//&
              'I(Lsh,MLT,NPA) IBoun(Lsh,MLT,NPA) Bz(Lsh,MLT) HDENS(Lsh,MLT,NPA) fluxVolume(Lsh,MLT)'
-     DO i = 1, nXRaw_local
-        DO j = 1, nYRaw
+     DO i = 1, nR
+        DO j = 1, nT
            DO L = 1, NPA
               WRITE(UNITTMP_, *) radRaw(i), azimRaw(j), L, h_Cart(i,j,L), h_Cart_interp(i,j,L), &
                    I_Cart(i,j,L), I_Cart_interp(i,j,L), bZEq_Cart(i,j), hdens_Cart(i,j,L), flux_vol_Cart(i,j)
@@ -602,20 +569,20 @@ SUBROUTINE computehI(flux_volume)
                 REAL(TimeRamNow%iMinute)/60.0, kp, f107, 0.0, 0.0, 0.0
            WRITE(UNITTMP_, '(A)') 'SWMF ionospheric potential mapped along SCB lines'
            WRITE(UNITTMP_, '(A)') 'L     PHI       Epot(kV)'
-           DO i = 0, nXRaw_local
-              DO j = 1, nYRaw
+           DO i = 0, nR
+              DO j = 1, nT
                  WRITE(UNITTMP_, 22) radRaw(i), azimRaw(j)*2.*pi_d/24., Epot_Cart(i,j)
               END DO
            END DO
            CLOSE(UNITTMP_)
 
            ! Save traced potential to ModRamCouple::SwmfPot_II
-           IF(IsComponent) SwmfPot_II(1:nXRaw_local+1,1:nYRaw) = &
-                Epot_Cart(0:nXRaw_local,  1:nYRaw)
+           IF(IsComponent) SwmfPot_II(1:nR+1,1:nT) = &
+                Epot_Cart(0:nR,  1:nT)
         END IF SWMF_electric_potential
 
         Weimer_electric_potential_along_SCB: IF (electric=='WESC' .or. electric=='W5SC') THEN
-           SwmfPot_II(1:nXRaw_local+1,1:nYRaw) = Epot_Cart(0:nXRaw_local, 1:nYRaw)
+           SwmfPot_II(1:nR+1,1:nT) = Epot_Cart(0:nR, 1:nT)
            print*, 'computehI: SwmfPot_II here SwmfPot_II mm', maxval(swmfpot_II), minval(swmfpot_ii)
         END IF Weimer_electric_potential_along_SCB
         
@@ -632,6 +599,7 @@ SUBROUTINE computehI(flux_volume)
 
 END SUBROUTINE computehI
 
+!==============================================================================
 FUNCTION fInt(chi_local)
   USE nrtype,          ONLY: DP
   use ModScbGrids,     ONLY: nthe
@@ -653,7 +621,7 @@ FUNCTION fInt(chi_local)
   RETURN
 END FUNCTION fInt
 
-
+!==============================================================================
 FUNCTION fIntDer(t_local)
   USE nrtype,          ONLY: DP
   use ModScbGrids,     ONLY: nthe
@@ -679,7 +647,7 @@ FUNCTION fIntDer(t_local)
   RETURN
 END FUNCTION fIntDer
 
-
+!==============================================================================
 FUNCTION fScalarIntDens(chi_local)
   USE nrtype,          ONLY: DP
   use ModScbGrids,     ONLY: nthe
@@ -704,7 +672,7 @@ FUNCTION fScalarIntDens(chi_local)
 
 END FUNCTION fScalarIntDens
 
-
+!==============================================================================
 FUNCTION fScalarInt(chi_local)
   USE nrtype,          ONLY: DP
   use ModScbGrids,     ONLY: nthe
@@ -739,7 +707,7 @@ FUNCTION fScalarInt(chi_local)
 
 END FUNCTION fScalarInt
 
-
+!==============================================================================
 FUNCTION fScalarIntInf(y_local)
   USE nrtype,          ONLY: DP
   use ModScbGrids,     ONLY: nthe
@@ -770,7 +738,7 @@ FUNCTION fScalarIntInf(y_local)
   RETURN
 END FUNCTION fScalarIntInf
 
-
+!==============================================================================
 FUNCTION fScalarIntInfDens(y_local)
   USE nrtype,          ONLY: DP
   use ModScbGrids,     ONLY: nthe
@@ -804,7 +772,7 @@ FUNCTION fScalarIntInfDens(y_local)
   RETURN
 END FUNCTION fScalarIntInfDens
 
-
+!==============================================================================
 FUNCTION hdens_rairden(radius)
   USE nrtype, ONLY : DP
   IMPLICIT NONE
