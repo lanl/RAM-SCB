@@ -32,7 +32,9 @@ module ModRamCouple
        RhoHe_= -1, PresHe_= -1, &
        RhoO_ = -1, PresO_ = -1, &
        RhoSw_= -1, PresSw_= -1, &
-       Ppar_ = -1, Bmin_  = -1
+       Ppar_ = -1, Bmin_  = -1, &
+       Bx_=-1, By_=-1, Bz_=-1,  &
+       Ux_=-1, Uy_=-1, Uz_=-1
 
   logical :: DoMultiFluidGMCoupling = .false.
 
@@ -47,6 +49,10 @@ module ModRamCouple
   real(kind=Real8_), public, allocatable :: PMhdGhost(:)! MHD pressure at RAM ghost cells.
   real(kind=Real8_), public, allocatable :: FluxBats_anis(:,:,:,:)
 
+  ! Variables for E-field coupling with MHD (E=UxB):
+  ! Only need equatorial values.
+  real(kind=Real8_), public, allocatable :: ETotal_DII(:,:,:)
+  
   ! Variables for B-field coupling with MHD:
   integer, public, parameter   :: nPointsMax = 200
   integer, public :: nRadSWMF, nRadSwmfVar, nRadSwmfVarInner, &
@@ -57,7 +63,7 @@ module ModRamCouple
        zSWMF(:,:,:), LatSWMF(:,:), LonSWMF(:,:)
   real(kind=Real8_), public, allocatable :: xEqSWMF(:,:), yEqSWMF(:,:), &
        pEqSWMF(:,:), nEqSWMF(:,:)
-  
+  real(kind=Real8_), public, allocatable :: uEqSWMF_DII(:,:,:), bEqSWMF_DII(:,:,:)
 
   ! Variables for coupling to SWMF-IE component:
   integer, public :: nIePhi=0, nIeTheta=0
@@ -73,14 +79,21 @@ contains
     implicit none
 
     ALLOCATE(IonoMap_DSII(3,2,nRextend,nT), MhdDensPres_VII(3,nT,4), FluxBats_IIS(nE, nT, 1:4), &
-             PMhdGhost(nT), FluxBats_anis(nE,nPa,nT,1:4), iEnd(2*(nR+1)*nT), xEqSWMF(nR+1,nT-1), &
-             yEqSWMF(nR+1,nT-1), pEqSWMF(nR+1,nT-1), nEqSWMF(nR+1,nT-1), SwmfPot_II(nR+1, nT))
+             PMhdGhost(nT), FluxBats_anis(nE,nPa,nT,1:4), iEnd(2*(nRExtend)*nT), xEqSWMF(nRExtend,nT-1), &
+             yEqSWMF(nRExtend,nT-1), pEqSWMF(nRExtend,nT-1), nEqSWMF(nRExtend,nT-1), SwmfPot_II(nR+1, nT), &
+             uEqSWMF_DII(3,nRExtend,nT-1),bEqSWMF_DII(3,nRExtend,nT-1),ETotal_DII(2,nR,nT))
 
     SWMFPot_II = 0.
     FluxBats_anis = 0.
     PMhdGhost = 0.
     FluxBats_IIS = 0.
     IonoMap_DSII = 0.
+    xEqSWMF = 0.
+    yEqSWMF = 0.
+    pEqSWMF = 0.
+    nEqSWMF = 0.
+    uEqSWMF_DII = 0.
+    bEqSWMF_DII = 0.
 
   end subroutine RAMCouple_Allocate
 
@@ -103,8 +116,8 @@ contains
     
     implicit none
 
-    character(len=200), intent(in) :: NameVarIn
-    integer, intent(in)            :: nVarIn
+    character(len=*), intent(in) :: NameVarIn
+    integer, intent(in)          :: nVarIn
 
     character(len=200) :: NameVar
     integer :: i, nChar
@@ -121,38 +134,50 @@ contains
        nChar=index(NameVar, ' ')
        if (nChar .eq. -1) nChar = len(trim(NameVar))
        select case ( trim(NameVar(1:nChar)) )
-       case ('rho')
+       case('rho')
           TotalRho_ = i
-       case ('Rho')
+       case('Rho')
           TotalRho_ = i
-       case ('p')
+       case('p')
           TotalPres_ = i
-       case ('P')
+       case('P')
           TotalPres_ = i
-       case ('RhoH')
+       case('RhoH')
           RhoH_ = i
-       case ('HpRho')
+       case('HpRho')
           RhoH_ = i
-       case ('RhoHe')
+       case('RhoHe')
           RhoHe_ = i
-       case ('RhoO')
+       case('RhoO')
           RhoO_ = i
        case ('OpRho')
           RhoO_ = i
-       case ('SwRho')
+       case('SwRho')
           RhoSw_ = i
-       case ('HpP')
+       case('HpP')
           PresH_ = i
-       case ('HeP')
+       case('HeP')
           PresHe_ = i
-       case ('OpP')
+       case('OpP')
           PresO_ = i
-       case ('SwP')
+       case('SwP')
           PresSw_ = i
-      case('Ppar')
+       case('Ppar')
           Ppar_ = i
-       case ('ppar')
+       case('ppar')
           Ppar_ = i
+       case('ux')
+          Ux_=i
+       case('uy')
+          Uy_=i
+       case('uz')
+          Uz_=i  
+       case('bx')
+          Bx_=i
+       case('by')
+          By_=i
+       case('bz')
+          Bz_=i
        end select
        NameVar = trim( NameVar(nChar + 1:len(NameVar)) )
     end do
@@ -166,10 +191,10 @@ contains
        write(*,*) 'RAM_SCB: TypeMhd = ', TypeMhd
        write(*,*) 'RAM_SCB: MHD Indices = ', &
             'total = ', TotalRho_, TotalPres_, &
-            'h = ', RhoH_, PresH_, &
-            'he = ', RhoHe_,PresHe_, &
-            'o = ', RhoO_, PresO_, &
-            'sw = ', RhoSw_,PresSw_
+            'H+    = ', RhoH_, PresH_, &
+            'He+   = ', RhoHe_,PresHe_, &
+            'O+    = ', RhoO_, PresO_, &
+            'Sw H+ = ', RhoSw_,PresSw_
     end if
 
   end subroutine set_type_mhd
@@ -188,7 +213,7 @@ contains
     real(kind=Real8_), intent(in) :: BufferLine_VI(nVarIn, nPointIn)
 
     integer           :: i, j, iRad, iLon, iLine, iPointBuff, iPointLine
-    real(kind=Real8_) :: xRam, yRam
+    real(kind=Real8_) :: xRam, yRam, Corot=7.272205E-5!rads/sec
 
     logical :: DoTest, DoTestMe
     character(len=*), parameter :: NameSub='sort_mhd_lines'
@@ -209,9 +234,12 @@ contains
           cycle NewLine
        end if
 
+       ! Grab all points on current line:
        do while(BufferLine_VI(1,iPointBuff)==iLine)
-          ! As long as we're on the same line, sort those points.
           MhdLines_IIV(iLine, iPointLine, :) = BufferLine_VI(:, iPointBuff)
+          ! Do not exceed buffer:
+          if (iPointBuff == nPointIn) exit
+          ! Continue along line: 
           iPointBuff = iPointBuff + 1
           iPointLine = iPointLine + 1
        end do
@@ -250,6 +278,14 @@ contains
           ! Southern hemisphere?  Use simple symmetry.
           if(mod(iLine, 2) == 0) MhdLines_IIV(iLine,:,5) = &
                -1.0*MhdLines_IIV(iLine,:,5)
+          ! Fill equatorial values with simple conditions:
+          ! Magnetic field: use dipole field, SI units are Tesla.
+          MhdLines_IIV(iLine,1,Bx_:By_) = 0.0
+          MhdLines_IIV(iLine,1,Bz_)     = 7.84E15 / lz(iRad)**3
+          ! Flow velocity: corotation
+          MhdLines_IIV(iLine,1,Ux_) = corot*lz(iRad)*sin(phi(iLon))
+          MhdLines_IIV(iLine,1,Uy_) = corot*lz(iRad)*cos(phi(iLon))
+          MhdLines_IIV(iLine,1,Uz_) = 0.0
        else
           i = iEnd(iLine)
           !write(*,*)'Extending!'
@@ -279,23 +315,35 @@ contains
 
     ! Save equatorial values, working backwards towards missing values.
     ! Note that the repeated longitude (0 and 2*pi) is skipped the 2nd time.
-    do j=nT-1, 1, -1
-       do i=nR+1, 1, -1
+    ! This section is for debug file writing and is not currently leveraged by
+    ! SCB.  In the future, this section should be checked as indices do not
+    ! line up correctly.
+    
+    ! Save equatorial values.  EqSWMF values are written to SCB output for
+    ! later reference but not used in calculation.
+    do j=1, nT-1
+       do i=1, nRextend
           ! Find corresponding trace.
-          iLine = 2* ((nR+1)*(j-1) + i)
-          ! Collect equatorial values.
+          iLine = 2*((nRextend+1)*(j-1) + i)-1 
+          ! Collect scalar equatorial values (iLine, 1st trace point, variable):
           xEqSWMF(i,j) = MhdLines_IIV(iLine,1,3)
           yEqSWMF(i,j) = MhdLines_IIV(iLine,1,4)
-          pEqSWMF(i,j) = MhdLines_IIV(iLine,1,TotalPres_)*1.0E9 !Pa->nPa
+          pEqSWMF(i,j) = MhdLines_IIV(iLine,1,TotalPres_)*1.0E9    !Pa->nPa
           nEqSWMF(i,j) = MhdLines_IIV(iLine,1,TotalRho_ )*1.67E-23 !amu->cm3
-          ! For missing lines filled w/ dipole, grab last good values.
-          if (iEnd(iLine) == -1) then
-             pEqSWMF(i,j) = pEqSWMF(i+1,j)
-             nEqSWMF(i,j) = nEqSWMF(i+1,j)
-          end if
+          ! Collect vector equatorial values (always sequential in list):
+          bEqSWMF_DII(:,i,j) = MhdLines_IIV(iLine,1,Bx_:Bz_)
+          uEqSWMF_DII(:,i,j) = MhdLines_IIV(iLine,1,Ux_:Uz_)
        end do
     end do
-  
+
+    ! Calculate total UxB electric field in equatorial plane.
+    iRad=nRextend-2 ! Do not include ghost cells from coupling.
+    ETotal_DII(1,:,1:nT-1) = uEqSWMF_DII(2,2:iRad,:)*bEqSWMF_DII(3,2:iRad,:) &
+         -uEqSWMF_DII(3,2:iRad,:)*bEqSWMF_DII(2,2:iRad,:) ! X-component
+    
+    ETotal_DII(2,:,1:nT-1) = uEqSWMF_DII(1,2:iRad,:)*bEqSWMF_DII(3,2:iRad,:) &
+         -uEqSWMF_DII(3,2:iRad,:)*bEqSWMF_DII(1,2:iRad,:) ! Y-component
+    
   end subroutine sort_mhd_lines
   !===========================================================================
   subroutine generate_flux
@@ -476,7 +524,8 @@ contains
                   iT, MhdDensPres_VII(1,iT,1:4), MhdDensPres_VII(2,iT,1:4)
          else
              write(UnitTmp_, '(i2.2, 12(1x, E13.6))') &
-                  iT,MhdDensPres_VII(1,iT,1:4),MhdDensPres_VII(2,iT,1:4),MhdDensPres_VII(3,iT,1:4)
+                  iT,MhdDensPres_VII(1,iT,1:4),MhdDensPres_VII(2,iT,1:4), &
+                  MhdDensPres_VII(3,iT,1:4)
           end if
        end do
        close(UnitTmp_)

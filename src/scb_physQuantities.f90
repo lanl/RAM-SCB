@@ -35,7 +35,7 @@ SUBROUTINE metrics
   INTEGER :: i, j, k, nzd1, nzd2, nzd3, nzd4, nthe0, nthe1, id, ierr, idealerr, ncdfId
   INTEGER, DIMENSION(3) :: dimlens = (/1, 1, 1/)
   REAL(DP) :: yyp, bju, bjd, normDivJCrossB, normCurlJCrossB, volume, region1FAC, region2FAC, &
-       totalCROSS, dstComputed, EAlpha, EBeta, gradPhiIonoGradAlpha, gradPhiIonoGradBeta
+       totalCROSS, dstComputed=0.0, EAlpha, EBeta, gradPhiIonoGradAlpha, gradPhiIonoGradBeta
   REAL(DP) :: metricDif(nthe, nzeta), metricDif2(nthe, npsi)
   REAL(DP), DIMENSION(nthe,npsi,nzeta) :: alphaTerm, psiTerm, derivNU1, derivNU2
   REAL(DP), DIMENSION(nthe,npsi,nzeta) :: derivXTheta, derivXRho, derivXZeta, &

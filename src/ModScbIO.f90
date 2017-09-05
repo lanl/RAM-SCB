@@ -38,8 +38,9 @@ MODULE ModScbIO
   
     INTEGER, DIMENSION(3) :: dimlens, dimlens2
   
-    REAL(SP) :: tiltSP
-    REAL(DP) :: er, error, xpsi_in, xpsi_out, tiltDP, KpReal, xpsiin_fl, &
+    REAL(SP) :: tiltSP = 0.0
+    REAL(DP) :: tiltDP = 0.0
+    REAL(DP) :: er, error, xpsi_in, xpsi_out, KpReal, xpsiin_fl, &
                 xpsiin_ce, xpsiout_fl, xpsiout_ce
   
     REAL(SP), ALLOCATABLE :: xFl(:,:,:), yFl(:,:,:), zFl(:,:,:), &

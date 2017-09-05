@@ -415,7 +415,7 @@ ENDDO
 
     logical, intent(in) :: ReCalculate
     integer :: UR, i, j, j0, j1, k, l, n
-    real(kind=Real8_) :: p4, qs, x, fup, r, corr, cgr1, cgr2, cgr3
+    real(kind=Real8_) :: p4, qs, x, fup, r, corr, cgr1, cgr2, cgr3, ctemp
     real(kind=Real8_) :: CGR,CR(NR,NT),LIMITER
     real(kind=Real8_) :: F(NR+2),FBND(NR)
 
@@ -450,7 +450,8 @@ ENDDO
                   -2*FNHS(I,J,L))*CGR2/2./(BNES(I+1,J)+BNES(I,J))
               CGR=CGR3/(FNHS(I,J,L)+FNHS(I+1,J,L))*P4/2./(BNES(I,J)+BNES(I+1,J))/(RLZ(I)+0.5*MDR)
               CDriftR(I,J,K,L)=CR(I,J)+CGR
-              DTDriftR = min( DTDriftR, FracCFL*DTs/abs(CDriftR(I,J,K,L)))
+              ctemp = max(abs(CDriftR(I,J,K,L)),1E-10)
+              DTDriftR = min( DTDriftR, FracCFL*DTs/ctemp)
               sgnDriftR(I,J,K,L)=1
               IF (CDriftR(I,J,K,L).NE.ABS(CDriftR(I,J,K,L))) sgnDriftR(I,J,K,L)=-1
             END DO
@@ -510,7 +511,7 @@ ENDDO
 
     logical, intent(in) :: ReCalculate
     integer :: i, sgn, j, j1, k, l, n
-    real(kind=Real8_) :: x, fup, r, corr, ome
+    real(kind=Real8_) :: x, fup, r, corr, ome, ctemp
     real(kind=Real8_) :: GPA1,GPA2
     real(kind=Real8_) :: FBND(NT),F(NT),LIMITER
 
@@ -532,7 +533,8 @@ ENDDO
                                   -P2(I,K)*(GPA1+GPA2)/(FNHS(I,J,L)+FNHS(I,J1,L)) &
                                   -(EIR(I,J1)+EIR(I,J))/RLZ(I)*DTs/DPHI)/(BNES(I,J) &
                                 +BNES(I,J1))+OME*DTs/DPHI
-              DtDriftP = min(DtDriftP, FracCFL*DTs/abs(CDriftP(I,J,K,L)))
+              ctemp = max(abs(CDriftP(I,J,K,L)),1E-10)
+              DtDriftP = min(DtDriftP, FracCFL*DTs/ctemp)
             endif
             sgn=1
             IF (CDriftP(I,J,K,L).NE.ABS(CDriftP(I,J,K,L))) sgn=-1
@@ -587,7 +589,7 @@ ENDDO
     integer :: i, sgn, j, j0, j2, k, l, n
     real(kind=Real8_) :: ezero,gpa,gpr1,gpr2,gpr3,gpp1,gpp2,edt1,qs, &
                          drdt, dpdt, dbdt1, didt1, x, fup, r, corr, ome
-    real(kind=Real8_) :: GRZERO, DRD1,DPD1,DRD2,DPD2
+    real(kind=Real8_) :: GRZERO, DRD1,DPD1,DRD2,DPD2, ctemp
     real(kind=Real8_) :: FBND(NE),F(0:NE+2),LIMITER
 
     if (ReCalculate) DtDriftE=10000.0
@@ -630,7 +632,8 @@ ENDDO
               dBdt1 = dBdt(I,J)*(1.-FNIS(I,J,L)/2./FNHS(I,J,L))*RLZ(I)/BNES(I,J)
               dIdt1 = -dIdt(I,J,L)*RLZ(I)/FNHS(I,J,L)
               CDriftE(I,J,K,L) = EDOT(I,K)*((GPR1+GPR2+GPR3)*DRDT+(GPP1+GPP2)*DPDT+dBdt1+dIdt1)
-              DtDriftE = min(DtDriftE, FracCFL*DTs*DE(K)/abs(CDriftE(I,J,K,L)))
+              ctemp = max(abs(CDriftE(I,J,K,L)),1E-10)
+              DtDriftE = min(DtDriftE, FracCFL*DTs*DE(K)/ctemp)
             endif
             sgn=1
             IF(CDriftE(I,J,K,L).NE.ABS(CDriftE(I,J,K,L))) sgn=-1
@@ -680,7 +683,7 @@ ENDDO
     integer :: i, j, j0, j1, k, l, n
     real(kind=Real8_) :: gmr1, gmr2, gmr3, gmp1, gmp2, qs, &
                          drdm, dpdm, dbdt2, dibndt2, x, fup, r, corr, ome
-    real(kind=Real8_) :: CMUDOT,EDT,DRM2,DPM2,DRM1,DPM1
+    real(kind=Real8_) :: CMUDOT,EDT,DRM2,DPM2,DRM1,DPM1, ctemp
     real(kind=Real8_) :: FBND(NPA),F(NPA+1),LIMITER
     integer :: ISGM
 
@@ -717,7 +720,8 @@ ENDDO
               dBdt2   = dBdt(I,J)/2./BNES(I,J)*RLZ(I)
               dIbndt2 = dIbndt(I,J,L)*RLZ(I)/BOUNIS(I,J,L)
               CDriftMu(I,J,K,L) = -CMUDOT*((GMR1+GMR2+GMR3)*DRDM+(GMP1+GMP2)*DPDM+dBdt2+dIbndt2)
-              DtDriftMu=min(DtDriftMu,FracCFL*DTs*DMU(L)/max(1e-32,abs(CDriftMu(I,J,K,L))))
+              ctemp = max(abs(CDriftMu(I,J,K,L)),1E-32)
+              DtDriftMu=min(DtDriftMu,FracCFL*DTs*DMU(L)/ctemp)
             endif
             ISGM=1
             IF(CDriftMu(I,J,K,L).NE.ABS(CDriftMu(I,J,K,L))) ISGM=-1
