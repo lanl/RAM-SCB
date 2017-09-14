@@ -44,11 +44,8 @@ use ModRamMpi
 implicit none
 
 real(kind=Real8_) :: DtOutputMax, DtEndMax
-real(kind=Real8_), ALLOCATABLE :: fluxVolume(:,:)
 
 !----------------------------------------------------------------------------
-ALLOCATE(fluxVolume(npsi,nzeta))
-
 ! Ensure code is set to StandAlone mode.
 IsComponent = .false.
 
@@ -150,10 +147,10 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
          call write_prefix
          write(*,*) 'Running SCB model to update B-field...'
          call ram_sum_pressure
-         call scb_run(fluxVolume)
+         call scb_run
 
          ! Couple SCB -> RAM
-         call computehI(fluxVolume)
+         call computehI
 
          call write_prefix
          write(*,*) 'Finished 3D Equilibrium code.'

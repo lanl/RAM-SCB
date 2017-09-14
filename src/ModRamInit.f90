@@ -99,14 +99,14 @@ subroutine ram_init
   !!!! Module Variables
   use ModRamParams,    ONLY: DoUseWPI, DoUseBASDiff
   use ModRamMain,      ONLY: Real8_, S
-  use ModRamTiming,    ONLY: TimeRamStart, TimeMax, TimeRamRealStart
+  use ModRamTiming,    ONLY: TimeRamStart, TimeMax, TimeRamRealStart, TimeRamNow
   use ModRamGrids,     ONLY: RadiusMax, RadiusMin, nR, nRExtend, nT
   use ModRamVariables, ONLY: PParH, PPerH, PParHe, PPerHe, PParO, PPerO, PParE, &
                              PPerE, LSDR, LSCHA, LSATM, LSCOE, LSCSC, LSWAE, ELORC, &
                              SETRC, XNN, XND, ENERN, ENERD, LNCN, LNCD, LECN, LECD
   !!!! Modules Subroutines/Functions
   use ModRamWPI,     ONLY: WAPARA_HISS, WAPARA_BAS, WAPARA_CHORUS, WAVEPARA1, WAVEPARA2
-  use ModRamIndices, ONLY: init_indices
+  use ModRamIndices, ONLY: init_indices, get_indices
   !!!! Share Modules
   use ModTimeConvert, ONLY: TimeType, time_real_to_int
   use ModNumConst,    ONLY: cTwoPi
@@ -131,6 +131,7 @@ subroutine ram_init
   TimeRamStop%Time = TimeRamStart%Time + TimeMax
   call time_real_to_int(TimeRamStop)
   call init_indices(TimeRamRealStart, TimeRamStop)
+  call get_indices(TimeRamNow%Time, Kp, f107)
 
 !!!!!!!!! Zero Values
   ! Initialize Pressures.

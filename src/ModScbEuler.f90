@@ -501,7 +501,7 @@ MODULE ModScbEuler
              END IF
           END IF
   
-          IF((ni > 1) .AND. (anormResid < 1e-3_dp*anormf)) THEN  ! SOR iteration has converged
+          IF((ni > 1) .AND. (anormResid < 1e-6_dp*anormf)) THEN  ! SOR iteration has converged
              EXIT Iterations
           END IF
   
@@ -1034,7 +1034,7 @@ MODULE ModScbEuler
              END IF
           END IF
   
-          IF((ni > 1) .AND. (anormResid < 1e-3_dp*anormf)) THEN
+          IF((ni > 1) .AND. (anormResid < 1e-6_dp*anormf)) THEN
              !           print*, 'exiting Iterations, ni = ', ni
              EXIT Iterations
           END IF

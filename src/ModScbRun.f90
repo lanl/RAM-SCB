@@ -15,7 +15,7 @@
     contains
   
 !==============================================================================
-  SUBROUTINE scb_run(fluxVolume)
+  SUBROUTINE scb_run
     !!!! Module Variables
     use ModRamParams,    ONLY: boundary, electric
     use ModRamVariables, ONLY: KP  
@@ -27,7 +27,7 @@
                                decreaseConvAlpha, decreaseConvPsi, errorAlpha, errorPsi, &
                                diffmx, errorAlphaPrev, errorPsiPrev, x, y, z, sumb, &
                                sumdb, jacobian, xzero3, psiin, psiout, psitot, &
-                               xpsiin, xpsiout, f, fp
+                               xpsiin, xpsiout, f, fp, fluxVolume
     use ModScbParams,    ONLY: decreaseConvAlphaMin, decreaseConvPsiMin, blendMin, &
                                decreaseConvAlphaMax, decreaseConvPsiMax, blendMax
     !!!! Module Subroutine/Functions
@@ -42,7 +42,6 @@
   
     IMPLICIT NONE
   
-    REAL(DP), intent(out) :: fluxVolume(npsi,nzeta)
     INTEGER  :: iconv, nisave1, ierr, iCountEntropy
     INTEGER  :: i, j
     REAL(DP) :: sumdbconv, errorfirstalpha, diffmxfirstalpha, &
@@ -59,7 +58,29 @@
                         *(MIN(Kp,6._dp))**2/36.
     decreaseConvPsi   = decreaseConvPsiMin + (decreaseConvPsiMax - decreaseConvPsiMin) &
                         *(MIN(Kp,6._dp))**2/36.
-  
+
+!    call computational_domain
+!    !c  Need to make sure that psival is a monotonically increasing function of
+!    !j
+!    !c  define psival grids that correspond to dipole psivals for j=1 and j=npsi
+!    !c  define psival grids that correspond to equal equatorial distance grids
+!    !in
+!    !the midnight sector
+!    psiin   = -xzero3/xpsiin
+!    psiout  = -xzero3/xpsiout
+!    psitot  = psiout-psiin
+!    xpsitot = xpsiout - xpsiin
+!    DO j = 1, npsi
+!       psis = REAL(j-1, DP) / REAL(npsi-1, DP)
+!       xpl = xpsiin + xpsitot * psis**pow
+!       psival(j) = -xzero3 / xpl
+!       f(j) = (xzero3 / xpl**2) * xpsitot * pow * psis**(pow-1.)
+!       fp(j) = 0._dp ! If pow = 1
+!    END DO
+!
+!    call psiges
+!    call alfges
+ 
     sumb1 = 0._dp
     sumdb1 = 0._dp
     diffmx1 = 0._dp
@@ -84,29 +105,6 @@
     sumdbconv = 0.0_dp
     iConvGlobal = 0
   
-    call computational_domain
-
-    !c  Need to make sure that psival is a monotonically increasing function of
-    !j
-    !c  define psival grids that correspond to dipole psivals for j=1 and j=npsi
-    !c  define psival grids that correspond to equal equatorial distance grids
-    !in
-    !the midnight sector
-    psiin   = -xzero3/xpsiin
-    psiout  = -xzero3/xpsiout
-    psitot  = psiout-psiin
-    xpsitot = xpsiout - xpsiin
-    DO j = 1, npsi
-       psis = REAL(j-1, DP) / REAL(npsi-1, DP)
-       xpl = xpsiin + xpsitot * psis**pow
-       psival(j) = -xzero3 / xpl
-       f(j) = (xzero3 / xpl**2) * xpsitot * pow * psis**(pow-1.)
-       fp(j) = 0._dp ! If pow = 1
-    END DO
-
-    call psiges
-    call alfges
-
     IF (iAMR == 1) THEN
        CALL findR
        CALL InterpolatePsiR

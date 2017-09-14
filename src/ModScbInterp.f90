@@ -21,7 +21,7 @@ MODULE ModScbInterp
  
     IMPLICIT NONE
   
-    integer, parameter :: NN = 8
+    integer, parameter :: NN = 9
 
     REAL(DP), INTENT(IN) :: r_local(:), azim_local(:)
     REAL(DP), INTENT(IN) :: hFlux_l(:,:,:), IFlux_l(:,:,:), bZEqFlux_l(:,:), &
@@ -70,7 +70,7 @@ MODULE ModScbInterp
     nxl = SIZE(hCart_l,1)
     nyl = SIZE(hCart_l,2)
   
-    nTotal = npsil*(nzetal-1) + 1
+    nTotal = npsil*(nzetal-1)
 
     if (.not.ALLOCATED(distance)) ALLOCATE(distance(nTotal), stat=ierr) 
 
@@ -86,11 +86,11 @@ MODULE ModScbInterp
     IF (PRESENT(Epot_l)) ALLOCATE(EpotScatter(nTotal), stat=ierr)
   
     iTotal = 0
-  
+
     j = 1
     j_loop: DO WHILE (j <= npsil)     
        k = 2
-       k_Loop:  DO WHILE(k < nzetal+1) 
+       k_Loop:  DO WHILE(k <= nzetal) 
           iTotal = iTotal+1
           xScatter(iTotal) = x(nThetaEquator,j,k)
           yScatter(iTotal) = y(nThetaEquator,j,k)

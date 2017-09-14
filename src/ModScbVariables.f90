@@ -15,7 +15,7 @@ Module ModScbVariables
 !
   real(DP), ALLOCATABLE :: h_Cart(:,:,:), h_Cart_interp(:,:,:), I_Cart(:,:,:), &
                            I_Cart_interp(:,:,:), hdens_Cart(:,:,:), bZEq_Cart(:,:), &
-                           flux_vol_Cart(:,:), radRaw(:), azimRaw(:)
+                           flux_vol_Cart(:,:), radRaw(:), azimRaw(:), fluxVolume(:,:)
 !
   REAL(DP) :: sumb, sumdb, normDiff, normDiffPrev, normJxB, normGradP
 !

@@ -27,7 +27,7 @@ MODULE ModScbInit
              bZ(nthe,npsi,nzeta), bXIntern(nthe,npsi,nzeta), bYIntern(nthe,npsi,nzeta), &
              bZIntern(nthe,npsi,nzeta), x(nthe,npsi,nzeta+1), y(nthe,npsi,nzeta+1), &
              z(nthe,npsi,nzeta+1), xx(nthe,npsi,nzeta+1), yy(nthe,npsi,nzeta+1), &
-             bf(nthe,npsi,nzeta+1), bsq(nthe,npsi,nzeta+1))
+             bf(nthe,npsi,nzeta+1), bsq(nthe,npsi,nzeta+1), fluxVolume(npsi,nzeta))
 ! ModScbEuler Variables
     ALLOCATE(psi(nthe,npsi,nzeta+1), psiSav1(nthe,npsi,nzeta+1), psiSav2(nthe,npsi,nzeta+1), &
              alfa(nthe,npsi,nzeta+1), alfaSav1(nthe,npsi,nzeta+1), alfaSav2(nthe,npsi,nzeta+1), &
@@ -106,7 +106,7 @@ MODULE ModScbInit
 !!!!! Deallocate Arrays
 ! Main SCB Variables
     DEALLOCATE(jacobian, bX, bY, bZ, bXIntern, bYIntern, bZIntern, x, y, &
-               z, xx, yy, bf, bsq)
+               z, xx, yy, bf, bsq, fluxVolume)
 ! ModScbEuler Variables
     DEALLOCATE(psi, psiSav1, psiSav2, alfa, alfaSav1, alfaSav2, alphaVal, &
                alphaValInitial, psiVal)
@@ -138,7 +138,10 @@ MODULE ModScbInit
     USE ModScbGrids,     ONLY: nthe, npsi, nzeta
     use ModScbVariables, ONLY: blendAlpha, blendPsi, alphaVal, alphaValInitial, &
                                psiVal, xpsiout, xpsiin
-  
+
+    use ModScbEuler, ONLY: psiges, alfges
+    use ModScbIO,    ONLY: computational_domain
+
     use nrtype, ONLY: DP, pi_d, twopi_d
 
     IMPLICIT NONE
@@ -223,7 +226,30 @@ MODULE ModScbInit
     !cc  The unit conversion constant pjconst = 0.0134
     !cc  The current is in unit of (microA/m**2) by multiplying with pjconst
     pjconst = 1.e6_dp * 0.31E-4_dp / (xzero3 * 4._dp * pi_d * 1.E-7_dp * 6.4E6_dp)
-  
+ 
+    call computational_domain
+
+    !c  Need to make sure that psival is a monotonically increasing function of
+    !j
+    !c  define psival grids that correspond to dipole psivals for j=1 and j=npsi
+    !c  define psival grids that correspond to equal equatorial distance grids
+    !in
+    !the midnight sector
+    psiin   = -xzero3/xpsiin
+    psiout  = -xzero3/xpsiout
+    psitot  = psiout-psiin
+    xpsitot = xpsiout - xpsiin
+    DO j = 1, npsi
+       psis = REAL(j-1, DP) / REAL(npsi-1, DP)
+       xpl = xpsiin + xpsitot * psis**pow
+       psival(j) = -xzero3 / xpl
+       f(j) = (xzero3 / xpl**2) * xpsitot * pow * psis**(pow-1.)
+       fp(j) = 0._dp ! If pow = 1
+    END DO
+
+    call psiges
+    call alfges
+
     RETURN
   
   END SUBROUTINE

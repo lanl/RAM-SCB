@@ -102,7 +102,7 @@ contains
     !!!! Module Variables
     use ModRamParams,    ONLY: DoSaveRamSats
     use ModRamTiming,    ONLY: Dt_hI, DtRestart, DtWriteSat, TimeRamNow, &
-                               TimeRamElapsed, DtW_Pressure
+                               TimeRamElapsed, DtW_Pressure, DtW_hI
     use ModRamGrids,     ONLY: NR, NT
     use ModRamVariables, ONLY: PParH, PPerH, PParHe, PPerHe, PParE, PPerE, &
                                PParO, PPerO, VT
@@ -155,6 +155,11 @@ contains
        write(StrScbIter,'(I4.4)') int(TimeRamElapsed/Dt_hI)
        call ram_sum_pressure
        call ram_write_pressure(StrScbIter)
+    end if
+
+    ! Write hI File
+    if (mod(TimeIn, DtW_hI)==0.0) then
+       call ram_write_hI
     end if
 
     ! Update Satellite Files
@@ -472,11 +477,11 @@ end subroutine read_geomlt_file
     do i=2, NR
        do j=1, NT
           if (.not.DoAnisoPressureGMCoupling) then
-             write(UNITTMP_,*) LZ(I),PHI(J)*12/PI,PPERH(I,J),PPARH(I,J), &
+             write(UNITTMP_,*) LZ(I),NINT(PHI(J)*12/PI),PPERH(I,J),PPARH(I,J), &
                                PPERO(I,J),PPARO(I,J), PPERHE(I,J),PPARHE(I,J), &
                                PPERE(I,J),PPARE(I,J),PAllSum(i,j)
           else
-             write(UNITTMP_,*) LZ(I),PHI(J)*12/PI,PPERH(I,J),PPARH(I,J), &
+             write(UNITTMP_,*) LZ(I),NINT(PHI(J)*12/PI),PPERH(I,J),PPARH(I,J), &
                                PPERO(I,J),PPARO(I,J),PPERHE(I,J),PPARHE(I,J), &
                                PPERE(I,J),PPARE(I,J),PAllSum(i,j),PparSum(i,j)
           end if
@@ -485,6 +490,38 @@ end subroutine read_geomlt_file
     close(UNITTMP_)
 
   end subroutine ram_write_pressure
+
+!==============================================================================
+subroutine ram_write_hI
+
+  use ModRamMain,      ONLY: PathScbOut
+  use ModRamGrids,     ONLY: nR, nT, nPA
+  use ModRamTiming,    ONLY: TimeRamNow
+  use ModRamVariables, ONLY: LZ, MLT, FNHS, BOUNHS, FNIS, BOUNIS, BNES, HDNS
+
+  use ModIOUnit, ONLY: UNITTMP_
+
+  implicit none
+
+  integer :: i, j, L
+  character(len=200) :: filenamehI
+
+  filenamehI=trim(PathScbOut)//RamFileName('/hI_output', 'dat', TimeRamNow)
+  PRINT*, 'Writing to file ', TRIM(filenamehI)
+  OPEN(UNITTMP_, file = TRIM(filenamehI), action = 'write', status = 'unknown')
+  WRITE(UNITTMP_, *) '   Lsh        MLT    NPA    h(Lsh,MLT,NPA) hBoun(Lsh,MLT,NPA) '//&
+             'I(Lsh,MLT,NPA) IBoun(Lsh,MLT,NPA) Bz(Lsh,MLT) HDENS(Lsh,MLT,NPA)'
+  DO i = 2, nR
+     DO j = 1, nT
+        DO L = 1, NPA
+           WRITE(UNITTMP_, *) LZ(i), NINT(MLT(j)), L, FNHS(i,j,L), BOUNHS(i,j,L), &
+                FNIS(i,j,L), BOUNIS(i,j,L), BNES(i,j), HDNS(i,j,L)
+        END DO
+     END DO
+  END DO
+  CLOSE(UNITTMP_)
+
+end subroutine ram_write_hI
 
 !==============================================================================
 subroutine write_dsbnd

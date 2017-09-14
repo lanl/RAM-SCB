@@ -596,13 +596,13 @@ contains
        ! Collect indices of nearest neighbor
         iTemp = minloc(distance)
         iLoc(:)=0; jLoc(:)=0; kLoc(:)=0
-        xNear(:)=0.!BadDataFlag
-        yNear(:)=0.!BadDataFlag
-        zNear(:)=0.!BadDataFlag
-        xyzNear(:,:)=0.!BadDataFlag
-        BtNear(:,:)=0.!BadDataFlag
-        BeNear(:,:)=0.!BadDataFlag
-        EcNear(:,:)=0.!BadDataFlag
+        xNear(:)=BadDataFlag
+        yNear(:)=BadDataFlag
+        zNear(:)=BadDataFlag
+        xyzNear(:,:)=BadDataFlag
+        BtNear(:,:)=BadDataFlag
+        BeNear(:,:)=BadDataFlag
+        EcNear(:,:)=BadDataFlag
         iT = 1
         iA(1) = 0; iA(2) = -1; iA(3) = 1
         do ii = 1,3
@@ -691,7 +691,7 @@ contains
        !SatEi = SatEi * enormal ! Convert to correct units (mV/m)
 
        ! Reset Omnidirectional flux.
-       OmnFlux(:,:)=0.0
+       OmnFlux(:,:)=BadDataFlag
        SatFlux(:,:,:)=BadDataFlag
        ! Flux for all energies, pitch angles, and species.
        do iS=1, 4
@@ -702,7 +702,7 @@ contains
           xNearT = BadDataFlag; yNearT = BadDataFlag; zNearT = BadDataFlag
           do i=1, iT
            if(indexPA(iLoc(i), jLoc(i), kLoc(i), iPa).gt.0) then
-            if (flux3DEQ(iS,jLoc(i),kLoc(i),iE,indexPA(iLoc(i),jLoc(i),kLoc(i),iPa)).gt.0.0) then
+            if (flux3DEQ(iS,jLoc(i),kLoc(i),iE,indexPA(iLoc(i),jLoc(i),kLoc(i),iPa)).le.0.0) then
              ix = ix + 1
              SatFluxNear(iS,iE,iPa,ix) = flux3DEQ(iS,jLoc(i),kLoc(i),iE,indexPA(iLoc(i),jLoc(i),kLoc(i),iPa))
              xNearT(ix) = xNear(i)
@@ -714,7 +714,7 @@ contains
           if (ix.gt.3) then
            CALL DSPNT3D(ix,xNearT(1:ix),yNearT(1:ix),zNearT(1:ix),SatFluxNear(iS,iE,iPa,1:ix), &
                         1,xSat(1),xSat(2),xSat(3),SatFlux(iS,iE,iPa),ierror)
-           if (SatFlux(iS,iE,iPa).gt.0.0) then
+           if (SatFlux(iS,iE,iPa).le.0.0) then
             OmnFlux(iS,iE) = OmnFlux(iS,iE) + SatFlux(iS,iE,iPa)*4.0*cPi*wMu(iPa)
            end if
           end if

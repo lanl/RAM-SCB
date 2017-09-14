@@ -45,7 +45,7 @@ subroutine ramscb_deallocate
 end subroutine ramscb_deallocate
 
 !==============================================================================
-SUBROUTINE computehI(flux_volume)
+SUBROUTINE computehI
   !****************************************************************************
   ! Routine that outputs magnetic field quantities for input into RAM:
   ! h and I integrals, plus equatorial Bz
@@ -79,7 +79,7 @@ SUBROUTINE computehI(flux_volume)
   use ModScbVariables, ONLY: bf, chiVal, nZetaMidnight, x, y, z, bnormal, PhiIono, &
                              radGrid, angleGrid, h_Cart, I_Cart, h_Cart_interp, &
                              i_Cart_interp, bZEq_Cart, flux_vol_cart, bZ, &
-                             hdens_Cart, radRaw, azimRaw, nThetaEquator
+                             hdens_Cart, radRaw, azimRaw, nThetaEquator, fluxVolume
 
   use ModRamFunctions, ONLY: RamFileName, COSD, FUNT, FUNI
 
@@ -135,13 +135,13 @@ SUBROUTINE computehI(flux_volume)
   REAL(DP), PARAMETER :: b0dip = 30570._dp
   REAL(DP) :: beqdip(npsi,nzeta+1)
 
-  REAL(DP), INTENT(IN) :: flux_volume(:,:)
+!  REAL(DP), :: flux_volume(:,:)
 
   switch = 0.0_dp
   dimlens = (/1, 1, 1/)
 
-  EPSABS = 0.01_dp
-  EPSREL = 1.E-2_dp  ! 1% error should be fine for most applications
+  EPSABS = 0.0006_dp
+  EPSREL = 1.E-6_dp  ! 1% error should be fine for most applications
 
   h_Cart = 0._dp
   I_Cart = 0._dp
@@ -429,11 +429,17 @@ SUBROUTINE computehI(flux_volume)
 
         ! Interpolate data for output in POLAR coordinates (for RAM)
 
+     IF (MINVAL(h_value) < 0._dp .OR. MINVAL(I_value)<0._dp) THEN
+        PRINT*, 'hI: minval(h) = ', MINVAL(h_value)
+        PRINT*, 'hI: minval(I) = ', MINVAL(I_value)
+        !   STOP
+     END IF
+
      IF (electric=='IESC'.OR.electric=='WESC'.OR.electric=='W5SC') THEN ! Need potential mapping along SC B-field lines
         CALL Interpolation_natgrid_2D(radRaw(1:nR), azimRaw, h_value(1:npsi,2:nzeta,1:NPA), &
                 I_value(1:npsi,2:nzeta,1:NPA), &
                 bZ(nThetaEquator,1:npsi,2:nzeta)*bnormal-beqdip(1:npsi,2:nzeta), &
-                flux_volume(1:npsi,2:nzeta)/bnormal, hdens_value(1:npsi,2:nzeta,1:NPA), &
+                fluxVolume(1:npsi,2:nzeta)/bnormal, hdens_value(1:npsi,2:nzeta,1:NPA), &
                 h_Cart(1:nR,1:nT,1:NPA), I_Cart(1:nR,1:nT,1:NPA), &
                 bZEqDiff_Cart(1:nR,1:nT), flux_vol_Cart(1:nR,1:nT), &
                 hdens_Cart(1:nR,1:nT,1:NPA), PhiIono(1:npsi,2:nzeta), &
@@ -442,7 +448,7 @@ SUBROUTINE computehI(flux_volume)
      ELSE
         CALL Interpolation_natgrid_2D(radRaw(1:nR), azimRaw, h_value(1:npsi,2:nzeta,1:NPA), &
                 I_value(1:npsi,2:nzeta,1:NPA), bZ(nThetaEquator,1:npsi,2:nzeta)*bnormal-beqdip(1:npsi,2:nzeta), &
-                flux_volume(1:npsi,2:nzeta)/bnormal, hdens_value(1:npsi,2:nzeta,1:NPA), &
+                fluxVolume(1:npsi,2:nzeta)/bnormal, hdens_value(1:npsi,2:nzeta,1:NPA), &
                 h_Cart(1:nR,1:nT,1:NPA), I_Cart(1:nR,1:nT,1:NPA), &
                 bZEqDiff_Cart(1:nR,1:nT), flux_vol_Cart(1:nR,1:nT), &
                 hdens_Cart(1:nR,1:nT,1:NPA))
@@ -494,7 +500,8 @@ SUBROUTINE computehI(flux_volume)
            END DO
         END DO
 
-        ! Update h and I values if Dt_hI has passed
+        ! Update h and I values for RAM (note that the output of the hI files
+        ! now uses RAM variables so the numbers will be different
            DO I=2,NR+1
               DO J=1,NT
                  BNESPrev(I,J)=BNES(I,J)
@@ -539,24 +546,6 @@ SUBROUTINE computehI(flux_volume)
               ENDDO
            ENDDO
 
-        ! Writes output file for RAM (hI...dat)
-        ! Use correct naming convention.
-     filenamehI=trim(prefixOut)//RamFileName('hI_output', 'dat', TimeRamNow)
-     PRINT*, 'Writing to file ', TRIM(filenamehI); CALL flush(6)
-     OPEN(UNITTMP_, file = TRIM(filenamehI), action = 'write', status = 'unknown')
-!     WRITE(UNITTMP_, 15) 'T= ', rHour
-     WRITE(UNITTMP_, 25) '   Lsh        MLT    NPA    h(Lsh,MLT,NPA)  hBoun(Lsh,MLT,NPA) '//&
-             'I(Lsh,MLT,NPA) IBoun(Lsh,MLT,NPA) Bz(Lsh,MLT) HDENS(Lsh,MLT,NPA) fluxVolume(Lsh,MLT)'
-     DO i = 1, nR
-        DO j = 1, nT
-           DO L = 1, NPA
-              WRITE(UNITTMP_, *) radRaw(i), azimRaw(j), L, h_Cart(i,j,L), h_Cart_interp(i,j,L), &
-                   I_Cart(i,j,L), I_Cart_interp(i,j,L), bZEq_Cart(i,j), hdens_Cart(i,j,L), flux_vol_Cart(i,j)
-           END DO
-        END DO
-     END DO
-     CLOSE(UNITTMP_)
-
         SWMF_electric_potential:  IF (electric=='IESC') THEN
            NameFileOut=trim(prefixOut)//trim(RamFileName('IE_SCB','in',TimeRamNow))
            PRINT*, 'Writing to file ', NameFileOut
@@ -591,7 +580,6 @@ SUBROUTINE computehI(flux_volume)
 15   FORMAT(A, F6.1)
 21   FORMAT(F8.2, F10.1, 3X, I2, 5X, 8(3X, E12.4))
 22   FORMAT(F4.2, 2X, F8.6, 2X, E11.4)
-25   FORMAT(A)
 
   END SELECT Operational_or_research
 
