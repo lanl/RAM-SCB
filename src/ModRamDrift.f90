@@ -684,7 +684,7 @@ ENDDO
     real(kind=Real8_) :: gmr1, gmr2, gmr3, gmp1, gmp2, qs, &
                          drdm, dpdm, dbdt2, dibndt2, x, fup, r, corr, ome
     real(kind=Real8_) :: CMUDOT,EDT,DRM2,DPM2,DRM1,DPM1, ctemp
-    real(kind=Real8_) :: FBND(NPA),F(NPA+1),LIMITER
+    real(kind=Real8_) :: FBND(NPA),F(NPA),LIMITER
     integer :: ISGM
 
     if (ReCalculate) DtDriftMu = 10000.0
@@ -698,6 +698,7 @@ ENDDO
         J1=J+1
         IF (J.EQ.NT) J1=2
         DO 1 I=2,NR
+write(*,*) S, I, J, K
           F(:) = F2(S,I,J,K,:)
           F(1) = F(2)
           DRM1 = (EIP(I,J)*RLZ(I)-(VT(I,J1)-VT(I,J0))/2/DPHI)/BNES(I,J)
