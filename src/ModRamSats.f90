@@ -13,7 +13,6 @@ module ModRamSats
   public:: read_sat_input
   public:: init_sats
   public:: fly_sats
-
   integer, public :: nRamSat=0               ! Default is no virtual sats.
 
   ! Info about the sat input files.
@@ -43,7 +42,8 @@ contains
   subroutine read_sat_params
 
     use ModReadParam
-    use ModRamIO, ONLY: DtWriteSat, DoSaveRamSats
+    use ModRamParams, ONLY: DoSaveRamSats
+    use ModRamTiming, ONLY: DtWriteSat
 
     logical :: DoTest, DoTestMe
     integer :: iSat, l1, l2
@@ -91,10 +91,11 @@ contains
   subroutine read_sat_input
     ! Based on (stolen from?) the version used in BATS-R-US (Umich, Toth).
     ! Note that, for the time being, parallel execution is disabled.
-    use ModRamMain,     ONLY: TimeRamStart
+
+    use ModRamTiming, ONLY: TimeRamStart
+
     use ModTimeConvert, ONLY: time_int_to_real
     use ModIoUnit,      ONLY: UnitTmp_
-    use ModRamMpi,      ONLY: iProc
     use CON_axes
 
     integer :: iError, i, iSat , nPoint
@@ -118,7 +119,7 @@ contains
 
     ! Count maximum number of points by reading all satellite files
     MaxPoint = 0
-    if(iProc == 0)then ! Run only on head node.
+!    if(iProc == 0)then ! Run only on head node.
        SATELLITES1: do iSat=1, nRamSat
           NameFile = SatFileName_I(iSat)
           open(UnitTmp_, file=NameFile, status="old", iostat = iError)
@@ -143,7 +144,7 @@ contains
           MaxPoint = max(MaxPoint, nPoint)
        end do SATELLITES1
 
-    end if ! End running on head node only.
+!    end if ! End running on head node only.
 
     ! Tell all processors the maximum number of points
     !call MPI_Bcast(MaxPoint, 1, MPI_INTEGER, 0, iComm, iError)
@@ -157,7 +158,7 @@ contains
     SATELLITES: do iSat=1, nRamSat
 
        ! Read file on the root processor
-       if (iProc == 0) then
+!       if (iProc == 0) then
 
           NameFile = SatFileName_I(iSat)
 
@@ -230,7 +231,7 @@ contains
              end if
           end if
 
-       end if
+!       end if
 
        ! Tell the number of points to the other processors
        !call MPI_Bcast(nPoint, 1, MPI_INTEGER, 0, iComm, iError)
@@ -263,17 +264,17 @@ contains
   end subroutine read_sat_input
 
 !============================================================================
-  subroutine init_sats
-    
+  subroutine init_sats    
     ! Either create new virtual satellite output files or resume writing
     ! to existing files upon restart.  Collect file information for future
     ! writing.
 
-    use ModRamMain, ONLY: IsRestart, PathRamOut, TimeRamStart, TimeRestart
-    use ModRamIO, ONLY: RamFileName
-    use ModTimeConvert, ONLY: time_real_to_int, TimeType
+    use ModRamMain,      ONLY: PathRamOut
+    use ModRamTiming,    ONLY: TimeRamRealStart
+    use ModRamFunctions, ONLY: RamFileName
 
-    type(TimeType) :: TimeRamRestart
+    use ModTimeConvert,  ONLY: time_real_to_int, TimeType
+
 
     character(len=200) :: FileName
     character(len=100) :: SatFileName
@@ -285,13 +286,7 @@ contains
     call CON_set_do_test(NameSub, DoTest, DoTestMe)
 
     do i=1, nRamSat
-      if(IsRestart) then
-         TimeRamRestart%Time = TimeRamStart%Time + TimeRestart
-         call time_real_to_int(TimeRamRestart)
-         SatFileName = RamFileName(SatName_I(i),'nc',TimeRamRestart)
-      else
-         SatFileName = RamFileName(SatName_I(i),'nc',TimeRamStart)
-      end if
+      SatFileName = RamFileName(SatName_I(i),'nc',TimeRamRealStart)
       ! Replace now-useless input file name with output file name.
       SatFileName_O(i) = trim(PathRamOut)//trim(SatFileName)
       call create_sat_file(SatFileName_O(i))
@@ -301,15 +296,16 @@ contains
 
 !============================================================================
   subroutine create_sat_file(FileNameIn)
-
     ! Build a new netCDF satellite output file.  Enter all meta data into
     ! the file.
 
     use netcdf
     use ModTimeConvert
-    use Module1
-    use ModRamMain, ONLY: nE, nPa, Ekev, wE, Mu, wMu, TimeRamStart
-    use ModRamIO,   ONLY: ncdf_check, write_ncdf_globatts, DtWriteSat
+    use ModRamTiming,    ONLY: TimeRamStart, DtWriteSat
+    use ModRamGrids,     ONLY: NE, NPA
+    use ModRamVariables, ONLY: EKEV, WE, WMU, MU
+
+    use ModRamNCDF, ONLY: ncdf_check, write_ncdf_globatts
 
     character(len=200), intent(in) :: FileNameIn
 
@@ -329,8 +325,6 @@ contains
 
     ! Open file; check for success.
     iStatus = nf90_create(trim(FileNameIn), nf90_clobber, iFileID)
-    call ncdf_check(iStatus, NameSub)
-
 
     ! Create dimensions for all variables.
     iStatus = nf90_def_dim(iFileID, 'xyz',         3,   iXyzDim)
@@ -489,7 +483,6 @@ contains
 
     ! Leave the "define mode" of the file.
     iStatus = nf90_enddef(iFileID)
-    call ncdf_check(iStatus, NameSub)
 
     ! Write static (no time dimension) variables.
     iStatus = nf90_put_var(iFileID, iEgridVar, Ekev)
@@ -498,43 +491,11 @@ contains
     iStatus = nf90_put_var(iFileID, iPwidVar,  wMu)
     iStatus = nf90_put_var(iFileID, iDtVar,    DtWriteSat)  
     iStatus = nf90_put_var(iFileID, iFlagVar,  BadDataFlag)
-    !call time_int_to_real(TimeRamStart)
-    !iStatus = nf90_put_var(iFileID, iStartVar, TimeRamStart % String)
-    call ncdf_check(iStatus, NameSub)
 
     ! Close the file.
     iStatus = nf90_close(iFileID)
-    call ncdf_check(iStatus, NameSub)
 
   end subroutine create_sat_file
-
-!============================================================================
-  subroutine resume_sat_file(FileNameIn, iRecordOut)
-
-    ! If restarting, it is possible to resume writing to any netCDF
-    ! virtual satellite output file.  This subroutine examines a
-    ! virtual satellite output file, determines if it matches the 
-    ! current format, locates the record at which to continue writing, 
-    ! and saves this information so that writing may continue as this
-    ! simulation continues.
-
-    ! The logical path this subroutine takes is as follows:
-    ! 1) check to see if FileNameIn exists.
-    ! 2) check if FileNameIn matches the format (size, variables) required.
-    ! If either of these fail, a new output file is created.
-    ! If both succeed, the proper location to begin adding new records
-    ! is returned as iRecordOut.
-
-    character(len=200), intent(in) :: FileNameIn
-    integer, intent(out)           :: iRecordOut
-
-    character(len=*), parameter :: NameSub = NameMod//'::resume_sat_file'
-    !-----------------------------------------------------------------------
-
-    call CON_stop(NameSub // ' This subroutine is not ready for use.')
-    return
-
-  end subroutine resume_sat_file
 
 !============================================================================
   subroutine fly_sats
@@ -542,32 +503,38 @@ contains
     ! Locate virtual sats, interpolate result to position, and write data.
 
     use ModCoordTransform
-    use ModConst,   ONLY: cPi
+    use ModConst,        ONLY: cPi
     use ModRamFunctions
-    use ModRamMain, ONLY: TimeRamElapsed, PathRamOut, nE, nPa, wMu, TimeRamNow, &
-                          TimeRamStart, TimeRestart, IsRestart
-    use ModRamIO,   ONLY: DoSaveRamSats, RamFileName
-    use Module_RAM, ONLY: flux3DEQ, indexPA
-    use Module1,    ONLY: x,y,z, nthe, npsi, nzeta, bX, bY, bZ, bnormal, &
-         EXConv, EYConv, EZConv, bxintern, byintern, bzintern!, &
-        !EXIndEq, EYIndEq, EZIndEq, enormal
-    use ModTimeConvert, ONLY: time_real_to_int, TimeType
+    use ModRamMain,      ONLY: PathRamOut
+    use ModRamTiming,    ONLY: TimeRamElapsed, TimeRamNow, TimeRamStart
+    use ModRamGrids,     ONLY: NE, NPA
+    use ModScbGrids,     ONLY: nthe, npsi, nzeta
+    use ModRamVariables, ONLY: WMU
+    use ModScbVariables, ONLY: x, y, z, bX, bY, bZ, bnormal, EXConv, EYConv, &
+                               EZConv, bXIntern, bYIntern, bZIntern
+    use ModRamParams, ONLY: DoSaveRamSats
 
+    use ModRamScb, ONLY: flux3DEQ, indexPA
+    use ModTimeConvert,  ONLY: time_real_to_int, TimeType
+
+    implicit none
     type(TimeType) :: TimeRamRestart
 
     integer :: i, iPa, iTime, iSat, iLoc(27), jLoc(27), kLoc(27), iTemp(3)
-    real(kind=Real8_) :: xSat(3), dTime, distance(nthe, npsi, nzeta-1), &
+    real(kind=Real8_) :: xSat(3), dTime, &
          xNear(27), yNear(27), zNear(27), BtNear(3,27), BeNear(3,27), &
          EcNear(3,27), xyzNear(3,27), rSat, pSat, tSat, rLoc, pLoc, tLoc!, EiNear(3,4),
     real(kind=Real8_) :: xNearT(27),yNearT(27),zNearT(27)
     real(kind=Real8_), parameter :: MaxDist = 0.25
+
+    real(kind=Real8_), ALLOCATABLE :: distance(:,:,:)
 
     character(len=200) :: FileName
     character(len=100) :: SatFileName
 
     ! Buffers to write to file:
     real(kind=Real8_) :: SatB(6), SatEc(3), SatEi(3), &
-         SatFlux(4, nE, nPa)=0.0, OmnFlux(4, nE)=0.0
+         SatFlux(4, nE, nPa), OmnFlux(4, nE)
 
     logical :: DoTest, DoTestMe
     character(len=*), parameter :: NameSub = NameMod // '::fly_sats'
@@ -580,9 +547,11 @@ contains
 
     if(.not. DoSaveRamSats) return
    
-!    CALL RECALC_08(2013,76,0,0,0,-400.D0,0.D0,0.D0)
-!    CALL RECALC(2013,76,0,0,0)
+    ALLOCATE(distance(nthe,npsi,nzeta-1))
+
     SATLOOP: do iSat=1, nRamSat
+       distance = 0.0
+
        ! If current time is outside bounds of orbit file, do not trace.
        if(  (TimeRamElapsed .lt. SatTime_II(iSat, 1)) .or. &
             (TimeRamElapsed .ge. SatTime_II(iSat, nSatPoints_I(iSat))) ) then
@@ -607,13 +576,6 @@ contains
         SatB = BadDataFlag; SatEc = BadDataFlag
         SatFlux = BadDataFlag; OmnFlux = BadDataFlag
         xyzNear = BadDataFlag; BtNear = BadDataFlag
-!        if(IsRestart) then
-!           TimeRamRestart%Time = TimeRamStart%Time + TimeRestart
-!           call time_real_to_int(TimeRamRestart)
-!           SatFileName = RamFileName(SatName_I(iSat),'nc',TimeRamRestart)
-!        else
-!           SatFileName = RamFileName(SatName_I(iSat),'nc',TimeRamStart)
-!        end if
         call append_sat_record(SatFileName_O(iSat), iSatRecord(iSat), TimeRamElapsed, &
              xSat, SatB, SatEc, SatFlux, OmnFlux, xyzNear, BtNear) !, SatEi
         iSatRecord(iSat) = iSatRecord(iSat) + 1
@@ -634,8 +596,13 @@ contains
        ! Collect indices of nearest neighbor
         iTemp = minloc(distance)
         iLoc(:)=0; jLoc(:)=0; kLoc(:)=0
-        xNear(:)=0.; yNear(:)=0.; zNear(:)=0.; xyzNear(:,:)=0.
-        BtNear(:,:)=0.; BeNear(:,:)=0.; EcNear(:,:)=0.
+        xNear(:)=BadDataFlag
+        yNear(:)=BadDataFlag
+        zNear(:)=BadDataFlag
+        xyzNear(:,:)=BadDataFlag
+        BtNear(:,:)=BadDataFlag
+        BeNear(:,:)=BadDataFlag
+        EcNear(:,:)=BadDataFlag
         iT = 1
         iA(1) = 0; iA(2) = -1; iA(3) = 1
         do ii = 1,3
@@ -647,23 +614,12 @@ contains
            if (((iLoc(iT).gt.nthe).or.(iLoc(iT).lt.1)).or. &
                ((jLoc(iT).gt.npsi).or.(jLoc(iT).lt.1)).or. &
                ((kLoc(iT).gt.nzeta).or.(kLoc(iT).lt.1))) then
-            iT = iT
-!              if(DoTest) then
-!                  write(*,*) 'Satellite ', SatName_I(iSat), ' out of bounds!'
-!                  write(*,*) 'Distance = ', minval(distance)
-!                  write(*,*) 'Sat location = ', xSat
-!              end if
-!              ! Fill in with blank values.
-!              xyzNear=BadDataFlag; xNear=BadDataFlag; yNear=BadDataFlag; zNear=BadDataFlag
-!              BtNear=BadDataFlag; BeNear=BadDataFlag; EcNear=BadDataFlag
-!              SatB=BadDataFlag; SatEc=BadDataFlag; SatFlux=BadDataFlag; OmnFlux=BadDataFlag
-!              ! Write information to output file.
-!              FileName = trim(PathRamOut)//'/'//trim(SatName_I(iSat))//'.nc'
-!              call append_sat_record(FileName, iSatRecord(iSat), TimeRamElapsed, &
-!                                     xSat, SatB, SatEc, SatFlux, OmnFlux, xyzNear, BtNear) !, SatEi
-!              ! Increment record location in NCDF file.
-!              iSatRecord(iSat) = iSatRecord(iSat) + 1
-!              cycle SATLOOP                 ! don't trace this time.
+              iT = iT
+              if (DoTest) then
+                  write(*,*) 'Satellite ', SatName_I(iSat), ' out of bounds!'
+                  write(*,*) 'Distance = ', minval(distance)
+                  write(*,*) 'Sat location = ', xSat
+              end if
            else
             xNear(iT) = x(iLoc(iT), jLoc(iT), kLoc(iT))
             yNear(iT) = y(iLoc(iT), jLoc(iT), kLoc(iT))
@@ -735,8 +691,8 @@ contains
        !SatEi = SatEi * enormal ! Convert to correct units (mV/m)
 
        ! Reset Omnidirectional flux.
-       OmnFlux(:,:)=0.0
-       SatFlux(:,:,:)=-1.0
+       OmnFlux(:,:)=BadDataFlag
+       SatFlux(:,:,:)=BadDataFlag
        ! Flux for all energies, pitch angles, and species.
        do iS=1, 4
         do iE=1, nE
@@ -745,7 +701,7 @@ contains
           SatFluxNear(iS,iE,iPa,:) = 0.0
           xNearT = BadDataFlag; yNearT = BadDataFlag; zNearT = BadDataFlag
           do i=1, iT
-           if(indexPA(iLoc(i), jLoc(i), kLoc(i), iPa).gt.0) then
+           if (indexPA(iLoc(i), jLoc(i), kLoc(i), iPa).gt.0) then
             if (flux3DEQ(iS,jLoc(i),kLoc(i),iE,indexPA(iLoc(i),jLoc(i),kLoc(i),iPa)).gt.0.0) then
              ix = ix + 1
              SatFluxNear(iS,iE,iPa,ix) = flux3DEQ(iS,jLoc(i),kLoc(i),iE,indexPA(iLoc(i),jLoc(i),kLoc(i),iPa))
@@ -777,6 +733,8 @@ contains
 
     end do SATLOOP
 
+  DEALLOCATE(distance)
+
   contains
 
     !========================================================================
@@ -785,9 +743,7 @@ contains
       !Open a netCDF file and write new values.
 
       use netcdf
-      use ModRamIO,   ONLY: ncdf_check
-      use ModRamMain, ONLY: nE, nPa
-      use Module1
+      use ModRamGrids, ONLY: nE, nPa
 
       ! Arguments:
       integer, intent(in)           :: iRec
@@ -828,7 +784,6 @@ contains
 
       ! Open the NetCDF file.
       iStatus = nf90_open(trim(InFileName), nf90_write, iFileID)
-      call ncdf_check(iStatus, NameSubSub, NameFileIn=trim(InFileName))
 
       ! Collect variable IDs.
       iStatus = nf90_inq_varid(iFileID, 'Time',      iTimeVar)
@@ -851,29 +806,19 @@ contains
       ! Write new values to file:
            ! Time
       iStatus = nf90_put_var(iFileID, iTimeVar, TimeIn, iStart1D)
-      call ncdf_check(iStatus, NameSubSub, NameFileIn=trim(InFileName))
            ! Satelite position
       iStatus = nf90_put_var(iFileID, iXyzVar, xVec, iStart2D)
-      call ncdf_check(iStatus, NameSubSub, NameFileIn=trim(InFileName))
            ! Vector magnetic field.
       iStatus = nf90_put_var(iFileID, iBVar, bVec(1:3), iStart2D)
       iStatus = nf90_put_var(iFileID, iBeVar,bVec(4:6), iStart2D)
-      call ncdf_check(iStatus, NameSubSub, NameFileIn=trim(InFileName))
            ! Vector convection E-field
       iStatus = nf90_put_var(iFileID, iEcVar, ecVec, iStart2D)
-      call ncdf_check(iStatus, NameSubSub, NameFileIn=trim(InFileName))
            ! Vector induced E-field
       !iStatus = nf90_put_var(iFileID, iEiVar, eiVec, iStart2D)
-      !call ncdf_check(iStatus, NameSubSub, NameFileIn=trim(InFileName))
+           ! Neighboring Positions and B Field
       iStatus = nf90_put_var(iFileID, iBnear, Bnear, iStart3D)
-      call ncdf_check(iStatus, NameSubSub, NameFileIn=trim(InFileName))
       iStatus = nf90_put_var(iFileID, iXYZnear, XYZnear, iStart3D)
-      call ncdf_check(iStatus, NameSubSub, NameFileIn=trim(InFileName))
 
-           ! Flux for all species.
-      where(Flux+1.0 .eq. Flux)
-         Flux = -1.0
-      end where
       iStatus = nf90_put_var(iFileID, ieVar,  Flux(1,:,:), iStart3D)
       iStatus = nf90_put_var(iFileID, iHVar,  Flux(2,:,:), iStart3D)
       iStatus = nf90_put_var(iFileID, iHeVar, Flux(3,:,:), iStart3D)
@@ -882,7 +827,6 @@ contains
       iStatus = nf90_put_var(iFileID, ioHVar, OmFx(2,:), iStart2D)
       iStatus = nf90_put_var(iFileID, ioHeVar,OmFx(3,:), iStart2D)
       iStatus = nf90_put_var(iFileID, ioOVar, OmFx(4,:), iStart2D)
-      call ncdf_check(iStatus, NameSubSub, NameFileIn=trim(InFileName))
       
       ! Close NCDF file.
       iStatus = nf90_close(iFileID)
