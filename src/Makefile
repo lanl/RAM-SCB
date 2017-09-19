@@ -80,12 +80,28 @@ EXT_OBJECTS=       \
 	mpi.o      \
 	ModRamMpi.o 
 
+SCE_OBJECTS=                \
+        ModIESize.o         \
+        ModIonosphere.o     \
+        ModConductance.o    \
+        ModIE_Interface.o   \
+        IE_gather.o         \
+        IE_ModIo.o          \
+        IE_ModMain.o        \
+        IE_solve.o          \
+        IE_wrapper.o        \
+        iono_conductances.o \
+        ionosphere.o        \
+        iono_currents.o     \
+        iono_joule.o        \
+        iono_solver.o
+
 SLATEC_OBJECTS = ../srcSlatec/*.o
 ${SLATEC_OBJECTS}:
 	cd ../srcSlatec; make slatec
 
 
-OBJECTS = ${RAM_OBJECTS} ${SCB_OBJECTS} ${CPL_OBJECTS} ${EXT_OBJECTS}
+OBJECTS = ${RAM_OBJECTS} ${SCB_OBJECTS} ${CPL_OBJECTS} ${EXT_OBJECTS} ${SCE_OBJECTS}
 
 # List of objects required for executable:
 OBJECTS_EXE = Main.o

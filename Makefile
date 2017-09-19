@@ -204,8 +204,8 @@ test2_run:
 	rm PARAM.in; ln -s PARAM.in.test2.1st PARAM.in; \
 	${MPIRUN} ./ram_scb.exe > runlog1;              \
 	rm PARAM.in; ln -s PARAM.in.test2.2nd PARAM.in; \
-	mv restartOUT/restart.nc restartIN/restart.nc; \
-	mv restartOUT/restart_info.txt restartIN/restart_info.txt; \
+	mv restartOUT/*.nc restartIN/restart.nc; \
+	mv restartOUT/*.txt restartIN/restart_info.txt; \
 	${MPIRUN} ./ram_scb.exe > runlog2;	
 
 test2_check:
@@ -316,8 +316,8 @@ test4_run:
 	rm PARAM.in; ln -s PARAM.in.test4.1st PARAM.in;  \
 	${MPIRUN} ./ram_scb.exe > runlog1;               \
 	rm PARAM.in; ln -s PARAM.in.test4.2nd PARAM.in;  \
-	mv restartOUT/restart.nc restartIN/restart.nc; \
-	mv restartOUT/restart_info.txt restartIN/restart_info.txt; \
+	mv restartOUT/*.nc restartIN/restart.nc; \
+	mv restartOUT/*.txt restartIN/restart_info.txt; \
 	${MPIRUN} ./ram_scb.exe > runlog2;      
 
 test4_check:

@@ -20,6 +20,10 @@ Module ModScbVariables
   REAL(DP) :: sumb, sumdb, normDiff, normDiffPrev, normJxB, normGradP
 !
 
+!--- SCE Components
+  real(DP), allocatable :: paraj(:,:)
+!---
+
 ! MAIN SCB VARIABLES
   REAL(DP), ALLOCATABLE :: jacobian(:,:,:), bX(:,:,:), bY(:,:,:), bZ(:,:,:), bxintern(:,:,:), &
                            byintern(:,:,:), bzintern(:,:,:), x(:,:,:), y(:,:,:), z(:,:,:), &

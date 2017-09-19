@@ -144,6 +144,7 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
 !!!!!!!!! RUN SCB
       ! Call SCB if Dt_hI has passed
       if (mod(TimeRamElapsed, Dt_hI) .eq. 0) then
+!      if (TimeRamElapsed.gt.300) then
          call write_prefix
          write(*,*) 'Running SCB model to update B-field...'
          call ram_sum_pressure

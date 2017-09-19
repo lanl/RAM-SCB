@@ -479,7 +479,7 @@ contains
     iStatus = nf90_put_att(iFileID, iBnear, 'units', 'nT')
 
     ! Write meta-data as Global Attributes.
-!    call write_ncdf_globatts(iFileID)
+    call write_ncdf_globatts(iFileID)
 
     ! Leave the "define mode" of the file.
     iStatus = nf90_enddef(iFileID)
@@ -701,8 +701,8 @@ contains
           SatFluxNear(iS,iE,iPa,:) = 0.0
           xNearT = BadDataFlag; yNearT = BadDataFlag; zNearT = BadDataFlag
           do i=1, iT
-           if(indexPA(iLoc(i), jLoc(i), kLoc(i), iPa).gt.0) then
-            if (flux3DEQ(iS,jLoc(i),kLoc(i),iE,indexPA(iLoc(i),jLoc(i),kLoc(i),iPa)).le.0.0) then
+           if (indexPA(iLoc(i), jLoc(i), kLoc(i), iPa).gt.0) then
+            if (flux3DEQ(iS,jLoc(i),kLoc(i),iE,indexPA(iLoc(i),jLoc(i),kLoc(i),iPa)).gt.0.0) then
              ix = ix + 1
              SatFluxNear(iS,iE,iPa,ix) = flux3DEQ(iS,jLoc(i),kLoc(i),iE,indexPA(iLoc(i),jLoc(i),kLoc(i),iPa))
              xNearT(ix) = xNear(i)
@@ -714,7 +714,7 @@ contains
           if (ix.gt.3) then
            CALL DSPNT3D(ix,xNearT(1:ix),yNearT(1:ix),zNearT(1:ix),SatFluxNear(iS,iE,iPa,1:ix), &
                         1,xSat(1),xSat(2),xSat(3),SatFlux(iS,iE,iPa),ierror)
-           if (SatFlux(iS,iE,iPa).le.0.0) then
+           if (SatFlux(iS,iE,iPa).gt.0.0) then
             OmnFlux(iS,iE) = OmnFlux(iS,iE) + SatFlux(iS,iE,iPa)*4.0*cPi*wMu(iPa)
            end if
           end if

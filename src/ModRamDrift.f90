@@ -698,7 +698,6 @@ ENDDO
         J1=J+1
         IF (J.EQ.NT) J1=2
         DO 1 I=2,NR
-write(*,*) S, I, J, K
           F(:) = F2(S,I,J,K,:)
           F(1) = F(2)
           DRM1 = (EIP(I,J)*RLZ(I)-(VT(I,J1)-VT(I,J0))/2/DPHI)/BNES(I,J)

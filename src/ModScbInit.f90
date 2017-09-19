@@ -21,6 +21,10 @@ MODULE ModScbInit
 
     implicit none
 
+!--- SCE Components
+    ALLOCATE(paraj(npsi,nzeta+1))
+!---
+
 !!!!! Allocate Arrays
 ! Main SCB Variables
     ALLOCATE(jacobian(nthe,npsi,nzeta), bX(nthe,npsi,nzeta), bY(nthe,npsi,nzeta), &
@@ -102,6 +106,10 @@ MODULE ModScbInit
   subroutine scb_deallocate
 
     implicit none
+
+!--- SCE Components
+    DEALLOCATE(paraj)
+!---
 
 !!!!! Deallocate Arrays
 ! Main SCB Variables
