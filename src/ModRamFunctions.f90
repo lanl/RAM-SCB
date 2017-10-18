@@ -6,7 +6,64 @@ module ModRamFunctions
 
   implicit none
   
-contains
+  contains
+!==============================================================================
+  function RamFileName(PrefixIn, SuffixIn, TimeIn)
+    ! Create a file name using the new RAM-SCB I/O filename standards:
+    ! FileNameOut = PrefixIn_dYYYYMMDD_tHHMMSS.SuffixIn
+    ! PrefixIn and SuffixIn are short, descriptive strings (e.g. 
+    ! 'pressure', 'ram_o' for prefixes and 'dat', 'cdf' for suffixes.
+
+    use ModTimeConvert
+
+    implicit none
+
+    character(len=200)           :: RamFileName
+    type(TimeType),   intent(in) :: TimeIn
+    character(len=*), intent(in) :: PrefixIn, SuffixIn
+    !------------------------------------------------------------------------
+    write(RamFileName, "(a,'_d',i4.4,2i2.2,'_t',3i2.2,'.',a)") &
+         trim(PrefixIn), &
+         TimeIn % iYear, &
+         TimeIn % iMonth, &
+         TimeIn % iDay, &
+         TimeIn % iHour, &
+         TimeIn % iMinute, &
+         TimeIn % iSecond, &
+         trim(SuffixIn)
+
+  end function RamFileName
+!===========================================================================
+  subroutine get_ramdst(dstOut)
+    ! Use simple DPS relationship to calculate Dst from RAM domain.
+    ! Sums over all species, corrects for internal currents (factor of 1.3).
+
+    use ModRamMain, ONLY: Real8_
+    use ModRamGrids, ONLY: NR, NE, NT, NPA
+    use ModRamVariables, ONLY: f2, rfactor, upa, we, wmu, ekev
+
+    implicit none
+
+    real(kind=Real8_), intent(out) :: dstOut
+
+    ! Factor2 includes conversions and factor of 1.3.
+    real(kind=Real8_)           :: sumEnergy=0.0, factor2=-5.174E-30
+    integer                     :: i, j, k, l, s
+    character(len=*), parameter :: NameSub = 'get_ramdst'
+    !------------------------------------------------------------------------
+    sumEnergy = 0.0
+    dstOut = 0.0
+    ! Sum energy over whole domain and all species.
+    do s=1,4; do i=2,nR; do k=2,nE; do l=1,nPa
+       if(l.ge.uPa(i))cycle
+       do j=1, nT-1
+          sumEnergy=sumEnergy+f2(s,i,j,k,l)*wE(k)*wMu(L)*eKeV(k)
+       end do
+    end do; end do; end do; end do
+
+    dstout = factor2 * rfactor * sumEnergy
+
+  end subroutine get_ramdst
 
 !=============================================================================
   function erff(x)
@@ -66,8 +123,8 @@ contains
 !=============================================================================
   function G(x)
     
-    use ModRamMain, ONLY: ME, RE, Hmin, MP, Q, Cs, PI, Real4_, Real8_
-    
+    use ModRamMain, ONLY: Real8_
+    use ModRamConst, ONLY: PI 
     implicit none
 
     real(kind=Real8_), intent(in) :: x
@@ -84,7 +141,8 @@ contains
   function funt(x)
     ! function f(y) from Ejiri, JGR, 978
 
-    use ModRamMain, ONLY: ME, RE, Hmin, MP, Q, Cs, PI, Real8_, Real4_
+    use ModRamMain, ONLY: Real8_
+    use ModRamConst, ONLY: PI
     implicit none
     
 
@@ -110,7 +168,8 @@ contains
   function funi(x)
     ! Function I(y) from Ejiri, JGR, 1978
 
-    use ModRamMain, ONLY: ME, RE, Hmin, MP, Q, Cs, PI, Real8_, Real4_
+    use ModRamMain, ONLY: Real8_
+    use ModRamConst, ONLY: PI
     implicit none
 
     real(kind=Real8_), intent(in) :: x
@@ -137,11 +196,12 @@ contains
    function atan2d(y, x)
     
     use ModRamMain, ONLY: Real8_
+    use ModRamConst, ONLY: PI
+
     implicit none
     real(kind=Real8_), intent(in) :: x, y
     real(kind=Real8_) :: atan2d
 
-    real(kind=Real8_), parameter :: pi = 3.141592654
     !-----------------------------------------------------------------------
     atan2d=180.0/pi*atan2(y,x)
     return
@@ -149,8 +209,10 @@ contains
  
 !=============================================================================
   function acosd(x)
+
+    use ModRamMain, ONLY: Real8_
+    use ModRamConst, ONLY: PI
     
-    use ModRamMain, ONLY: pi, Real8_
     implicit none
     real(kind=Real8_), intent(in) :: x
     real(kind=Real8_) :: acosd
@@ -161,8 +223,10 @@ contains
   
 !=============================================================================
   function asind(x)
+
+    use ModRamMain, ONLY: Real8_
+    use ModRamConst, ONLY: PI
     
-    use ModRamMain, ONLY: pi, Real8_
     implicit none
     real(kind=Real8_), intent(in) :: x
     real(kind=Real8_):: asind
@@ -173,7 +237,10 @@ contains
 
 !=============================================================================
   function cosd(x)
-    use ModRamMain, ONLY: pi, Real8_
+
+    use ModRamMain, ONLY: Real8_
+    use ModRamConst, ONLY: PI
+
     implicit none
     real(kind=Real8_), intent(in) :: x
     real(kind=Real8_) :: cosd
@@ -184,7 +251,10 @@ contains
     
 !=============================================================================
   function sind(x)
-    use ModRamMain, ONLY: pi, Real8_
+
+    use ModRamMain, ONLY: Real8_
+    use ModRamConst, ONLY: PI
+
     implicit none
     real(kind=Real8_), intent(in) :: x
     real(kind=Real8_) :: sind
@@ -235,9 +305,12 @@ contains
 
   !=============================================================================
   subroutine ram_sum_pressure
-    use ModRamMain, ONLY: nR, nT, PAllSum, Real8_, &
-         PPerO, PParO, PPerH, PParH, PParHe, PPerHe, PPerE, PParE, &
-         DoAnisoPressureGMCoupling, PparSum    
+
+    use ModRamMain,      ONLY: Real8_
+    use ModRamVariables, ONLY: PAllSum, PParH, PPerH, PParO, PPerO, &
+                               PParE, PPerE, PParHe, PPerHe, PParSum
+    use ModRamParams,    ONLY: DoAnisoPressureGMCoupling
+    use ModRamGrids,     ONLY: NR, NT
     
     implicit none
     

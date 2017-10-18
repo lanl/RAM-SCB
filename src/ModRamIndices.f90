@@ -8,25 +8,21 @@ module ModRamIndices
   ! the PARAM interface, allows the user to select source of indices, gather
   ! and interpolate the values to the current simulation time.
 
-  use ModRamMain, ONLY: Real8_
+  use ModRamParams,    ONLY: NameIndexFile, NameOmniFile
+  use ModRamVariables, ONLY: NameIndexSource, nRawKp, nRawF107, kptime, Kp, &
+                             F107, timeKp, timeF107, rawKp, rawF107
 
   implicit none
   save
 
-  ! Source of indices
-  character(len=4) :: NameIndexSource = 'file'
-  character(len=200) :: NameIndexFile = 'RamIndices.txt'
-  character(len=200) :: NameOmniFile  = 'omni.txt'
-
-  integer :: nRawKp, nRawF107 ! Number of entries read from file
-  real(kind=Real8_), allocatable :: timeKp(:),timeF107(:),rawKp(:),rawF107(:)
-
-contains
+  contains
   !===========================================================================
   subroutine read_index_file(StartTime, EndTime, NameFile)
 
-    use ModTimeConvert
-    use ModIoUnit, ONLY: UNITTMP_
+    use ModRamMain, ONLY: Real8_
+
+    use ModTimeConvert, ONLY: TimeType, time_int_to_real
+    use ModIoUnit,      ONLY: UNITTMP_
 
     implicit none
 
@@ -41,20 +37,13 @@ contains
     character(len=100) :: StringLine, StringFmt
     real(kind=Real8_) :: tmpKp(8)
 
-    integer, parameter :: monthday(12) = &
-         (/0,30,59,90,120,151,181,212,243,273,304,334/)
-    integer, parameter :: leapday(12) = &
-         (/0,30,60,91,121,152,182,213,244,274,305,335/)
-    integer, parameter :: kptime(8) = &
-         (/1, 4, 7, 10, 13, 16, 19, 22/)
-
     logical :: DoTest, DoTestMe
     character(len=*), parameter :: NameSub='read_index_file'
     !------------------------------------------------------------------------
     call CON_set_do_test(NameSub, DoTest, DoTestMe)
     if(DoTest) write(*,*)'Loading indices from ', trim(NameFile)
 
-    ! Open file and find the starting date of file
+!!! Open file and find the starting date of file
     dateIndex = -1
     open(unit=UNITTMP_, FILE=NameFile, STATUS='OLD', IOSTAT=iError)
     if(iError /=0 ) call CON_stop &
@@ -65,9 +54,6 @@ contains
         if (iError.lt.0) then
            call CON_stop( &
                 NameSub//': Start date outside of range of RamIndices file')
-!        elseif (iError.gt.0) then
-!           call CON_stop( &
-!                NameSub//': Error in formating of RamIndices file')
         end if
         if ((StartTime%iYear.eq.iYY).and. &
             (StartTime%iMonth.eq.iMM).and. &
@@ -80,6 +66,7 @@ contains
     end do Read_RamIndices_Dates
     close(UNITTMP_)
 
+!!! Open file and fast forward to starting line
     open(unit=UNITTMP_, FILE=NameFile, STATUS='OLD', IOSTAT=iError)
     if (dateIndex.eq.0) then
       read(UNITTMP_, *) StringLine
@@ -109,20 +96,20 @@ contains
       end if
     end if
 
-    ! Allocate arrays based on number of days required.
+!!! Allocate arrays based on number of days required.
     nRawF107 = ceiling((EndTime%Time-StartTime%Time)/86400.0)+1
     nRawKp   = 8*nRawF107
     allocate(timeKp(nRawKp))
     allocate(rawKp(nRawKp))
-    allocate(rawF107(nline))
-    allocate(timeF107(nline))
+    allocate(rawF107(nRawF107))
+    allocate(timeF107(nRawF107))
 
     if(DoTest)then
        write(*,*) NameSub//': Number of lines to read = ', nRawF107
        write(*,*) NameSub//': Number of KP vals to read=', nRawKp
     end if
 
-    ! Read and store all data for entire interval.
+!!! Read and store all data for entire interval.
     do i=1, nRawF107
        read(UNITTMP_, '(i4, i2, i2, 8(1x,f3.1), 1x, f5.1)',IOSTAT=iError) &
             iYY, iMM, iDD, tmpKp, rawF107(i)
@@ -148,7 +135,7 @@ contains
   !===========================================================================
   subroutine init_indices(StartTime, EndTime)
     ! Based on source of indices, prepare indices for this simulation.
-    use ModTimeConvert
+    use ModTimeConvert, ONLY: TimeType
 
     implicit none
 
@@ -191,9 +178,9 @@ contains
     do while( (iTime < nRawKp) .and. (timeKp(iTime) < timeNow))
        iTime=iTime+1
     end do
+
     ! Interpolate Kp to current time.
-    dTime = (timeNow - timeKp(iTime-1)) / &
-         (timeKp(iTime) - timeKp(iTime-1))
+    dTime = (timeNow - timeKp(iTime-1))/(timeKp(iTime) - timeKp(iTime-1))
     kpNow = dTime*(rawKp(iTime) - rawKp(iTime-1)) + rawKp(iTime-1)
 
     ! F10.7 index is not interpolated; merely use the value at the
@@ -206,35 +193,9 @@ contains
        end if
     end do
     
+    KP   = kpNow
+    F107 = f10Now
+
   end subroutine get_indices
-  !===========================================================================
-  subroutine get_ramdst(dstOut)
-    ! Use simple DPS relationship to calculate Dst from RAM domain.
-    ! Sums over all species, corrects for internal currents (factor of 1.3).
-    use ModRamMain, ONLY: nR, nE, nPa, nT, f2, factor, &
-         upa, we, wmu, ekev, Real8_
-
-    implicit none
-
-    real(kind=Real8_), intent(out) :: dstOut
-
-    ! Factor2 includes conversions and factor of 1.3.
-    real(kind=Real8_)           :: sumEnergy=0.0, factor2=-5.174E-30
-    integer                     :: i, j, k, l, s
-    character(len=*), parameter :: NameSub = 'get_ramdst'
-    !------------------------------------------------------------------------
-    sumEnergy = 0.0
-    dstOut = 0.0
-    ! Sum energy over whole domain and all species.
-    do s=1,4; do i=2,nR; do k=2,nE; do l=1,nPa
-       if(l.ge.uPa(i))cycle
-       do j=1, nT-1
-          sumEnergy=sumEnergy+f2(s,i,j,k,l)*wE(k)*wMu(L)*eKeV(k)
-       end do
-    end do; end do; end do; end do
-
-    dstout = factor2 * factor * sumEnergy
-
-  end subroutine get_ramdst
   !===========================================================================
 end module ModRamIndices
