@@ -466,17 +466,17 @@ contains
     iStatus = nf90_put_att(iFileID, iPwidVar, 'units', 'unitless')
 
          ! BOUNDING GRID POINTS
-    iStatus = nf90_def_var(iFileID, 'XYZnear', nf90_float, &
-         (/iXyzDim,iBoundDim,iTimeDim/), iXYZnear)
-    iStatus = nf90_put_att(iFileID, iXYZnear, 'title', &
-         'X,Y,Z coordinates of 8 bounding grid points.')
-    iStatus = nf90_put_att(iFileID, iXYZnear, 'units', 'Earth Radii')
+!    iStatus = nf90_def_var(iFileID, 'XYZnear', nf90_float, &
+!         (/iXyzDim,iBoundDim,iTimeDim/), iXYZnear)
+!    iStatus = nf90_put_att(iFileID, iXYZnear, 'title', &
+!         'X,Y,Z coordinates of 8 bounding grid points.')
+!    iStatus = nf90_put_att(iFileID, iXYZnear, 'units', 'Earth Radii')
 
-    iStatus = nf90_def_var(iFileID, 'Bnear', nf90_float, &
-         (/iXyzDim,iBoundDim,iTimeDim/), iBnear)
-    iStatus = nf90_put_att(iFileID, iBnear, 'title', &
-         'Bx,By,Bz values of 8 bounding grid points.')
-    iStatus = nf90_put_att(iFileID, iBnear, 'units', 'nT')
+!    iStatus = nf90_def_var(iFileID, 'Bnear', nf90_float, &
+!         (/iXyzDim,iBoundDim,iTimeDim/), iBnear)
+!    iStatus = nf90_put_att(iFileID, iBnear, 'title', &
+!         'Bx,By,Bz values of 8 bounding grid points.')
+!    iStatus = nf90_put_att(iFileID, iBnear, 'units', 'nT')
 
     ! Write meta-data as Global Attributes.
     call write_ncdf_globatts(iFileID)
@@ -524,7 +524,7 @@ contains
     real(kind=Real8_) :: xSat(3), dTime, &
          xNear(27), yNear(27), zNear(27), BtNear(3,27), BeNear(3,27), &
          EcNear(3,27), xyzNear(3,27), rSat, pSat, tSat, rLoc, pLoc, tLoc!, EiNear(3,4),
-    real(kind=Real8_) :: xNearT(27),yNearT(27),zNearT(27)
+    real(kind=Real8_) :: xNearT(27), yNearT(27), zNearT(27), rNear
     real(kind=Real8_), parameter :: MaxDist = 0.25
 
     real(kind=Real8_), ALLOCATABLE :: distance(:,:,:)
@@ -624,6 +624,7 @@ contains
             xNear(iT) = x(iLoc(iT), jLoc(iT), kLoc(iT))
             yNear(iT) = y(iLoc(iT), jLoc(iT), kLoc(iT))
             zNear(iT) = z(iLoc(iT), jLoc(iT), kLoc(iT))
+            rNear = sqrt(xNear(iT)**2 + yNear(iT)**2 + zNear(iT)**2)
             xyzNear(1,iT) = xNear(iT)
             xyzNear(2,iT) = yNear(iT)
             xyzNear(3,iT) = zNear(iT)
@@ -636,7 +637,8 @@ contains
             EcNear(1,iT) = EXConv(iLoc(iT), jLoc(iT), kLoc(iT))
             EcNear(2,iT) = EYConv(iLoc(iT), jLoc(iT), kLoc(iT))
             EcNear(3,iT) = EZConv(iLoc(iT), jLoc(iT), kLoc(iT))
-            if ((xNear(iT).eq.0).and.(yNear(iT).eq.0).and.(zNear(iT).eq.0)) then
+            if (((xNear(iT).eq.0).and.(yNear(iT).eq.0).and.(zNear(iT).eq.0)) &
+                .or.(rNear.lt.2.0).or.(rNear.gt.6.75)) then
              iT = iT
             else
              iT = iT + 1
@@ -691,15 +693,15 @@ contains
        !SatEi = SatEi * enormal ! Convert to correct units (mV/m)
 
        ! Reset Omnidirectional flux.
-       OmnFlux(:,:)=BadDataFlag
-       SatFlux(:,:,:)=BadDataFlag
+       OmnFlux(:,:)   = 0.0
+       SatFlux(:,:,:) = BadDataFlag
        ! Flux for all energies, pitch angles, and species.
        do iS=1, 4
         do iE=1, nE
          do iPa=1, nPa
           ix = 0
           SatFluxNear(iS,iE,iPa,:) = 0.0
-          xNearT = BadDataFlag; yNearT = BadDataFlag; zNearT = BadDataFlag
+          xNearT = 0.0; yNearT = 0.0; zNearT = 0.0
           do i=1, iT
            if (indexPA(iLoc(i), jLoc(i), kLoc(i), iPa).gt.0) then
             if (flux3DEQ(iS,jLoc(i),kLoc(i),iE,indexPA(iLoc(i),jLoc(i),kLoc(i),iPa)).gt.0.0) then
@@ -719,6 +721,7 @@ contains
            end if
           end if
          end do
+         if (OmnFlux(iS,iE).le.0.0) OmnFlux(iS,iE) = BadDataFlag
         end do
        end do
 
@@ -795,13 +798,13 @@ contains
       iStatus = nf90_inq_varid(iFileID, 'FluxO+',    iOVar)
       iStatus = nf90_inq_varid(iFileID, 'Fluxe-',    ieVar)
       iStatus = nf90_inq_varid(iFileID, 'Econv_xyz', iEcVar)
-      iStatus = nf90_inq_varid(iFileID, 'omniH', ioHVar)
-      iStatus = nf90_inq_varid(iFileID, 'omniHe',ioHeVar)
-      iStatus = nf90_inq_varid(iFileID, 'omniO', ioOVar)
-      iStatus = nf90_inq_varid(iFileID, 'omnie', ioeVar)
-      iStatus = nf90_inq_varid(iFileID, 'Bnear', iBnear)
-      iStatus = nf90_inq_varid(iFileID, 'XYZnear', iXYZnear)
-      !iStatus = nf90_inq_varid(iFileID, 'Eind_xyz',  iEiVar)
+      iStatus = nf90_inq_varid(iFileID, 'omniH',     ioHVar)
+      iStatus = nf90_inq_varid(iFileID, 'omniHe',    ioHeVar)
+      iStatus = nf90_inq_varid(iFileID, 'omniO',     ioOVar)
+      iStatus = nf90_inq_varid(iFileID, 'omnie',     ioeVar)
+!      iStatus = nf90_inq_varid(iFileID, 'Bnear',     iBnear)
+!      iStatus = nf90_inq_varid(iFileID, 'XYZnear',   iXYZnear)
+!      iStatus = nf90_inq_varid(iFileID, 'Eind_xyz',  iEiVar)
 
       ! Write new values to file:
            ! Time
@@ -814,10 +817,10 @@ contains
            ! Vector convection E-field
       iStatus = nf90_put_var(iFileID, iEcVar, ecVec, iStart2D)
            ! Vector induced E-field
-      !iStatus = nf90_put_var(iFileID, iEiVar, eiVec, iStart2D)
+!      iStatus = nf90_put_var(iFileID, iEiVar, eiVec, iStart2D)
            ! Neighboring Positions and B Field
-      iStatus = nf90_put_var(iFileID, iBnear, Bnear, iStart3D)
-      iStatus = nf90_put_var(iFileID, iXYZnear, XYZnear, iStart3D)
+!      iStatus = nf90_put_var(iFileID, iBnear, Bnear, iStart3D)
+!      iStatus = nf90_put_var(iFileID, iXYZnear, XYZnear, iStart3D)
 
       iStatus = nf90_put_var(iFileID, ieVar,  Flux(1,:,:), iStart3D)
       iStatus = nf90_put_var(iFileID, iHVar,  Flux(2,:,:), iStart3D)

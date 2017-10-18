@@ -1,29 +1,117 @@
-Simple test using VOLS/DIPL/LANL and no SCB calculation.
+Example PARAM file with all options listed (the listed options are the program defaults)
 
 #DESCRIPTION
-Basic RAM-SCB simulation.
+A description of your run can go here
 
+************** REQUIRED BLOCK ***************** ! These are the only required pieces that must be included in every RAM-SCB run (if restarting a run, replace STARTTIME with RESTART)
 #STARTTIME
-2013			iYear
-3			iMonth
-17			iDay
-00			iHour
-00			iMinute
-0			iSecond
-0.0			FracSecond
-
-#OUTERBOUNDARY
-LANL			NameBoundPlasma
-DIPL 			NameBoundMag
-MAXW			NameDistribution
-
-#USESCB
-F			DoUseScb
-
-#EFIELD
-VOLS			NameEfield
-F			UseEfInd
+2013                    iYear			! Sets the year, month, day, hour, and minute for run start
+3                       iMonth
+17                      iDay
+00                      iHour
+00                      iMinute
+0                       iSecond
+0.0                     FracSecond
 
 #STOP
--1                      MaxIteration
-300                    	tSimulationMax
+-1                      MaxIteration		! Once RAM has completed this many iterations the code will stop, -1 turns this off. (Note, because RAM time steps are variable by default the amount of time this will run is variable)
+900                     tSimulationMax		! Total amount of simulation time to run RAM for, -1 turns this off. You must have one of these set to a non-negative value.
+***********************************************
+
+*************** TIMING BLOCK ******************
+#MAXTIMESTEP
+100.0			MaxHalfStep		! The maximum half time step (in seconds) that RAM will take, regardless of other factors
+
+#MINTIMESTEP
+1.0			MinHalfStep		! The minimum half time step (in seconds) that RAM will take, regardless of other factors
+
+#VARIABLEDT
+T			DoVarDt			! If set to T RAM will adjust its time step based on the current fluxes
+
+#COMPONENT_TIMESTEPS
+300.0			SCBTimeStep		! Amount of time (in seconds) between calls to SCB. If set to 1.0 it will call SCB on every RAM time step
+300.0			BCTimeStep		! Amount of time (in seconds) between reading boundary flux files (or from SWMF). If set to 1.0 will update on every RAM time step
+300.0			EFTimeStep		! Amount of time (in seconds) between updating electric fields. If set to 1.0 it will update every RAM time step
+***********************************************
+
+**************** SPATIAL BLOCK ****************
+#RAMGRID
+20			nR			! Number of radial grid points used in RAM
+25			nT			! Number of toroidal grid points used in RAM
+35			nE			! Number of energy bins used in RAM
+72			nPa			! Number of pitch angle bins used in RAM
+
+#SCBGRID
+51			nTheta			! Number of theta grid points used in SCB
+35			nPsi			! Number of psi surfaces used in SCB
+61			nZeta			! Number of zeta surfaces used in SCB
+
+***********************************************
+
+*************** COMPONENT BLOCK ***************
+#OUTERBOUNDARY
+LANL			NameBoundPlasma		! Determines the boundary flux source (LANL or SWMF)
+DIPL 			NameBoundMag		! Determines the magnetic field source (T89C, DIPL, DIPS, or SWMF)
+MAXW			NameDistribution	! Determines the distribution of the flux (MAXW)
+
+#EFIELD
+VOLS			NameEfield		! Determines the method for calculation the electric field (VOLS, WESC, W5SC, IESC, or IE89)
+F			UseEfInd		! Whether or not to use an inductive electric field
+
+#USEWPI
+F			DoUseWPI		! Whether to use wave particle interactions or not (Note, wave particle interactions are not currently working)
+F			DoUseBASDiff		! Whether to use BAS diffusion coefficients for wave particle interactions
+F			doUseKpDiff		! Whether to use KP based diffusion coefficients for wave particle interactions
+
+#MULTISPECIESBCS
+F			DoMultiSpeciesBcs	! Whether to use boundary flux files that are split into multiple species (H+, He, O)
+T			DoElectrons		! Whether to run electrons
+
+#RAMLIMITER
+1.5			LimiterBeta		! When running, RAM will limit beta to this value
+
+#SCBSCHEME
+0.5                     decreaseConvAlphaMin	! The following set of parameters are all used in determining SCB's Euler Potential convergence
+0.5                     decreaseConvAlphaMax
+0.5                     decreaseConvPsiMin
+0.5                     decreaseConvPsiMax
+0.2                     blendAlphaInit
+0.2                     blendPsiInit
+0.01                    blendMin
+0.5                     blendMax
+***********************************************
+
+***************** INPUT BLOCK *****************
+#OMNIFILE
+omni.txt		NameOmniFile		! Name of the omni input file (used for certain configurations)
+
+#INDICES_FILE
+RamIndices.txt		NameIndicesFile		! Name of the KP and F10.7 indices file needed for RAM
+***********************************************
+
+***************** OUTPUT BLOCK ****************
+#SAVERESTART
+3600.0			DtSaveRestart		! How often a restart file should be written (in seconds), -1.0 will disable restart files
+T			DoSaveFinalRestart	! Whether a restart file should be written on RAM finishing
+
+#LOGFILE
+60.0			DtLogFileWrite		! How often the log file should be appended (in seconds).
+
+#OUTPUT_FREQUENCY
+300.0			DtPressureFileWrite	! How often RAM equatorial pressures should be written (in seconds)
+300.0			DthIFileWrite		! How often SCB hI files should be written (in seconds)
+3600.0			DtEFieldFileWrite	! How often electric field files should be written
+
+#SAVEFLUX
+F			DoSaveFlux		! Whether RAM flux files should be written or not (currently outputs flux every hour)
+
+#DUMP3DFLUX
+F			DoDump3DFlux		! Whether SCB 3D flux files should be written or not (currently outputs 3D flux every hour)
+
+#SATELLITE
+60.0			DtOutput		! How often satellite trajectory output files should be written (in seconds)
+2			nSatellite		! How many satellite trajectory input files are being used
+sat1.dat		NameTrajectoryFile	! The names of all of the satellite trajectory input files, should be a single line for each of the nSatellite
+sat2.dat		NameTrajectoryFile
+F			DoUseVAPini		! Whether to initialize based on VAP data (currently disabled)
+***********************************************
