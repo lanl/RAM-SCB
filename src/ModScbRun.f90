@@ -17,7 +17,7 @@
 !==============================================================================
   SUBROUTINE scb_run
     !!!! Module Variables
-    use ModRamParams,    ONLY: boundary, electric
+    use ModRamParams,    ONLY: boundary, electric, NameBoundMag
     use ModRamVariables, ONLY: KP  
     USE ModScbMain,      ONLY: damp, iAMR, isEnergDetailNeeded, isFBDetailNeeded, iSm, &
                                method, isotropy, nrelax, numit, relax, thresh
@@ -27,12 +27,15 @@
                                decreaseConvAlpha, decreaseConvPsi, errorAlpha, errorPsi, &
                                diffmx, errorAlphaPrev, errorPsiPrev, x, y, z, sumb, &
                                sumdb, jacobian, xzero3, psiin, psiout, psitot, &
-                               xpsiin, xpsiout, f, fp, fluxVolume
+                               xpsiin, xpsiout, f, fp, fluxVolume, psiPrev, alfaPrev
     use ModScbParams,    ONLY: decreaseConvAlphaMin, decreaseConvPsiMin, blendMin, &
-                               decreaseConvAlphaMax, decreaseConvPsiMax, blendMax
+                               decreaseConvAlphaMax, decreaseConvPsiMax, blendMax, &
+                               blendAlphaInit, blendPsiInit
     !!!! Module Subroutine/Functions
+    USE ModScbInit,     ONLY: computeBandJacob_Initial
     USE ModScbEuler,    ONLY: alfges, psiges, mapalpha, mappsi, directAlpha, &
-                              iterateAlpha, directPsi, iteratePsi, psiFunctions
+                              iterateAlpha, directPsi, iteratePsi, psiFunctions, &
+                              InterpolatePsiR
     USE ModScbEquation, ONLY: newk, newj, metric, metrica ! LHS and RHS equations
     USE ModScbIO,       ONLY: computational_domain
     !!!! Share Modules
@@ -59,34 +62,31 @@
     decreaseConvPsi   = decreaseConvPsiMin + (decreaseConvPsiMax - decreaseConvPsiMin) &
                         *(MIN(Kp,6._dp))**2/36.
 
-!    call computational_domain
-!    !c  Need to make sure that psival is a monotonically increasing function of
-!    !j
-!    !c  define psival grids that correspond to dipole psivals for j=1 and j=npsi
-!    !c  define psival grids that correspond to equal equatorial distance grids
-!    !in
-!    !the midnight sector
-!    psiin   = -xzero3/xpsiin
-!    psiout  = -xzero3/xpsiout
-!    psitot  = psiout-psiin
-!    xpsitot = xpsiout - xpsiin
-!    DO j = 1, npsi
-!       psis = REAL(j-1, DP) / REAL(npsi-1, DP)
-!       xpl = xpsiin + xpsitot * psis**pow
-!       psival(j) = -xzero3 / xpl
-!       f(j) = (xzero3 / xpl**2) * xpsitot * pow * psis**(pow-1.)
-!       fp(j) = 0._dp ! If pow = 1
-!    END DO
-!
-!    call psiges
-!    call alfges
+    if (NameBoundMag.eq.'SWMF') then
+       call computational_domain
+       psiin   = -xzero3/xpsiin
+       psiout  = -xzero3/xpsiout
+       psitot  = psiout-psiin
+       xpsitot = xpsiout - xpsiin
+       DO j = 1, npsi
+          psis = REAL(j-1, DP) / REAL(npsi-1, DP)
+          xpl = xpsiin + xpsitot * psis**pow
+          psival(j) = -xzero3 / xpl
+          f(j) = (xzero3 / xpl**2) * xpsitot * pow * psis**(pow-1.)
+          fp(j) = 0._dp ! If pow = 1
+       END DO
+       call psiges
+       call alfges
+    endif
  
     sumb1 = 0._dp
     sumdb1 = 0._dp
     diffmx1 = 0._dp
     entropyFixed = 0._dp
     fluxVolume = 0._dp
-    
+    blendAlpha = blendAlphaInit
+    blendPsi   = blendPsiInit
+
     ALLOCATE(vecd(nthe,npsi,nzeta), stat = ierr)
     ALLOCATE(vec1(nthe,npsi,nzeta), stat = ierr)
     ALLOCATE(vec2(nthe,npsi,nzeta), stat = ierr)
@@ -114,20 +114,23 @@
     ENDIF
 
     Outeriters: DO
-  
-       CALL computeBandJacob_initial
+
+       call computeBandJacob_initial
        CALL metrica(vecd,vec1,vec2,vec3,vec4,vec6,vec7,vec8,vec9)
 
-       !   define the right-hand side of the betaEuler equation
-       CALL pressure(entropyFixed, fluxVolume, iCountEntropy)   ! Entropy etc. for some isotropic press. calculations, not used here
+       ! Define the right-hand side of the betaEuler equation
+       CALL pressure
   
        SCB_CALCULATION: IF (method /= 3) then
+          psiPrev(:,:,:) = psi(:,:,:)
+          alfaPrev(:,:,:) = alfa(:,:,:)
+
           CALL newk(vecx, vecd)
   
-          IF (isotropy /= 1 .AND. iteration == 1 .AND. isFBDetailNeeded == 1) THEN
-             CALL test_Convergence_anisotropic
+          !IF (isotropy /= 1 .AND. iteration == 1 .AND. isFBDetailNeeded == 1) THEN
+          !   CALL test_Convergence_anisotropic
              ! to see how far from equilibrium we are before computing
-          END IF
+          !END IF
   
           IF (isEnergDetailNeeded == 1) THEN
              SELECT CASE(isotropy)
@@ -157,8 +160,7 @@
           sumb1 = sumb
           sumdb1 = sumdb
           diffmx1 = diffmx
-          nisave1 = nisave
-  
+          nisave1 = nisave  
           errorAlpha = diffmx
   
           IF (iteration == 1) THEN
@@ -188,11 +190,9 @@
           zPrev = z
 
           Move_points_in_alpha_theta: DO
-             !cc  move zeta grid points along constant alphaEuler and theta
-             !lines
+             ! move zeta grid points along constant alphaEuler and theta lines
              CALL mapalpha(iSm)
-             !cc  move theta grid points along constant alphaEuler and zeta
-             !lines
+             ! move theta grid points along constant alphaEuler and zeta lines
              CALL maptheta
              CALL metric(vecd,vec1,vec2,vec3,vec4,vec6,vec7,vec8,vec9)
 
@@ -200,6 +200,7 @@
                    !C             iAlphaMove = iAlphaMove+1
                 blendAlpha = damp * blendAlpha
                 PRINT*, 'CE: Cycling alpha_theta pts, blendAlpha = ', blendAlpha
+                alfaPrev(:,:,:) = alfa(:,:,:)
                 IF (MOD(iteration,2)==1) THEN
                    alfa(:,:,:) = alfa(:,:,:)*blendAlpha + (1.-blendAlpha)*alfaSav1(:,:,:)
                 ELSE
@@ -228,14 +229,14 @@
              CALL maptheta
           ENDIF
 
-          IF (MOD(iteration,nrelax) == 0) blendAlpha = relax * blendAlpha
+!          IF (MOD(iteration,nrelax) == 0) blendAlpha = relax * blendAlpha
   
           IF (isotropy == 1) CALL entropy(entropyFixed, fluxVolume, iCountEntropy)
   
-          CALL computeBandJacob_initial
+!          CALL computeBandJacob_initial
           CALL metric(vecd,vec1,vec2,vec3,vec4,vec6,vec7,vec8,vec9)
           IF (MINVAL(jacobian) < 0._dp) STOP 'CE: metric problem.'
-          CALL pressure(entropyFixed, fluxVolume, iCountEntropy)
+          CALL pressure
   
           !c  define the right-hand side of the alphaEuler equation
           CALL newj(vecr, vecd)
@@ -268,8 +269,9 @@
              END IF
           END IF
   
-          IF (errorAlpha/twopi_d < decreaseConvAlpha .AND. &
-              errorPsi/MAXVAL(ABS(psival)) < decreaseConvPsi .AND. iconv == 0) iConvGlobal=1
+          IF ((errorAlpha/twopi_d.lt.decreaseConvAlpha).AND. &
+              (errorPsi/maxval(abs(psival)).lt.decreaseConvPsi) &
+              .AND. (iconv == 0)) iConvGlobal=1
   
           iPsiMove = 1
   
@@ -287,6 +289,7 @@
                !C iPsiMove = iPsiMove+1
                 blendPsi = damp * blendPsi
                 PRINT*, 'CE: Cycling psi_theta pts, blendPsi = ', blendPsi
+                psiPrev(:,:,:) = psi(:,:,:)
                 IF (MOD(iteration,2)==1) THEN
                    psi(:,:,:) = psi(:,:,:)*blendPsi + (1.-blendPsi)*psiSav1(:,:,:)
                 ELSE
@@ -307,8 +310,8 @@
              psiSav2(:,:,:) = psi(:,:,:)
           END IF
 
-       IF (MOD(iteration,nrelax) == 0) blendPsi = relax * blendPsi
-       ! PRINT*, 'CE: blendPsi = ', blendPsi
+!          IF (MOD(iteration,nrelax) == 0) blendPsi = relax * blendPsi
+          ! PRINT*, 'CE: blendPsi = ', blendPsi
   
           IF (iteration == 1) THEN
              errorfirstpsi = sumdb
@@ -359,23 +362,15 @@
     IF (iteration > numit) lconv = 1
     nitry = nisave
   
-    IF (numit == 0) THEN  ! In case no iteration was performed; still need pressure for metrics
-       CALL pressure(entropyFixed, fluxVolume, iCountEntropy)
-       IF (isotropy == 1) CALL entropy(entropyFixed, fluxVolume, iteration)
-       IF ((isotropy == 1).AND.(isEnergDetailNeeded == 1)) CALL energy
-    END IF
-  
     ! The following block should be uncommented for applications where equal-arc-length is needed 
     ! or desirable
     !C  constTheta = 0.0_dp ! For equal-arc length
     !C  chiVal = (thetaVal + constTheta * SIN(2.*thetaVal)) 
     !C  CALL maptheta
     !C  CALL metrica(vecd,vec1,vec2,vec3,vec4,vec6,vec7,vec8,vec9) 
-    ! This will compute the new Bfield on the new grid, to get the right pressure
-    ! mapping
+    ! This will compute the new Bfield on the new grid, to get the right pressure mapping
   
-    CALL pressure(entropyFixed, fluxVolume, iCountEntropy)  ! To write to disk
-  
+    CALL pressure 
     CALL entropy(entropyFixed, fluxVolume, iCountEntropy)
   
     IF (electric=='IESC' .OR. electric=='WESC' .or. electric=='W5SC') THEN
@@ -437,7 +432,7 @@
                                +(y(nThetaEquator,j,k) - y(nThetaEquator,j-1,k))**2
              IF (distConsecFluxSq > distConsecFluxSqOld) THEN
                 distConsecFluxSqOld = distConsecFluxSq
-                kMax = (3*nzeta)/8 !C k
+                kMax = k ! (3*nzeta)/8 < what???? not even an integer with nzeta = 61
              END IF
           END DO
        end DO
@@ -463,119 +458,6 @@
     RETURN
   
   END SUBROUTINE findR
-  
-!==============================================================================
-  SUBROUTINE InterpolatePsiR
-    ! Interpolates the new values of psi at the new locations xnew on midnight 
-    ! equator
-    !!!! Module Variables
-    USE ModScbMain,  ONLY: iAzimOffset
-    USE ModScbGrids, ONLY: npsi
-    use ModScbVariables, ONLY: x, y, nThetaEquator, nZetaMidnight, psiVal
-    !!!! Module Subroutines/Functions
-    USE ModScbSpline, ONLY: spline, splint
-    !!!! NR Modules
-    use nrtype, ONLY: DP
-
-    IMPLICIT NONE
-  
-    REAL(DP), DIMENSION(npsi) :: radEqmid, psival1D, psi2Deriv
-    INTEGER :: ialloc, ierr, j
-  
-    IF (iAzimOffset == 1) THEN
-       radEqmid(1:npsi) = SQRT(x(nThetaEquator, 1:npsi, nZetaMidnight)**2 + &
-            y(nThetaEquator, 1:npsi, nZetaMidnight)**2)
-    ELSE IF (iAzimOffset == 2) THEN
-       radEqmid(1:npsi) = SQRT(x(nThetaEquator, 1:npsi, kMax)**2 + &
-            y(nThetaEquator, 1:npsi, kMax)**2)
-    END IF
-  
-    psival1D(1:npsi) = psival(1:npsi)
-  
-    CALL spline(radEqmid, psival1D, 1.E31_dp, 1.E31_dp, psi2Deriv)
-  
-    DO j = 2, npsi-1
-       psival(j) = splint(radEqmid, psival1D, psi2Deriv, radEqmidNew(j))
-    END DO
-  
-    RETURN
-  
-  END SUBROUTINE InterpolatePsiR
-  
-!==============================================================================
-  SUBROUTINE computeBandJacob_initial
-    !!!! Module Variables
-    USE ModScbGrids,     ONLY: nthe, npsi, nzeta
-    use ModScbVariables, ONLY: x, y, z, bf, bsq, jacobian, f, fzet, rhoVal, &
-                               thetaVal, zetaVal
-    !!!! Module Subroutines/Functions
-    USE ModScbSpline, ONLY: spline_coord_derivs
-    !!!! NR Modules
-    use nrtype, ONLY: DP
-
-    IMPLICIT NONE
-  
-    INTEGER :: i, j, k, ierr, idealerr
-    REAL(DP) :: yyp, phi, deltaPhi
-    REAL(DP), DIMENSION(nthe,npsi,nzeta) :: derivXTheta, derivXRho, derivXZeta, &
-         derivYTheta, derivYRho, derivYZeta, derivZTheta, derivZRho, derivZZeta, &
-         gradRhoX, gradRhoY, gradRhoZ, gradZetaX, gradZetaY, gradZetaZ, gradThetaX, &
-         gradThetaY, gradThetaZ, gradThetaSq
-    ! gradRhoSq, gradRhoGradZeta are global
-  
-    CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, x(1:nthe, 1:npsi, 1:nzeta), derivXTheta, &
-         derivXRho, derivXZeta)
-    CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, y(1:nthe, 1:npsi, 1:nzeta), derivYTheta, &
-         derivYRho, derivYZeta)
-    CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, z(1:nthe, 1:npsi, 1:nzeta), derivZTheta, &
-         derivZRho, derivZZeta)
-    ! Now I have all the point derivatives
-  
-  
-    jacobian = derivXRho * (derivYZeta * derivZTheta - derivYTheta * derivZZeta) + derivXZeta * &
-         & (derivYTheta * derivZRho - derivYRho * derivZTheta) + derivXTheta * &
-         & (derivYRho * derivZZeta - derivYZeta * derivZRho)
-  
-    gradRhoX = (derivYZeta * derivZTheta - derivYTheta * derivZZeta) / jacobian
-    gradRhoY = (derivZZeta * derivXTheta - derivZTheta * derivXZeta) / jacobian
-    gradRhoZ = (derivXZeta * derivYTheta - derivXTheta * derivYZeta) / jacobian
-  
-    gradZetaX = (derivYTheta * derivZRho - derivYRho * derivZTheta) / jacobian
-    gradZetaY = (derivZTheta * derivXRho - derivZRho * derivXTheta) / jacobian
-    gradZetaZ = (derivXTheta * derivYRho - derivXRho * derivYTheta) / jacobian
-  
-    gradThetaX = (derivYRho * derivZZeta - derivYZeta * derivZRho) / jacobian
-    gradThetaY = (derivZRho * derivXZeta - derivZZeta * derivXRho) / jacobian
-    gradThetaZ = (derivXRho * derivYZeta - derivXZeta * derivYRho) / jacobian
-  
-    gradRhoSq = gradRhoX**2 + gradRhoY**2 + gradRhoZ**2
-    gradRhoGradZeta = gradRhoX * gradZetaX + gradRhoY * gradZetaY + gradRhoZ * gradZetaZ
-    gradRhoGradTheta = gradRhoX * gradThetaX + gradRhoY * gradThetaY + gradRhoZ * gradThetaZ
-  
-    gradThetaSq = gradThetaX**2 + gradThetaY**2 + gradThetaZ**2
-    gradThetaGradZeta = gradThetaX * gradZetaX + gradThetaY * gradZetaY + gradThetaZ * gradZetaZ
-  
-    gradZetaSq = gradZetaX**2 + gradZetaY**2 + gradZetaZ**2
-  
-    ! Compute magnetic field
-    DO  k = 1,nzeta
-       DO  j = 1,npsi
-          DO  i = 1,nthe
-             bsq(i,j,k) = (gradRhoSq(i,j,k)*gradZetaSq(i,j,k)-gradRhoGradZeta(i,j,k) **2) &
-                          * (f(j) * fzet(k)) **2
-             bfInitial(i,j,k) = SQRT(bsq(i,j,k))
-             bf(i,j,k) = bfInitial(i,j,k)
-             IF (ABS(bsq(i,j,k)) < 1e-30_dp) THEN
-                PRINT*, i, j, k, bsq(i,j,k)
-                STOP 'Problem with Bsq in computeBandJacob.'
-             END IF
-          END DO
-       END DO
-    END DO
-    
-    RETURN
-  
-  END SUBROUTINE computeBandJacob_initial
   
 !==============================================================================
   SUBROUTINE energy
@@ -635,6 +517,7 @@
     use ModScbSpline, ONLY: Spline_2D_derivs, Spline_coord_derivs
     !!!! NR Modules
     use nrtype, ONLY: DP
+
     IMPLICIT NONE
   
     real(DP) :: ent_local(:,:), vol_local(:,:)
@@ -830,7 +713,7 @@
   
     ! Can de-allocate derivXRho etc.
   
-  1000 RETURN
+  RETURN
   
   END SUBROUTINE entropy
   
@@ -855,10 +738,10 @@
           CALL extap(phij(4,j,k),phij(3,j,k),phij(2,j,k),phij(1,j,k))
           CALL extap(phij(nthe-3,j,k),phij(nthe-2,j,k),phij(nthe-1,j,k),phij(nthe,j,k))
   
-          CALL extap(bf(4,j,k),bf(3,j,k),bf(2,j,k),bf(1,j,k))
-          CALL extap(bf(nthe-3,j,k),bf(nthe-2,j,k),bf(nthe-1,j,k) ,bf(nthe,j,k))
-          bsq(1,j,k)=bf(1,j,k)**2
-          bsq(nthe,j,k)=bf(nthe,j,k)**2
+!          CALL extap(bf(4,j,k),bf(3,j,k),bf(2,j,k),bf(1,j,k))
+!          CALL extap(bf(nthe-3,j,k),bf(nthe-2,j,k),bf(nthe-1,j,k) ,bf(nthe,j,k))
+!          bsq(1,j,k)=bf(1,j,k)**2
+!          bsq(nthe,j,k)=bf(nthe,j,k)**2
        END DO
        DO i=1,nthe
           CALL extap(bj(i,4,k),bj(i,3,k),bj(i,2,k),bj(i,1,k))
@@ -867,11 +750,11 @@
           CALL extap(phij(i,4,k),phij(i,3,k),phij(i,2,k),phij(i,1,k))
           CALL extap(phij(i,npsi-3,k),phij(i,npsi-2,k),phij(i,npsi-1,k),phij(i,npsi,k))
   
-          CALL extap(bf(i,4,k),bf(i,3,k),bf(i,2,k),bf(i,1,k))
-          CALL extap(bf(i,npsi-3,k),bf(i,npsi-2,k),bf(i,npsi-1,k) ,bf(i,npsi,k))
-          IF (bf(i,npsi,k) < 0._dp) bf(i,npsi,k) = bf(i,npsi-1,k)
-          bsq(i,1,k) = bf(i,1,k)**2
-          bsq(i,npsi,k) = bf(i,npsi,k)**2
+!          CALL extap(bf(i,4,k),bf(i,3,k),bf(i,2,k),bf(i,1,k))
+!          CALL extap(bf(i,npsi-3,k),bf(i,npsi-2,k),bf(i,npsi-1,k) ,bf(i,npsi,k))
+!          IF (bf(i,npsi,k) < 0._dp) bf(i,npsi,k) = bf(i,npsi-1,k)
+!          bsq(i,1,k) = bf(i,1,k)**2
+!          bsq(i,npsi,k) = bf(i,npsi,k)**2
        END DO
     END DO
   
@@ -910,16 +793,21 @@
        DO j = 2, npsi
           DO k = 2, nzeta
              rsq = x(i,j,k)**2 + y(i,j,k)**2
-             magneticEnergy(i) = magneticEnergy(i) + jacobian(i,j,k) * dr * dpPrime * dt * &
-                  & (bsq(i,j,k)*bnormal**2) / (2._dp*mu0) * 1.E-18_dp*REarth**3 ! In Joules now
-             IF (rsq < 6.6_dp**2) magneticEnergyInsideGeo(i) = magneticEnergyInsideGeo(i) + &
-                  jacobian(i,j,k) * dr * dpPrime * dt * &
-                  & (bsq(i,j,k)*bnormal**2) / (2._dp*mu0) * 1.E-18_dp*REarth**3
-             thermalEnergy(i) = thermalEnergy(i) + jacobian(i,j,k) * dr * dpPrime * dt * &
-                  & (pper(i,j,k) + 0.5_dp*ppar(i,j,k))*pnormal * 1.E-9_dp * REarth**3 ! In Joules now
-             IF (rsq < 6.6_dp**2) thermalEnergyInsideGeo(i) = thermalEnergyInsideGeo(i) + &
-                  jacobian(i,j,k) * dr * dpPrime * dt * &
-                  & (pper(i,j,k) + 0.5_dp*ppar(i,j,k))*pnormal * 1.E-9_dp * REarth**3
+             magneticEnergy(i) = magneticEnergy(i) + jacobian(i,j,k) * dr * dpPrime * dt &
+                               * (bsq(i,j,k)*bnormal**2) / (2._dp*mu0) * 1.E-18_dp*REarth**3 ! In Joules now
+             IF (rsq < 6.6_dp**2) then
+                magneticEnergyInsideGeo(i) = magneticEnergyInsideGeo(i) + jacobian(i,j,k) &
+                                           * dr * dpPrime * dt * (bsq(i,j,k)*bnormal**2)  &
+                                           / (2._dp*mu0) * 1.E-18_dp*REarth**3
+             ENDIF
+             thermalEnergy(i) = thermalEnergy(i) + jacobian(i,j,k) * dr * dpPrime * dt &
+                              * (pper(i,j,k) + 0.5_dp*ppar(i,j,k))*pnormal * 1.E-9_dp  &
+                              * REarth**3 ! In Joules now
+             IF (rsq < 6.6_dp**2) then
+                thermalEnergyInsideGeo(i) = thermalEnergyInsideGeo(i) + jacobian(i,j,k) &
+                                          * dr * dpPrime * dt * (pper(i,j,k) &
+                                          + 0.5_dp*ppar(i,j,k))*pnormal * 1.E-9_dp * REarth**3
+             ENDIF
              volumeTotal = volumeTotal + jacobian(i,j,k) * dr * dpPrime * dt
           END DO
        END DO
@@ -941,7 +829,8 @@
   SUBROUTINE mapTheta
     !!!! Module Variables
     USE ModScbGrids,     ONLY: nthe, nthem, npsi, nzeta, nzetap, ny
-    USE ModScbVariables, ONLY: diffmx, rjac, nisave,  x, y, z, sumb, sumdb, chiVal
+    USE ModScbVariables, ONLY: diffmx, rjac, nisave,  x, y, z, sumb, sumdb, chiVal, &
+                               chi
     !!!! Module Subroutines/Functions
     use ModScbSpline, ONLY: spline, splint
     !!!! NR Modules
@@ -951,11 +840,15 @@
   
     REAL(DP), DIMENSION(nthe) :: xOld, yOld, zOld, distance, chiValOld, chi2derivsX, &
                                  chi2derivsY, chi2derivsZ
+    REAL(DP), DIMENSION(nthe,npsi,nzetap) :: chiPrev
+
     INTEGER :: i, j, k
   
     !     now move theta coordinates along each surface
     !     equal arc length along the i grids
   
+    chiPrev(:,:,:) = chi(:,:,:)
+
     zetaloop: DO k = 2, nzeta
        fluxloop: DO j = 1, npsi
           distance(1) = 0._dp
@@ -976,10 +869,14 @@
           CALL spline(chiValOld, yOld, 1.E31_dp, 1.E31_dp, chi2derivsY)
           CALL spline(chiValOld, zOld, 1.E31_dp, 1.E31_dp, chi2derivsZ)
   
-          DO i = 2, nthem
-             x(i,j,k) = splint(chiValOld, xOld, chi2derivsX, chiVal(i))
-             y(i,j,k) = splint(chiValOld, yOld, chi2derivsY, chiVal(i))
-             z(i,j,k) = splint(chiValOld, zOld, chi2derivsZ, chiVal(i))
+          DO i = 1, nthe
+!             x(i,j,k) = splint(chiValOld, xOld, chi2derivsX, chiVal(i))
+!             y(i,j,k) = splint(chiValOld, yOld, chi2derivsY, chiVal(i))
+!             z(i,j,k) = splint(chiValOld, zOld, chi2derivsZ, chiVal(i))
+             x(i,j,k) = splint(chiValOld, xOld, chi2derivsX, chiPrev(i,j,k))
+             y(i,j,k) = splint(chiValOld, yOld, chi2derivsY, chiPrev(i,j,k))
+             z(i,j,k) = splint(chiValOld, zOld, chi2derivsZ, chiPrev(i,j,k))
+             chi(i,j,k) = chiValOld(i)
           END DO
        END DO fluxloop
     END DO zetaloop
@@ -988,9 +885,11 @@
     x(:,:,1) = x(:,:,nzeta)
     y(:,:,1) = y(:,:,nzeta)
     z(:,:,1) = z(:,:,nzeta)
+    chi(:,:,1) = chi(:,:,nzeta)
     x(:,:,nzetap) = x(:,:,2)
     y(:,:,nzetap) = y(:,:,2)
     z(:,:,nzetap) = z(:,:,2)
+    chi(:,:,nzetap) = chi(:,:,2)
   
   !C z(nThetaEquator,:,:) = 0.0_dp ! Symmetry
   
@@ -1000,7 +899,7 @@
   
 !==============================================================================
 !******************************************************************************
-SUBROUTINE pressure(entropy_local, vol_local, icount_local)
+SUBROUTINE pressure
 !    Copyright (c) 2016, Los Alamos National Security, LLC
 !    All rights reserved.
 !******************************************************************************
@@ -1023,9 +922,7 @@ SUBROUTINE pressure(entropy_local, vol_local, icount_local)
     use nrtype, ONLY: DP, SP, pi_d, twopi_d
     IMPLICIT NONE
   
-    REAL(DP), INTENT(IN) :: entropy_local(:,:), vol_local(:,:)
-    INTEGER, INTENT(IN) :: icount_local
-    INTEGER                       :: i, iloopOut, ierflg, j, j1, k1, jSKBoundary, k, ierr, ierrDom, idealerr, m1, mstate, n1
+    INTEGER :: i, iloopOut, ierflg, j, j1, k1, jSKBoundary, k, ierr, ierrDom, idealerr, m1, mstate, n1
   
     REAL(DP) :: press(npsi, nzeta+1), dPresdRho(npsi, nzeta+1), dPresdZeta(npsi, nzeta+1), &
                 xEq(npsi, nzeta+1), yEq(npsi, nzeta+1),  &
@@ -1126,6 +1023,8 @@ SUBROUTINE pressure(entropy_local, vol_local, icount_local)
     REAL(DP) :: xAr(48), yAr(48)
     REAL(DP) :: xSWMF(48,48), ySWMF(48,48), pressSWMF(48,48), rhoSWMF(48,48) 
     CHARACTER(len=4) :: ST3
+
+    integer :: mloc(2)
     ! LOGICAL :: isnand ! intrinsic for PGF
   
     ! PRINT*, 'Beginning of pressure call; icount_local = ', icount_local
@@ -1190,7 +1089,7 @@ SUBROUTINE pressure(entropy_local, vol_local, icount_local)
   
   
     ELSE    ! Anisotropic pressure case
-       IF (boundary == 'SWMF') THEN ! Calculation using RAM pressures
+       IF ((boundary.eq.'LANL+').or.(boundary.eq.'SWMF')) THEN ! Calculation using RAM pressures
           ! print*, 'rank, 1st line: ', rank, firstLine; call flush(6)
           ! print*, 'rank, 2nd line:', rank, secondLine; call flush(6)
           ! print*, 'HERE'; call flush(6)
@@ -1258,12 +1157,12 @@ SUBROUTINE pressure(entropy_local, vol_local, icount_local)
   
              END DO
           END DO
-  
+
           IF (iSm2 == 1) THEN ! Savitzky-Golay smoothing (possibly multiple) for the pressure
              pressPerRawExt(1:nXRawExt,1:nAzimRAM) = SavGol7(pressPerRawExt(1:nXRawExt,1:nAzimRAM))
              pressParRawExt(1:nXRawExt,1:nAzimRAM) = SavGol7(pressParRawExt(1:nXRawExt,1:nAzimRAM))
           END IF
-  
+
           !Cubic spline interpolation
           CALL Spline_2D_point(radRawExt**2, azimRawExt, pressPerRawExt, &
                radGrid(1:npsi,2:nzeta)**2, angleGrid(1:npsi,2:nzeta), pperEq(1:npsi,2:nzeta), iDomain) 
@@ -1297,8 +1196,7 @@ SUBROUTINE pressure(entropy_local, vol_local, icount_local)
   
          pperEq = pperEq/pnormal
          pparEq = pparEq/pnormal
-  
-  
+
           DO k = 1, nzeta
              DO j = 1, npsi
   
@@ -1385,13 +1283,12 @@ SUBROUTINE pressure(entropy_local, vol_local, icount_local)
                 pressParRawExt(j1,k1) = pressParRawExt(nXRaw,k1) *  pRoeRad(radRawExt(j1))/pRoeRad(radRawExt(nXRaw))
              END DO
           END DO
-  
+
           IF (iSm2 == 1) THEN ! Savitzky-Golay smoothing (possibly multiple) for the pressure
              pressPerRawExt(1:nXRawExt,1:nAzimRAM) = SavGol7(pressPerRawExt(1:nXRawExt,1:nAzimRAM))
              pressParRawExt(1:nXRawExt,1:nAzimRAM) = SavGol7(pressParRawExt(1:nXRawExt,1:nAzimRAM))
           END IF
-  
-  
+
           ! Piecewise cubic spline interpolation; alternative - put all points scattered and do surfit
           CALL Spline_2D_point(radRawExt, azimRawExt, pressPerRawExt, &
                radGrid(1:npsi,2:nzeta), angleGrid(1:npsi,2:nzeta), pperEq(1:npsi,2:nzeta), iDomain) 
@@ -1423,7 +1320,7 @@ SUBROUTINE pressure(entropy_local, vol_local, icount_local)
           pparEq(:,nzeta+1) = pparEq(:,2)
           pperEq(:,1) = pperEq(:,nzeta)
           pparEq(:,1) = pparEq(:,nzeta)
-  
+
           DO k = 1, nzeta
              DO j = 1, npsi
                 pEq = (2.*pperEq(j,k) + pparEq(j,k)) / 3._dp 
@@ -1438,8 +1335,8 @@ SUBROUTINE pressure(entropy_local, vol_local, icount_local)
                       pparN = pparEq(j,k) * (1._dp - (ratioB+aLiemohn(j,k)*ratioB)/(rBI+aLiemohn(j,k)*ratioB))
                       pperN = pperEq(j,k) * (1._dp - (ratioB+aLiemohn(j,k)*ratioB)/(rBI+aLiemohn(j,k)*ratioB))
                       aN = pparN/pperN - 1._dp
-                      ppar(i,j,k) = pparN * (aN+1._dp)/(1._dp+aN*ratioB) * SQRT((rBI-1._dp)/(rBI-ratioB)) * &
-                           (1._dp-(1.+aN*ratioB)/(rBI+aN*ratioB))
+                      ppar(i,j,k) = pparN * (aN+1._dp)/(1._dp+aN*ratioB) * SQRT((rBI-1._dp)/(rBI-ratioB)) &
+                                          * (1._dp-(1.+aN*ratioB)/(rBI+aN*ratioB))
                       pper(i,j,k) = ppar(i,j,k) / (1._dp + aN*ratioB)
                    END IF
                    IF (iLossCone == 1) THEN
@@ -1458,8 +1355,7 @@ SUBROUTINE pressure(entropy_local, vol_local, icount_local)
        ELSE     
           STOP 'PROBLEM in pressure.f90'
        END IF
-  
-  
+
        ! Block for reducing anisotropy
        IF (iReduceAnisotropy == 1) THEN 
           DO k = 1, nzeta

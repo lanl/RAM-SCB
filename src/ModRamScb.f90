@@ -67,7 +67,7 @@ SUBROUTINE computehI
   use ModRamVariables, ONLY: Kp, F107, FLUX, FNHS, FNIS, BNES, HDNS, dBdt, &
                              dIdt, dIbndt, BOUNHS, BOUNIS, EIR, EIP, DPHI, PHI, &
                              RLZ, LZ, MU, DMU, WMU, MLT, PAbn, PA
-  use ModRamTiming,    ONLY: TimeRamNow, TimeRamStart, DT_hI
+  use ModRamTiming,    ONLY: TimeRamNow, TimeRamStart, DT_hI, TimeRamElapsed, TOld
   use ModRamConst,     ONLY: RE, HMIN, ME
   use ModRamParams,    ONLY: electric, IsComponent, NameBoundMag
   use ModRamCouple,    ONLY: SwmfPot_II
@@ -78,7 +78,7 @@ SUBROUTINE computehI
   use ModScbGrids,     ONLY: nthe, npsi, nzeta, nXRaw, nAzimRAM
   use ModScbVariables, ONLY: bf, chiVal, nZetaMidnight, x, y, z, bnormal, PhiIono, &
                              radGrid, angleGrid, h_Cart, I_Cart, h_Cart_interp, &
-                             i_Cart_interp, bZEq_Cart, flux_vol_cart, bZ, &
+                             i_Cart_interp, bZEq_Cart, flux_vol_cart, bZ, chi, &
                              hdens_Cart, radRaw, azimRaw, nThetaEquator, fluxVolume
 
   use ModRamFunctions, ONLY: RamFileName, COSD, FUNT, FUNI
@@ -134,7 +134,7 @@ SUBROUTINE computehI
   REAL(DP) :: EKEV2(NE), MU2(NPA)
   REAL(DP), PARAMETER :: b0dip = 30570._dp
   REAL(DP) :: beqdip(npsi,nzeta+1)
-
+  REAL(DP) :: DthI
 !  REAL(DP), :: flux_volume(:,:)
 
   switch = 0.0_dp
@@ -261,7 +261,9 @@ SUBROUTINE computehI
            DO i = nThetaEquator, nthe
               distance(i) = SQRT(x(i,j,k)**2+y(i,j,k)**2+z(i,j,k)**2) ! Distance from center of Earth
            END DO
-           CALL spline(chiVal(nThetaEquator:nthe),distance(nThetaEquator:nthe), 1.E31_dp, 1.E31_dp, &
+           !CALL spline(chiVal(nThetaEquator:nthe),distance(nThetaEquator:nthe), 1.E31_dp, 1.E31_dp, &
+           !            dyDummyDens(nThetaEquator:nthe))
+           CALL spline(chi(nThetaEquator:nthe,j,k),distance(nThetaEquator:nthe), 1.E31_dp, 1.E31_dp, &
                        dyDummyDens(nThetaEquator:nthe))
 
            ! Compute length of field line (j,k)
@@ -293,9 +295,11 @@ SUBROUTINE computehI
            END DO Monotonicity
 
            ! Initialize Hermite spline for chi(B), in order to find thetaMirror; actually, chiMirror in the general case (constTheta /= 0)
-           CALL DPCHIC (IC0, vc, switch, nthe-nThetaEquator+1, bf(nThetaEquator:nthe,j,k), chiVal(nThetaEquator:nthe),  &
+           !CALL DPCHIC (IC0, vc, switch, nthe-nThetaEquator+1, bf(nThetaEquator:nthe,j,k), chiVal(nThetaEquator:nthe),  &
+           !     dThetadB(nThetaEquator:nthe), INCFD, WK(1:NWK), NWK, IERR)
+           CALL DPCHIC (IC0, vc, switch, nthe-nThetaEquator+1, bf(nThetaEquator:nthe,j,k), chi(nThetaEquator:nthe,j,k),  &
                 dThetadB(nThetaEquator:nthe), INCFD, WK(1:NWK), NWK, IERR)
-
+           
            IF (ierr < 0) THEN ! Means monotonicity of theta(B) not established
               PRINT*, 'FATAL error in computehI: ierr = ', ierr
               STOP
@@ -318,10 +322,13 @@ SUBROUTINE computehI
               IF (bfMirror(L) > bf(nthe,j,k)) THEN ! No possibility of trapping, only passing particles
                  iCount = iCount + 1
                  bfMirror(L) = bf(nthe,j,k)
-                 chiMirror(L) = chiVal(nthe)
+                 !chiMirror(L) = chiVal(nthe)
+                 chiMirror(L) = chi(nthe,j,k)
               ELSE
                  ! Find chiMirror, assuming monotonicity of bf with chiVal
-                 CALL DPCHFE (nthe-nThetaEquator+1,  bf(nThetaEquator:nthe,j,k), chiVal(nThetaEquator:nthe), &
+                 !CALL DPCHFE (nthe-nThetaEquator+1,  bf(nThetaEquator:nthe,j,k), chiVal(nThetaEquator:nthe), &
+                 !     dThetadB(nThetaEquator:nthe), INCFD, SKIP, 1, bfMirror(L), chiMirror(L), IERR)
+                 CALL DPCHFE (nthe-nThetaEquator+1,  bf(nThetaEquator:nthe,j,k), chi(nThetaEquator:nthe,j,k), &
                       dThetadB(nThetaEquator:nthe), INCFD, SKIP, 1, bfMirror(L), chiMirror(L), IERR)
               END IF
 
@@ -342,7 +349,9 @@ SUBROUTINE computehI
               IC0(2) = -5 
 
               ! Initialize Hermite spline B(theta) (to be used in fInt and fScalarInt)
-              CALL DPCHIC (IC0, vc, switch, nthe-nThetaEquator+1, chiVal(nThetaEquator:nthe), bf(nThetaEquator:nthe,j,k), &
+              !CALL DPCHIC (IC0, vc, switch, nthe-nThetaEquator+1, chiVal(nThetaEquator:nthe), bf(nThetaEquator:nthe,j,k), &
+              !     dBdTheta(nThetaEquator:nthe), INCFD, WK(1:NWK), NWK, IERR)
+              CALL DPCHIC (IC0, vc, switch, nthe-nThetaEquator+1, chi(nThetaEquator:nthe,j,k), bf(nThetaEquator:nthe,j,k), &
                    dBdTheta(nThetaEquator:nthe), INCFD, WK(1:NWK), NWK, IERR)
 
               IF (ierr < 0) THEN
@@ -350,15 +359,19 @@ SUBROUTINE computehI
                  STOP
               END IF
 
-              valueIntegral = qromb(fInt, chiVal(nThetaEquator), chiMirror(L))  ! The integral for I is non-singular, qromb should do fine
+              !valueIntegral = qromb(fInt, chiVal(nThetaEquator), chiMirror(L))  ! The integral for I is non-singular, qromb should do fine
+              valueIntegral = qromb(fInt, chi(nThetaEquator,j,k), chiMirror(L))
 
               ! Split h integral or compute solely by DQAGI (which is pretty good for the whole interval)
               ! March 2006 - transformed h integral by y = 1/sqrt(bm-b) change of variable; spreads out the interval from yeq to infinity; not singular anymore 
               ! ---> better accuracy
 
-              chiHalf = 0.2_dp*(chiVal(nThetaEquator) + 4.*chiMirror(L))
-              CALL DPCHFE (nthe-nThetaEquator+1, chiVal(nThetaEquator:nthe), bf(nThetaEquator:nthe,j,k), &
-                   dBdTheta(nThetaEquator:nthe), INCFD, SKIP, 1, chiHalf, bfHalf, IERR)          
+              !chiHalf = 0.2_dp*(chiVal(nThetaEquator) + 4.*chiMirror(L))
+              !CALL DPCHFE (nthe-nThetaEquator+1, chiVal(nThetaEquator:nthe), bf(nThetaEquator:nthe,j,k), &
+              !     dBdTheta(nThetaEquator:nthe), INCFD, SKIP, 1, chiHalf, bfHalf, IERR)          
+              chiHalf = 0.2_dp*(chi(nThetaEquator,j,k) + 4.*chiMirror(L))
+              CALL DPCHFE (nthe-nThetaEquator+1, chi(nThetaEquator:nthe,j,k),bf(nThetaEquator:nthe,j,k), &
+                   dBdTheta(nThetaEquator:nthe), INCFD, SKIP, 1, chiHalf,bfHalf, IERR) 
 
               IF (bfMirror(L) - bfHalf < 0._dp) THEN
                  PRINT*, 'computehI: problem w/ mirror point; j, k, L = ', j, k, L
@@ -387,11 +400,15 @@ SUBROUTINE computehI
               !         CALL DQAGS(fScalarIntDens, chiVal(nThetaEquator), chiMirror(L), EPSABS, EPSREL, valueIntegralDens, &
               !              ABSERR, NEVAL, IERR, LENIW, LENW, LAST, IWORK, WORK)   ! whole interval for density
 
-              CALL DQAG(fScalarInt, chiVal(nThetaEquator), chiHalf, EPSABS, EPSREL, 3, valueIntegral3, &
+              !CALL DQAG(fScalarInt, chiVal(nThetaEquator), chiHalf, EPSABS, EPSREL, 3, valueIntegral3, &
+              !     ABSERR, NEVAL, IERR, LIMIT, LENW, LAST, IWORK, WORK)   ! from eq. plane to chiHalf; regular integral (for h calculation)
+              !CALL DQAG(fScalarIntDens, chiVal(nThetaEquator), chiHalf, EPSABS, EPSREL, 3, valueIntegralDens3, &
+              !     ABSERR, NEVAL, IERR, LIMIT, LENW, LAST, IWORK, WORK)   ! from eq. plane to chiHalf; regular integral of Hdens
+              CALL DQAG(fScalarInt, chi(nThetaEquator,j,k), chiHalf, EPSABS, EPSREL, 3, valueIntegral3, &
                    ABSERR, NEVAL, IERR, LIMIT, LENW, LAST, IWORK, WORK)   ! from eq. plane to chiHalf; regular integral (for h calculation)
-
-              CALL DQAG(fScalarIntDens, chiVal(nThetaEquator), chiHalf, EPSABS, EPSREL, 3, valueIntegralDens3, &
+              CALL DQAG(fScalarIntDens, chi(nThetaEquator,j,k), chiHalf, EPSABS, EPSREL, 3, valueIntegralDens3, &
                    ABSERR, NEVAL, IERR, LIMIT, LENW, LAST, IWORK, WORK)   ! from eq. plane to chiHalf; regular integral of Hdens
+
 
               valueIntegral2 = valueIntegral2 + valueIntegral3
               valueIntegralDens2 = valueIntegralDens2 + valueIntegralDens3
@@ -484,69 +501,70 @@ SUBROUTINE computehI
         !   STOP
      END IF
 
-!     Master_rank:  IF (rank == 0) THEN
-        ! Cubic spline interpolation with natural boundaries to get h and I at muboun 
-        DO j = 1, nT
-           DO i = 1, nR
-              CALL spline(PA(1:NPA),h_Cart(i,j,1:NPA),1.E31_dp,1.E31_dp,dyDummy1(1:NPA))
-              CALL spline(PA(1:NPA),I_Cart(i,j,1:NPA),1.E31_dp,1.E31_dp,dyDummy2(1:NPA))
-              DO L = 1, NPA-1
-                 h_Cart_interp(i,j,L) = splint(PA(1:NPA),h_Cart(i,j,1:NPA),dyDummy1(1:NPA),PAbn(L))
-                 I_Cart_interp(i,j,L) = splint(PA(1:NPA),I_Cart(i,j,1:NPA),dyDummy2(1:NPA),PAbn(L))
-              END DO
-              ! Do not do the NPA inclusive in the not-a-knot interpolation above -> can lead to negative h,I(NPA)
-              h_Cart_interp(i,j,NPA) = h_Cart_interp(i,j,NPA-1)
-              I_Cart_interp(i,j,NPA) = I_Cart_interp(i,j,NPA-1)
+     ! Cubic spline interpolation with natural boundaries to get h and I at muboun 
+     DO j = 1, nT
+        DO i = 1, nR
+           CALL spline(PA(1:NPA),h_Cart(i,j,1:NPA),1.E31_dp,1.E31_dp,dyDummy1(1:NPA))
+           CALL spline(PA(1:NPA),I_Cart(i,j,1:NPA),1.E31_dp,1.E31_dp,dyDummy2(1:NPA))
+           DO L = 1, NPA-1
+              h_Cart_interp(i,j,L) = splint(PA(1:NPA),h_Cart(i,j,1:NPA),dyDummy1(1:NPA),PAbn(L))
+              I_Cart_interp(i,j,L) = splint(PA(1:NPA),I_Cart(i,j,1:NPA),dyDummy2(1:NPA),PAbn(L))
            END DO
+           ! Do not do the NPA inclusive in the not-a-knot interpolation above -> can lead to negative h,I(NPA)
+           h_Cart_interp(i,j,NPA) = h_Cart_interp(i,j,NPA-1)
+           I_Cart_interp(i,j,NPA) = I_Cart_interp(i,j,NPA-1)
         END DO
+     END DO
 
-        ! Update h and I values for RAM (note that the output of the hI files
-        ! now uses RAM variables so the numbers will be different
-           DO I=2,NR+1
-              DO J=1,NT
-                 BNESPrev(I,J)=BNES(I,J)
-                 DO L=1,NPA
-                    FNISPrev(I,J,L)=FNIS(I,J,L)
-                    BOUNISPrev(I,J,L)=BOUNIS(I,J,L)
-                    ! SCB Variables -> RAM Variables
-                    FNHS(I,J,L)   = h_Cart(I-1,J,L)
-                    FNIS(I,J,L)   = i_Cart(I-1,J,L)
-                    BNES(I,J)     = bZEq_Cart(I-1,J)
-                    HDNS(I,J,L)   = hdens_Cart(I-1,J,L)
-                    BOUNHS(I,J,L) = h_Cart_interp(I-1,J,L)
-                    BOUNIS(I,J,L) = i_Cart_interp(I-1,J,L)
-                    !
-                    dIdt(I,J,L)=(FNIS(I,J,L)-FNISPrev(I,J,L))/DT_hI
-                    dIbndt(I,J,L)=(BOUNIS(I,J,L)-BOUNISPrev(I,J,L))/DT_hI
-                 ENDDO
-                 IF (J.LT.8.or.J.GT.18) THEN
-                    DO L=15,2,-1
-                       if (FNHS(I,J,L-1).gt.FNHS(I,J,L)) then
-                          FNHS(I,J,L-1)=0.99*FNHS(I,J,L)
-                       endif
-                    ENDDO
-                 ENDIF
-                 BNES(I,J)=BNES(I,J)/1e9 ! to convert in [T]
-                 dBdt(I,J)=(BNES(I,J)-BNESPrev(I,J))/DT_hI
-              ENDDO
+     ! Update h and I values for RAM (note that the output of the hI files
+     ! now uses RAM variables so the numbers will be different
+     DthI = TimeRamElapsed-TOld
+     DO I=2,NR+1
+        DO J=1,NT
+           BNESPrev(I,J)=BNES(I,J)
+           DO L=1,NPA
+              FNISPrev(I,J,L)=FNIS(I,J,L)
+              BOUNISPrev(I,J,L)=BOUNIS(I,J,L)
+              ! SCB Variables -> RAM Variables
+              FNHS(I,J,L)   = h_Cart(I-1,J,L)
+              FNIS(I,J,L)   = i_Cart(I-1,J,L)
+              BNES(I,J)     = bZEq_Cart(I-1,J)
+              HDNS(I,J,L)   = hdens_Cart(I-1,J,L)
+              BOUNHS(I,J,L) = h_Cart_interp(I-1,J,L)
+              BOUNIS(I,J,L) = i_Cart_interp(I-1,J,L)
+              !
+              dIdt(I,J,L)=(FNIS(I,J,L)-FNISPrev(I,J,L))/DThI
+              dIbndt(I,J,L)=(BOUNIS(I,J,L)-BOUNISPrev(I,J,L))/DThI
            ENDDO
-           DO J=1,NT ! use dipole B at I=1
-              BNES(1,J)=0.32/LZ(1)**3/1.e4
-              dBdt(1,J) = 0.
-              EIR(1,J) = 0.
-              EIP(1,J) = 0.
-              DO L=1,NPA
-                 FNHS(1,J,L) = FUNT(MU(L))
-                 FNIS(1,J,L) = FUNI(MU(L))
-                 BOUNHS(1,J,L)=FUNT(COSD(PAbn(L)))
-                 BOUNIS(1,J,L)=FUNI(COSD(PAbn(L)))
-                 HDNS(1,J,L)=HDNS(2,J,L)
-                 dIdt(1,J,L)=0.
-                 dIbndt(1,J,L)=0.
+           IF (J.LT.8.or.J.GT.18) THEN
+              DO L=15,2,-1
+                 if (FNHS(I,J,L-1).gt.FNHS(I,J,L)) then
+                    FNHS(I,J,L-1)=0.99*FNHS(I,J,L)
+                 endif
               ENDDO
-           ENDDO
+           ENDIF
+           BNES(I,J)=BNES(I,J)/1e9 ! to convert in [T]
+           dBdt(I,J)=(BNES(I,J)-BNESPrev(I,J))/DThI
+        ENDDO
+     ENDDO
+     DO J=1,NT ! use dipole B at I=1
+        BNES(1,J)=0.32/LZ(1)**3/1.e4
+        dBdt(1,J) = 0.
+        EIR(1,J) = 0.
+        EIP(1,J) = 0.
+        DO L=1,NPA
+           FNHS(1,J,L) = FUNT(MU(L))
+           FNIS(1,J,L) = FUNI(MU(L))
+           BOUNHS(1,J,L)=FUNT(COSD(PAbn(L)))
+           BOUNIS(1,J,L)=FUNI(COSD(PAbn(L)))
+           HDNS(1,J,L)=HDNS(2,J,L)
+           dIdt(1,J,L)=0.
+           dIbndt(1,J,L)=0.
+        ENDDO
+     ENDDO
+     TOld = TimeRamElapsed
 
-        SWMF_electric_potential:  IF (electric=='IESC') THEN
+     SWMF_electric_potential:  IF (electric=='IESC') THEN
            NameFileOut=trim(prefixOut)//trim(RamFileName('IE_SCB','in',TimeRamNow))
            PRINT*, 'Writing to file ', NameFileOut
            OPEN(UNITTMP_, file = NameFileOut, &
@@ -568,12 +586,12 @@ SUBROUTINE computehI
            ! Save traced potential to ModRamCouple::SwmfPot_II
            IF(IsComponent) SwmfPot_II(1:nR+1,1:nT) = &
                 Epot_Cart(0:nR,  1:nT)
-        END IF SWMF_electric_potential
+     END IF SWMF_electric_potential
 
-        Weimer_electric_potential_along_SCB: IF (electric=='WESC' .or. electric=='W5SC') THEN
+     Weimer_electric_potential_along_SCB: IF (electric=='WESC' .or. electric=='W5SC') THEN
            SwmfPot_II(1:nR+1,1:nT) = Epot_Cart(0:nR, 1:nT)
            print*, 'computehI: SwmfPot_II here SwmfPot_II mm', maxval(swmfpot_II), minval(swmfpot_ii)
-        END IF Weimer_electric_potential_along_SCB
+     END IF Weimer_electric_potential_along_SCB
         
 !     END IF Master_rank
 
@@ -591,7 +609,7 @@ END SUBROUTINE computehI
 FUNCTION fInt(chi_local)
   USE nrtype,          ONLY: DP
   use ModScbGrids,     ONLY: nthe
-  use ModScbVariables, ONLY: bf, chiVal, bnormal, nThetaEquator
+  use ModScbVariables, ONLY: bf, chiVal, bnormal, nThetaEquator, chi
   IMPLICIT NONE
   REAL(DP), INTENT(IN) :: chi_local(:) 
   REAL(DP) :: bf_local(SIZE(chi_local))
@@ -600,8 +618,11 @@ FUNCTION fInt(chi_local)
   REAL(DP) :: fInt(SIZE(chi_local))
   LOGICAL :: SKIP = .FALSE.
 
-  CALL DPCHFE (nthe-nThetaEquator+1, chiVal(nThetaEquator:nthe), bf(nThetaEquator:nthe,j,k), &
+  !CALL DPCHFE (nthe-nThetaEquator+1, chiVal(nThetaEquator:nthe), bf(nThetaEquator:nthe,j,k), &
+  !     dBdTheta(nThetaEquator:nthe), INCFD, SKIP, SIZE(chi_local,1), chi_local, bf_local, IERR)
+  CALL DPCHFE (nthe-nThetaEquator+1, chi(nThetaEquator:nthe,j,k), bf(nThetaEquator:nthe,j,k), &
        dBdTheta(nThetaEquator:nthe), INCFD, SKIP, SIZE(chi_local,1), chi_local, bf_local, IERR)
+
 
   !C fInt = SQRT(MAX(1._dp/(1._dp - bf_local/bfMirror(L)), 0._dp)) ! For function h(mu0)
   fInt = SQRT(MAX((bfMirror(L) - bf_local)/bfMirror(L), 0._dp)) ! For function I(mu0)
@@ -614,7 +635,7 @@ FUNCTION fIntDer(t_local)
   USE nrtype,          ONLY: DP
   use ModScbGrids,     ONLY: nthe
   use ModScbSpline,    ONLY: splint
-  use ModScbVariables, ONLY: bf, chiVal, bnormal, nThetaEquator
+  use ModScbVariables, ONLY: bf, bnormal, nThetaEquator
   IMPLICIT NONE
   REAL(DP), INTENT(IN) :: t_local(:) 
   REAL(DP) :: bf_local(SIZE(t_local)), bfprime_local(SIZE(t_local))
@@ -640,7 +661,7 @@ FUNCTION fScalarIntDens(chi_local)
   USE nrtype,          ONLY: DP
   use ModScbGrids,     ONLY: nthe
   use ModScbSpline,    ONLY: splint
-  use ModScbVariables, ONLY: x, y, z, bf, chiVal, bnormal, nThetaEquator
+  use ModScbVariables, ONLY: x, y, z, bf, chiVal, bnormal, nThetaEquator, chi
   IMPLICIT NONE
   REAL(DP), INTENT(IN) :: chi_local
   REAL(DP) :: bf_local
@@ -651,9 +672,14 @@ FUNCTION fScalarIntDens(chi_local)
   REAL(DP) :: fScalarIntDens
   LOGICAL :: SKIP = .FALSE.
 
-  CALL DPCHFE (nthe-nThetaEquator+1, chiVal(nThetaEquator:nthe), bf(nThetaEquator:nthe,j,k), &
+  !CALL DPCHFE (nthe-nThetaEquator+1, chiVal(nThetaEquator:nthe), bf(nThetaEquator:nthe,j,k), &
+  !     dBdTheta(nThetaEquator:nthe), INCFD, SKIP, 1, chi_local, bf_local, IERR)
+  !radius = splint(chiVal(nThetaEquator:nthe), distance(nThetaEquator:nthe), dyDummyDens(nThetaEquator:nthe), chi_local)
+  CALL DPCHFE (nthe-nThetaEquator+1, chi(nThetaEquator:nthe,j,k), bf(nThetaEquator:nthe,j,k), &
        dBdTheta(nThetaEquator:nthe), INCFD, SKIP, 1, chi_local, bf_local, IERR)
-  radius = splint(chiVal(nThetaEquator:nthe), distance(nThetaEquator:nthe), dyDummyDens(nThetaEquator:nthe), chi_local)
+  radius = splint(chi(nThetaEquator:nthe,j,k), distance(nThetaEquator:nthe), dyDummyDens(nThetaEquator:nthe), chi_local)
+
+
   fScalarIntDens = hdens_rairden(radius) * SQRT(MAX(1._dp/(bfMirror(L) - bf_local), 0._dp)) 
 
   RETURN
@@ -664,7 +690,7 @@ END FUNCTION fScalarIntDens
 FUNCTION fScalarInt(chi_local)
   USE nrtype,          ONLY: DP
   use ModScbGrids,     ONLY: nthe
-  use ModScbVariables, ONLY: bf, chiVal, bnormal, nThetaEquator
+  use ModScbVariables, ONLY: bf, chiVal, bnormal, nThetaEquator, chi
   IMPLICIT NONE
   REAL(DP), INTENT(IN) :: chi_local
   REAL(DP) :: bf_local
@@ -674,8 +700,11 @@ FUNCTION fScalarInt(chi_local)
   REAL(DP) :: fScalarInt
   LOGICAL :: SKIP = .FALSE.
 
-  CALL DPCHFE (nthe-nThetaEquator+1, chiVal(nThetaEquator:nthe), bf(nThetaEquator:nthe,j,k), &
+  !CALL DPCHFE (nthe-nThetaEquator+1, chiVal(nThetaEquator:nthe), bf(nThetaEquator:nthe,j,k), &
+  !     dBdTheta(nThetaEquator:nthe), INCFD, SKIP, 1, chi_local, bf_local, IERR)
+  CALL DPCHFE (nthe-nThetaEquator+1, chi(nThetaEquator:nthe,j,k), bf(nThetaEquator:nthe,j,k), &
        dBdTheta(nThetaEquator:nthe), INCFD, SKIP, 1, chi_local, bf_local, IERR)
+
 
   !C if (chi_local > chiVal(nthe)) STOP 'Problem in fScalarInt.'
 
@@ -699,7 +728,7 @@ END FUNCTION fScalarInt
 FUNCTION fScalarIntInf(y_local)
   USE nrtype,          ONLY: DP
   use ModScbGrids,     ONLY: nthe
-  use ModScbVariables, ONLY: bf, chiVal, bnormal, nThetaEquator
+  use ModScbVariables, ONLY: bf, chiVal, bnormal, nThetaEquator, chi
   IMPLICIT NONE
   REAL(DP), INTENT(IN) :: y_local
   REAL(DP) :: bf_local, chi_local, dChidB_local
@@ -709,8 +738,11 @@ FUNCTION fScalarIntInf(y_local)
 
   bf_local = bfMirror(L) - 1._dp/(y_local*y_local)
 
-  CALL DPCHFD(nthe-nThetaEquator+1,  bf(nThetaEquator:nthe,j,k), chiVal(nThetaEquator:nthe), &
+  !CALL DPCHFD(nthe-nThetaEquator+1,  bf(nThetaEquator:nthe,j,k), chiVal(nThetaEquator:nthe), &
+  !     dThetadB(nThetaEquator:nthe), INCFD, SKIP, 1, bf_local, chi_local, dChidB_local, IERR)
+  CALL DPCHFD(nthe-nThetaEquator+1,  bf(nThetaEquator:nthe,j,k), chi(nThetaEquator:nthe,j,k), &
        dThetadB(nThetaEquator:nthe), INCFD, SKIP, 1, bf_local, chi_local, dChidB_local, IERR)
+
 
   IF (IERR < 0) THEN  
      PRINT*, 'IERR = ', IERR
@@ -731,7 +763,7 @@ FUNCTION fScalarIntInfDens(y_local)
   USE nrtype,          ONLY: DP
   use ModScbGrids,     ONLY: nthe
   USE ModScbSpline,    ONLY: splint
-  use ModScbVariables, ONLY: bf, chiVal, bnormal, nThetaEquator
+  use ModScbVariables, ONLY: bf, chiVal, bnormal, nThetaEquator, chi
   IMPLICIT NONE
   REAL(DP), INTENT(IN) :: y_local
   REAL(DP) :: bf_local, chi_local, dChidB_local, radius
@@ -741,15 +773,19 @@ FUNCTION fScalarIntInfDens(y_local)
 
   bf_local = bfMirror(L) - 1._dp/(y_local*y_local)
 
-  CALL DPCHFD(nthe-nThetaEquator+1,  bf(nThetaEquator:nthe,j,k), chiVal(nThetaEquator:nthe), &
+  !CALL DPCHFD(nthe-nThetaEquator+1,  bf(nThetaEquator:nthe,j,k), chiVal(nThetaEquator:nthe), &
+  !     dThetadB(nThetaEquator:nthe), INCFD, SKIP, 1, bf_local, chi_local, dChidB_local, IERR)
+  CALL DPCHFD(nthe-nThetaEquator+1,  bf(nThetaEquator:nthe,j,k), chi(nThetaEquator:nthe,j,k), &
        dThetadB(nThetaEquator:nthe), INCFD, SKIP, 1, bf_local, chi_local, dChidB_local, IERR)
+
 
   IF (IERR < 0) THEN  
      PRINT*, 'IERR = ', IERR
      STOP
   END IF
 
-  radius = splint(chiVal(nThetaEquator:nthe), distance(nThetaEquator:nthe), dyDummyDens(nThetaEquator:nthe), chi_local)
+  !radius = splint(chiVal(nThetaEquator:nthe), distance(nThetaEquator:nthe), dyDummyDens(nThetaEquator:nthe), chi_local)
+  radius = splint(chi(nThetaEquator:nthe,j,k), distance(nThetaEquator:nthe), dyDummyDens(nThetaEquator:nthe), chi_local)
 
   IF(y_local*y_local>0._dp) THEN
      fScalarIntInfDens = dChidB_local/(y_local*y_local) * hdens_rairden(radius)

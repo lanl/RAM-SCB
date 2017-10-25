@@ -12,7 +12,7 @@ MODULE ModRamEField
 subroutine get_electric_field
 
   use ModRamMain,      ONLY: Real8_
-  use ModRamTiming,    ONLY: TimeRamNow, DtEfi, T
+  use ModRamTiming,    ONLY: TimeRamNow, DtEfi, TimeRamElapsed
   use ModRamConst,     ONLY: RE
   use ModRamParams,    ONLY: electric, IsComponent
   use ModRamGrids,     ONLY: NR, NT
@@ -30,7 +30,7 @@ subroutine get_electric_field
 
   ! Set "new" values of indices and E-field to "old" values. 
   VTOL = VTN
-  print*,'RAM: updating E field at time ', T/3600.
+  print*,'RAM: updating E field at time ', TimeRamElapsed/3600.
   ! Generate name of next electric field file:
   TimeNext = TimeRamNow
   if (electric.ne.'IESC') then
@@ -45,7 +45,7 @@ subroutine get_electric_field
   ! No interpolation for IESC case.
   if(electric .eq. 'IESC') vtol=vtn
   ! Set time of "old" file for interpolation:
-  TOLV=T
+  TOLV=TimeRamElapsed
   if (IsComponent .OR. electric=='WESC' .or. electric=='W5SC') then
      VTOL = SwmfPot_II
      VTN  = SwmfPot_II
@@ -54,7 +54,7 @@ subroutine get_electric_field
   DO I=1,NR+1
      DO J=1,NT
         if (electric .ne. 'VOLS') then
-           VT(I,J)=VTOL(I,J)+(VTN(I,J)-VTOL(I,J))*(T-TOLV)/DtEfi
+           VT(I,J)=VTOL(I,J)+(VTN(I,J)-VTOL(I,J))*(TimeRamElapsed-TOLV)/DtEfi
         else
            AVS=7.05E-6/(1.-0.159*KP+0.0093*KP**2)**3/RE  ! Voll-Stern parameter
            VT(I,J)=AVS*(LZ(I)*RE)**2*SIN(PHI(J)-PHIOFS) ! [V]

@@ -2,7 +2,7 @@ SUBROUTINE ionospheric_potential
   !!!! Module Variables
   use ModRamMain,      ONLY: PathSwmfOut
   use ModRamTiming,    ONLY: TimeRamNow
-  use ModRamParams,    ONLY: IsComponent, electric
+  use ModRamParams,    ONLY: IsComponent, electric, UseSWMFFile
   use ModRamCouple,    ONLY: SwmfIonoPot_II, nIePhi, nIeTheta
   use ModRamIndices,   ONLY: NameOmniFile
   use ModScbMain,      ONLY: iConvE
@@ -34,7 +34,9 @@ SUBROUTINE ionospheric_potential
   INTEGER, PARAMETER :: mlat_range = 36, mlon_range = 91
   INTEGER :: iTimeArr(0:24), dstArr(0:24)
   INTEGER :: iYear_l, iDoy_l, iHour_l, iMin_l, iLines
+  integer :: isec_l, imsec_l, imonth_l, iday_l
   REAL(DP) :: bzimfArr_l, byimf_l, pdyn_l, Nk_l, Vk_l, bTot_l
+  real(DP) :: bximf_l, vx_l, vy_l, vz_l, t_l
   INTEGER :: AL_l, SymH_l
   REAL(DP), ALLOCATABLE :: colat(:), lon(:), phiIonoRaw(:,:)
   REAL(DP), EXTERNAL :: EpotVal, BoundaryLat
@@ -134,7 +136,6 @@ SUBROUTINE ionospheric_potential
      END IF
      
   CASE('WESC') ! Potential by calling Weimer function 
-     UseAL = .TRUE.
      !C OPEN(UNITTMP_, FILE='./omni_5min_Sep2005.txt', status = 'UNKNOWN', action = 'READ')
      OPEN(UNITTMP_, FILE=NameOmniFile, status = 'UNKNOWN', action = 'READ')
      i = 0
@@ -149,41 +150,42 @@ SUBROUTINE ionospheric_potential
      ! Rewind file
      REWIND(UNITTMP_)
 
-     PRINT*, 'IP: Year, Day, Hour, Min, Bt, By, Bz, V, N, Pdyn, AL, SYMH'
-     Read_data_from_file: DO i = 1, iLines
-        READ(UNITTMP_,*) iYear_l, iDoy_l, iHour_l, iMin_l, bTot_l, byimf_l, bzimf_l, Vk_l, Nk_l, pdyn_l, AL_l, SymH_l
-        doy = n_day_of_year(TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay)
-        if ((TimeRamNow%iYear.eq.iyear_l).and.(doy.eq.idoy_l).and. &
-            (TimeRamNow%iHour.eq.ihour_l).and.(TimeRamNow%iMinute.eq.imin_l)) then
-           WRITE(*,*) iYear_l, iDoy_l, iHour_l, iMin_l, bTot_l, byimf_l, bzimf_l, Vk_l, Nk_l, pdyn_l, AL_l, SymH_l           
-           EXIT Read_data_from_file
-        END IF
-        ! ACHTUNG this assumes the same starting file in omni file, and same cadence of E-field update as the B-field update in RAM-SCB !!! 
-     END DO Read_data_from_file
+     if (UseSWMFFile) then
+        UseAL = .false.
+        print*, 'IP: year, month, day, hour, min, btot, bz, v, n'
+        Read_SWMF_file: DO i = 1, iLines
+           read(UNITTMP_,*) iyear_l, imonth_l, iday_l, ihour_l, imin_l, isec_l, imsec_l, &
+                            bximf_l, byimf_l, bzimf_l, vx_l, vy_l, vz_l, nk_l, t_l
+           if ((TimeRamNow%iYear.eq.iyear_l).and.(TimeRamNow%iMonth.eq.imonth_l).and. &
+               (TimeRamNow%iDay.eq.iday_l).and. &
+               (TimeRamNow%iHour.eq.ihour_l).and.(TimeRamNow%iMinute.eq.imin_l)) then
+              bTot_l = SQRT(bximf_l**2 + byimf_l**2 + bzimf_l**2)
+              vk_l   = SQRT(vx_l**2 + vy_l**2 + vz_l**2)
+              write(*,*)iyear_l,imonth_l,iday_l, ihour_l, imin_l, btot_l, bzimf_l, vk_l, nk_l
+              EXIT Read_SWMF_file
+           END IF
+        END DO Read_SWMF_file
+     else
+        UseAL = .true.
+        PRINT*, 'IP: Year, Day, Hour, Min, Bt, By, Bz, V, N, Pdyn, AL, SYMH'
+        Read_OMNI_file: DO i = 1, iLines
+           READ(UNITTMP_,*) iYear_l, iDoy_l, iHour_l, iMin_l, bTot_l, byimf_l, &
+                            bzimf_l, Vk_l, Nk_l, pdyn_l, AL_l, SymH_l
+           doy = n_day_of_year(TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay)
+           if ((TimeRamNow%iYear.eq.iyear_l).and.(doy.eq.idoy_l).and. &
+               (TimeRamNow%iHour.eq.ihour_l).and.(TimeRamNow%iMinute.eq.imin_l)) then
+              WRITE(*,*) iYear_l, iDoy_l, iHour_l, iMin_l, bTot_l, byimf_l, &
+                         bzimf_l, Vk_l, Nk_l, pdyn_l, AL_l, SymH_l
+              EXIT Read_OMNI_file
+           END IF
+        ! ACHTUNG this assumes the same starting file in omni file, and same
+        ! cadence of E-field update as the B-field update in RAM-SCB !!! 
+        END DO Read_OMNI_file
+     endif
      CLOSE(UNITTMP_)
 
-
-     ! 101  FORMAT(A11, 1X, I2, A3, 1X, F5.1, 1X, F5.1, 1X, F5.1, 1X, F5.0, 1X, F5.2, 1X, I5)
-101  FORMAT(2I4, 2I3, 3F8.2, F8.1, F7.2, F6.2, 2I6)
-     ! 1 Year                          I4
-     ! 2 Day                           I4        
-     ! 3 Hour                          I3        
-     ! 4 Minute                        I3        
-     ! 5 Field magnitude average, nT   F8.2      
-     ! 6 BY, nT (GSM)                  F8.2      
-     ! 7 BZ, nT (GSM)                  F8.2      
-     ! 8 Speed, km/s                   F8.1      
-     ! 9 Proton Density, n/cc          F7.2      
-     ! 10 Flow pressure, nPa            F6.2      
-     ! 11 AL-index, nT                  I6        
-     ! 12 SYM/H, nT                     I6        
-
-     !C PRINT*, 'iono_potential: iHour_l = ', iHour_l
-
-     !C Bt = SQRT(byimf**2 + bzimf_l**2)
      angle = 180._dp/pi_d*ACOS(bzimf_l/bTot_l)
-     WRITE(*,'(A,4F12.2,I6)') 'IP: Bt, angle, SW Vel., SW Dens., AL = ', bTot_l, angle, Vk_l, Nk_l, AL_l
-     CALL SetModel(angle,bTot_l,tilt,Vk_l,Nk_l,REAL(AL_l,dp),UseAL); CALL FLUSH(6) 
+     CALL SetModel(angle,bTot_l,tilt,Vk_l,Nk_l,REAL(AL_l,dp),UseAL)
      latGrid = 180._dp/pi_d * latGrid ! Transform latitude to degrees for Weimer EpotVal function
      lonGrid = 12._dp/pi_d * lonGrid ! Transform lonGrid to hours (MLT) for Weimer EpotVal function
      ! Translate to correct MLT
@@ -199,11 +201,11 @@ SUBROUTINE ionospheric_potential
 
      Weimer_potential_loop: DO k = 2, nzeta
         DO j = 1, npsi
-           IF (ABS(pdyn_l-99.99_dp) < 1E-3_dp) THEN
-              PRINT*, 'IP: not calling Weimer model, bad SW data'
-              PRINT*, ' '
-              EXIT Weimer_potential_loop ! Bad SW data, do not call Weimer model
-           END IF
+           !IF (ABS(pdyn_l-99.99_dp) < 1E-3_dp) THEN
+           !   PRINT*, 'IP: not calling Weimer model, bad SW data'
+           !   PRINT*, ' '
+           !   EXIT Weimer_potential_loop ! Bad SW data, do not call Weimer model
+           !END IF
            PhiIono(j,k) = 1.E3 * EpotVal(latGrid(j,k), lonGrid(j,k)) !!! Achtung RAM needs it in volts !!!
            bndylat = BoundaryLat(lonGrid(j,k))
     !C       PRINT*, 'j, k, lat, mlt, bndylat, Phi_Weimer(j,k) = ', j, k, REAL(latGrid(j,k),sp), &
@@ -224,19 +226,24 @@ SUBROUTINE ionospheric_potential
      ilines = i-1
 
      rewind(unittmp_)
-     print*, 'IP: year, day, hour, min, bt, by, bz, v, n, pdyn, al. symh'
+!     print*, 'IP: year, day, hour, min, bt, by, bz, v, n, pdyn, al. symh'
+     print*, 'IP: year, day, hour, min, by, bz, v, n'
      read_data_from_file1: do i=1,ilines
-        read(unittmp_,*) iyear_l,idoy_l,ihour_l, imin_l, btot_l, byimf_l, bzimf_l, vk_l, nk_l, pdyn_l, al_l, symh_l
+!        read(unittmp_,*) iyear_l,idoy_l,ihour_l, imin_l, btot_l, byimf_l, bzimf_l, vk_l, nk_l, pdyn_l, al_l, symh_l
+        read(UNITTMP_,*) iyear_l, imonth_l, iday_l, ihour_l, imin_l, isec_l, imsec_l, &
+                         bximf_l, byimf_l, bzimf_l, vk_l, vy_l, vz_l, nk_l, t_l
         doy = n_day_of_year(TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay)
-        if ((TimeRamNow%iYear.eq.iyear_l).and.(doy.eq.idoy_l).and. &
+        if ((TimeRamNow%iYear.eq.iyear_l).and.(TimeRamNow%iMonth.eq.imonth_l).and. &
+            (TimeRamNow%iDay.eq.iday_l).and. &
             (TimeRamNow%iHour.eq.ihour_l).and.(TimeRamNow%iMinute.eq.imin_l)) then
-           write(*,*)iyear_l,idoy_l,ihour_l, imin_l, btot_l, byimf_l, bzimf_l, vk_l, nk_l, pdyn_l, al_l, symh_l
+!           write(*,*)iyear_l,idoy_l,ihour_l, imin_l, btot_l, byimf_l, bzimf_l, vk_l, nk_l, pdyn_l, al_l, symh_l
+           write(*,*)iyear_l,idoy_l,ihour_l, imin_l, byimf_l, bzimf_l, vk_l, nk_l
            exit read_data_from_file1
         end if
      end do read_data_from_file1
      close(unittmp_)
      angle = 180._dp/pi_d*ACOS(bzimf_l/bTot_l)
-     WRITE(*,'(A,4F12.2,I6)') 'IP: Bt, angle, SW Vel., SW Dens., AL = ', bTot_l, angle, Vk_l, Nk_l, AL_l
+!     WRITE(*,'(A,4F12.2,I6)') 'IP: Bt, angle, SW Vel., SW Dens., AL = ', bTot_l, angle, Vk_l, Nk_l, AL_l
      CALL SetModel05(byimf_l, bzimf_l, tilt, Vk_l, Nk_l)
      CALL FLUSH(6) 
      latGrid = 180._dp/pi_d * latGrid ! Transform latitude to degrees for Weimer EpotVal function

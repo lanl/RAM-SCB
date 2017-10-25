@@ -37,11 +37,14 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   use ModRamMain,      ONLY: Real8_, S
   use ModRamTiming,    ONLY: TimeRamNow, TimeRamElapsed, TimeRamStart, Dt_bc
   use ModRamParams,    ONLY: electrons, boundary
-  use ModRamGrids,     ONLY: NT, NE, NEL, NEL_prot, NBD
-  use ModRamVariables, ONLY: EKEV, MLT, FGEOS, timeOffset, StringFileDate, &
-                             flux_SIII, fluxLast_SII, eGrid_SI, avgSats_SI, lGrid_SI
+  use ModRamGrids,     ONLY: NT, NE, NEL, NEL_prot, NBD, NTL
+  use ModRamVariables, ONLY: EKEV, MLT, FGEOS, timeOffset, StringFileDate,  &
+                             flux_SIII, fluxLast_SII, eGrid_SI, avgSats_SI, &
+                             lGrid_SI, tGrid_SI
 
   use ModRamIO, ONLY: read_geomlt_file
+
+  use nrmod,    ONLY: polint
 
   implicit none
 
@@ -49,27 +52,17 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   real(kind=Real8_),intent(out):: fluxOut_II(nT, nE)
 
   character(len=8) :: StringDate
-  integer :: iError, iTime, iSpec=1, j, k, NEL_
+  integer :: iError, iTime1, iTime2, iSpec=1, NEL_
+  integer :: i, j, k
+  integer :: lE, rE, pE
   real(kind=Real8_) :: y, my_var
-  real(kind=Real8_), allocatable :: flux_II(:,:),logFlux_II(:,:),logELan(:),logERam(:)
+  real(kind=Real8_), allocatable :: flux_II(:,:),logFlux_II(:,:),logELan(:),logERam(:),intFlux(:,:)
+  real(kind=Real8_) :: dyError
 
   ! Usual debug variables.
   logical :: DoTest, DoTestMe, IsInitialized=.true.
   character(len=*), parameter :: NameSub='get_geomlt_flux'
   !------------------------------------------------------------------------
-
-  ! Possible different sizes for two boundary input files
-  if((NameParticleIn .eq. 'prot').and.(boundary .eq. 'PTM')) then
-     NEL_ = NEL_prot
-  else
-     NEL_ = NEL
-  endif
-
-  if(allocated(flux_II)) then
-     deallocate(flux_II,logFlux_II,logELan,logERam)
-  endif
-
-  allocate(flux_II(0:25,NEL_),logFlux_II(nT,NEL_),logELan(NEL_),logERam(nE))
 
   call CON_set_do_test(NameSub, DoTest, DoTestMe)
   if(DoTest)write(*,'(a, i2.2,":",i2.2)')NameSub//': Getting flux at t= ', &
@@ -87,39 +80,88 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   end if
 
   ! Check date of file against current date.
-  write(StringDate, '(i4.4,i2.2,i2.2)') &
-       TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay
+  write(StringDate, '(i4.4,i2.2,i2.2)') TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay
   if(DoTest)write(*,*)'Nowdate, Filedate = ', Stringdate, '  ', StringFileDate
   if(StringDate.ne.StringFileDate)then
      call read_geomlt_file('prot')
      if(electrons) call read_geomlt_file('elec')
   end if
 
-  ! Get the position in the array by determining 
-  ! how many 5-min intervals have passed.
-  ! Chris Jeffery** Change this from 300 to couple with Dt_bc
-  !  iTime=nint(mod(TimeRamElapsed+timeOffset,86400.0)/300.0)+1
-
-  ! Also, don't use timeOffset if I'm running PTM
-  if(boundary .eq. 'PTM') then
-     iTime=nint(mod(TimeRamElapsed,86400.0)/Dt_bc)+1
+  ! Possible different sizes for two boundary input files
+  if (NameParticleIn .eq. 'prot') then
+     NEL_  = NEL_prot
+     iSpec = 1
   else
-     iTime=nint(mod(TimeRamElapsed+timeOffset,86400.0)/Dt_bc)+1
+     NEL_  = NEL
+     iSpec = 2
   endif
 
-  if(DoTest) write(*,'(a,i3.3)')NameSub//': Index iTime = ', iTime
+  if(allocated(flux_II)) then
+     deallocate(flux_II,logFlux_II,logELan,logERam)
+  endif
 
-  ! Set species index.
-  iSpec=1  ! Keep this or iSpec will be saved for next call.
-  if(NameParticleIn.eq.'elec') iSpec=2
+  ! May need to add energy points on either end of the boundary files
+  rE = 0
+  lE = 0
+  if (eGrid_SI(iSpec,1).gt.EkeV(1))     lE = 1
+  if (eGrid_SI(iSpec,NEL_).lt.EkeV(nE)) rE = 1
+  pE = rE + lE
+  allocate(flux_II(0:NTL,NEL_+pE), logFlux_II(nT,NEL_+pE), logELan(NEL_+pE), logERam(nE))
+
+  ! Get closest times and interpolate
+  iTime1 = 0
+  iTime2 = 0
+  do i=1,NBD
+     if (TimeRamElapsed.eq.tGrid_SI(iSpec,i)) then
+        iTime2 = i
+        iTime1 = i
+        exit  
+     elseif (TimeRamElapsed.lt.tGrid_SI(iSpec,i)) then
+        iTime2 = i
+        iTime1 = max(1,i-1)
+        exit
+     endif
+  enddo
+  if ((iTime1.eq.0).and.(iTime2.eq.0)) then
+     if (TimeRamElapsed.lt.tGrid_SI(iSpec,1)) then
+        iTime1 = 1
+        iTime2 = 1
+     else
+        iTime1 = NBD
+        iTime2 = NBD
+     endif
+  endif
 
   ! If at end of full day of flux, set fluxLast.
-  if (iTime==NBD) fluxLast_SII(iSpec,:,:)=flux_SIII(iSpec,iTime,:,:)
+  if (iTime1==NBD) fluxLast_SII(iSpec,:,:)=flux_SIII(iSpec,NBD,:,:)
+
+  if (iTime1.eq.iTime2) then
+     flux_II(1:24,1+lE:NEL_+le) = flux_SIII(iSpec,iTime1,:,1:NEL_)
+  else
+     do j=1,NTL-1
+        do k=1,NEL_
+           call lintp(tGrid_SI(iSpec,:), flux_SIII(iSpec,:,j,k), &
+                      NBD, TimeRamElapsed, flux_II(j,k+lE), iError)
+        enddo
+     enddo
+  endif
+
+  ! If needed, extrapolate (for now just set to 10^8 and 0.1 for testing)
+  if (lE.eq.1) then
+     do j=1,NTL-1
+        flux_II(j,1) = 10.**7
+     enddo
+  endif
+
+  if (rE.eq.1) then
+     do j=1,NTL-1
+        flux_II(j,NEL_+pE) = 0.1
+     enddo
+  endif
 
   ! Create array that is periodic in L.
-  flux_II(1:24,:) = flux_SIII(iSpec,iTime, :,1:NEL_)
-  flux_II(0,:)    = flux_SIII(iSpec,iTime,24,1:NEL_)
-  flux_II(25,:)   = flux_SIII(iSpec,iTime,1,1:NEL_)
+  flux_II(0,:)  = flux_II(24,:)
+  flux_II(25,:) = flux_II(1,:)
 
   if(DoTest)then
      write(*,*)NameSub//'Raw flux at E-min='
@@ -127,10 +169,12 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   end if
 
   ! Interpolate in LT-space, get log for E-interpolation...
-  do j=1,nT; do k=1,NEL_
-     call lintp(lGrid_SI(iSpec,:), flux_II(:,k), 26, MLT(j), y, iError)
-     logFlux_II(j,k)=log10(y)
-  end do; end do
+  do j=1,nT
+     do k=1,NEL_+pE
+        call lintp(lGrid_SI(iSpec,:), flux_II(:,k), 26, MLT(j), y, iError)
+        logFlux_II(j,k)=log10(y)
+     end do
+  end do
 
   if(DoTest)then
      write(*,*)NameSub//'Log10-LT-interpolated flux at E-min='
@@ -138,32 +182,22 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   end if
 
   ! Place energy grids into log space.
-  logELan=log10(eGrid_SI(iSpec,1:NEL_))
-  logERam=log10(Ekev)
+  logELan(1+lE:NEL_+le) = log10(eGrid_SI(iSpec,1:NEL_))
+  if (lE.eq.1) logELan(1)       = log10(0.1000)
+  if (rE.eq.1) logELan(NEL_+pE) = log10(1000.00)
+  logERam = log10(Ekev)
 
-  ! Interpolate in energy space; return to normal units.
-  do j=1,nT; do k=1,nE
-     call lintp(logELan, logFlux_II(j,:), NEL_, logERam(k), y, iError)
-     if (y.gt.8)  then
-       y=8
-       write(*,*) ' in ModRamBoundary: limit flux to 1e8'
-     end if
-     fluxOut_II(j,k)=10.**y
-  end do; end do
-
-  do j=2,nT; do k=1,nE
-     my_var = fluxOut_II(j,k)
-    if (my_var /= my_var) then     ! doesn't work
-      write(*,*) ' FluxLanl is NaN'
-      fluxOut_II(j,k)=fluxOut_II(j,k-1)
-      write(*,*) ' new flux =', fluxOut_II(j,k)
-    end if
-    if (my_var == 10.**8) then
- !     fluxOut_II(j,k)=fluxOut_II(j,k-1)
-      fluxOut_II(j,k)=fluxOut_II(j-1,k)
- !     write(*,*) ' new flux =', fluxOut_II(j,k)
-    endif
- end do; end do
+  ! Interpolate/Extrapolate in energy space; return to normal units.
+  do j=1,nT
+     do k=1,nE
+        call lintp(logELan, logFlux_II(j,:), NEL_+pE, logERam(k), y, iError)
+        if (y.gt.8)  then
+           y=8
+           write(*,*) ' in ModRamBoundary: limit flux to 1e8'
+        end if
+        fluxOut_II(j,k)=10.**y
+     end do
+  end do
 
  do k=1,nE
     fluxOut_II(1,k)=fluxOut_II(nT,k)
