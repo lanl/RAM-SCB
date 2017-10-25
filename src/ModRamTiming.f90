@@ -14,7 +14,8 @@ module ModRamTiming
   type(TimeType) :: TimeRamNow, TimeRamStart, TimeRamStop, TimeRamRealStart
 
   real(kind=Real8_) :: TimeRestart    = 0.0, &
-                       TimeRamElapsed = 0.0
+                       TimeRamElapsed = 0.0, &
+                       TOld           = 0.0
 
   integer :: TimeMax, &  ! Simulation max in seconds.
              MaxIter     ! Simulation max iterations
@@ -146,11 +147,21 @@ contains
     real(kind=Real8_), intent(in) :: TimeIn
 
     real(kind=Real8_) :: DtSatTemp=999999.9
+    real(kind=Real8_) :: hI_temp, bc_temp, ef_temp, rt_temp
 
     logical :: DoTest, DoTestMe
     character(len=*), parameter :: NameSub='max_output_timestep'
     !------------------------------------------------------------------------
     call CON_set_do_test(NameSub, DoTest, DoTestMe)
+
+    hI_temp = Dt_hI
+    if (Dt_hI.le.1.0) hI_temp = 9999999.9
+    bc_temp = Dt_bc
+    if (Dt_bc.le.1.0) bc_temp = 9999999.9
+    ef_temp = DtEfi
+    if (DtEfi.le.1.0) ef_temp = 9999999.9
+    rt_temp = DtRestart
+    if (DtRestart.le.1.0) rt_temp = 9999999.9
 
     ! Only include sats if we are writing them.
     if(DoSaveRamSats) DtSatTemp=DtWriteSat
@@ -161,10 +172,10 @@ contains
     max_output_timestep=min( &
          DtLogfile   -mod(TimeIn, DtLogfile   ), &
          DtSatTemp   -mod(TimeIn, DtSatTemp   ), &
-         Dt_hI       -mod(TimeIn, Dt_hI       ), &
-         Dt_bc       -mod(TimeIn, Dt_bc       ), &
-         DtEfi       -mod(TimeIn, DtEfi       ), &
-         DtRestart   -mod(TimeIn, DtRestart   ), &
+         hI_temp     -mod(TimeIn, hI_temp     ), &
+         bc_temp     -mod(TimeIn, bc_temp     ), &
+         ef_temp     -mod(TimeIn, ef_temp     ), &
+         rt_temp     -mod(TimeIn, rt_temp     ), &
          DtW_Pressure-mod(TimeIn, DtW_Pressure), &
          DtW_EField  -mod(TimeIn, DtW_EField  ), &
          DtW_hI      -mod(TimeIn, DtW_hI      )) / 2.0

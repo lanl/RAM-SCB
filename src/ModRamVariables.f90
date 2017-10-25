@@ -61,8 +61,8 @@ Module ModRamVariables
   ! Date of file:
   character(len=8) :: StringFileDate
   ! Values that are read and stored from file:
-  real(DP), allocatable :: flux_SIII(:,:,:,:), fluxLast_SII(:,:,:), eGrid_SI(:,:), avgSats_SI(:,:)
-  real(DP) :: lGrid_SI(2,0:25)
+  real(DP), allocatable :: flux_SIII(:,:,:,:), fluxLast_SII(:,:,:), eGrid_SI(:,:), &
+                           avgSats_SI(:,:), tGrid_SI(:,:), lGrid_SI(:,:)
 
 ! ModRamDrift variables
   real(DP), ALLOCATABLE :: P1(:), VR(:), P2(:,:), EDOT(:,:), MUDOT(:,:), &
