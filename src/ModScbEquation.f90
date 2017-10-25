@@ -532,8 +532,7 @@ SUBROUTINE newk(vec_x, vec_dk)
               vec_dk(1:nthe, j, k) = vec_dk(1:nthe, j, k) - jacobian(1:nthe,j,k)/f(j)**2 * dSqpdAlphaSq(1:nthe,j,k)
            END DO
         ELSE                          ! Picard method
-           vec_x(1:nthe, j, 1:nzeta) = - dpdAlpha(1:nthe, j, 1:nzeta) * &
-                & jacobian(1:nthe, j, 1:nzeta) * 1._dp / f(j)**2
+           vec_x(1:nthe, j, 1:nzeta) = - dpdAlpha(1:nthe, j, 1:nzeta) * jacobian(1:nthe, j, 1:nzeta) * 1._dp / f(j)**2
         END IF
      END DO
 
@@ -591,8 +590,7 @@ SUBROUTINE newj(vec_r, vec_dj)
               vec_dj(1:nthe, j, k) = vec_dj(1:nthe, j, k) + jacobian(1:nthe,j,k)/fzet(k)**2 *dSqPdPsiSq(1:nthe,j,k)
            END DO
         ELSE            ! Picard method
-           vec_r(1:nthe, 1:npsi, k) = jacobian(1:nthe, 1:npsi, k) * dpdPsi(1:nthe, 1:npsi, k) / &
-                fzet(k)**2
+           vec_r(1:nthe, 1:npsi, k) = jacobian(1:nthe, 1:npsi, k) * dpdPsi(1:nthe, 1:npsi, k) / fzet(k)**2
         END IF Newton_method
      END DO
   ELSE       ! Anisotropic case

@@ -2,7 +2,7 @@ Param file for RAM_SCB test4.
 Simple test using WESC/T89C/LANL with SCB calculation and restart.
 
 #DESCRIPTION
-Test 4: Weimer e-field and T89 b-field with SCB calculation and restart
+Test 4: Weimer e-field and B-field with SCB calculation and restart
 
 *************** TIMING BLOCK ********************
 #STARTTIME
@@ -47,7 +47,7 @@ T			DoVarDt
 *************** COMPONENT BLOCK *****************
 #OUTERBOUNDARY
 LANL			NameBoundPlasma
-T89C 			NameBoundMag
+DIPS 			NameBoundMag
 MAXW			NameDistribution
 
 #EFIELD

@@ -178,13 +178,15 @@ subroutine read_geomlt_file(NameParticle)
 
   !!!! Module Variables
   use ModRamMain,      ONLY: PathRamIN
-  use ModRamTiming,    ONLY: TimeRamNow, Dt_bc
-  use ModRamGrids,     ONLY: NE, NEL, NEL_prot, NBD
+  use ModRamTiming,    ONLY: TimeRamNow, Dt_bc, TimeRamStart
+  use ModRamGrids,     ONLY: NE, NEL, NEL_prot, NTL, NBD
   use ModRamParams,    ONLY: boundary
-  use ModRamVariables, ONLY: EKEV, FGEOS, IsInitialized, timeOffset, StringFileDate, &
-                             flux_SIII, fluxLast_SII, eGrid_SI, avgSats_SI, lGrid_SI
+  use ModRamVariables, ONLY: EKEV, FGEOS, IsInitialized, timeOffset, StringFileDate,  &
+                             flux_SIII, fluxLast_SII, eGrid_SI, avgSats_SI, lGrid_SI, &
+                             tGrid_SI
   !!!! Share Modules
-  use ModIOUnit, ONLY: UNITTMP_
+  use ModIOUnit,      ONLY: UNITTMP_
+  use ModTimeConvert, ONLY: TimeType, time_int_to_real
 
   implicit none
 
@@ -203,142 +205,150 @@ subroutine read_geomlt_file(NameParticle)
 
   character(len=99) :: NEL_char
 
-  ! First allocate global arrays
+  type(TimeType) :: TimeBoundary
 
-  if(.not.allocated(flux_SIII)) then
+  integer :: FileIndexStart, FileIndexEnd, FileIndex
+  integer :: NTL_
+  integer :: year, month, day, hour, minute, second, msec
+  character(len=25) :: ISOString, tempString
+  character(len=3)  :: MLTString, NSCString
+  character(len=1)  :: sa
 
-     ! allocate larger of two sizes
-     if(boundary .eq. 'PTM') then
-        NEL_ = max(NEL,NEL_prot)
-     else
-        NEL_ = NEL
-     endif
+  character(len=25), allocatable :: TimeBuffer(:)
+  real(kind=Real8_), allocatable :: MLTBuffer(:), EnergyBuffer(:)
+  real(kind=Real8_), allocatable :: NSCBuffer(:,:,:), FluxBuffer(:,:,:)
 
-     allocate(flux_SIII(2,NBD,24,NEL_),fluxLast_SII(2,24,NEL_),eGrid_SI(2,NEL_),avgSats_SI(2,NBD))
-     flux_SIII = 0.
-     fluxLast_SII = 0.
-     eGrid_SI = 0.
-  endif
-
-  ! Possible different sizes for two boundary input files
-  if((NameParticle .eq. 'prot').and.(boundary .eq. 'PTM')) then
-     NEL_ = NEL_prot
-  else
-     NEL_ = NEL
-  endif
-
-  ! Now local arrays
-  allocate(Buffer_I(NEL_),Buffer_III(NBD,24,NEL_),iBuffer_II(24,NEL_),Buffer2_I(NBD))
-
-    !------------------------------------------------------------------------
+  !------------------------------------------------------------------------
   call CON_set_do_test(NameSub, DoTest, DoTestMe)
-
-  ! Build file name using current date.  NameParticle decides if we open
-  ! electrons or protons.
-  if( (NameParticle.ne.'prot') .and. (NameParticle.ne.'elec') ) &
-       call CON_stop(NameSub//': Invalid particle type '//&
-       '"'//NameParticle//'" (can be prot or elec)')
-  ! Chris Jeffery mod, 3/11
-  if(Dt_bc.gt.60) then
-     write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a)') trim(PathRamIn)//'/', &
-          TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay, &
-          '_mpa-sopa_', NameParticle, '_geomlt_5-min.txt'
-  else
-     write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a,i2.2,a)') trim(PathRamIn)//'/', &
-          TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay, &
-          '_mpa-sopa_', NameParticle, '_geomlt_', Int(Dt_bc), &
-          '-sec.txt'
-  endif
-
-  if(DoTest) write(*,*)NameSub//': Opening '//trim(NameFileIn)
-
-  ! Open file, check status.
-  inquire(unit=UNITTMP_,opened=IsOpened)
-  if(IsOpened)write(*,*) 'WARNING- File already opened.'
-  open(unit=UNITTMP_, file=NameFileIn, status='OLD', iostat=iError)
-  if(iError/=0) call CON_stop(NameSub//': Error opening file '//NameFileIn)
 
   ! Save file date.
   write(StringFileDate,'(i4.4,i2.2,i2.2)') &
        TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay
 
+  ! Build file name using current date.  NameParticle decides if we open
+  ! electrons or protons.
+  if (NameParticle.eq.'prot') then
+     NEL_ = NEL_prot
+  elseif (NameParticle.eq.'elec') then
+     NEL_ = NEL
+  else
+     call CON_stop(NameSub//': Invalid particle type '//'"'//NameParticle)
+  endif
+
+  select case (boundary)
+     case('LANL')
+        write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a)') trim(PathRamIn)//'/', &
+              TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay, &
+              '_mpa-sopa_', NameParticle, '_geomlt_5-min.txt'
+     case('PTM')
+        write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a)') trim(PathRamIn)//'/', &
+              TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay, &
+              '_ptm_', NameParticle, '_geomlt_5-min.txt'
+     case('QDM')
+        write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a)') trim(PathRamIn)//'/', &
+              TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay, &
+              '_qdm_', NameParticle, '_geomlt_5-min.txt'
+  end select
+
+  allocate(TimeBuffer(1))
+
+  open(unit=UNITTMP_, file=NameFileIn, status='OLD', iostat=iError)
+  if(iError/=0) call CON_stop(NameSub//': Error opening file '//NameFileIn)
+  FileIndexStart = 0
+  FileIndexEnd   = 0
+  FileIndex      = 0
+  Read_BoundaryFile_Dates: DO
+     read(UNITTMP_,*,IOSTAT=iError) TimeBuffer(1)
+     if ((trim(TimeBuffer(1)).ne.'#').and.(FileIndexStart.eq.0)) FileIndexStart = FileIndex
+     if (iError.lt.0) then
+        FileIndexEnd = FileIndex
+        exit Read_BoundaryFile_Dates
+     else
+        FileIndex = FileIndex + 1
+        cycle Read_BoundaryFile_Dates
+     endif
+  ENDDO Read_BoundaryFile_Dates
+  FileIndex = FileIndexEnd-FileIndexStart-1
+  close(UNITTMP_)
+
+  deallocate(TimeBuffer)
+
+  NTL_ = NTL-1
+  NBD = FileIndex/NTL_
+  allocate(TimeBUffer(NBD), MLTBuffer(NTL_), EnergyBuffer(NEL_), &
+           NSCBuffer(NBD,NTL_,NEL_), FluxBuffer(NBD,NTL_,NEL_))
+
+  open(unit=UNITTMP_, file=NameFileIn, status='OLD', iostat=iError)
+  if (FileIndexStart.gt.0) then
+     do i=1,FileIndexStart
+        read(UNITTMP_,*) StringHeader
+     enddo
+  endif
+
+  read(UNITTMP_,*) ISOString, MLTString, NSCString, EnergyBuffer(:)
+  do i=1,NBD
+     do j=1,NTL_
+        read(UNITTMP_,*) TimeBuffer(i), MLTBuffer(j), NSCBuffer(i,j,:), FluxBuffer(i,j,:)
+     enddo
+  enddo
+
+  if(DoTest)then
+     write(*,*) NameSub//': File read successfully.'
+     write(*,*) NameSub//': Energy Grid='
+     write(*,*) EnergyBuffer
+     write(*,*) NameSub//': LT Grid='
+     write(*,*) MLTBuffer
+     write(*,*) NameSub//': First data line='
+     write(*,*) FluxBuffer(1,1,:)
+     write(*,*) NameSub//': Last data line='
+     write(*,*) FluxBuffer(NBD,24,:)
+  end if
+
+  ! Allocate global arrays
+  if(.not.allocated(flux_SIII)) then
+     allocate(flux_SIII(2,NBD,NTL_,NEL_), fluxLast_SII(2,NTL_,NEL_), eGrid_SI(2,NEL_), &
+              avgSats_SI(2,NBD), tGrid_SI(2,NBD), lGrid_SI(2,0:NTL))
+     flux_SIII = 0.
+     fluxLast_SII = 0.
+     eGrid_SI = 0.
+  endif
+
   ! Set species index.
   iSpec=1 !Protons.
   if(NameParticle.eq.'elec') iSpec=2 !electrons.
 
-  ! Skip header.
-  read(UNITTMP_,*) StringHeader
-  read(UNITTMP_,*) StringHeader
-  read(UNITTMP_,*) StringHeader
-
-  ! Load energy grid.
-  write(NEL_char,*) NEL_
-  read(UNITTMP_, '(104x,'//trim(adjustl(NEL_char))//'(G18.6))') Buffer_I
-
-  ! Check energy grid against RAM energy grid.
-  if ( (Buffer_I(1)>Ekev(1)).or.(Buffer_I(NEL_)<Ekev(nE)) ) then
-     write(*,*)NameSub//': LANL Geo energy grid does not cover RAM energy grid'
-     write(*,*)'  LANL E       RAM E'
-     write(*,'(2(ES12.6,1x))') Buffer_I(1),  Ekev(1)
-     write(*,'(2(ES12.6,1x))') Buffer_I(NEL_), Ekev(nE)
-     call CON_stop(NameSub//': Energy grid error.')
-  end if
-
-  ! Load fluxes.
-  do i=1,NBD
-     do j=1, 24
-        ! Read one time entry worth of data.
-        read(UNITTMP_,'(24x,f6.1,2x,'//trim(adjustl(NEL_CHAR))//'(i2),'//trim(adjustl(NEL_CHAR))//'(f18.4))')&
-            lGrid_SI(iSpec, j), iBuffer_II(j,:), Buffer_III(i,j,:)
-!        read(UNITTMP_,'(10x,f7.2,4x,36e12.4))')&
-!             lGrid_SI(iSpec, j), Buffer_III(i,j,:)
-     end do
-     ! Crunch number of satellites down to one number.
-     Buffer2_I(i) = real(sum(iBuffer_II))/(1.0*NEL_)
-!     print*,'i, Buffer_III(i,1,1)=',i,Buffer_III(i,1,1)
-  end do
-
-  close(UNITTMP_)
+  ! Put data into proper array according to NameParticle.
+  lGrid_SI(iSpec,1:NTL-1)     = MLTBuffer
+  eGrid_SI(iSpec,1:NEL_)      = EnergyBuffer
+  flux_SIII(iSpec,:,:,1:NEL_) = FluxBuffer
 
   ! Wrap grid about LT=0.
   lGrid_SI(iSpec, 0) = 2.*lGrid_SI(iSpec, 1)-lGrid_SI(iSpec, 2)
-  lGrid_SI(iSpec,25) = 2.*lGrid_SI(iSpec,24)-lGrid_SI(iSpec,23)
+  lGrid_SI(iSpec,NTL) = 2.*lGrid_SI(iSpec,NTL-1)-lGrid_SI(iSpec,NTL-2)
 
-  if(DoTest)then
-     write(*,*)NameSub//': File read successfully.'
-     write(*,*)NameSub//': Energy Grid='
-     write(*,'(3(ES12.6, 1x))') Buffer_I
-     write(*,*)NameSub//': LT Grid='
-     write(*,'(2(F6.2, 1x))') lGrid_SI(iSpec,:)
-     write(*,*)NameSub//': First data line='
-     write(*,'(6(ES12.5, 1x))')Buffer_III(1,1,:)
-     write(*,*)NameSub//': Last data line='
-     write(*,'(6(ES12.5, 1x))')Buffer_III(NBD,24,:)
-  end if
-
-  ! Put data into proper array according to NameParticle.
-  eGrid_SI(iSpec,1:NEL_)      = Buffer_I
-  flux_SIII(iSpec,:,:,1:NEL_) = Buffer_III
-  avgSats_SI(iSpec,:)    = Buffer2_I
-
-  ! Scrub for bad data.  Must do that here because we don't know
-  ! before hand were we will start inside of the file.
-  do j=1,24; do k=1,NEL_
-     ! If the first entry is bad, use fluxLast_SII.
-     if(flux_SIII(iSpec,1,j,k).le.0) &
-          flux_SIII(iSpec,1,j,k)= fluxLast_SII(iSpec,j,k)
-     ! If later entries are bad, revert to last good data point.
-     do i=2,NBD
-        if(flux_SIII(iSpec,i,j,k).le.0) &
-             flux_SIII(iSpec,i,j,k)=flux_SIII(iSpec,i-1,j,k)
-     end do
-  end do; end do
+  ! Convert ISO time format into usable time (seconds from simulation start)
+  do i=1,NBD
+     tempString = TimeBuffer(i)
+     read(tempString,11) year, sa, month, sa, day, sa, hour, sa, minute, sa, &
+                         second, sa, msec, sa
+     TimeBoundary % iYear   = year
+     TimeBoundary % iMonth  = month
+     TimeBoundary % iDay    = day
+     TimeBoundary % iHour   = hour
+     TimeBoundary % iMinute = minute
+     TimeBoundary % iSecond = second
+     TimeBoundary % FracSecond = 0.0
+     call time_int_to_real(TimeBoundary)
+     tGrid_SI(iSpec,i) = TimeBoundary % Time - TimeRamStart % Time
+  enddo 
 
   ! Finally, store last entry into fluxLast_SII.
   fluxLast_SII(iSpec,:,:) = flux_SIII(iSpec,NBD,:,:)
 
-  deallocate(Buffer_I,Buffer_III,iBuffer_II,Buffer2_I)
+  deallocate(TimeBuffer, MLTBuffer, EnergyBuffer, FluxBuffer)
 
+11 FORMAT(I4,A,I2,A,I2,A,I2,A,I2,A,I2,A,I3,A)
+  return
 end subroutine read_geomlt_file
 
 !===========================================================================
@@ -427,6 +437,200 @@ end subroutine read_geomlt_file
      return
 
   end subroutine read_hI_file
+
+!==============================================================================
+  subroutine read_initial
+
+    use ModRamMain,      ONLY: Real8_, PathRamIn
+    use ModRamGrids,     ONLY: nR, nT, nE, nPA, RadiusMax, RadiusMin
+    use ModRamVariables, ONLY: F2, FNHS, FNIS, BOUNHS, BOUNIS, BNES, HDNS, EIR, &
+                               EIP, dBdt, dIdt, dIbndt, EkeV, Lz, MLT, Pa
+    use netcdf
+
+    implicit none
+
+    integer :: i, j, k, l, iS
+    integer :: iRDim, iTDim, iEDim, iPaDim, iR, iT, iE, iPa, iError
+    integer :: iFluxEVar, iFluxHVar, iFluxHeVar, iFluxOVar, iHVar, iBHVar, &
+               iIVar, iBIVar, iBNESVar, iHDNSVar, iEIRVar, iEIPVar, &
+               iDBDTVar, iDIDTVar, iDIBNVar, iFileID, iStatus
+   
+    real(kind=Real8_), allocatable :: iF2(:,:,:,:,:), iFNHS(:,:,:), iFNIS(:,:,:), &
+         iBOUNHS(:,:,:), iBOUNIS(:,:,:), iEIR(:,:), iEIP(:,:), iBNES(:,:), &
+         iHDNS(:,:,:), idBdt(:,:), idIdt(:,:,:), idIbndt(:,:,:), iLz(:), iMLT(:), &
+         iEkeV(:), iPaVar(:)
+    real(kind=Real8_) :: DL1, DPHI
+
+    character(len=100)             :: NameFile, StringLine
+
+    character(len=*), parameter :: NameSub='read_restart'
+    logical :: DoTest, DoTestMe
+    !------------------------------------------------------------------------
+    call CON_set_do_test(NameSub, DoTest, DoTestMe)
+
+    call write_prefix
+    write(*,*) 'Loading initial condition files.'
+    ! LOAD INITIAL FILE
+    iStatus = nf90_open(trim(PathRamIn//'/initialization.nc'),nf90_nowrite,iFileID)
+    call ncdf_check(iStatus, NameSub)
+
+    ! GET DIMENSIONS
+    iStatus = nf90_inq_dimid(iFileID, 'nR',   iRDim)
+    iStatus = nf90_inquire_dimension(iFileID, iRDim,  len = iR)
+    iStatus = nf90_inq_dimid(iFileID, 'nT',   iTDim)
+    iStatus = nf90_inquire_dimension(iFileID, iTDim,  len = iT)
+    iStatus = nf90_inq_dimid(iFileID, 'nE',   iEDim)
+    iStatus = nf90_inquire_dimension(iFileID, iEDim,  len = iE)
+    iStatus = nf90_inq_dimid(iFileID, 'nPa',  iPaDim)
+    iStatus = nf90_inquire_dimension(iFileID, iPaDim, len = iPa)
+
+    ! ALLOCATE ARRAYS FOR DATA
+    ALLOCATE(iF2(4,iR,iT,iE,iPa), iLz(iR+1), iMLT(iT), iEkeV(iE), iPaVar(iPa))
+    ALLOCATE(iFNHS(iR+1,iT,iPa), iBOUNHS(iR+1,iT,iPa), idBdt(iR+1,iT), iHDNS(iR+1,iT,iPa), &
+             iFNIS(iR+1,iT,iPa), iBOUNIS(iR+1,iT,iPa), idIdt(iR+1,iT,iPa), iBNES(iR+1,iT), &
+             idIbndt(iR+1,iT,iPa), iEIR(iR+1,iT), iEIP(iR+1,iT))
+
+    ! GET VARIABLE IDS
+    !! FLUXES
+    iStatus = nf90_inq_varid(iFileID, 'FluxE',  iFluxEVar)
+    iStatus = nf90_inq_varid(iFileID, 'FluxH',  iFluxHVar)
+    iStatus = nf90_inq_varid(iFileID, 'FluxHe', iFluxHeVar)
+    iStatus = nf90_inq_varid(iFileID, 'FluxO',  iFluxOVar)
+
+    !! hI OUTPUTS
+    iStatus = nf90_inq_varid(iFileID, 'FNHS',   iHVar)
+    iStatus = nf90_inq_varid(iFileID, 'BOUNHS', iBHVar)
+    iStatus = nf90_inq_varid(iFileID, 'FNIS',   iIvar)
+    iStatus = nf90_inq_varid(iFileID, 'BOUNIS', iBIVar)
+    iStatus = nf90_inq_varid(iFileID, 'BNES',   iBNESVar)
+    iStatus = nf90_inq_varid(iFileiD, 'HDNS',   iHDNSVar)
+    iStatus = nf90_inq_varid(iFileID, 'EIR',    iEIRVar)
+    iStatus = nf90_inq_varid(iFileID, 'EIP',    iEIPVar)
+    iStatus = nf90_inq_varid(iFileID, 'dBdt',   iDBDTVar)
+    iStatus = nf90_inq_varid(iFileID, 'dIdt',   iDIDTVar)
+    iStatus = nf90_inq_varid(iFileID, 'dIbndt', iDIBNVar)
+
+    ! READ DATA
+    !! FLUXES
+    iStatus = nf90_get_var(iFileID, iFluxEVar,  iF2(1,:,:,:,:))
+    iStatus = nf90_get_var(iFileID, iFluxHVar,  iF2(2,:,:,:,:))
+    iStatus = nf90_get_var(iFileID, iFluxHeVar, iF2(3,:,:,:,:))
+    iStatus = nf90_get_var(iFileID, iFluxOVar,  iF2(4,:,:,:,:))
+
+    !! hI OUTPUTS
+    iStatus = nf90_get_var(iFileID, iHVar,    iFNHS(:,:,:))
+    iStatus = nf90_get_var(iFileID, iBHVar,   iBOUNHS(:,:,:))
+    iStatus = nf90_get_var(iFileID, iIVar,    iFNIS(:,:,:))
+    iStatus = nf90_get_var(iFileID, iBIVar,   iBOUNIS(:,:,:))
+    iStatus = nf90_get_var(iFileID, iBNESVar, iBNES(:,:))
+    iStatus = nf90_get_var(iFileID, iHDNSVar, iHDNS(:,:,:))
+    iStatus = nf90_get_var(iFileID, iEIRVar,  iEIR(:,:))
+    iStatus = nf90_get_Var(iFileID, iEIPVar,  iEIP(:,:))
+    iStatus = nf90_get_var(iFileID, iDBDTVar, idBdt(:,:))
+    iStatus = nf90_get_var(iFileID, iDIDTVar, idIdt(:,:,:))
+    iStatus = nf90_get_var(iFileID, iDIBNVar, idIbndt(:,:,:))
+
+    ! CLOSE INITIALIZATION FILE
+    iStatus = nf90_close(iFileID)
+    call ncdf_check(iStatus, NameSub)
+
+    DL1 = (RadiusMax - RadiusMin)/(iR - 1)
+    DO I=1,iR+1
+      iLz(I)=2.+(I-2)*DL1
+    END DO
+
+    DPHI=2.*PI/(iT-1)
+    DO J=1,iT
+      iMLT(J)=(J-1)*DPHI*12./PI
+    END DO
+
+    iEkeV = EkeV
+    iPaVar = Pa
+
+    ! Now we need to check the dimensions of the initialization file and
+    ! interpolate if they are different
+    if ((nR.eq.iR).and.(nT.eq.iT).and.(nE.eq.iE).and.(nPa.eq.iPa)) then
+       F2 = iF2
+       FNHS = iFNHS
+       FNIS = iFNIS
+       BOUNHS = iBOUNHS
+       BOUNIS = iBOUNIS
+       BNES = iBNES
+       HDNS = iHDNS
+       EIR = iEIR
+       EIP = iEIP
+       dBdt = idBdt
+       dIdt = idIdt
+       dIbndt = idIbndt
+    else
+       ! Interpolate spatially for each energy and pitch angle (if required)
+       if ((nR.ne.iR).or.(nT.ne.iT)) then
+          do i=1,nR+1
+             do j=1,nT
+                call lintp2(iLz(:),iMLT(:),iBNES(:,:),iR,iT,Lz(i),MLT(j),BNES(i,j),iError)
+                call lintp2(iLz(:),iMLT(:),idBdt(:,:),iR,iT,Lz(i),MLT(j),dBdt(i,j),iError)
+                call lintp2(iLz(:),iMLT(:),iEIP(:,:),iR,iT,Lz(i),MLT(j),EIR(i,j),iError)
+                call lintp2(iLz(:),iMLT(:),iEIR(:,:),iR,iT,Lz(i),MLT(j),EIP(i,j),iError)
+                do l=1,nPa
+                   call lintp2(iLz(:),iMLT(:),iFNHS(:,:,l),iR,iT,Lz(i),MLT(j),FNHS(i,j,l),iError)
+                   call lintp2(iLz(:),iMLT(:),iFNIS(:,:,l),iR,iT,Lz(i),MLT(j),FNIS(i,j,l),iError)
+                   call lintp2(iLz(:),iMLT(:),iHDNS(:,:,l),iR,iT,Lz(i),MLT(j),HDNS(i,j,l),iError)
+                   call lintp2(iLz(:),iMLT(:),idIdt(:,:,l),iR,iT,Lz(i),MLT(j),dIdt(i,j,l),iError)
+                   call lintp2(iLz(:),iMLT(:),iBOUNHS(:,:,l),iR,iT,Lz(i),MLT(j),BOUNHS(i,j,l),iError)
+                   call lintp2(iLz(:),iMLT(:),iBOUNIS(:,:,l),iR,iT,Lz(i),MLT(j),BOUNIS(i,j,l),iError)
+                   call lintp2(iLz(:),iMLT(:),idIbndt(:,:,l),iR,iT,Lz(i),MLT(j),dIbndt(i,j,l),iError)
+                   do k=1,nE
+                      do iS=1,4
+                         if (i.lt.nR+1) call lintp2(iLz(:),iMLT(:),iF2(iS,:,:,k,l),iR,iT,Lz(i),MLT(j),F2(iS,i,j,k,l),iError)
+                      enddo
+                   enddo
+                enddo
+             enddo
+          enddo
+       endif
+       ! Interpolate across pitch angle
+       if (nPa.ne.iPa) then
+          do i=1,nR
+             do j=1,nT
+                do l=1,nPa
+                   call lintp(iPaVar(:),iFNHS(i,j,:),iPa,Pa(l),FNHS(i,j,l),iError)
+                   call lintp(iPaVar(:),iFNIS(i,j,:),iPa,Pa(l),FNIS(i,j,l),iError)
+                   call lintp(iPaVar(:),iHDNS(i,j,:),iPa,Pa(l),HDNS(i,j,l),iError)
+                   call lintp(iPaVar(:),idIdt(i,j,:),iPa,Pa(l),dIdt(i,j,l),iError)
+                   call lintp(iPaVar(:),iBOUNHS(i,j,:),iPa,Pa(l),BOUNHS(i,j,l),iError)
+                   call lintp(iPaVar(:),iBOUNIS(i,j,:),iPa,Pa(l),BOUNIS(i,j,l),iError)
+                   call lintp(iPaVar(:),idIbndt(i,j,:),iPa,Pa(l),dIbndt(i,j,l),iError)
+                   do k=1,nE
+                      do iS=1,4
+                         call lintp(iPaVar(:),iF2(iS,i,j,k,:),iPa,Pa(l),F2(iS,i,j,k,l),iError)
+                      enddo
+                   enddo
+                enddo
+             enddo
+          enddo
+       endif
+       ! Interpolate across energy (F2 only)
+       ! For now just do linear, add linear of log later
+       if (nE.ne.iE) then
+          do iS=1,4
+             do i=1,nR
+                do j=1,nT
+                   do l=1,nPa
+                      do k=1,nE
+                         call lintp(iEkeV(:),iF2(iS,i,j,:,l),iE,EkeV(k),F2(iS,i,j,k,l),iError)
+                      enddo
+                   enddo
+                enddo
+             enddo
+          enddo
+       endif
+    endif
+
+    DEALLOCATE(iF2, iEkeV, iMLT, iLz, iPaVar)
+    DEALLOCATE(iFNHS, iBOUNHS, iFNIS, iBOUNIS, iBNES, iHDNS, iEIR, iEIP, &
+               idBdt, idIbndt, idIdt)
+
+  end subroutine read_initial
 
 !============================!
 !==== OUTPUT SUBROUTINES ====!
