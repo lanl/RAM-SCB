@@ -5,11 +5,11 @@
 subroutine IM_set_parameters
 
   use ModRamMain,    ONLY: PathRestartIn, nIter
-  use ModRamGrids,   ONLY: NEL, NTL, NR, NT, NE, NPA
+  use ModRamGrids,   ONLY: NEL, NTL, NR, NT, NE, NPA, EnergyMin
   use ModRamTiming,  ONLY: TimeRamElapsed, TimeRamStart, TimeRamRealStart, &
                            TimeRamNow, DtLogFile, DtRestart, DtsMax, TimeMax, &
                            TimeRestart, MaxIter, Dt_hI, Dt_bc, DtEfi, DtW_hI, &
-                           DtW_Pressure, DtW_EField
+                           DtW_Pressure, DtW_EField, DtsMin, TOld
   use ModRamParams
 
   use ModScbMain,  ONLY: method
@@ -54,6 +54,12 @@ subroutine IM_set_parameters
      case('#EVENT')
         call read_var('NameEvent', event)
 
+!     case('#CONSTRAINTS')
+!        call read_var('MinEnergy', EnergyMin)
+
+     case('#FILESOURCE')
+        call read_var('UseSWMFFile',UseSWMFFile)
+
      case('#RAMGRID')
         call read_var('nR',  NR)
         call read_var('nT',  NT)
@@ -75,11 +81,11 @@ subroutine IM_set_parameters
 
      case('#OUTPUT_FREQUENCY')
         call read_var('DtPressureFileWrite', DtW_Pressure)
-        if (DtW_Pressure.le.0.1) DtW_Pressure = 9999999999.9
+        if (DtW_Pressure.lt.1.0) DtW_Pressure = 9999999999.9
         call read_var('DthIFileWrite',       DtW_hI)
-        if (DtW_hI.le.0.1) DtW_hI = 9999999999.9
+        if (DtW_hI.lt.1.0) DtW_hI = 9999999999.9
         call read_var('DtEFieldFileWrite',   DtW_EField)
-        if (DtW_EField.le.0.1) DtW_EField = 9999999999.9
+        if (DtW_EField.lt.1.0) DtW_EField = 9999999999.9
 
      case('#USESCB')
         call read_var('DoUseScb',   DoUseScb)
@@ -135,6 +141,9 @@ subroutine IM_set_parameters
      case('#MAXTIMESTEP')
         call read_var('MaxHalfStep', DtsMax)
 
+     case('#MINTIMESTEP')
+        call read_var('MinHalfStep', DtsMin)
+
      case('#VARIABLEDT')
         call read_var('DoVariableDt', DoVarDt)
 
@@ -150,6 +159,8 @@ subroutine IM_set_parameters
         call read_var('DecreaseConvPsiMax'  , decreaseConvPsiMax)
         call read_var('BlendAlpha'          , blendAlphaInit)
         call read_var('BlendPsi'            , blendPsiInit)
+        call read_var('BlendMin'            , blendMin)
+        call read_var('BlendMax'            , blendMax)
 
      ! Restart commands:
      case('#RESTART')
@@ -384,6 +395,16 @@ subroutine IM_set_parameters
      sPressure = 'LANL'
      NEL = 36
      NTL = 25
+  case('PTM')
+     iPressure = 6
+     sPressure = 'LANL'
+     NEL = 36
+     NTL = 25
+  case('QDM')
+     iPressure = 6
+     sPressure = 'LANL'
+     NEL = 36
+     NTL = 25
   case default
      call CON_stop(NameSub//': invalid boundary='//boundary)
   end select
@@ -427,6 +448,7 @@ subroutine IM_set_parameters
      TimeRamElapsed = 0
      TimeRamRealStart = TimeRamStart
   end if
-     TimeRamNow = TimeRamRealStart
+  TimeRamNow = TimeRamRealStart
+  TOld = TimeRamElapsed
 
 end subroutine IM_set_parameters

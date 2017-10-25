@@ -44,6 +44,7 @@ RAM_OBJECTS=                  \
 	ModRamTiming.o        \
         ModRamVariables.o     \
 	ModRamWPI.o           \
+        ModRamInjection.o     \
 	IM_set_parameters.o
         
 SCB_OBJECTS=                  \

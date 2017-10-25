@@ -35,10 +35,11 @@ MODULE ModScbInit
 ! ModScbEuler Variables
     ALLOCATE(psi(nthe,npsi,nzeta+1), psiSav1(nthe,npsi,nzeta+1), psiSav2(nthe,npsi,nzeta+1), &
              alfa(nthe,npsi,nzeta+1), alfaSav1(nthe,npsi,nzeta+1), alfaSav2(nthe,npsi,nzeta+1), &
-             alphaVal(nzeta+1), alphaValInitial(nzeta+1), psiVal(npsi))
+             alphaVal(nzeta+1), alphaValInitial(nzeta+1), psiVal(npsi), psiPrev(nthe,npsi,nzeta+1), &
+             alfaPrev(nthe,npsi,nzeta+1))
 ! ModScbInit Variables
     ALLOCATE(f(npsi), fp(npsi), rhoVal(npsi), chiVal(nthe), thetaVal(nthe), zetaVal(nzeta), &
-             fzet(nzeta+1), fzetp(nzeta+1))
+             fzet(nzeta+1), fzetp(nzeta+1), chi(nthe,npsi,nzeta+1))
 ! ModScbRun Variables
     ALLOCATE(radEqMidNew(npsi), gradRhoSq(nthe,npsi,nzeta), gradZetaSq(nthe,npsi,nzeta), &
              gradRhoGradZeta(nthe,npsi,nzeta), gradRhoGradTheta(nthe,npsi,nzeta), &
@@ -97,7 +98,7 @@ MODULE ModScbInit
 
   nAzimRAM = NT
   nXRaw    = NR-1
-  nXRawExt = NR+1
+  nXRawExt = NR+3
   nYRaw    = NT
 
   end subroutine scb_allocate
@@ -117,9 +118,9 @@ MODULE ModScbInit
                z, xx, yy, bf, bsq, fluxVolume)
 ! ModScbEuler Variables
     DEALLOCATE(psi, psiSav1, psiSav2, alfa, alfaSav1, alfaSav2, alphaVal, &
-               alphaValInitial, psiVal)
+               alphaValInitial, psiVal, psiPrev, alfaPrev)
 ! ModScbInit Variables
-    DEALLOCATE(f, fp, rhoVal, chiVal, thetaVal, zetaVal, fzet, fzetp)
+    DEALLOCATE(f, fp, rhoVal, chiVal, thetaVal, zetaVal, fzet, fzetp, chi)
 ! ModScbRun Variables
     DEALLOCATE(radEqMidNew, gradRhoSq, gradZetaSq, gradRhoGradZeta, gradRhoGradTheta, &
                gradThetaGradZeta, gradPsiGradAlpha, dPperdAlpha, dBBdAlpha, dBBdPsi, &
@@ -141,7 +142,8 @@ MODULE ModScbInit
 
 !==============================================================================
   SUBROUTINE scb_init
-  
+ 
+    use ModRamParams,    ONLY: IsRestart 
     use ModScbParams,    ONLY: blendAlphaInit, blendPsiInit
     USE ModScbGrids,     ONLY: nthe, npsi, nzeta
     use ModScbVariables, ONLY: blendAlpha, blendPsi, alphaVal, alphaValInitial, &
@@ -159,6 +161,10 @@ MODULE ModScbInit
     REAL(DP) :: xpsitot, psis, xpl, phi, aa, dphi
   
     REAL(DP), PARAMETER :: pow = 1.0_dp, TINY = 1.E-15_dp
+
+    call computational_domain
+    !constz = 0.
+    constTheta = 0.2
 
     blendAlpha = blendAlphaInit
     blendPsi = blendPsiInit
@@ -195,7 +201,16 @@ MODULE ModScbInit
     END DO
   
     chiVal = (thetaVal + constTheta * SIN(2._dp*thetaVal))
-  
+    DO i = 1, nthe
+       DO j = 1, npsi
+          DO k = 2, nzeta
+             chi(i,j,k) = chiVal(i)
+          END DO
+       END DO
+    END DO
+    chi(:,:,1) = chi(:,:,nzeta)
+    chi(:,:,nzeta+1) = chi(:,:,2)
+ 
     DO k = 1, nzeta+1
        phi         = REAL(k-2, DP) * dphi
        alphaVal(k) = phi + constz*SIN(phi) ! Concentration at midnight
@@ -220,8 +235,7 @@ MODULE ModScbInit
     !cc..  define psival on j grids
   
     !cc.. bnormal is Earth's dipole magnetic field at xzero in equator (in nT)
-    !cc.. enormal is the normalization unit for the electric field (to give
-    !E-field in mV/m)
+    !cc.. enormal is the normalization unit for the electric field (to give E-field in mV/m)
     !cc.. for xzero = 6.6 R_E, bnormal = 107.83 nT
     !cc.. pnormal = bnormal**2 in nPa; for xzero = 6.6 R_E, pnormal = 9.255 nPa
     bnormal = 0.31_dp / xzero3 * 1.E5_dp
@@ -229,20 +243,14 @@ MODULE ModScbInit
     pnormal = 7.958E-4_dp * bnormal*bnormal  ! 0.01/(4pi) in front of bnormal**2
   
     !cc.. p0 is in unit of pnormal
-    !cc  For Earth's surface dipole field B_D=0.31e-4 T, R_E=6.4e6 m, permeability
-    != 4.*pi*1.e-7 H/m
+    !cc  For Earth's surface dipole field B_D=0.31e-4 T, R_E=6.4e6 m, permeability=4.*pi*1.e-7 H/m
     !cc  The unit conversion constant pjconst = 0.0134
     !cc  The current is in unit of (microA/m**2) by multiplying with pjconst
     pjconst = 1.e6_dp * 0.31E-4_dp / (xzero3 * 4._dp * pi_d * 1.E-7_dp * 6.4E6_dp)
  
-    call computational_domain
-
-    !c  Need to make sure that psival is a monotonically increasing function of
-    !j
+    !c  Need to make sure that psival is a monotonically increasing function of j
     !c  define psival grids that correspond to dipole psivals for j=1 and j=npsi
-    !c  define psival grids that correspond to equal equatorial distance grids
-    !in
-    !the midnight sector
+    !c  define psival grids that correspond to equal equatorial distance grids in the midnight sector
     psiin   = -xzero3/xpsiin
     psiout  = -xzero3/xpsiout
     psitot  = psiout-psiin
@@ -257,9 +265,86 @@ MODULE ModScbInit
 
     call psiges
     call alfges
+    call computeBandJacob_initial
 
     RETURN
   
   END SUBROUTINE
+
+!==============================================================================
+  SUBROUTINE computeBandJacob_initial
+    !!!! Module Variables
+    USE ModScbGrids,     ONLY: nthe, npsi, nzeta
+    use ModScbVariables, ONLY: x, y, z, bf, bsq, jacobian, f, fzet, rhoVal, &
+                               thetaVal, zetaVal
+    !!!! Module Subroutines/Functions
+    USE ModScbSpline, ONLY: spline_coord_derivs
+    !!!! NR Modules
+    use nrtype, ONLY: DP
+
+    IMPLICIT NONE
+
+    INTEGER :: i, j, k, ierr, idealerr
+    REAL(DP) :: yyp, phi, deltaPhi
+    REAL(DP), DIMENSION(nthe,npsi,nzeta) :: derivXTheta, derivXRho, derivXZeta, &
+         derivYTheta, derivYRho, derivYZeta, derivZTheta, derivZRho, derivZZeta, &
+         gradRhoX, gradRhoY, gradRhoZ, gradZetaX, gradZetaY, gradZetaZ, gradThetaX, &
+         gradThetaY, gradThetaZ, gradThetaSq
+    ! gradRhoSq, gradRhoGradZeta are global
+
+    CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, x(1:nthe, 1:npsi, 1:nzeta), &
+                             derivXTheta, derivXRho, derivXZeta)
+    CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, y(1:nthe, 1:npsi, 1:nzeta), &
+                             derivYTheta, derivYRho, derivYZeta)
+    CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, z(1:nthe, 1:npsi, 1:nzeta), &
+                             derivZTheta, derivZRho, derivZZeta)
+    ! Now I have all the point derivatives
+
+
+    jacobian = derivXRho   * (derivYZeta  * derivZTheta - derivYTheta * derivZZeta)  &
+             + derivXZeta  * (derivYTheta * derivZRho   - derivYRho   * derivZTheta) &
+             + derivXTheta * (derivYRho   * derivZZeta  - derivYZeta  * derivZRho)
+
+    gradRhoX = (derivYZeta * derivZTheta - derivYTheta * derivZZeta) / jacobian
+    gradRhoY = (derivZZeta * derivXTheta - derivZTheta * derivXZeta) / jacobian
+    gradRhoZ = (derivXZeta * derivYTheta - derivXTheta * derivYZeta) / jacobian
+
+    gradZetaX = (derivYTheta * derivZRho - derivYRho * derivZTheta) / jacobian
+    gradZetaY = (derivZTheta * derivXRho - derivZRho * derivXTheta) / jacobian
+    gradZetaZ = (derivXTheta * derivYRho - derivXRho * derivYTheta) / jacobian
+
+    gradThetaX = (derivYRho * derivZZeta - derivYZeta * derivZRho) / jacobian
+    gradThetaY = (derivZRho * derivXZeta - derivZZeta * derivXRho) / jacobian
+    gradThetaZ = (derivXRho * derivYZeta - derivXZeta * derivYRho) / jacobian
+
+    gradRhoSq = gradRhoX**2 + gradRhoY**2 + gradRhoZ**2
+    gradRhoGradZeta = gradRhoX * gradZetaX + gradRhoY * gradZetaY + gradRhoZ * gradZetaZ
+    gradRhoGradTheta = gradRhoX * gradThetaX + gradRhoY * gradThetaY + gradRhoZ * gradThetaZ
+
+    gradThetaSq = gradThetaX**2 + gradThetaY**2 + gradThetaZ**2
+    gradThetaGradZeta = gradThetaX * gradZetaX + gradThetaY * gradZetaY + gradThetaZ * gradZetaZ
+
+    gradZetaSq = gradZetaX**2 + gradZetaY**2 + gradZetaZ**2
+
+    ! Compute magnetic field
+    DO  k = 1,nzeta
+       DO  j = 1,npsi
+          DO  i = 1,nthe
+             bsq(i,j,k) = (gradRhoSq(i,j,k)*gradZetaSq(i,j,k)-gradRhoGradZeta(i,j,k)**2) &
+                          * (f(j) * fzet(k)) **2
+             bfInitial(i,j,k) = SQRT(bsq(i,j,k))
+             bf(i,j,k) = bfInitial(i,j,k)
+             IF (ABS(bsq(i,j,k)) < 1e-30_dp) THEN
+                PRINT*, i, j, k, bsq(i,j,k)
+                STOP 'Problem with Bsq in computeBandJacob.'
+             END IF
+          END DO
+       END DO
+    END DO
+
+    RETURN
+
+  END SUBROUTINE computeBandJacob_initial
+
   
   END MODULE ModScbInit

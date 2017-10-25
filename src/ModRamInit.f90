@@ -218,7 +218,7 @@ END
     use ModRamMain,  ONLY: Real8_, S
     use ModRamConst, ONLY: RE, PI, M1, MP, CS, Q, HMIN
     use ModRamGrids, ONLY: RadiusMax, RadiusMin, NR, NPA, Slen, NT, NE, &
-                           NS, NLT
+                           NS, NLT, EnergyMin
     !!!! Module Subroutines/Functions
     use ModRamFunctions, ONLY: ACOSD, ASIND, COSD, SIND
 
@@ -236,10 +236,10 @@ END
 
     ! Grid size of L shell
     DL1 = (RadiusMax - RadiusMin)/(nR - 1)
-    IF (MOD(DL1,0.25_8).NE.0) THEN
-      WRITE(6,*) 'RAM: Error : DL is not a multiple of 0.25 '
-      STOP
-    END IF
+    !IF (MOD(DL1,0.25_8).NE.0) THEN
+    !  WRITE(6,*) 'RAM: Error : DL is not a multiple of 0.25 '
+    !  STOP
+    !END IF
 
     degrad=pi/180.
     amla(1)=0. ! Magnetic latitude grid in degrees
@@ -255,7 +255,6 @@ END
 
     IR1=DL1/0.25
     MDR=DL1*RE               ! Grid size for Z=RO
-    RFACTOR=3.4027E10*MDR*DPHI
     DO I=1,NR+1
       LZ(I)=2.+(I-2)*DL1
       RLZ(I)=RE*LZ(I)
@@ -266,10 +265,10 @@ END
     END DO
 
     DPHI=2.*PI/(NT-1)      ! Grid size for local time [rad]
-    IF (MOD(NLT,NT-1).NE.0) THEN
-      WRITE(6,*) ' Error : NT-1 is not a factor of NLT '
-      STOP
-    END IF
+    !IF (MOD(NLT,NT-1).NE.0) THEN
+    !  WRITE(6,*) ' Error : NT-1 is not a factor of NLT '
+    !  STOP
+    !END IF
 
     DO J=1,NT
       PHI(J)=(J-1)*DPHI ! Magnetic local time in radian
@@ -282,7 +281,7 @@ END
     END DO
 
     ! Calculate Kinetic Energy EKEV [keV] at cent, RW depends on NE
-    ELB=0.1 ! Lower limit of energy in keV
+    ELB=EnergyMin ! Lower limit of energy in keV
     IF (ELB.EQ.0.01) THEN
       WE(1)=2.8E-3 !  |_._|___.___|____.____|______.______|
       RW=1.36 !    .     <   DE   >    <      WE     >
@@ -408,6 +407,7 @@ END
     CONF1=((LZ(NR)+DL1)/LZ(NR))**2
     CONF2=((LZ(NR)+2.*DL1)/LZ(NR))**2
 
+    RFACTOR=3.4027E10*MDR*DPHI
     RETURN
   END
 
@@ -417,25 +417,24 @@ subroutine init_input
   use ModRamMain,      ONLY: Real8_, S, PathRamIn
   use ModRamParams,    ONLY: IsRestart, IsStarttimeSet, electric, IsComponent
   use ModRamGrids,     ONLY: NR, NT, NE, NPA
-  use ModRamTiming,    ONLY: DtEfi, T, TimeRamNow, TimeRamElapsed
+  use ModRamTiming,    ONLY: DtEfi, T, TimeRamNow, TimeRamElapsed, TOld
   use ModRamVariables,  ONLY: F2, XNN, XND, ENERD, ENERN, FNHS, Kp, F107, TOLV
   !!!! Module Subroutines/Functions
   use ModRamRestart,   ONLY: read_restart
   use ModRamIndices,   ONLY: get_indices
   use ModRamFunctions, ONLY: FUNT
-  use ModRamIO,        ONLY: read_hI_file
+  use ModRamIO,        ONLY: read_initial
   !!!! Share Modules
   use ModIOUnit,      ONLY: UNITTMP_
   use ModTimeConvert, ONLY: TimeType
 
   implicit none
 
-  real(kind=Real8_) :: AVS, ESUM, WEIGHT
-  integer :: iS, nFive, i, j, k, l, ik, N
+  integer :: iS, i, j, k, l, ik, N
+  integer :: iR, iT, iE, iPA
   real(kind=Real8_) :: F2r(NR,NT,36,NPA)
   character(len=2), dimension(4) :: ST2 = (/'_e','_h','he','_o'/)
-  character(len=200) :: NameEFile
-  type(TimeType) :: TimeNext
+  character(len=200) :: fileName
 
   character(len=*), parameter :: NameSub='init_input'
 
@@ -452,37 +451,11 @@ subroutine init_input
      TOLV = FLOOR(TimeRamElapsed/DtEfi)*DtEfi
   else
      !!!!!! INITIALIZE DATA !!!!!
-     ! H and I values
-     call read_hI_file
-
-     ! RAM Fluxes
-     do iS=1,4
-        S = iS
-        call write_prefix
-        write(*,*)'Loading initial conditions for species ', st2(S)
-        if (nT==25) then
-           open(unit=UNITTMP_,file=trim(PathRamIn)//'f2inirc'//ST2(S)//'.dat',status='old')
-        else
-           call CON_stop('RAM: f2ini file does not match this grid.')
-        end if
-        DO I=1,NR
-           DO J=1,NT
-              DO IK=1,36 ! Maybe NEL?
-                 READ (UNITTMP_,30) (F2r(I,J,IK,L),L=1,NPA)
-              ENDDO
-              DO K=1,NE
-                 DO L=1,NPA
-                    F2(S,I,J,K,L)=F2r(I,J,K,L)*FNHS(I,J,L)/FUNT(MU(L))
-                 END DO
-              END DO
-           END DO
-        ENDDO
-        close(UNITTMP_)
-     end do
+     call read_initial
 
      ! Initial indices
      call get_indices(TimeRamNow%Time, Kp, f107)
-!     Kp = 0.0 ! RAM 2.0 has the first time step with a 0 KP
+     TOLV = 0.0
   end if
 !!!!!!!!
 

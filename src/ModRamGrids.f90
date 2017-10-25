@@ -33,6 +33,8 @@ integer :: Slen = 55, &
 real, parameter :: RadiusMin = 1.75, &
                    RadiusMax = 6.5
 
+real :: EnergyMin = 0.1
+
 integer :: Nx! = NPA             ! Grid points for PA in mixed diffusion solver
 integer :: Ny = 37
 integer :: NyE = 300             ! Grid points for energy    "     "
