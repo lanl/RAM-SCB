@@ -15,11 +15,14 @@ use ModRamParams,    ONLY: DoSaveFinalRestart, DoVarDt, IsComponent
 use ModRamTiming,    ONLY: DtsFramework, DtsMax, DtsMin, DtsNext, Dts, Dt_hI, &
                            TimeRamStart, TimeRamNow, TimeMax, TimeRamElapsed, &
                            TimeRamStop, T, UTs, Dt_bc, DtEfi
-use ModRamVariables, ONLY: Kp, F107, DTDriftR, DTDriftP, DTDriftE, DTDriftMu
-use ModScbGrids,     ONLY: npsi, nzeta
+use ModRamVariables, ONLY: Kp, F107, DTDriftR, DTDriftP, DTDriftE, DTDriftMu, &
+                           PParT, PPerT, FGEOS
+use ModScbGrids,     ONLY: npsi, nzeta, nthe
+use ModScbVariables, ONLY: alfa, psi, x, y, z
 !!!! Module Subroutines and Functions
+use ModRamInjection, ONLY: injection
 use ModRamCouple,    ONLY: RAMCouple_Allocate, RAMCouple_Deallocate
-use ModRamFunctions, ONLY: ram_sum_pressure
+use ModRamFunctions, ONLY: ram_sum_pressure, RamFileName
 use ModRamIndices,   ONLY: get_indices
 use ModRamTiming,    ONLY: max_output_timestep, init_timing, finalize_timing, do_timing
 use ModRamIO,        ONLY: init_output, handle_output, ram_write_pressure
@@ -37,14 +40,17 @@ use CON_planet,      ONLY: set_planet_defaults
 use CON_axes,        ONLY: init_axes, test_axes
 use ModPlanetConst,  ONLY: init_planet_const
 use ModTimeConvert,  ONLY: time_real_to_int
+use ModIOUnit,       ONLY: UNITTMP_
 !!!! MPI Modules
 use ModMpi
 use ModRamMpi
 
 implicit none
 
-real(kind=Real8_) :: DtOutputMax, DtEndMax
-
+integer :: i,j,k
+character(len=200) :: FileName
+real(kind=Real8_) :: DtOutputMax, DtEndMax, DtTemp
+real(kind=Real8_), DIMENSION(4,20,25) :: ParTemp, PerTemp
 !----------------------------------------------------------------------------
 ! Ensure code is set to StandAlone mode.
 IsComponent = .false.
@@ -102,8 +108,8 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
       if (DoVarDt) then
          DtEndMax   = (TimeMax-TimeRamElapsed)/2.0
          DtOutputMax = max_output_timestep(TimeRamElapsed)
-         DTs = min(DTsNext, DTsmax, DtsFramework, DtOutputMax, DtEndMax)
-         if (Kp.gt.6.0 .AND. DTs.gt.1.) DTs = 1.   !1. or 0.25 
+         DTs = min(DTsNext,DTsmax,DtOutputMax,DtEndMax,DTsFramework)
+         if (Kp.gt.6.0 .AND. DTs.gt.5.0) DTs = 5.0   !1. or 0.25 
       else if(mod(UTs, Dt_hI) .eq. 0) then
          DTs = 5.0
          if(Kp .ge. 5.0) DTs = min(DTsMin,DTs)
@@ -126,10 +132,20 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
       end if
 !!!!!!!!!
 
+!!!!!!!!! INJECTION TEST
+!      if ((iCal.eq.150).or.  &
+!         (iCal.eq.100).or.  &
+!         (iCal.eq.500).or.  &
+!         (iCal.eq.1200).or. &
+!         (iCal.eq.2000)) then
+!         call injection(iCal)
+!      endif
+!!!!!!!!!
+
 !!!!!!!!!! RUN RAM
       ! Broadcast current call to ram_all
       call write_prefix
-      write(*,*) 'Calling ram_all for UTs, DTs,Kp = ', UTs, Dts, DTDriftR, DTDriftP, DTDriftE, DTDriftMu, Kp
+      write(*,*) 'Calling ram_run for UTs, DTs,Kp = ', UTs, Dts, Kp
 
       ! Call RAM for each species.
       call ram_run
@@ -138,17 +154,28 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
       TimeRamElapsed = TimeRamElapsed + 2.0 * DTs
       TimeRamNow % Time = TimeRamStart % Time + TimeRamElapsed
       call time_real_to_int(TimeRamNow)
-!      T = TimeRamElapsed + TimeRamStart%iHour*3600.0
 !!!!!!!!!
 
 !!!!!!!!! RUN SCB
       ! Call SCB if Dt_hI has passed
-      if (mod(TimeRamElapsed, Dt_hI) .eq. 0) then
-!      if (TimeRamElapsed.gt.300) then
+      if (((mod(TimeRamElapsed, Dt_hI).eq.0).or.(Dt_hI.eq.1))) then
+!       if (mod(iCal,5).eq.0) then
          call write_prefix
          write(*,*) 'Running SCB model to update B-field...'
+
          call ram_sum_pressure
          call scb_run
+
+!         FileName = RamFileName('MAG_xyz','dat',TimeRamNow)
+!         open(UNITTMP_, File=FileName, Status='NEW')
+!         write(UNITTMP_,*) npsi, nthe, nzeta
+!         do j=1,npsi
+!           do i=1,nthe
+!             do k=1,nzeta
+!               write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
+!             enddo
+!           enddo
+!         enddo
 
          ! Couple SCB -> RAM
          call computehI
