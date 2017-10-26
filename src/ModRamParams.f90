@@ -88,5 +88,7 @@ module ModRamParams
  ! once the new standard is ready.
  logical :: UseNewFmt = .true.
 
+ logical :: UseSWMFFile = .false.
+
 end Module ModRamParams
 !==============================================================================

@@ -20,17 +20,18 @@ MODULE ModScbEuler
 !==============================================================================
   SUBROUTINE alfges
     !   initial guess of alpha 
-  
-    use ModScbGrids, ONLY: nthe, npsi, nzetap
-  
-    INTEGER :: k
+
+    use ModScbMain,  ONLY: DP  
+    use ModScbGrids, ONLY: nthe, npsi, nzeta, nzetap, nthem
+ 
+    use nrtype, ONLY: pi_d
+ 
+    INTEGER :: i, j, k
   
     DO k = 1, nzetap
        alfa(1:nthe,1:npsi,k) = alphaval(k)
     END DO
-  
-    RETURN
-  
+
   END SUBROUTINE alfges
                                
 !==============================================================================
@@ -40,7 +41,7 @@ MODULE ModScbEuler
   
     USE ModScbMain,      ONLY: DP
     USE ModScbGrids,     ONLY: nthe, npsi, nzeta, ny, nthem, nzetap
-    USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb
+    USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, alfaPrev
   
     USE ModScbSpline, ONLY: spline, splint
   
@@ -74,7 +75,7 @@ MODULE ModScbEuler
        ierr = 0
   
        jloop : DO j = 1, npsi
-          iloop: DO i = 2, nthem
+          iloop: DO i = 1, nthe
              xOld(1:nzetap) = x(i,j,1:nzetap)
              yOld(1:nzetap) = y(i,j,1:nzetap)
              zOld(1:nzetap) = z(i,j,1:nzetap)
@@ -85,10 +86,13 @@ MODULE ModScbEuler
              CALL spline(alfaOld, zOld, 1.E31_dp, 1.E31_dp, z2derivs)
   
              DO k = 2,nzeta
-                x(i,j,k) = splint(alfaOld, xOld, x2derivs, alphaval(k))
-                y(i,j,k) = splint(alfaOld, yOld, y2derivs, alphaval(k))
-                z(i,j,k) = splint(alfaOld, zOld, z2derivs, alphaval(k))
-                alfa(i,j,k) = alphaval(k)
+!                x(i,j,k) = splint(alfaOld, xOld, x2derivs, alphaval(k))
+!                y(i,j,k) = splint(alfaOld, yOld, y2derivs, alphaval(k))
+!                z(i,j,k) = splint(alfaOld, zOld, z2derivs, alphaval(k))
+!                alfa(i,j,k) = alphaval(k)
+                x(i,j,k) = splint(alfaOld, xOld, x2derivs, alfaPrev(i,j,k))
+                y(i,j,k) = splint(alfaOld, yOld, y2derivs, alfaPrev(i,j,k))
+                z(i,j,k) = splint(alfaOld, zOld, z2derivs, alfaPrev(i,j,k))
              END DO
   
              ! Periodic boundary conditions
@@ -432,6 +436,8 @@ MODULE ModScbEuler
   
     ALLOCATE(radTot(nthe, npsi, nzeta+1), STAT = ierr)
     ALLOCATE(angle(nthe,npsi,nzeta+1), STAT = ierr)
+    ALLOCATE(alfaprev(nthe,npsi,nzeta+1), STAT = ierr)
+    ALLOCATE(alfaPrevTemp(nthe,npsi,nzeta+1), STAT = ierr)
   
     xx = SQRT(x**2 + y**2)
     radTot = SQRT(xx**2+z**2)
@@ -450,9 +456,6 @@ MODULE ModScbEuler
     om = 1._dp
     ! omegaOpt = 2._dp / (1._dp + 2._dp*pi_d/REAL(nzeta+nthe, DP))
     omegaOpt = 2._dp / (1._dp + SQRT(1._dp - rjac*rjac))
-  
-    ALLOCATE(alfaprev(nthe,npsi,nzeta+1), STAT = ierr)
-    ALLOCATE(alfaPrevTemp(nthe,npsi,nzeta+1), STAT = ierr)
   
     alfaPrev = alfa
     nisave = 0
@@ -489,6 +492,10 @@ MODULE ModScbEuler
                         - vecx(iz,jz,k)
                 anormResid = anormResid + ABS(resid) ! Residue will decrease with iterations
                 alfa(iz,jz,k) = alfa(iz,jz,k) + om(jz) * resid / vecd(iz,jz,k)
+                if (alfa(iz,jz,k)+1.0.eq.alfa(iz,jz,k)) then
+                   write(*,*) iz, jz, k, om(jz), resid, vecd(iz,jz,k), vecx(iz,jz,k), x(iz,jz,k), y(iz,jz,k), z(iz,jz,k)
+                   stop
+                endif
              END DO thetaloop
           END DO zetaloop
 
@@ -501,7 +508,7 @@ MODULE ModScbEuler
              END IF
           END IF
   
-          IF((ni > 1) .AND. (anormResid < 1e-6_dp*anormf)) THEN  ! SOR iteration has converged
+          IF((ni > 1) .AND. (anormResid < 5e-6_dp*anormf)) THEN  ! SOR iteration has converged
              EXIT Iterations
           END IF
   
@@ -515,21 +522,19 @@ MODULE ModScbEuler
     sumb = SUM(ABS(alfa(2:nthem,2:npsi-1,2:nzeta)))
     diffmx = MAXVAL(ABS(alfa(2:nthem,2:npsi-1,2:nzeta) - alfaprev(2:nthem,2:npsi-1,2:nzeta)))
   
-    IF (ALLOCATED(alfaPrev)) DEALLOCATE(alfaPrev)
-    IF (ALLOCATED(alfaPrevTemp)) DEALLOCATE(alfaPrevTemp)
-  
     !  boundary condition at themin and themax delta = 0 and phi = alphaVal
     DO k = 2, nzeta
-       DO j = 1,npsi
-          alfa(1,j,k) = alphaVal(k)
-          alfa(nthe,j,k) = alphaVal(k)
-       END DO
+       !DO j = 1,npsi
+       !   alfa(1,j,k) = alphaVal(k)
+       !   alfa(nthe,j,k) = alphaVal(k)
+       !END DO
        !  extrapolate alfa to the j = 1 & npsi surfaces
        DO i = 2, nthem
           IF (iWantAlphaExtrapolation == 0) THEN
              alfa(i,npsi,k) = alfa(i,npsi-1,k) ! If the extrapolation is problematic
           ELSE
-             CALL polint(radTot(i,npsi-3:npsi-1,k), alfa(i,npsi-3:npsi-1,k), radTot(i,npsi,k), alfa(i,npsi,k), dyDummy)
+!             CALL polint(radTot(i,npsi-3:npsi-1,k), alfa(i,npsi-3:npsi-1,k), radTot(i,npsi,k), alfa(i,npsi,k), dyDummy)
+             CALL extap(alfa(i,npsi-3,k),alfa(i,npsi-2,k),alfa(i,npsi-1,k),alfa(i,npsi,k))
           END IF
           CALL extap(alfa(i,4,k),alfa(i,3,k),alfa(i,2,k),alfa(i,1,k)) ! This is never a problem - very close to Earth
        END DO
@@ -539,15 +544,18 @@ MODULE ModScbEuler
     DO  j = 1, npsi
        DO  i = 1, nthe
           DO  k = 2, nzeta
-             alfa(i,j,k) = alfa(i,j,k) * blendAlpha + alphaVal(k) * (1._dp - blendAlpha)
+!             alfa(i,j,k) = alfa(i,j,k) * blendAlpha + alphaVal(k) * (1._dp - blendAlpha)
+             alfa(i,j,k) = alfa(i,j,k) * blendAlpha + alfaPrev(i,j,k) * (1._dp - blendAlpha)
           END DO
           alfa(i,j,1) = alfa(i,j,nzeta) - 2._dp * pi_d
           alfa(i,j,nzetap) = alfa(i,j,2) + 2._dp * pi_d
        END DO
     END DO
-  
+
     IF (ALLOCATED(radTot)) DEALLOCATE(radTot, STAT = ierr)
     IF (ALLOCATED(angle)) DEALLOCATE(angle, STAT = ierr)
+    IF (ALLOCATED(alfaPrev)) DEALLOCATE(alfaPrev)
+    IF (ALLOCATED(alfaPrevTemp)) DEALLOCATE(alfaPrevTemp)
   
     RETURN
   
@@ -574,7 +582,46 @@ MODULE ModScbEuler
   
     RETURN
   END SUBROUTINE psiFunctions
-  
+
+!==============================================================================
+  SUBROUTINE InterpolatePsiR
+    ! Interpolates the new values of psi at the new locations xnew on midnight 
+    ! equator
+    !!!! Module Variables
+    USE ModScbMain,  ONLY: iAzimOffset
+    USE ModScbGrids, ONLY: npsi
+    use ModScbVariables, ONLY: x, y, nThetaEquator, nZetaMidnight, psiVal, kmax, &
+                               radEqmidNew
+    !!!! Module Subroutines/Functions
+    USE ModScbSpline, ONLY: spline, splint
+    !!!! NR Modules
+    use nrtype, ONLY: DP
+
+    IMPLICIT NONE
+
+    REAL(DP), DIMENSION(npsi) :: radEqmid, psival1D, psi2Deriv
+    INTEGER :: ialloc, ierr, j
+
+    IF (iAzimOffset == 1) THEN
+       radEqmid(1:npsi) = SQRT(x(nThetaEquator, 1:npsi, nZetaMidnight)**2 + &
+            y(nThetaEquator, 1:npsi, nZetaMidnight)**2)
+    ELSE IF (iAzimOffset == 2) THEN
+       radEqmid(1:npsi) = SQRT(x(nThetaEquator, 1:npsi, kMax)**2 + &
+            y(nThetaEquator, 1:npsi, kMax)**2)
+    END IF
+
+    psival1D(1:npsi) = psival(1:npsi)
+
+    CALL spline(radEqmid, psival1D, 1.E31_dp, 1.E31_dp, psi2Deriv)
+
+    DO j = 2, npsi-1
+       psival(j) = splint(radEqmid, psival1D, psi2Deriv, radEqmidNew(j))
+    END DO
+
+    RETURN
+
+  END SUBROUTINE InterpolatePsiR
+
 !==============================================================================
   SUBROUTINE psiges
     !   initial guess of poloidal flux
@@ -603,7 +650,7 @@ MODULE ModScbEuler
   
     USE ModScbMain,      ONLY: DP
     USE ModScbGrids,     ONLY: nthe, nthem, npsi, npsim, nzeta, nzetap, na
-    USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb
+    USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, psiPrev
   
     USE ModScbSpline, ONLY: spline, splint
   
@@ -642,11 +689,14 @@ MODULE ModScbEuler
              CALL spline(psiold, yOld, 1.E31_dp, 1.E31_dp, y2derivs)
              CALL spline(psiold, zOld, 1.E31_dp, 1.E31_dp, z2derivs)
   
-             DO j = 2, npsim
-                x(i,j,k) = splint(psiold, xOld, x2derivs, psival(j))
-                y(i,j,k) = splint(psiold, yOld, y2derivs, psival(j))
-                z(i,j,k) = splint(psiold, zOld, z2derivs, psival(j))
-                psi(i,j,k) = psival(j)
+             DO j = 1, npsi
+                x(i,j,k) = splint(psiold, xOld, x2derivs, psiPrev(i,j,k))
+                y(i,j,k) = splint(psiold, yOld, y2derivs, psiPrev(i,j,k))
+                z(i,j,k) = splint(psiold, zOld, z2derivs, psiPrev(i,j,k))
+!                x(i,j,k) = splint(psiold, xOld, x2derivs, psival(j))
+!                y(i,j,k) = splint(psiold, yOld, y2derivs, psival(j))
+!                z(i,j,k) = splint(psiold, zOld, z2derivs, psival(j))
+!                psi(i,j,k) = psival(j)
              END DO
           END DO iloop
        END DO kloop
@@ -972,8 +1022,8 @@ MODULE ModScbEuler
          vec7,vec8,vec9,vecr
     REAL(DP) :: om(na)
     REAL(DP) :: omegaOpt
-    REAL(DP) :: omc, anorm, anormf, resid, diff, ano, sumbtest, anormResid, anormError
-    REAL(DP), ALLOCATABLE :: psiPrev(:,:,:), psiPrevTemp(:,:,:)
+    REAL(DP) :: omc, anorm, anormf, diff, ano, sumbtest, anormResid, anormError
+    REAL(DP), ALLOCATABLE :: psiPrev(:,:,:), psiPrevTemp(:,:,:), resid(:,:,:)
     INTEGER :: j, k, i, ierr, ni, ict, jz, jp, jm, iz, im, ip, nratio, myAlphaBegin, myAlphaEnd, &
          my_array_type_psi2, alphaRangeDiff, resultInt
   
@@ -982,7 +1032,8 @@ MODULE ModScbEuler
   
     ALLOCATE(psiPrevTemp(nthe,npsi,nzeta+1), STAT = ierr)
     ALLOCATE(psiPrev(nthe,npsi,nzeta+1), STAT = ierr)
-  
+    ALLOCATE(resid(nthe,npsi,nzeta+1), STAT = ierr)
+
     rjac = 1._dp - 2._dp*pi_d*pi_d / (REAL(nthe,dp)*REAL(nthe,dp) + REAL(npsi,dp)*REAL(npsi,dp)) ! Radius of conv. of Jacobi iteration,
     ! could be used to find omega optimal in SOR
     !rjac = (cos(pi_d/real(npsi,dp)) + (dr/dt)**2 * cos(pi_d/real(nthe,dp))) / &
@@ -992,7 +1043,8 @@ MODULE ModScbEuler
     omegaOpt = 2._dp / (1._dp + SQRT(1._dp - rjac*rjac))
     psiPrev = psi
     nisave = 0
-  
+    resid = 0
+
     alphaLoop: DO k = 2, nzeta
        ni = 1
        anormf = 0._dp
@@ -1010,7 +1062,8 @@ MODULE ModScbEuler
              iLoop: DO  iz = 2, nthem
                 im = iz - 1
                 ip = iz + 1
-                resid = - vecd(iz,jz,k)*psi(iz,jz,k) &
+                resid(iz,jz,k) = &
+                        - vecd(iz,jz,k)*psi(iz,jz,k) &
                         + vec1(iz,jz,k)*psi(im,jm,k) &
                         + vec2(iz,jz,k)*psi(iz,jm,k) &
                         + vec3(iz,jz,k)*psi(ip,jm,k) &
@@ -1020,8 +1073,13 @@ MODULE ModScbEuler
                         + vec8(iz,jz,k)*psi(iz,jp,k) &
                         + vec9(iz,jz,k)*psi(ip,jp,k) &
                         - vecr(iz,jz,k)
-                anormResid = anormResid + ABS(resid)
-                psi(iz,jz,k) = psi(iz,jz,k) + om(k)*resid/vecd(iz,jz,k)
+                anormResid = anormResid + ABS(resid(iz,jz,k))
+                psi(iz,jz,k) = psi(iz,jz,k) + om(k)*resid(iz,jz,k)/vecd(iz,jz,k)
+                if (psi(iz,jz,k)+1.0.eq.psi(iz,jz,k)) then
+                   write(*,*) iz, jz, k, om(k), resid(iz,jz,k), vecd(iz,jz,k), &
+                              vecr(iz,jz,k), x(iz,jz,k), y(iz,jz,k), z(iz,jz,k)
+                   stop
+                endif
              END DO iLoop
           END DO jLoop
   
@@ -1030,11 +1088,11 @@ MODULE ModScbEuler
           IF (isSorDetailNeeded == 1) THEN
              IF(MOD(ni,50) == 1 .AND. k == 2) THEN
                 WRITE(*, '(A, 1X, I3, 1X, I4, A1, 1X, 3(E12.3))') 'ni, Residue for psi, RHS , residue/RHS at ni = ', &
-                     ni, ':', anormResid, anormf, anormResid/anormf; CALL FLUSH(6)
+                     ni, ':', anormResid, anormf, anormResid/anormf
              END IF
           END IF
-  
-          IF((ni > 1) .AND. (anormResid < 1e-6_dp*anormf)) THEN
+
+          IF((ni > 1) .AND. (anormResid < 1e-8_dp*anormf)) THEN
              !           print*, 'exiting Iterations, ni = ', ni
              EXIT Iterations
           END IF
@@ -1046,25 +1104,35 @@ MODULE ModScbEuler
        nisave = MAX(nisave, ni)
     END DO AlphaLoop
   
+    !do i=2,nthem
+    !   do j=2,npsi-1
+    !      do k=2,nzeta
+    !         write(*,*) i,j,k,resid(i,j,k)
+    !      enddo
+    !   enddo
+    !enddo
+
     sumdb = SUM(ABS(psi(2:nthem,2:npsim,2:nzeta) - psiprev(2:nthem,2:npsim,2:nzeta)))
     sumb = SUM(ABS(psi(2:nthem,2:npsim,2:nzeta)))
     diffmx = MAXVAL(ABS(psi(2:nthem,2:npsim,2:nzeta)/psiprev(2:nthem,2:npsim,2:nzeta) - 1))*REAL(npsi, DP)
-  
-    IF (ALLOCATED(psiPrevTemp))  DEALLOCATE(psiPrevTemp)
-    IF (ALLOCATED(psiPrev)) DEALLOCATE(psiPrev)
   
     !...  set blend for outer iteration loop, and apply periodic boundary
     !conditions
     DO  j = 1, npsi
        DO  i = 1, nthe
           DO  k = 2,nzeta
-             psi(i,j,k) = psi(i,j,k) * blendPsi + psival(j) * (1._dp - blendPsi)
+!             psi(i,j,k) = psi(i,j,k) * blendPsi + psival(j) * (1._dp - blendPsi)
+             psi(i,j,k) = psi(i,j,k) * blendPsi + psiPrev(i,j,k) * (1._dp - blendPsi)
           END DO
           psi(i,j,1) = psi(i,j,nzeta)
           psi(i,j,nzetap) = psi(i,j,2)
        END DO
     END DO
-  
+
+    IF (ALLOCATED(psiPrevTemp))  DEALLOCATE(psiPrevTemp)
+    IF (ALLOCATED(psiPrev)) DEALLOCATE(psiPrev)
+    IF (ALLOCATED(resid)) DEALLOCATE(resid)
+
     RETURN
   
   END SUBROUTINE iteratePsi

@@ -17,8 +17,8 @@ module ModRamNCDF
     use netcdf
     
     integer, intent(in) :: iStatusIn
-    character(len=100), intent(in) :: NameSubIn
-    character(len=200), intent(in), optional :: NameFileIn
+    character(len=*), intent(in) :: NameSubIn
+    character(len=*), intent(in), optional :: NameFileIn
 
     character(len=*), parameter :: NameSub = 'ncdf_check'
     !------------------------------------------------------------------------
