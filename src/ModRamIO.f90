@@ -102,7 +102,7 @@ contains
     !!!! Module Variables
     use ModRamParams,    ONLY: DoSaveRamSats
     use ModRamTiming,    ONLY: Dt_hI, DtRestart, DtWriteSat, TimeRamNow, &
-                               TimeRamElapsed, DtW_Pressure, DtW_hI
+                               TimeRamElapsed, DtW_Pressure, DtW_hI, DtW_Efield
     use ModRamGrids,     ONLY: NR, NT
     use ModRamVariables, ONLY: PParH, PPerH, PParHe, PPerHe, PParE, PPerE, &
                                PParO, PPerO, VT
@@ -120,6 +120,7 @@ contains
 
     real(kind=Real8_) :: dst
     logical :: DoTest, DoTestMe
+    integer :: iS
     character(len=4) :: StrScbIter
     character(len=*), parameter :: NameSub = 'handle_output'
     !-------------------------------------------------------------------------
@@ -158,15 +159,24 @@ contains
     end if
 
     ! Write hI File
-    if (mod(TimeIn, DtW_hI)==0.0) then
-       call ram_write_hI
-    end if
+    if (mod(TimeIn, DtW_hI)==0.0) call ram_write_hI
+
+    ! Write efield file
+    if (mod(TimeIn, DtW_Efield).eq.0) call ram_epot_write
 
     ! Update Satellite Files
     if (DoSaveRamSats .and. (mod(TimeRamElapsed,DtWriteSat) .eq. 0)) call fly_sats
 
     ! Write restarts.
     if (mod(TimeIn,DtRestart).eq.0) call write_restart()
+
+    ! Write hourly file
+    if (mod(TimeIn,3600.0).eq.0) then
+       do iS = 1,4
+          S = iS
+          call ram_hour_write
+       enddo
+    endif
 
   end subroutine handle_output
 
@@ -635,6 +645,184 @@ end subroutine read_geomlt_file
 !============================!
 !==== OUTPUT SUBROUTINES ====!
 !============================!
+!==========================================================================
+  subroutine ram_epot_write
+
+    use ModRamMain, ONLY: Real8_, PathRamOut
+    use ModRamTiming, ONLY: TimeRamNow, TimeRamElapsed
+    use ModRamGrids, ONLY: nR, nT
+    use ModRamVariables, ONLY: Kp, F107, VT, LZ, MLT
+
+    use ModRamFunctions, ONLY: RamFileName
+
+    use ModIOUnit, ONLY: UNITTMP_
+
+    implicit none
+
+    character(len=23)  :: StringDate
+    character(len=300) :: NameFileOut
+    integer :: i, j
+    real(kind=Real8_) :: T
+   
+    T = TimeRamElapsed
+    write(StringDate,"(i4.4,'-',i2.2,'-',i2.2,'_',i2.2,2(':',i2.2)'.',i3.3)"), TimeRamNow%iYear, &
+          TimeRamNow%iMonth, TimeRamNow%iDay, TimeRamNow%iHour, TimeRamNow%iMinute, &
+          TimeRamNow%iSecond, floor(TimeRamNow%FracSecond*1000.0)
+
+   ! Write the electric potential [kV]
+    NameFileOut=trim(PathRamOut)//RamFileName('efield','in',TimeRamNow)
+    OPEN(UNIT=UNITTMP_,FILE=NameFileOut,STATUS='UNKNOWN')
+    WRITE(UNITTMP_,*)'UT(hr)    Kp   F107   VTmax   VTmin   Date=',StringDate
+    WRITE(UNITTMP_,31) T/3600.,KP,F107,maxval(VT)/1e3,minval(VT)/1e3
+    WRITE(UNITTMP_,*) ' L     MLT        Epot(kV)'
+    DO I=1,NR+1
+      DO J=1,NT
+        WRITE (UNITTMP_,22) LZ(I),MLT(J),VT(I,J)/1e3
+      END DO
+    END DO
+    CLOSE(UNITTMP_)
+
+22  FORMAT(F5.2,F10.6,E13.4)
+31  FORMAT(F6.2,1X,F6.2,2X,F6.2,1X,F7.2,1X,F7.2,1X,1PE11.3)
+
+    RETURN
+
+  end subroutine ram_epot_write
+
+!==========================================================================
+  subroutine ram_hour_write !Previously WRESULT in ram_all
+
+    use ModRamMain,      ONLY: Real8_, S, PathRamOut
+    use ModRamConst,     ONLY: pi
+    use ModRamGrids,     ONLY: nR, nE, nPA, nT
+    use ModRamVariables, ONLY: F2, FFACTOR, FNHS, WE, WMU, XNN, XND, ENERN,   &
+                               ENERD, EkeV, UPA, LNCN, LNCD, Kp, MLT, MU, LZ, &
+                               VT, F107, LECD, LECN
+    use ModRamTiming,    ONLY: TimeRamNow
+
+    use ModRamFunctions
+
+    use ModIOUnit, ONLY: UNITTMP_, io_unit_new
+    implicit none
+    save
+    integer :: i, j, k, l, jw, iw
+    real(kind=Real8_) :: weight, esum, csum, psum, precfl
+    real(kind=Real8_) :: XNNO(NR),XNDO(NR)
+    real(kind=Real8_) :: F(NR,NT,NE,NPA),NSUM,FZERO(NR,NT,NE),ENO(NR),EDO(NR),AVEFL(NR,NT,NE),BARFL(NE)
+    character(len=23) :: StringDate
+    character(len=2)  :: ST2
+    character(len=100) :: ST4, NameFileOut
+    character(len=2), dimension(4) :: speciesString = (/'_e','_h','he','_o'/)
+
+    ST2 = speciesString(S)
+    ST4 =trim(PathRamOut)
+    write(StringDate,"(i4.4,'-',i2.2,'-',i2.2,'_',i2.2,2(':',i2.2)'.',i3.3)"), TimeRamNow%iYear, &
+          TimeRamNow%iMonth, TimeRamNow%iDay, TimeRamNow%iHour, TimeRamNow%iMinute, &
+          TimeRamNow%iSecond, floor(TimeRamNow%FracSecond*1000.0)
+
+    ! Print RAM output at every hour
+
+    DO I=2,NR
+      XNNO(I)=XNN(S,I)
+      XNDO(I)=XND(S,I)
+      XNN(S,I)=0.
+      XND(S,I)=0.
+      ENO(I)=ENERN(S,I)
+      EDO(I)=ENERD(S,I)
+      ENERN(S,I)=0.
+      ENERD(S,I)=0.
+      DO K=2,NE
+        DO L=1,NPA
+          DO J=1,NT-1
+            IF (L.EQ.1) THEN
+              F(I,J,K,1)=F2(S,I,J,K,2)/FFACTOR(S,I,K,2)/FNHS(I,J,2)
+            ELSE
+              F(I,J,K,L)=F2(S,I,J,K,L)/FFACTOR(S,I,K,L)/FNHS(I,J,L)
+            ENDIF
+            if (f2(S,i,j,k,l).lt.1E-5) f2(S,i,j,k,l)=1E-5
+            if (f(i,j,k,l).lt.1E-5) f(i,j,k,l)=1E-5
+            IF (L.LT.UPA(I)) THEN
+              WEIGHT=F2(S,I,J,K,L)*WE(K)*WMU(L)
+              IF (MLT(J).LE.6.OR.MLT(J).GE.18.) THEN
+                XNN(S,I)=XNN(S,I)+WEIGHT
+                ENERN(S,I)=ENERN(S,I)+EKEV(K)*WEIGHT
+              ELSE
+                XND(S,I)=XND(S,I)+WEIGHT
+                ENERD(S,I)=ENERD(S,I)+EKEV(K)*WEIGHT
+              ENDIF
+            ENDIF
+          END DO
+          F(I,NT,K,L)=F(I,1,K,L)
+        END DO
+      END DO
+      LNCN(S,I)=XNNO(I)-XNN(S,I)
+      LECN(S,I)=ENO(I)-ENERN(S,I)
+      LNCD(S,I)=XNDO(I)-XND(S,I)
+      LECD(S,I)=EDO(I)-ENERD(S,I)
+    END DO
+
+    ! Write the trapped equatorial flux [1/s/cm2/sr/keV]
+    if (NT.EQ.49) JW=6
+    if (NT.EQ.25) JW=3
+    IW=4
+    NameFileOut=trim(PathRamOut)//RamFileName('ram'//st2,'t',TimeRamNow)
+    open(unit=UnitTMP_, file=trim(NameFileOut), status='UNKNOWN')
+    DO I=4,NR,IW
+      DO 25 J=1,NT-1,JW
+        WRITE(UNITTMP_,32) StringDate,LZ(I),KP,MLT(J)
+        DO 27 K=4,NE-1
+27      WRITE(UNITTMP_,30) EKEV(K),(F(I,J,K,L),L=2,NPA-2)
+25    CONTINUE
+    END DO
+    close(UNITTMP_)
+
+! WPI is not currently working, so these write statements are commented out -ME
+    ! Write the total precipitating flux [1/cm2/s]
+!    IF (DoUseWPI) THEN
+!      OPEN(UNIT=UNITTMP_,FILE=trim(ST4)//ST0//ST1//ST2//'.tip',STATUS='UNKNOWN')
+!      WRITE(UNITTMP_,71) T/3600,KP
+!      DO I=2,NR
+!        DO J=1,NT
+!          PRECFL=0.
+!          DO K=2,NE ! 0.15 - 430 keV
+!            AVEFL(I,J,K)=0.
+!            DO L=UPA(I),NPA
+!              AVEFL(I,J,K)=AVEFL(I,J,K)+F(I,J,K,L)*WMU(L)
+!            ENDDO
+!            AVEFL(I,J,K)=AVEFL(I,J,K)/(MU(NPA)-MU(UPA(I)))
+!            PRECFL=PRECFL+AVEFL(I,J,K)*PI*WE(K)
+!          ENDDO
+!          WRITE(UNITTMP_,70) LZ(I),PHI(J),PRECFL
+!        END DO
+!      END DO
+!      close(UNITTMP_)
+!    ENDIF
+
+    ! Write the RAM flux [1/s/cm2/sr/keV] at given pitch angle
+!    IF (DoUseWPI) THEN
+!      OPEN(UNIT=UNITTMP_,FILE=trim(PathRamOut)//'outm'//ST0//ST2//ST1//'.dat',STATUS='UNKNOWN')
+!      DO I=1,NR
+!        DO 822 J=1,NT-1
+!          DO 822 K=2,NE
+!            WRITE(UNITTMP_,31) T/3600.,LZ(I),KP,MLT(J),EKEV(K),F(I,J,K,27)
+!822         CONTINUE
+!      ENDDO
+!      CLOSE(UNITTMP_)
+!    ENDIF
+
+22  FORMAT(F5.2,F10.6,E13.4)
+30  FORMAT(F7.2,72(1PE11.3))
+31  FORMAT(F6.2,1X,F6.2,2X,F6.2,1X,F7.2,1X,F7.2,1X,1PE11.3)
+32  FORMAT(' EKEV/PA, Date=',a,' L=',F6.2,' Kp=',F6.2,' MLT=',F4.1)
+40  FORMAT(20(3X,F8.2))
+70  FORMAT(F5.2,F10.6,E13.4)
+71  FORMAT(2X,3HT =,F8.0,2X,4HKp =,F6.2,2X,'  Total Precip Flux [1/cm2/s]')
+96  FORMAT(2HT=,F6.2,4H Kp=,F5.2,4H AP=,F7.2,4H Rs=,F7.2,7H Date= ,A23,'Plasmasphere e- density [cm-3]')
+
+    RETURN
+  END
+
+
 !===========================================================================
   subroutine ram_write_pressure(StringIter)
 ! Creates RAM pressure files (output_ram/pressure_d{Date and Time}.dat)
