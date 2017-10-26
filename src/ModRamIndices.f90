@@ -46,8 +46,7 @@ module ModRamIndices
 !!! Open file and find the starting date of file
     dateIndex = -1
     open(unit=UNITTMP_, FILE=NameFile, STATUS='OLD', IOSTAT=iError)
-    if(iError /=0 ) call CON_stop &
-         (NameSub//' Error opening file '//NameFile)
+    if (iError.ne.0) call CON_stop(NameSub//' Error opening file '//NameFile)
     Read_RamIndices_Dates: Do
         read(UNITTMP_, '(i4, i2, i2, 8(1x,f3.1), 1x, f5.1)', IOSTAT=iError) &
                          iYY, iMM, iDD, tmpKp, tmpF107

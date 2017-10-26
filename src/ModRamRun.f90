@@ -27,8 +27,7 @@ MODULE ModRamRun
     use ModRamVariables, ONLY: Kp, VT, VTOL, VTN, TOLV, LZ, PHI, PHIOFS, MU, &
                                WMU, FFACTOR, FLUX, FNHS
     !!!! Module Subroutines/Functions
-    use ModRamDrift, ONLY: DRIFTPARA, DRIFTR, DRIFTP, DRIFTE, DRIFTMU, &
-                           DriftCalculations
+    use ModRamDrift, ONLY: DRIFTPARA, DRIFTR, DRIFTP, DRIFTE, DRIFTMU
     use ModRamLoss,  ONLY: CEPARA, CHAREXCHANGE, ATMOL
     use ModRamWPI,   ONLY: WAPARA_KP, WPADIF, WAVELO
     !!!! Share Modules
@@ -66,7 +65,7 @@ MODULE ModRamRun
        CALL DRIFTP(.true.)
        CALL DRIFTE(.true.)
        CALL DRIFTMU(.true.)
-!       CALL DriftCalculations(1)
+
        CALL SUMRC
        LSDR(S)=LSDR(S)+ELORC(S)
 
@@ -110,7 +109,7 @@ MODULE ModRamRun
        CALL DRIFTE(.false.)
        CALL DRIFTP(.false.)
        CALL DRIFTR(.false.)
-!       CALL DriftCalculations(-1)
+
        CALL SUMRC
        LSDR(S)=LSDR(S)+ELORC(S)
 
