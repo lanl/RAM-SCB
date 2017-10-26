@@ -11,6 +11,7 @@ SUBROUTINE ionospheric_potential
                              dPhiIonodBeta, f, fzet, zetaVal, rhoVal, tilt
   !!!! Module Subroutine/Functions
   use ModScbSpline, ONLY: Spline_2D_derivs, Spline_2D_periodic
+  use ModScbIO,     ONLY: Write_Ionospheric_Potential
   !!!! Share Modules
   use ModTimeConvert, ONLY: n_day_of_year
   use ModIOUnit, ONLY: UNITTMP_
@@ -299,6 +300,8 @@ SUBROUTINE ionospheric_potential
   DO k = 1, nzetap
      dPhiIonodBeta(1:npsi, k) = dPhiIonodZeta(1:npsi,k) / fzet(k)
   END DO
+
+  call Write_Ionospheric_Potential
 
   RETURN
 

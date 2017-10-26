@@ -372,11 +372,6 @@
   
     CALL pressure 
     CALL entropy(entropyFixed, fluxVolume, iCountEntropy)
-  
-    IF (electric=='IESC' .OR. electric=='WESC' .or. electric=='W5SC') THEN
-       CALL ionospheric_potential
-       PRINT*, '3DEQ: mapping iono. potentials along SCB-field lines'
-    END IF
 
     ! Compute physical quantities: currents, field components etc..
     CALL metrics
@@ -517,6 +512,7 @@
     use ModScbSpline, ONLY: Spline_2D_derivs, Spline_coord_derivs
     !!!! NR Modules
     use nrtype, ONLY: DP
+    use ezcdf
 
     IMPLICIT NONE
   
@@ -702,7 +698,40 @@
           IF (INT(r0Start) /= 1) facVasGlobal(j,k) = facVasGlobal(j,k) * factorIncrease
        END DO
     END DO
-  
+
+    CALL cdf_open(ncdfId, 'entropy.cdf', 'w')
+
+    dimlens(1) = npsi
+    dimlens(2) = 1
+    CALL cdf_define(ncdfId, 'psival', dimlens, 'R8')
+
+    dimlens(1) = npsi
+    dimlens(2) = nzeta
+    CALL cdf_define(ncdfId, 'xEq', dimlens, 'R8')
+    CALL cdf_define(ncdfId, 'yEq', dimlens, 'R8')
+    CALL cdf_define(ncdfId, 'fluxVolume', dimlens, 'R8')
+    CALL cdf_define(ncdfId, 'dVoldXEq', dimlens, 'R8')
+    CALL cdf_define(ncdfId, 'dVoldYEq', dimlens, 'R8')
+    CALL cdf_define(ncdfId, 'entropy', dimlens, 'R8')
+    CALL cdf_define(ncdfId, 'dEntdXEq', dimlens, 'R8')
+    CALL cdf_define(ncdfId, 'dEntdYEq', dimlens, 'R8')
+    CALL cdf_define(ncdfId, 'facVasG', dimlens, 'R8')
+    CALL cdf_define(ncdfId, 'secondTermB', dimlens, 'R8')
+
+    CALL cdf_write(ncdfId, 'psival', psival(1:npsi))
+    CALL cdf_write(ncdfId, 'xEq', x(nThetaEquator,1:npsi,1:nzeta))
+    CALL cdf_write(ncdfId, 'yEq', y(nThetaEquator,1:npsi,1:nzeta))
+    CALL cdf_write(ncdfId, 'fluxVolume', vol_local(1:npsi, 1:nzeta))
+    CALL cdf_write(ncdfId, 'dVoldXEq', dVoldXEq(1:npsi, 1:nzeta))
+    CALL cdf_write(ncdfId, 'dVoldYEq', dVoldYEq(1:npsi, 1:nzeta))
+    CALL cdf_write(ncdfId, 'entropy', ent_local(1:npsi,1:nzeta))
+    CALL cdf_write(ncdfId, 'dEntdXEq', dEntdXEq(1:npsi, 1:nzeta))
+    CALL cdf_write(ncdfId, 'dEntdYEq', dEntdYEq(1:npsi, 1:nzeta))
+    CALL cdf_write(ncdfId, 'facVasG', facVasGlobal(1:npsi, 1:nzeta)*pjconst)
+    CALL cdf_write(ncdfId, 'secondTermB', secondTermB(1:npsi, 1:nzeta)*pjconst)
+
+    CALL cdf_close(ncdfId)
+ 
     DEALLOCATE(facVasGlobal, stat = idealerr)
     DEALLOCATE(secondTermB, stat = idealerr)
   
