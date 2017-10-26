@@ -611,18 +611,18 @@ MODULE ModScbSpline
   
   
     BCS1 = (/ 0, 0 /) ! "not-a-knot" spline in theta
-    !   BCS1 = (/ 2, 2 /)    ! "natural" spline in theta
+   !BCS1 = (/ 2, 2 /) ! "natural" spline in theta
     BCS2 = (/ 0, 0 /) ! "not-a-knot" spline in rho
-    !   BCS2 = (/ 2, 2 /)    ! "natural" spline in rho
-    ! BCS2 = (/ 1, 1 /) ! first derivative imposed in rho
-    BCS3 = (/ -1, -1 /)  ! periodic in zeta
-    ! BCS3 = (/ 0, 0 /)
+   !BCS2 = (/ 2, 2 /) ! "natural" spline in rho
+   !BCS2 = (/ 1, 1 /) ! first derivative imposed in rho
+    BCS3 = (/ -1,-1 /)  ! periodic in zeta
+   !BCS3 = (/ 0, 0 /)
   
     ! initialize/allocate memory
     ! PRINT *,'initializing...'
   
-    CALL EZspline_init(spline_o, n1, n2, n3, BCS1, BCS2, BCS3, ier)
-    ! CALL EZLinear_init(spline_o, n1, n2, n3, ier)
+    !CALL EZspline_init(spline_o, n1, n2, n3, BCS1, BCS2, BCS3, ier)
+    CALL EZLinear_init(spline_o, n1, n2, n3, ier)
     CALL EZspline_error(ier)
   
     spline_o%x1 = x_1    ! necessary if spline_o%x1 not in [0, 2 pi]
@@ -636,7 +636,7 @@ MODULE ModScbSpline
   
   
     ! need to set explicitly the following if boundary conditions 
-    ! are anything but not-a-knot or periodic, i.e. BCS(n) has
+    ! are anything but not-a-knot or periodic, i.e. BCS(n) has element /= -1, 0.
     ! element /= -1, 0.
     ! spline_o%bcval1min = 0._r8 ; spline_o%bcval1max = 0._r8  ! values for 2nd derivatives at BCs
     ! spline_o%bcval2min = 0._r8 ; spline_o%bcval2max = 0._r8  ! values for 2nd derivatives at BCs

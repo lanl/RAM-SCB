@@ -33,7 +33,7 @@ Module ModScbVariables
 ! ModScbEuler Variables
   REAL(DP), ALLOCATABLE :: psi(:,:,:), psiSav1(:,:,:), psiSav2(:,:,:), alfa(:,:,:), &
                            alfaSav1(:,:,:), alfaSav2(:,:,:), alphaVal(:), alphaValInitial(:), &
-                           psiVal(:)
+                           psiVal(:), psiPrev(:,:,:), alfaPrev(:,:,:)
   REAL(DP) :: blendAlpha, blendPsi, diffmx, rjac, decreaseConvAlpha, &
               decreaseConvPsi, errorAlpha, errorAlphaPrev, errorPsi, &
               errorPsiPrev
@@ -42,7 +42,7 @@ Module ModScbVariables
 
 ! ModScbInit Variables
   REAL(DP), ALLOCATABLE :: f(:), fp(:), rhoVal(:), chiVal(:), thetaVal(:), zetaVal(:), &
-                           fzet(:), fzetp(:)
+                           fzet(:), fzetp(:), chi(:,:,:)
   REAL(DP) :: xzero, xzero3, dphi, bnormal, pnormal, enormal, pjconst, psiin, &
               psiout, psitot, bzero, constZ, constTheta, pressurequot, re1, &
               xpsiin, xpsiout, r0Start, byimfglobal, bzimfglobal, pdynglobal, &
