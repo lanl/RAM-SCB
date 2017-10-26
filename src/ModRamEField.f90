@@ -126,13 +126,22 @@ subroutine ram_get_electric(NextEfile, EOut_II)
   ! "NextFile" and return all of the above to the caller.
 
   use ModRamMain,      ONLY: Real8_, PathRamIn, PathScbOut
-  Use ModRamTiming,    ONLY: TimeRamElapsed
+  Use ModRamTiming,    ONLY: TimeRamElapsed, TimeRamNow
   use ModRamParams,    ONLY: electric, IsComponent
-  use ModRamGrids,     ONLY: NR, NT
-  use ModRamVariables, ONLY: PHIOFS
+  use ModRamGrids,     ONLY: NR, NT, RadiusMax
+  use ModRamVariables, ONLY: PHIOFS, Kp, F107
+  use ModRamCouple,    ONLY: SwmfPot_II
+  use ModRamFunctions, ONLY: RamFileName
+
+  use ModScbMain,      ONLY: prefixOut
+  use ModScbGrids,     ONLY: npsi, nzeta
+  use ModScbVariables, ONLY: PhiIono, radRaw, azimRaw
+  use ModScbInterp,    ONLY: Interpolation_natgrid_2D_EField
 
   use ModTimeConvert, ONLY: TimeType
   use ModIOUnit,      ONLY: UNITTMP_
+
+  use nrtype, ONLY: DP,pi_d
 
   implicit none
 
@@ -144,9 +153,11 @@ subroutine ram_get_electric(NextEfile, EOut_II)
   
 
   type(TimeType) :: TimeNext
-  integer :: nDay, nFile, iError, i, j, jw
-  character(len=200) :: StringHeader
+  integer :: nDay, nFile, iError, i, j, k, jw
+  character(len=200) :: StringHeader, NameFileOut
+  REAL(kind=Real8_) :: Epot_Cart(0:nR,nT)
   real(kind=Real8_) :: day, tth, ap, rsun, RRL, PH, wep(49)
+  REAL(kind=Real8_) :: radOut = RadiusMax+0.25
 
   character(len=*), parameter :: NameSub = 'ram_get_electric'
   !--------------------------------------------------------------------------
@@ -154,8 +165,50 @@ subroutine ram_get_electric(NextEfile, EOut_II)
   ! NOTE THAT ON RESTART, WE MUST CHANGE THIS.
   EOut_II  = 0.0
   
-  IF ((electric .EQ. 'WESC') .or. IsComponent .or. (electric .eq. 'W5SC')) THEN
+  IF ((electric.EQ.'WESC').or.(electric.eq.'IESC').or.(electric.eq.'W5SC')) THEN
+     DO j = 0,nR
+        radRaw(j) = 1.75 + (radOut-1.75) * REAL(j,DP)/REAL(nR,DP)
+     END DO
+     DO k = 1,nT
+        azimRaw(k) = 24.0 * REAL(k-1,DP)/REAL(nT-1,DP)
+     END DO
+
      ! print*, 'Reading electric potentials from SCB directly'
+     CALL ionospheric_potential
+     PRINT*, '3DEQ: mapping iono. potentials along B-field lines'
+     CALL Interpolation_natgrid_2D_EField(radRaw(1:nR), azimRaw, &
+                PhiIono(1:npsi,2:nzeta), Epot_Cart(1:nR,1:nT))
+     Epot_Cart(0,:) = Epot_Cart(1,:) ! 3Dcode domain only extends to 2 RE; at 1.75 RE the potential is very small anyway
+
+     SWMF_electric_potential:  IF (electric=='IESC') THEN
+           NameFileOut=trim(prefixOut)//trim(RamFileName('IE_SCB','in',TimeRamNow))
+           PRINT*, 'Writing to file ', NameFileOut
+           OPEN(UNITTMP_, file = NameFileOut, &
+                action = 'write', status = 'unknown')
+           ! Write header to file.  
+           WRITE(UNITTMP_, '(A, i4.4)') ' DOM   UT      Kp   F107   Ap   Rs PHIOFS, Year ', TimeRamNow%iYear
+           WRITE(UNITTMP_, '(f5.0, 2x, f6.3, 2x, f4.2, 2x, f5.1, 2x, 2(f4.1,2x), f3.1)') &
+                REAL(TimeRamNow%iDay), REAL(TimeRamNow%iHour) + &
+                REAL(TimeRamNow%iMinute)/60.0, kp, f107, 0.0, 0.0, 0.0
+           WRITE(UNITTMP_, '(A)') 'SWMF ionospheric potential mapped along SCB lines'
+           WRITE(UNITTMP_, '(A)') 'L     PHI       Epot(kV)'
+           DO i = 0, nR
+              DO j = 1, nT
+                 WRITE(UNITTMP_, 22) radRaw(i), azimRaw(j)*2.*pi_d/24., Epot_Cart(i,j)
+              END DO
+           END DO
+           CLOSE(UNITTMP_)
+
+           ! Save traced potential to ModRamCouple::SwmfPot_II
+           IF(IsComponent) SwmfPot_II(1:nR+1,1:nT) = Epot_Cart(0:nR,  1:nT)
+     END IF SWMF_electric_potential
+22   FORMAT(F4.2, 2X, F8.6, 2X, E11.4)
+
+     Weimer_electric_potential_along_SCB: IF (electric=='WESC' .or. electric=='W5SC') THEN
+           SwmfPot_II(1:nR+1,1:nT) = Epot_Cart(0:nR, 1:nT)
+           print*, 'SwmfPot_II here SwmfPot_II mm', maxval(swmfpot_II), minval(swmfpot_ii)
+     END IF Weimer_electric_potential_along_SCB
+
      RETURN
   END IF
 

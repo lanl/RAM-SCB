@@ -4,11 +4,106 @@ MODULE ModScbInterp
   implicit none
   
   contains
-  
+
+!============================================================================== 
+  SUBROUTINE Interpolation_natgrid_2D_EField(r_local, azim_local, Epot_l, EpotCart_l)
+
+    ! gives values on polar grid, using interpolation
+    ! .. Use Statements ..
+    USE nrtype,          ONLY: DP, pi_d
+    USE ModScbVariables, ONLY: x, y, z, nThetaEquator
+    USE ModScbMain,      ONLY: prefixOut
+
+    use ModRamGrids, ONLY: NPA
+
+    IMPLICIT NONE
+
+    integer, parameter :: NN = 9
+
+    REAL(DP), INTENT(IN) :: r_local(:), azim_local(:)
+    REAL(DP), INTENT(IN) :: Epot_l(:,:)
+    REAL(DP), INTENT(OUT) :: EpotCart_l(:,:)
+    INTEGER :: nxl, nyl, npsil, nzetal, npal
+
+    INTEGER :: iTriangle(SIZE(r_local), SIZE(azim_local))
+    INTEGER :: nTotal
+
+    REAL(DP) :: xMax, yMax, zMax, xMin, yMin, zMin, dx, dy, dz, bet, del, end_time
+    INTEGER :: ix, ier, i, j, k, iTotal, iTotal2, ierr, idealerr
+    INTEGER :: nq, nr, nw
+
+    REAL(DP) :: eps, eq, eqx, eqy, eqz, p2y, p2z, q1, rmax, xtemp, pMin
+    REAL(DP) :: triangle(2,3)
+    INTEGER :: l
+
+    ! .. Intrinsic Functions ..
+    INTRINSIC KIND, REAL, SUM
+    ! .. Parameters ..
+    INTEGER, PARAMETER :: wp = KIND(1.0D0)
+    ! .. Local Scalars ..
+    INTEGER :: m, numberTriangles
+    REAL (DP) :: q, qx, qy, qz, u, v, w, rad, radSqLoc
+    REAL(DP) :: center(2)
+
+    REAL(DP), ALLOCATABLE :: xScatter(:), yScatter(:), radSqScatter(:), EpotScatter(:)
+    REAL(DP) :: coordPoint(2)
+
+    INTEGER :: jy, it, isInTriangle,iDim, itMin, inBigSphere
+
+!
+    REAL(DP), ALLOCATABLE :: distance(:)
+    REAL(DP), DIMENSION(NN) :: xNear, yNear, bZNear, fluxVolNear, EPotNear
+    REAL(DP), DIMENSION(NN,NPA) :: hNear, INear, hDensNear
+    INTEGER, DIMENSION(1) :: iTemp
+!
+    npsil  = SIZE(Epot_l,1)
+    nzetal = SIZE(Epot_l,2) + 1 ! Since only 2:nzeta is being passed
+    nxl    = SIZE(EpotCart_l,1)
+    nyl    = SIZE(EpotCart_l,2)
+
+    nTotal = npsil*(nzetal-1)
+
+    ALLOCATE(distance(nTotal), stat=ierr)
+    ALLOCATE(xScatter(nTotal), stat = ierr)
+    ALLOCATE(yScatter(nTotal), stat = ierr)
+    ALLOCATE(EpotScatter(nTotal), stat=ierr)
+
+    iTotal = 0
+    j = 1
+    j_loop: DO WHILE (j <= npsil)
+       k = 2
+       k_Loop:  DO WHILE(k <= nzetal)
+          iTotal = iTotal+1
+          EPotScatter(iTotal) = Epot_l(j,k-1)
+          k = k+1
+       END DO k_Loop
+       j = j+1
+    END DO j_loop
+
+    DO ix = 1, nxl
+       DO jy = 1, nyl
+          coordPoint(1) = r_local(ix) * COS(azim_local(jy)*2._dp*pi_d/24._dp - pi_d)
+          coordPoint(2) = r_local(ix) * SIN(azim_local(jy)*2._dp*pi_d/24._dp - pi_d)
+          distance = (xScatter - coordPoint(1))**2 + (yScatter - coordPoint(2))**2
+          do i = 1,NN
+             iTemp = minloc(distance)
+             xNear(i)       = xScatter(iTemp(1))
+             yNear(i)       = yScatter(iTemp(1))
+             EPotNear(i) = EPotScatter(iTemp(1))
+             distance(iTemp(1)) = 999999.9
+          end do
+          CALL DSPNT2D(NN,xNear,yNear,EPotNear,1,coordPoint(1),coordPoint(2),EPotCart_l(ix,jy),ierr)
+       END DO
+    END DO
+
+    DEALLOCATE(EPotScatter, xScatter, yScatter, distance)
+    return
+
+  END SUBROUTINE Interpolation_natgrid_2D_EField
+
 !==============================================================================
   SUBROUTINE Interpolation_natgrid_2D(r_local, azim_local, hFlux_l, IFlux_l, bZEqFlux_l, &
-       flux_vol_l, hdensFlux_l, hCart_l, ICart_l, bZEqCart_l, flux_vol_Cart_l, hdensCart_l, &
-       Epot_l, EpotCart_l)
+       flux_vol_l, hdensFlux_l, hCart_l, ICart_l, bZEqCart_l, flux_vol_Cart_l, hdensCart_l)
   
     ! gives values on polar grid, using interpolation
   
@@ -26,10 +121,8 @@ MODULE ModScbInterp
     REAL(DP), INTENT(IN) :: r_local(:), azim_local(:)
     REAL(DP), INTENT(IN) :: hFlux_l(:,:,:), IFlux_l(:,:,:), bZEqFlux_l(:,:), &
          flux_vol_l(:,:), hdensFlux_l(:,:,:)
-    REAL(DP), OPTIONAL, INTENT(IN) :: Epot_l(:,:)
     REAL(DP), INTENT(OUT) :: hCart_l(:,:,:), ICart_l(:,:,:), bZEqCart_l(:,:), &
          hdensCart_l(:,:,:), flux_vol_Cart_l(:,:)
-    REAL(DP), OPTIONAL, INTENT(OUT) :: EpotCart_l(:,:)
     INTEGER :: nxl, nyl, npsil, nzetal, npal
   
     INTEGER :: iTriangle(SIZE(r_local), SIZE(azim_local))
@@ -52,7 +145,7 @@ MODULE ModScbInterp
     REAL (DP) :: q, qx, qy, qz, u, v, w, rad, radSqLoc
     REAL(DP) :: center(2)
   
-    REAL(DP), ALLOCATABLE :: xScatter(:), yScatter(:), radSqScatter(:), bZScatter(:), EpotScatter(:)
+    REAL(DP), ALLOCATABLE :: xScatter(:), yScatter(:), radSqScatter(:), bZScatter(:)
     REAL(DP), ALLOCATABLE :: hScatter(:,:), IScatter(:,:), hdensScatter(:,:), fluxVolScatter(:)
     REAL(DP) :: coordPoint(2)
   
@@ -72,21 +165,19 @@ MODULE ModScbInterp
   
     nTotal = npsil*(nzetal-1)
 
-    if (.not.ALLOCATED(distance)) ALLOCATE(distance(nTotal), stat=ierr) 
+    if (.not.ALLOCATED(distance)) ALLOCATE(distance(nTotal), stat=ierr)
 
     IF(.NOT.ALLOCATED(xScatter))   ALLOCATE(xScatter(nTotal), stat = ierr)
     IF(.NOT.ALLOCATED(yScatter))   ALLOCATE(yScatter(nTotal), stat = ierr)
-    IF(.NOT.ALLOCATED(radSqScatter))   ALLOCATE(radSqScatter(nTotal), stat = ierr)
-  
+
+    IF(.NOT.ALLOCATED(radSqScatter))   ALLOCATE(radSqScatter(nTotal), stat = ierr)  
     IF(.NOT.ALLOCATED(hScatter))   ALLOCATE(hScatter(nTotal, NPAL), stat = ierr)
     IF(.NOT.ALLOCATED(hDensScatter))   ALLOCATE(hDensScatter(nTotal, NPAL), stat = ierr)
     IF(.NOT.ALLOCATED(IScatter))   ALLOCATE(IScatter(nTotal, NPAL), stat = ierr)
     IF(.NOT.ALLOCATED(bZScatter))   ALLOCATE(bZScatter(nTotal), stat = ierr)  
     IF (.NOT. ALLOCATED(fluxVolScatter)) ALLOCATE(fluxVolScatter(nTotal), stat = ierr)
-    IF (PRESENT(Epot_l)) ALLOCATE(EpotScatter(nTotal), stat=ierr)
   
     iTotal = 0
-
     j = 1
     j_loop: DO WHILE (j <= npsil)     
        k = 2
@@ -97,7 +188,6 @@ MODULE ModScbInterp
           radSqScatter(iTotal) = xScatter(iTotal)**2 + yScatter(iTotal)**2
           bZScatter(iTotal) = bZEqFlux_l(j,k-1)
           fluxVolScatter(iTotal) = flux_vol_l(j,k-1)
-          IF (ALLOCATED(EpotScatter)) EPotScatter(iTotal) = Epot_l(j,k-1)
           Pitch_angle_loop: DO L = 1, NPAL
              hScatter(iTotal, L) = hFlux_l(j,k-1, L)
              IScatter(iTotal, L) = IFlux_l(j,k-1, L)
@@ -125,7 +215,6 @@ MODULE ModScbInterp
              hNear(i,:)     = hScatter(iTemp(1),:)
              INear(i,:)     = IScatter(iTemp(1),:)
              hDensNear(i,:) = hDensScatter(iTemp(1),:)
-             If (ALLOCATED(EPotScatter)) EPotNear(i) = EPotScatter(iTemp(1))
              distance(iTemp(1)) = 999999.9
           end do
           CALL DSPNT2D(NN,xNear,yNear,bZNear,1,coordPoint(1),coordPoint(2),bZEqCart_l(ix,jy),ierr)
@@ -135,7 +224,6 @@ MODULE ModScbInterp
              CALL DSPNT2D(NN,xNear,yNear,INear(:,L),1,coordPoint(1),coordPoint(2),ICart_l(ix,jy,L),ierr)
              CALL DSPNT2D(NN,xNear,yNear,hDensNear(:,L),1,coordPoint(1),coordPoint(2),hDensCart_l(ix,jy,L),ierr)
           end do
-          if (PRESENT(Epot_l)) CALL DSPNT2D(NN,xNear,yNear,EPotNear,1,coordPoint(1),coordPoint(2),EPotCart_l(ix,jy),ierr)
 !!!!!!!!!!!!!!
        END DO
     END DO
@@ -149,7 +237,6 @@ MODULE ModScbInterp
     IF(ALLOCATED(hScatter))  DEALLOCATE(hScatter, stat = ierr)
     IF(ALLOCATED(IScatter))  DEALLOCATE(IScatter, stat = ierr)
     IF(ALLOCATED(bZScatter))  DEALLOCATE(bZScatter, stat = ierr)
-    IF (ALLOCATED(EpotScatter)) DEALLOCATE(EpotScatter, stat = ierr)
     IF(ALLOCATED(hdensScatter))  DEALLOCATE(hdensScatter, stat = ierr)
   
     IF (ALLOCATED(fluxVolScatter)) DEALLOCATE(fluxVolScatter, stat = ierr)
