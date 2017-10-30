@@ -74,6 +74,8 @@ MODULE ModScbInterp
        k = 2
        k_Loop:  DO WHILE(k <= nzetal)
           iTotal = iTotal+1
+          xScatter(iTotal) = x(nThetaEquator,j,k)
+          yScatter(iTotal) = y(nThetaEquator,j,k)
           EPotScatter(iTotal) = Epot_l(j,k-1)
           k = k+1
        END DO k_Loop

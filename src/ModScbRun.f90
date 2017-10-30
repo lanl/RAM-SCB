@@ -30,14 +30,14 @@
                                xpsiin, xpsiout, f, fp, fluxVolume, psiPrev, alfaPrev
     use ModScbParams,    ONLY: decreaseConvAlphaMin, decreaseConvPsiMin, blendMin, &
                                decreaseConvAlphaMax, decreaseConvPsiMax, blendMax, &
-                               blendAlphaInit, blendPsiInit
+                               blendAlphaInit, blendPsiInit, MinSCBIterations
     !!!! Module Subroutine/Functions
     USE ModScbInit,     ONLY: computeBandJacob_Initial
     USE ModScbEuler,    ONLY: alfges, psiges, mapalpha, mappsi, directAlpha, &
                               iterateAlpha, directPsi, iteratePsi, psiFunctions, &
                               InterpolatePsiR
     USE ModScbEquation, ONLY: newk, newj, metric, metrica ! LHS and RHS equations
-    USE ModScbIO,       ONLY: computational_domain
+    USE ModScbIO,       ONLY: computational_domain, Write_Convergence_Anisotropic
     !!!! Share Modules
     USE ModIOUnit, ONLY: UNITTMP_
     !!!! NR Modules
@@ -127,8 +127,9 @@
 
           CALL newk(vecx, vecd)
   
+          ! Moved the convergence test to after the SCB computation completes
           !IF (isotropy /= 1 .AND. iteration == 1 .AND. isFBDetailNeeded == 1) THEN
-          !   CALL test_Convergence_anisotropic
+          !   CALL Write_Convergence_Anisotropic
              ! to see how far from equilibrium we are before computing
           !END IF
   
@@ -336,9 +337,9 @@
              EXIT Outeriters
           END IF
   
-          IF (isotropy /= 1 .AND. isFBDetailNeeded == 1) CALL test_Convergence_anisotropic
+          IF (isotropy /= 1 .AND. isFBDetailNeeded == 1) CALL Write_Convergence_Anisotropic
   
-          IF (iteration < numit .AND. iConvGlobal == 0) THEN
+          IF ((iteration.lt.numit).and.(iteration.ge.MinSCBIterations).AND.(iConvGlobal.eq.0)) THEN
              iteration = iteration + 1
              CYCLE Outeriters
           END IF
