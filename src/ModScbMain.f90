@@ -87,7 +87,8 @@ MODULE ModScbMain
   integer  :: isEnergDetailNeeded = 1 ! Dst computation (DPS formula with thermal energy inside domain)
  !integer  :: isEnergDetailNeeded = 0
 
-  integer  :: isFBDetailNeeded = 0 ! Computes global force imbalance
+  integer  :: isFBDetailNeeded = 0 ! Does not compute global force imbalance
+ !integer  :: isFBDetailNeeded = 1 ! Computes global force imbalance after SCB calculation
 
   integer  :: iLossCone = 1 ! Filled loss cone
  !integer  :: iLossCone = 2 ! More realistic, empty loss cone for RAM computations (M. Liemohn's formalism, Liemohn, 2004)

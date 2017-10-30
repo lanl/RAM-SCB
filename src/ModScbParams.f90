@@ -6,6 +6,7 @@ module ModScbParams
   save
 
   integer :: iDumpRAMFlux = 0 ! Writes RAM flux mapped along 3D field lines in NetCDF format
+  integer :: MinSCBIterations = 1
 
   real(DP) :: decreaseConvAlphaMin = 5e-1,  &
               decreaseConvAlphaMax = 5e-1,  &
