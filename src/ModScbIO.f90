@@ -426,7 +426,7 @@ END SUBROUTINE Write_ionospheric_potential
   use ModRamTiming,    ONLY: TimeRamNow
   use ModScbMain,      ONLY: prefixOut
   USE ModScbGrids,     ONLY: nthe, npsi, nzeta, dt, dr, dpPrime
-  USE ModScbVariables, ONLY: thetaVal, rhoVal, zetaVal, x, y, z, bsq, bf, &
+  USE ModScbVariables, ONLY: thetaVal, rhoVal, zetaVal, x, y, z, &
                              jacobian, normDiff, normGradP, GradZetaSq, &
                              GradThetaGradZeta, GradRhoGradTheta, GradRhoSq, &
                              GradRhoGradZeta, ppar, pper, nThetaEquator, &
@@ -445,7 +445,7 @@ END SUBROUTINE Write_ionospheric_potential
   INTEGER :: i, j, k, id, ierr, idealerr
   CHARACTER(len=200) :: FileName
 
-  REAL(DP) :: normDiffRel, volume
+  REAL(DP) :: normDiffRel, volume, bf(nthe,npsi,nzeta+1), bsq(nthe,npsi,nzeta+1)
   REAL(DP), DIMENSION(nthe,npsi,nzeta) :: derivXTheta, derivXRho, derivXZeta, &
        derivYTheta, derivYRho, derivYZeta, derivZTheta, derivZRho, derivZZeta, &
        gradRhoX, gradRhoY, gradRhoZ, gradZetaX, gradZetaY, gradZetaZ, gradThetaX, &

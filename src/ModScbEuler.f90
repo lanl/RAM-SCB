@@ -75,7 +75,7 @@ MODULE ModScbEuler
        ierr = 0
   
        jloop : DO j = 1, npsi
-          iloop: DO i = 1, nthe
+          iloop: DO i = 2, nthem
              xOld(1:nzetap) = x(i,j,1:nzetap)
              yOld(1:nzetap) = y(i,j,1:nzetap)
              zOld(1:nzetap) = z(i,j,1:nzetap)
@@ -106,6 +106,10 @@ MODULE ModScbEuler
              alfa(i,j,nzetap) = alfa(i,j,2) + 2._dp*pi_d
   
           END DO iloop
+          alfa(1,j,:) = alphaVal(:)
+          alfa(1,j,1) = alfa(1,j,nzeta - 2._dp*pi_d)
+          alfa(nthe,j,:) = alphaVal(:)
+          alfa(nthe,j,nzetap) = alfa(nthe,j,2) + 2._dp*pi_d
        END DO jloop
     END IF
   
@@ -529,7 +533,7 @@ MODULE ModScbEuler
        !   alfa(nthe,j,k) = alphaVal(k)
        !END DO
        !  extrapolate alfa to the j = 1 & npsi surfaces
-       DO i = 2, nthem
+       DO i = 1, nthe
           IF (iWantAlphaExtrapolation == 0) THEN
              alfa(i,npsi,k) = alfa(i,npsi-1,k) ! If the extrapolation is problematic
           ELSE
@@ -679,7 +683,7 @@ MODULE ModScbEuler
        ierr = 0
   
        kloop: DO k = 2, nzeta
-          iloop: DO i = 1, nthe
+          iloop: DO i = 2, nthem
              xOld(1:npsi) = x(i,1:npsi,k)
              yOld(1:npsi) = y(i,1:npsi,k)
              zOld(1:npsi) = z(i,1:npsi,k)
@@ -710,8 +714,8 @@ MODULE ModScbEuler
        z(:,:,nzetap) = z(:,:,2)
   
        DO j = 1, npsi
-          psi(:,j, 1) = psival(j)
-          psi(:,j,nzetap) = psival(j)
+          psi(:,j, 1) = psi(:,j,nzeta)
+          psi(:,j,nzetap) = psi(:,j,2)
        END DO
        !diffmx = MAXVAL(sqrt((x-xPrev)**2 + (y-yPrev)**2 + (z-zPrev)**2))
   

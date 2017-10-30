@@ -331,15 +331,15 @@
              CALL maptheta
           ENDIF
 
+          IF (isotropy /= 1 .AND. isFBDetailNeeded == 1) CALL Write_Convergence_Anisotropic
+ 
           IF (iConvGlobal == 1) THEN
              PRINT*, 'Approaching convergence.'
              sumdbconv = sumdb1
              EXIT Outeriters
           END IF
-  
-          IF (isotropy /= 1 .AND. isFBDetailNeeded == 1) CALL Write_Convergence_Anisotropic
-  
-          IF ((iteration.lt.numit).and.(iteration.ge.MinSCBIterations).AND.(iConvGlobal.eq.0)) THEN
+ 
+          IF (((iteration.lt.numit).AND.(iConvGlobal.eq.0)).OR.(iteration.lt.MinSCBIterations)) THEN
              iteration = iteration + 1
              CYCLE Outeriters
           END IF
