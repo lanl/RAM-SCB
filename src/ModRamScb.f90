@@ -615,7 +615,7 @@ FUNCTION fInt(chi_local)
   REAL(DP) :: bf_local(SIZE(chi_local))
   REAL(DP) :: dyDummy(SIZE(chi_local))
   INTEGER :: i, ierr
-  REAL(DP) :: fInt(SIZE(chi_local))
+  REAL(DP) :: fIntSqr(SIZE(chi_local)), fInt(SIZE(chi_local))
   LOGICAL :: SKIP = .FALSE.
 
   !CALL DPCHFE (nthe-nThetaEquator+1, chiVal(nThetaEquator:nthe), bf(nThetaEquator:nthe,j,k), &
@@ -623,9 +623,10 @@ FUNCTION fInt(chi_local)
   CALL DPCHFE (nthe-nThetaEquator+1, chi(nThetaEquator:nthe,j,k), bf(nThetaEquator:nthe,j,k), &
        dBdTheta(nThetaEquator:nthe), INCFD, SKIP, SIZE(chi_local,1), chi_local, bf_local, IERR)
 
-
+  fIntSqr = (bfMirror(L) - bf_local)/bfMirror(L)
+  where (fIntSqr.lt.0.) fIntSqr = 0.
   !C fInt = SQRT(MAX(1._dp/(1._dp - bf_local/bfMirror(L)), 0._dp)) ! For function h(mu0)
-  fInt = SQRT(MAX((bfMirror(L) - bf_local)/bfMirror(L), 0._dp)) ! For function I(mu0)
+  fInt = SQRT(fIntSqr) ! For function I(mu0)
 
   RETURN
 END FUNCTION fInt
