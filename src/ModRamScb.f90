@@ -572,7 +572,7 @@ FUNCTION fInt(chi_local)
   fIntSqr = (bfMirror(L) - bf_local)/bfMirror(L)
   where (fIntSqr.lt.0.) fIntSqr = 0.
   !C fInt = SQRT(MAX(1._dp/(1._dp - bf_local/bfMirror(L)), 0._dp)) ! For function h(mu0)
-  fInt = SQRT(fintSqr) ! For function I(mu0)
+  fInt = SQRT(fIntSqr) ! For function I(mu0)
 
   RETURN
 END FUNCTION fInt
