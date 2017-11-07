@@ -490,37 +490,54 @@ SUBROUTINE ionospheric_potential
      END DO Weimer_potential_loop
 
   CASE('W5SC') ! Potential by calling Weimer 2005 function 'W5SC'
-     open(Unittmp_, file=NameOmniFile, status = 'unknown',action='read')
+     OPEN(UNITTMP_, FILE=NameOmniFile, status = 'UNKNOWN', action = 'READ')
      i = 0
      ierr = 0
-     do while (ierr == 0)
-        read(unittmp_, *, iostat=ierr) header
-        i = i + 1
-     end do
-     ilines = i-1
+     DO WHILE (ierr == 0)
+        READ(UNITTMP_, *, IOSTAT=ierr) header
+        i = i+1
+     END DO
+     iLines = i-1
+     !C PRINT*, 'IP: the file has ', iLines, ' lines.'
 
-     rewind(unittmp_)
-!     print*, 'IP: year, day, hour, min, bt, by, bz, v, n, pdyn, al. symh'
-     print*, 'IP: year, day, hour, min, by, bz, v, n'
-     read_data_from_file1: do i=1,ilines
-!        read(unittmp_,*) iyear_l,idoy_l,ihour_l, imin_l, btot_l, byimf_l,
-!        bzimf_l, vk_l, nk_l, pdyn_l, al_l, symh_l
-        read(UNITTMP_,*) iyear_l, imonth_l, iday_l, ihour_l, imin_l, isec_l, imsec_l, &
-                         bximf_l, byimf_l, bzimf_l, vk_l, vy_l, vz_l, nk_l, t_l
-        doy = n_day_of_year(TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay)
-        if ((TimeRamNow%iYear.eq.iyear_l).and.(TimeRamNow%iMonth.eq.imonth_l).and. &
-            (TimeRamNow%iDay.eq.iday_l).and. &
-            (TimeRamNow%iHour.eq.ihour_l).and.(TimeRamNow%iMinute.eq.imin_l)) then
-!           write(*,*)iyear_l,idoy_l,ihour_l, imin_l, btot_l, byimf_l, bzimf_l,
-!           vk_l, nk_l, pdyn_l, al_l, symh_l
-           write(*,*)iyear_l,idoy_l,ihour_l, imin_l, byimf_l, bzimf_l, vk_l, nk_l
-           exit read_data_from_file1
-        end if
-     end do read_data_from_file1
-     close(unittmp_)
+     ! Rewind file
+     REWIND(UNITTMP_)
+
+     if (UseSWMFFile) then
+        UseAL = .false.
+        print*, 'IP: year, month, day, hour, min, btot, bz, v, n'
+        Read_SWMF_file_05: DO i = 1, iLines
+           read(UNITTMP_,*) iyear_l, imonth_l, iday_l, ihour_l, imin_l, isec_l, imsec_l, &
+                            bximf_l, byimf_l, bzimf_l, vx_l, vy_l, vz_l, nk_l, t_l
+           if ((TimeRamNow%iYear.eq.iyear_l).and.(TimeRamNow%iMonth.eq.imonth_l).and. &
+               (TimeRamNow%iDay.eq.iday_l).and. &
+               (TimeRamNow%iHour.eq.ihour_l).and.(TimeRamNow%iMinute.eq.imin_l)) then
+              bTot_l = SQRT(bximf_l**2 + byimf_l**2 + bzimf_l**2)
+              vk_l   = SQRT(vx_l**2 + vy_l**2 + vz_l**2)
+              write(*,*)iyear_l,imonth_l,iday_l, ihour_l, imin_l, btot_l, bzimf_l, vk_l, nk_l
+              EXIT Read_SWMF_file_05
+           END IF
+        END DO Read_SWMF_file_05
+     else
+        UseAL = .true.
+        PRINT*, 'IP: Year, Day, Hour, Min, Bt, By, Bz, V, N, Pdyn, AL, SYMH'
+        Read_OMNI_file_05: DO i = 1, iLines
+           READ(UNITTMP_,*) iYear_l, iDoy_l, iHour_l, iMin_l, bTot_l, byimf_l, &
+                            bzimf_l, Vk_l, Nk_l, pdyn_l, AL_l, SymH_l
+           doy = n_day_of_year(TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay)
+           if ((TimeRamNow%iYear.eq.iyear_l).and.(doy.eq.idoy_l).and. &
+               (TimeRamNow%iHour.eq.ihour_l).and.(TimeRamNow%iMinute.eq.imin_l)) then
+              WRITE(*,*) iYear_l, iDoy_l, iHour_l, iMin_l, bTot_l, byimf_l, &
+                         bzimf_l, Vk_l, Nk_l, pdyn_l, AL_l, SymH_l
+              EXIT Read_OMNI_file_05
+           END IF
+        ! ACHTUNG this assumes the same starting file in omni file, and same
+        ! cadence of E-field update as the B-field update in RAM-SCB !!! 
+        END DO Read_OMNI_file_05
+     endif
+     CLOSE(UNITTMP_)
+
      angle = 180._dp/pi_d*ACOS(bzimf_l/bTot_l)
-!     WRITE(*,'(A,4F12.2,I6)') 'IP: Bt, angle, SW Vel., SW Dens., AL = ',
-!     bTot_l, angle, Vk_l, Nk_l, AL_l
      CALL SetModel05(byimf_l, bzimf_l, tilt, Vk_l, Nk_l)
      latGrid = 180._dp/pi_d * latGrid ! Transform latitude to degrees for Weimer EpotVal function
      lonGrid = 12._dp/pi_d * lonGrid ! Transform lonGrid to hours (MLT) for Weimer EpotVal function
