@@ -11,13 +11,13 @@ module ModRamTiming
   implicit none
   save
 
-  type(TimeType) :: TimeRamNow, TimeRamStart, TimeRamStop, TimeRamRealStart
+  type(TimeType) :: TimeRamNow, TimeRamStart, TimeRamStop, TimeRamRealStart, TimeRamFinish
 
   real(kind=Real8_) :: TimeRestart    = 0.0, &
                        TimeRamElapsed = 0.0, &
                        TOld           = 0.0
 
-  integer :: TimeMax, &  ! Simulation max in seconds.
+  integer :: TimeMax = 0, &  ! Simulation max in seconds.
              MaxIter     ! Simulation max iterations
 
   !!!!! TEMPORAL GRIDS

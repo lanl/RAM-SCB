@@ -425,13 +425,15 @@ END SUBROUTINE Write_ionospheric_potential
   !!!! Module Variables
   use ModRamTiming,    ONLY: TimeRamNow
   use ModScbMain,      ONLY: prefixOut
+  use ModScbParams,    ONLY: isotropy
   USE ModScbGrids,     ONLY: nthe, npsi, nzeta, dt, dr, dpPrime
   USE ModScbVariables, ONLY: thetaVal, rhoVal, zetaVal, x, y, z, &
                              jacobian, normDiff, normGradP, GradZetaSq, &
                              GradThetaGradZeta, GradRhoGradTheta, GradRhoSq, &
                              GradRhoGradZeta, ppar, pper, nThetaEquator, &
-                             normJxB, f, fzet, nZetaMidnight, &
-                             dPPerdRho, dPPerdZeta, dPPerdTheta
+                             normJxB, f, fzet, nZetaMidnight, pnormal, &
+                             dPPerdRho, dPPerdZeta, dPPerdTheta, bnormal, &
+                             pjconst, dPdAlpha, dPdPsi 
   !!!! Module Subroutine/Function
   use ModRamFunctions, ONLY: RamFileName
   use ModScbSpline,    ONLY: Spline_coord_derivs
@@ -535,7 +537,7 @@ END SUBROUTINE Write_ionospheric_potential
   CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, jGradRhoPartialZeta, &
        & derivNU1, derivNU2, derivjGradRhoPartialZeta)
 
-  jGradRho = 1._dp / jacobian * (derivjGradRhoPartialTheta + derivjGradRhoPartialZeta)
+  jGradRho = (derivjGradRhoPartialTheta + derivjGradRhoPartialZeta)/jacobian
 
   ! j dot gradZeta
   DO j = 1, npsi
@@ -554,79 +556,112 @@ END SUBROUTINE Write_ionospheric_potential
   CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, jGradZetaPartialTheta, &
        & derivjGradZetaPartialTheta, derivNU1, derivNU2)
 
+  jGradZeta = (derivjGradZetaPartialRho + derivjGradZetaPartialTheta)/jacobian
+
+  ! j dot gradTheta
+  DO j = 1,npsi
+     DO k = 1,nzeta
+        jGradThetaPartialRho(:,j,k) = jacobian(:,j,k) * f(j) * fzet(k) * &
+             (gradRhogradTheta(:,j,k) * gradRhogradZeta(:,j,k) - gradThetagradZeta(:,j,k) * gradRhoSq(:,j,k))
+        jGradThetaPartialZeta(:,j,k) = jacobian(:,j,k) * f(j) * fzet(k) * &
+             (gradRhogradTheta(:,j,k) * gradZetaSq(:,j,k) - gradRhogradZeta(:,j,k) * gradThetagradZeta(:,j,k))
+     ENDDO
+  ENDDO
+
+  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, jGradThetaPartialRho, &
+       & derivNU1, derivjGradThetaPartialRho, derivNU2)
+  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, jGradThetaPartialZeta, &
+       & derivNU1, derivNU2, derivjGradThetaPartialZeta)
+
+  jGradTheta = (derivjGradThetaPartialRho + derivjGradThetaPartialZeta)/jacobian
+
   ! The one below is for calculating \partial Pper/\partial \theta and
   ! \partial(J(Pper-Ppar))/\partial \theta for the anisotropic case  
   CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, jacobian(1:nthe,1:npsi,1:nzeta) * &
        (pper(1:nthe,1:npsi,1:nzeta)-ppar(1:nthe,1:npsi,1:nzeta)), derivDiffPTheta, derivNU1, derivNU2)
 
-  jGradZeta = 1._dp / jacobian * (derivjGradZetaPartialRho + derivjGradZetaPartialTheta)
 
   !***************************************************************************************************
   ! Now we have jGradRho, jGradZeta
   ! Time to compute |j x B - div dot P|
   DO k = 1, nzeta
      DO j = 1, npsi
-        jCrossBSq(:,j,k) = f(j)**2 * fzet(k)**2 * (gradRhoSq(:,j,k) * jGradZeta(:,j,k)**2 + &
-        gradZetaSq(:,j,k) * jGradRho(:,j,k)**2 - 2._dp * &
-        jGradZeta(:,j,k) * jGradRho(:,j,k) * gradRhoGradZeta(:,j,k))
+        jCrossBSq(:,j,k) = f(j)**2 * fzet(k)**2 &
+                         * (gradRhoSq(:,j,k) * jGradZeta(:,j,k)**2 &
+                         + gradZetaSq(:,j,k) * jGradRho(:,j,k)**2 &
+                         - 2._dp * jGradZeta(:,j,k) * jGradRho(:,j,k) * gradRhoGradZeta(:,j,k))
 
-        gradPSq(:,j,k) = gradRhoSq(:,j,k)*dPperdRho(:,j,k)**2 + gradZetaSq(:,j,k)*dPperdZeta(:,j,k)**2 + &
-             gradThetaSq(:,j,k)*dPperdTheta(:,j,k)**2 + 2.*dPperdRho(:,j,k)*dPperdZeta(:,j,k)*gradRhoGradZeta(:,j,k) + &
-             2.*dPperdRho(:,j,k)*dPperdTheta(:,j,k)*gradRhoGradTheta(:,j,k) + &
-             2.*dPperdZeta(:,j,k)*dPperdTheta(:,j,k)*gradThetaGradzeta(:,j,k) + (derivDiffPTheta(:,j,k)/jacobian(:,j,k))**2 - &
-             2.*dPperdTheta(:,j,k) * derivDiffPTheta(:,j,k)/jacobian(:,j,k)
+        if (isotropy.eq.0) then
+           gradPSq(:,j,k) = gradRhoSq(:,j,k)*dPperdRho(:,j,k)**2 &
+                          + gradZetaSq(:,j,k)*dPperdZeta(:,j,k)**2 &
+                          + gradThetaSq(:,j,k)*dPperdTheta(:,j,k)**2 &
+                          + 2.*dPperdRho(:,j,k)*dPperdZeta(:,j,k)*gradRhoGradZeta(:,j,k) &
+                          + 2.*dPperdRho(:,j,k)*dPperdTheta(:,j,k)*gradRhoGradTheta(:,j,k) &
+                          + 2.*dPperdZeta(:,j,k)*dPperdTheta(:,j,k)*gradThetaGradzeta(:,j,k) &
+                          + (derivDiffPTheta(:,j,k)/jacobian(:,j,k))**2 &
+                          - 2.*dPperdTheta(:,j,k) * derivDiffPTheta(:,j,k)/jacobian(:,j,k)
 
+           jCrossBMinusGradPSq(:,j,k) = gradRhoSq(:,j,k)*(f(j)*fzet(k)*jGradZeta(:,j,k)-dPperdRho(:,j,k))**2 + &
+                gradZetaSq(:,j,k)*(f(j)*fzet(k)*jGradRho(:,j,k)+dPperdZeta(:,j,k))**2 + gradThetaSq(:,j,k)*dPperdTheta(:,j,k)**2 + &
+                (derivDiffPTheta(:,j,k)/jacobian(:,j,k))**2 - &
+                2.*gradRhoGradZeta(:,j,k)*(f(j)*fzet(k)*jGradZeta(:,j,k)-dPperdRho(:,j,k)) * &
+                (f(j)*fzet(k)*jGradRho(:,j,k)+dPperdZeta(:,j,k)) - &
+                2.*gradRhoGradTheta(:,j,k)*(f(j)*fzet(k)*jGradZeta(:,j,k)-dPperdRho(:,j,k))*dPperdTheta(:,j,k) + &
+                2.*gradThetaGradzeta(:,j,k)*(f(j)*fzet(k)*jGradRho(:,j,k)+dPperdZeta(:,j,k))*dPperdTheta(:,j,k) - &
+                2.*dPperdTheta(:,j,k)*derivDiffPTheta(:,j,k)/jacobian(:,j,k)
+        else
+           gradPSq(:,j,k) = fzet(k)**2 * dpdAlpha(1:nthe,j,k)**2 * gradZetaSq(:,j,k) + f(j)**2 * &
+                dpdPsi(1:nthe,j,k)**2 * gradRhoSq(:,j,k) + 2._dp*dpdAlpha(1:nthe,j,k)*dpdPsi(1:nthe,j,k) * &
+                f(j) * fzet(k) * gradRhoGradZeta(:,j,k)
 
-        jCrossBMinusGradPSq(:,j,k) = gradRhoSq(:,j,k)*(f(j)*fzet(k)*jGradZeta(:,j,k)-dPperdRho(:,j,k))**2 + &
-             gradZetaSq(:,j,k)*(f(j)*fzet(k)*jGradRho(:,j,k)+dPperdZeta(:,j,k))**2 + gradThetaSq(:,j,k)*dPperdTheta(:,j,k)**2 + &
-             (derivDiffPTheta(:,j,k)/jacobian(:,j,k))**2 - &
-             2.*gradRhoGradZeta(:,j,k)*(f(j)*fzet(k)*jGradZeta(:,j,k)-dPperdRho(:,j,k)) * &
-             (f(j)*fzet(k)*jGradRho(:,j,k)+dPperdZeta(:,j,k)) - &
-             2.*gradRhoGradTheta(:,j,k)*(f(j)*fzet(k)*jGradZeta(:,j,k)-dPperdRho(:,j,k))*dPperdTheta(:,j,k) + &
-             2.*gradThetaGradzeta(:,j,k)*(f(j)*fzet(k)*jGradRho(:,j,k)+dPperdZeta(:,j,k))*dPperdTheta(:,j,k) - &
-             2.*dPperdTheta(:,j,k)*derivDiffPTheta(:,j,k)/jacobian(:,j,k)
+           jCrossBMinusGradPSq(:,j,k) = f(j)**2 * fzet(k)**2 * (gradRhoSq(:,j,k) * (jGradZeta(:,j,k) - &
+                1. / fzet(k) * dpdPsi(1:nthe,j,k))**2 + &
+                gradZetaSq(:,j,k) * (jGradRho(:,j,k) + 1./f(j) * dpdAlpha(1:nthe,j,k))**2 - 2._dp * &
+                (jGradZeta(:,j,k) - 1./fzet(k) * dpdPsi(1:nthe,j,k)) * (jGradRho(:,j,k) + 1./f(j)* &
+                dpdAlpha(1:nthe,j,k)) * gradRhoGradZeta(:,j,k))
+        endif
+
      END DO
   END DO
 
-  jCrossB = SQRT(jCrossBSq)
-  jCrossBMinusGradPMod = SQRT(ABS(jCrossBMinusGradPSq))
-  gradP = SQRT(ABS(gradPSq))
+  jCrossB = SQRT(jCrossBSq)*bnormal*pjconst
+  gradP = SQRT(ABS(gradPSq))*pnormal
+  jCrossBMinusGradPMod = SQRT(ABS(jCrossBSq*bnormal**2*pjconst**2+gradPSq*pnormal**2-2*jCrossB*gradP))!SQRT(ABS(jCrossBMinusGradPSq))
 
   ! Force balance quantities
-  FileName = prefixOut//'Force_balance_equatorial'
-  OPEN(UNITTMP_, file = RamFileName(FileName,'.dat',TimeRamNow), status='replace')
-  WRITE(UNITTMP_, *) nthe, npsi, nzeta
+  FileName = trim(prefixOut)//'Force_balance_equatorial'
+  OPEN(UNITTMP_, file = RamFileName(FileName,'dat',TimeRamNow), status='replace')
+  WRITE(UNITTMP_, *) npsi, nzeta
   DO j = 1, npsi
      DO k = 1, nzeta
-        WRITE(UNITTMP_, *) x(nThetaEquator, j, k), y(nThetaEquator, j, k), &
+        WRITE(UNITTMP_, *) x(nThetaEquator, j, k), y(nThetaEquator, j, k), bf(nThetaEquator, j, k)*bnormal, &
              jCrossB(nThetaEquator,j,k), jCrossBMinusGradPMod(nThetaEquator,j,k), &
-             gradP(nThetaEquator,j,k), jacobian(nThetaEquator,j,k)
+             gradP(nThetaEquator,j,k), jCrossB(nThetaEquator,j,k)/gradP(nThetaEquator,j,k)
      END DO
   END DO
   CLOSE(UNITTMP_)
 
-  FileName = prefixOut//'Force_balance_midnight'
-  OPEN(UNITTMP_, file = RamFileName(FileName,'.dat',TimeRamNow), status='replace')
-  WRITE(UNITTMP_, *) nthe, npsi, nzeta
+  FileName = trim(prefixOut)//'Force_balance_midnight'
+  OPEN(UNITTMP_, file = RamFileName(FileName,'dat',TimeRamNow), status='replace')
+  WRITE(UNITTMP_, *) npsi, nthe
   DO j = 1, npsi
      DO i = 1, nthe
         WRITE(UNITTMP_, *) x(i,j,nZetaMidnight), z(i,j,nZetaMidnight), &
-             jCrossB(i,j,nZetaMidnight), &
+             bf(i,j,nZetaMidnight)*bnormal, jCrossB(i,j,nZetaMidnight), &
              jCrossBMinusGradPMod(i,j,nZetaMidnight), gradP(i,j,nZetaMidnight), &
-             jacobian(i,j,nZetaMidnight)
+             jCrossBMinusGradPMod(i,j,nZetaMidnight)/jCrossB(i,j,nZetaMidnight)
      END DO
   END DO
   CLOSE(UNITTMP_)
 
-  FileName = prefixOut//'Force_balance_noon'
-  OPEN(UNITTMP_, file = RamFileName(FileName,'.dat',TimeRamNow), status='replace') 
-  WRITE(UNITTMP_, *) nthe, npsi, nzeta
+  FileName = trim(prefixOut)//'Force_balance_line'
+  OPEN(UNITTMP_, file = RamFileName(FileName,'dat',TimeRamNow), status='replace') 
+  WRITE(UNITTMP_, *) npsi
   DO j = 1, npsi
-     DO i = 1, nthe
-        WRITE(UNITTMP_, *) x(i,j,2), z(i,j,2), &
-             jCrossB(i,j,2), jCrossBMinusGradPMod(i,j,2), &
-             gradP(i,j,2), jacobian(i,j,2)
-     END DO
+     WRITE(UNITTMP_, *) x(nThetaEquator,j,nZetaMidnight), y(nThetaEquator,j,nZetaMidnight), &
+          jCrossB(nThetaEquator,j,nZetaMidnight), gradP(nThetaEquator,j,nZetaMidnight), &
+          jCrossBMinusGradPMod(nThetaEquator,j,nZetaMidnight), bf(nThetaEquator,j,nZetaMidnight)*bnormal, &
+          jCrossB(nThetaEquator,j,nZetaMidnight)/gradP(nThetaEquator,j,nZetaMidnight)
   END DO
   CLOSE(UNITTMP_)
 
@@ -638,7 +673,7 @@ END SUBROUTINE Write_ionospheric_potential
   DO i = 2, nthe-1
      DO j = 2, npsi-1
         DO k = 2, nzeta
-           IF (2.*pper(i,j,k) > 1.E-1_dp*bsq(i,j,k)) THEN
+           !IF (2.*pper(i,j,k) > 1.E-1_dp*bsq(i,j,k)) THEN
               ! Only in regions with beta > 1E-2 
               ! (in regions of low plasma beta, the pressure does not change the magnetic field)
               normDiff = normDiff + jacobian(i,j,k) * dr * dpPrime * dt * jCrossBMinusGradPMod(i,j,k)
@@ -646,7 +681,7 @@ END SUBROUTINE Write_ionospheric_potential
               normJxB = normJxB + jacobian(i,j,k) * dr * dpPrime * dt * jCrossB(i,j,k)
               normGradP = normGradP + jacobian(i,j,k) * dr * dpPrime * dt * gradP(i,j,k)
               volume = volume + jacobian(i,j,k) * dr * dpPrime * dt
-           END IF
+           !END IF
         END DO
      END DO
   END DO

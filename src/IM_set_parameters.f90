@@ -9,10 +9,9 @@ subroutine IM_set_parameters
   use ModRamTiming,  ONLY: TimeRamElapsed, TimeRamStart, TimeRamRealStart, &
                            TimeRamNow, DtLogFile, DtRestart, DtsMax, TimeMax, &
                            TimeRestart, MaxIter, Dt_hI, Dt_bc, DtEfi, DtW_hI, &
-                           DtW_Pressure, DtW_EField, DtsMin, TOld
+                           DtW_Pressure, DtW_EField, DtsMin, TOld, TimeRamFinish
   use ModRamParams
 
-  use ModScbMain,  ONLY: method
   use ModScbGrids, ONLY: nthe, npsi, nzeta
   use ModScbParams
 
@@ -37,6 +36,7 @@ subroutine IM_set_parameters
 
   integer :: iDate, nrIn, ntIn, neIn, npaIn, dummyi
   logical :: TempLogical, UseStrict = .true.
+  logical :: StopCommand = .false., IsStopTimeSet = .false.
   character(len=50)  :: plot_string
   character(len=100) :: StringLine, NameCommand, RestartFile
   character(len=*), parameter  :: NameSub = 'IM_set_parameters'
@@ -53,6 +53,69 @@ subroutine IM_set_parameters
      !!!!!!!!!!!!!!!!!!!!!!!!!!!!
      case('#EVENT')
         call read_var('NameEvent', event)
+
+     case('#SCBSETTINGS')
+        call read_var('MinSCBIterations', MinSCBIterations)
+        call read_var('SCBMethod', method)
+        call read_var('OuterMethod', iOuterMethod)
+
+     case('#SCBFLAGS')
+        call read_var('Isotropic', TempLogical)
+           if (TempLogical) then
+              isotropy = 1
+           else
+              isotropy = 0
+           endif
+        call read_var('ReduceAnisotropy', TempLogical)
+           if (TempLogical) then
+              iReduceAnisotropy = 1
+           else
+              iReduceAnisotropy = 0
+           endif
+        call read_var('BetaExtrapolation', TempLogical)
+           if (TempLogical) then
+              iWantAlphaExtrapolation = 1
+           else
+              iWantAlphaExtrapolation = 0
+           endif
+        call read_var('AzimuthalOffset', TempLogical)
+           if (TempLogical) then
+              iAzimOffset = 2
+           else
+              iAzimOffset = 1
+           endif
+        call read_var('EmptyLossCone', TempLogical)
+           if (TempLogical) then
+              iLossCone = 2
+           else
+              iLossCone = 1
+           endif
+        call read_var('AdaptiveMesh', TempLogical)
+           if (TempLogical) then
+              iAMR = 1
+           else
+              iAMR = 0
+           endif
+ 
+      case('#SCBDETAILS')
+        call read_var('SORDetail', TempLogical)
+           if (TempLogical) then
+              isSORDetailNeeded = 1
+           else
+              isSORDetailNeeded = 0
+           endif
+        call read_var('EnergyDetail', TempLogical)
+           if (TempLogical) then
+              isEnergDetailNeeded = 1
+           else
+              isEnergDetailNeeded = 0
+           endif
+        call read_var('ForceBalanceDetail', TempLogical)
+           if (TempLogical) then
+              isFBDetailNeeded = 1
+           else
+              isFBDetailNeeded = 0
+           endif
 
 !     case('#CONSTRAINTS')
 !        call read_var('MinEnergy', EnergyMin)
@@ -180,6 +243,7 @@ subroutine IM_set_parameters
         if(IsComponent)then
            write(*,*)'IM WARNING: #STOP command is ignored in the framework'
         else
+           StopCommand = .true.
            call read_var('MaxIter', MaxIter)
            call read_var('TimeMax', TimeMax)
         end if
@@ -200,7 +264,24 @@ subroutine IM_set_parameters
            call read_var('FracSecond',TimeRamStart % FracSecond)
            ! Set integer time.
            call time_int_to_real(TimeRamStart)
+        end if
 
+     case('#STOPTIME')
+        if(IsComponent)then
+           write(*,*) &
+                'IM WARNING: #STOPTIME command is ignored in the framework'
+        else
+           IsStopTimeSet=.true.
+           !read in iYear,iMonth,iDay,iHour,iMinute,iSecond,FracSecond
+           call read_var('iYear'  ,   TimeRamFinish % iYear)
+           call read_var('iMonth' ,   TimeRamFinish % iMonth)
+           call read_var('iDay'   ,   TimeRamFinish % iDay)
+           call read_var('iHour'  ,   TimeRamFinish % iHour)
+           call read_var('iMinute',   TimeRamFinish % iMinute)
+           call read_var('iSecond',   TimeRamFinish % iSecond)
+           call read_var('FracSecond',TimeRamFinish % FracSecond)
+           ! Set integer time.
+           call time_int_to_real(TimeRamFinish)
         end if
 
      case('#DESCRIPTION')
@@ -450,5 +531,11 @@ subroutine IM_set_parameters
   end if
   TimeRamNow = TimeRamRealStart
   TOld = TimeRamElapsed
+
+  ! Calculate TimeMax
+  if (StopCommand)   TimeMax = TimeRamElapsed + TimeMax
+  If (IsStopTimeSet) TimeMax = TimeRamFinish%Time-TimeRamStart%Time
+  If (TimeMax.eq.0) call con_stop('No stop time specified in PARAM.in! Use &
+                                  either #STOP or #STOPTIME')
 
 end subroutine IM_set_parameters

@@ -52,7 +52,7 @@ MODULE ModScbInit
              bj(nthe,npsi,nzeta+1), phij(nthe,npsi,nzeta+1), ppar(nthe,npsi,nzeta+1), &
              pper(nthe,npsi,nzeta+1), tau(nthe,npsi,nzeta+1), sigma(nthe,npsi,nzeta+1), &
              dPdAlpha(nthe,npsi,nzeta+1), dPdPsi(nthe,npsi,nzeta+1), dSqPdAlphaSq(nthe,npsi,nzeta+1), &
-             dSqPdPsiSq(nthe,npsi,nzeta+1))
+             dSqPdPsiSq(nthe,npsi,nzeta+1),dBsqdRho(nthe,npsi,nzeta),dBsqdZeta(nthe,npsi,nzeta))
 ! Extra Variables
     ALLOCATE(EXInd(nthe,npsi,nzeta+1), EYInd(nthe,npsi,nzeta+1), EZInd(nthe,npsi,nzeta+1), &
              EXConv(nthe,npsi,nzeta+1), EYConv(nthe,npsi,nzeta+1), EZConv(nthe,npsi,nzeta+1), &
@@ -127,7 +127,7 @@ MODULE ModScbInit
                dPPerdPsi, dPPardAlpha, dPPardPsi, dPPerdTheta, dPPerdRho, dPPerdZeta, &
                dBsqdAlpha, dBsqdPsi, dBsqdTheta, gradThetaSq, bfInitial, pressure3D, &
                bj, phij, ppar, pper, tau, sigma, dPdAlpha, dPdPsi, dSqPdAlphaSq, &
-               dSqPdPsiSq)
+               dSqPdPsiSq, dBsqdRho, dBsqdZeta)
 ! Extra Variables
     DEALLOCATE(EXInd, EYInd, EZInd, EXConv, EYConv, EZConv, PhiIono, dPhiIonodAlpha, &
                dPhiIonodBeta, radGrid, angleGrid, ratioEq, dela, factor, curvaturePsi, &
@@ -163,8 +163,6 @@ MODULE ModScbInit
     REAL(DP), PARAMETER :: pow = 1.0_dp, TINY = 1.E-15_dp
 
     call computational_domain
-    !constz = 0.
-    constTheta = 0.2
 
     blendAlpha = blendAlphaInit
     blendPsi = blendPsiInit
