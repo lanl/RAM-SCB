@@ -55,8 +55,8 @@ return
              enddo
           enddo
        enddo
-       call SUMRC
-       call ANISCH
+       call SUMRC(S)
+       call ANISCH(S)
     enddo
     call ram_sum_pressure
     call scb_run

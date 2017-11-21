@@ -7,8 +7,7 @@ MODULE ModRamRun
                              LSWAE, XNN, XND, LNCN, LNCD, LECN, LECD, ENERN, &
                              ENERD, ATEW, ATAW, ATAC, ATEC, ATMC, ATAW_EMIC, &
                              NECR, PParH, PPerH, PParO, PPerO, PParE, PPerE, &
-                             PParHe, PPerHe, PParT, PPerT, F2, DtDriftR,     &
-                             DtDriftP, DtDriftE, DtDriftMu
+                             PParHe, PPerHe, PParT, PPerT, F2
 
   implicit none
   save
@@ -19,16 +18,17 @@ MODULE ModRamRun
   SUBROUTINE ram_run
 
     !!!! Module Variables
-    use ModRamMain,      ONLY: Real8_, S
+    use ModRamMain,      ONLY: Real8_
     use ModRamParams,    ONLY: electric, DoUseWPI, DoUseBASdiff, DoUseKpDiff
     use ModRamConst,     ONLY: RE
     use ModRamGrids,     ONLY: NR, NE, NT, NPA
-    use ModRamTiming,    ONLY: UTs, T, DtEfi, Dt_hI
+    use ModRamTiming,    ONLY: UTs, T, DtEfi, Dt_hI, DtsMin, DtsNext
     use ModRamVariables, ONLY: Kp, VT, VTOL, VTN, TOLV, LZ, PHI, PHIOFS, MU, &
-                               WMU, FFACTOR, FLUX, FNHS
+                               WMU, FFACTOR, FLUX, FNHS, DtDriftR, DtDriftP, &
+                               DtDriftE, DtDriftMu
     !!!! Module Subroutines/Functions
-    use ModRamDrift, ONLY: DRIFTPARA, DRIFTR, DRIFTP, DRIFTE, DRIFTMU
-    use ModRamLoss,  ONLY: CEPARA, CHAREXCHANGE, ATMOL
+    use ModRamDrift, ONLY: DRIFTPARA, DRIFTR, DRIFTP, DRIFTE, DRIFTMU, DRIFTEND
+    use ModRamLoss,  ONLY: CEPARA, CHAREXCHANGE, ATMOL, LOSSEND
     use ModRamWPI,   ONLY: WAPARA_KP, WPADIF, WAVELO
     !!!! Share Modules
     use ModTimeConvert, ONLY: TimeType
@@ -37,7 +37,6 @@ MODULE ModRamRun
 
     real(kind=Real8_)  :: AVS, VT_kV(NR+1,NT), lambda
     integer :: i, j, k, l, jw ! Iterators
-    integer, dimension(4) :: sorder = (/4,3,1,2/)
     integer :: IS ! Species to advect.
 
     AVS=7.05E-6/(1.-0.159*KP+0.0093*KP**2)**3/RE  ! Voll-Stern parameter
@@ -53,82 +52,83 @@ MODULE ModRamRun
 
     T = UTs
 
+!$OMP PARALLEL DO
     do iS=1,4
-       S = sorder(iS)
        !   calls for given species S:
-       CALL CEPARA
-       CALL DRIFTPARA
+       CALL CEPARA(iS)
+       CALL DRIFTPARA(iS)
 
        ! Call routines to calculate the changes of distribution function
        ! considering drifts, charge exchange and atmospheric losses
-       CALL DRIFTR(.true.)
-       CALL DRIFTP(.true.)
-       CALL DRIFTE(.true.)
-       CALL DRIFTMU(.true.)
+       CALL DRIFTR(iS)
+       CALL DRIFTP(iS)
+       CALL DRIFTE(iS)
+       CALL DRIFTMU(iS)
 
-       CALL SUMRC
-       LSDR(S)=LSDR(S)+ELORC(S)
+       CALL SUMRC(iS)
+       LSDR(iS)=LSDR(iS)+ELORC(iS)
 
-       if (S.GT.1) then
-          CALL CHAREXCHANGE
-          CALL SUMRC
-          LSCHA(S)=LSCHA(S)+ELORC(S)
+       if (iS.GT.1) then
+          CALL CHAREXCHANGE(iS)
+          CALL SUMRC(iS)
+          LSCHA(iS)=LSCHA(iS)+ELORC(iS)
        else
           IF (DoUseWPI) THEN
-             CALL WPADIF ! pitch angle diffusion
+             CALL WPADIF(iS) ! pitch angle diffusion
           ELSE
-             CALL WAVELO ! electron lifetimes
+             CALL WAVELO(iS) ! electron lifetimes
           ENDIF
-          CALL SUMRC
-          LSWAE(S)=LSWAE(S)+ELORC(S)
+          CALL SUMRC(iS)
+          LSWAE(iS)=LSWAE(iS)+ELORC(iS)
        endif
 
-       CALL ATMOL
-       CALL SUMRC
-       LSATM(S)=LSATM(S)+ELORC(S)
+       CALL ATMOL(iS)
+       CALL SUMRC(iS)
+       LSATM(iS)=LSATM(iS)+ELORC(iS)
        ! time splitting
-       CALL ATMOL
-       CALL SUMRC
-       LSATM(S)=LSATM(S)+ELORC(S)
+       CALL ATMOL(iS)
+       CALL SUMRC(iS)
+       LSATM(iS)=LSATM(iS)+ELORC(iS)
 
-       if (S.GT.1) then
-          CALL CHAREXCHANGE
-          CALL SUMRC
-          LSCHA(S)=LSCHA(S)+ELORC(S)
+       if (iS.GT.1) then
+          CALL CHAREXCHANGE(iS)
+          CALL SUMRC(iS)
+          LSCHA(iS)=LSCHA(iS)+ELORC(iS)
        else
           IF (DoUseWPI) THEN
-             CALL WPADIF
+             CALL WPADIF(iS)
           ELSE
-             CALL WAVELO
+             CALL WAVELO(iS)
           ENDIF
-          CALL SUMRC
-          LSWAE(S)=LSWAE(S)+ELORC(S)
+          CALL SUMRC(iS)
+          LSWAE(iS)=LSWAE(iS)+ELORC(iS)
        endif
 
-       CALL DRIFTMU(.false.)
-       CALL DRIFTE(.false.)
-       CALL DRIFTP(.false.)
-       CALL DRIFTR(.false.)
+       CALL DRIFTMU(iS)
+       CALL DRIFTE(iS)
+       CALL DRIFTP(iS)
+       CALL DRIFTR(iS)
 
-       CALL SUMRC
-       LSDR(S)=LSDR(S)+ELORC(S)
+       CALL SUMRC(iS)
+       LSDR(iS)=LSDR(iS)+ELORC(iS)
 
        ! Interpolate diffusivity as funtion of Kp, if necessary
        if (DoUseWPI.and.DoUseBASdiff.and.DoUseKpDiff) then
           call WAPARA_Kp()
        end if
 
-       CALL ANISCH
+       ! Routines needed to clear allocated variables for use with OpenMP
+       CALL DRIFTEND
+       CALL LOSSEND
     end do
+!$OMP END PARALLEL DO
 
-    ! Update species pressures
-    PPerO  = PPerT(4,:,:); PParO  = PParT(4,:,:)
-    PPerHe = PPerT(3,:,:); PParHe = PParT(3,:,:)
-    PPerE  = PPerT(1,:,:); PParE  = PParT(1,:,:)
-    PPerH  = PPerT(2,:,:); PParH  = PParT(2,:,:)
+    DtsNext = min(minval(DtDriftR), minval(DtDriftP), minval(DtDriftE), minval(DtDriftMu))
+    DtsNext = max(DtsNext, DtsMin)
 
-    ! Update flux
+    ! Update flux and pressure totals
     DO iS = 1,4
+       CALL ANISCH(iS)
        DO I = 2, NR
           DO K = 2, NE
              DO L = 2, NPA
@@ -140,6 +140,12 @@ MODULE ModRamRun
        ENDDO
     ENDDO
 
+    ! Update species pressures
+    PPerO  = PPerT(4,:,:); PParO  = PParT(4,:,:)
+    PPerHe = PPerT(3,:,:); PParHe = PParT(3,:,:)
+    PPerE  = PPerT(1,:,:); PParE  = PParT(1,:,:)
+    PPerH  = PPerT(2,:,:); PParH  = PParT(2,:,:)
+
     RETURN
   END
 
@@ -147,17 +153,20 @@ MODULE ModRamRun
 !                       SUMRC     
 !               Calculate the total energy & energy loss 
 !************************************************************************
-  SUBROUTINE SUMRC
+  SUBROUTINE SUMRC(S)
     !!!! Module Variables
-    use ModRamMain,      ONLY: Real8_, S
+    use ModRamMain,      ONLY: Real8_
     use ModRamGrids,     ONLY: NR, NE, NPA, NT
     use ModRamVariables, ONLY: EKEV, WE, WMU, F2
 
     implicit none
+    save
 
+    integer, intent(in) :: S
     integer :: i, j, k, l
     real(kind=Real8_):: enold
     real(kind=Real8_):: WEIGHT
+    !$OMP THREADPRIVATE(ENOLD, WEIGHT)
 
     ELORC(S)=0.
     ENOLD=SETRC(S)
@@ -181,9 +190,9 @@ MODULE ModRamRun
 !                               ANISCH
 !               Calculate pressure in equatorial plane
 !*************************************************************************
-  SUBROUTINE ANISCH
+  SUBROUTINE ANISCH(S)
     ! Module Variables
-    use ModRamMain,      ONLY: Real8_, S
+    use ModRamMain,      ONLY: Real8_
     use ModRamConst,     ONLY: CS, PI, Q
     use ModRamParams,    ONLY: DoUseWPI, DoUsePLane_SCB, DoUseBASdiff
     use ModRamGrids,     ONLY: NR, NT, NPA, ENG, SLEN, NCO, NCF, Nx, Ny, NE
@@ -195,7 +204,9 @@ MODULE ModRamRun
     use ModRamFunctions, ONLY: ACOSD
 
     implicit none
+    save
 
+    integer, intent(in) :: S
     integer :: i, iwa, j, k, klo, l, iz, ier, kn, i1, j1
     real(kind=Real8_) :: cv, rfac, rnhtt, edent, pper, ppar, rnht, Y, &
                          eden,sume,suma,sumn,ernm,epma,epme,anis,epar,taudaa,taudea,taudee, &

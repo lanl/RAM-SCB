@@ -137,7 +137,7 @@ MODULE ModRamWPI
     use ModRamFunctions, ONLY: asind
 
     implicit none
-    save
+
     integer :: i, k
     real(kind=Real8_):: TAU_WAVE,EMEV,R1,R2,CONE(NR+4),CLC
 
@@ -406,15 +406,16 @@ MODULE ModRamWPI
 !                       WAVELO
 !       Calculate loss due to waves everywhere using electron lifetimes
 !************************************************************************
-  SUBROUTINE WAVELO
+  SUBROUTINE WAVELO(S)
 
-    use ModRamMain,      ONLY: Real8_, S
+    use ModRamMain,      ONLY: Real8_
     use ModRamGrids,     ONLY: NE, NR, NT, NPA
     use ModRamTiming,    ONLY: Dts
     use ModRamVariables, ONLY: F2, KP, LZ, IP1, IR1, EKEV
 
     implicit none
 
+    integer, intent(in) :: S
     integer :: i, j, k, l, j1, i1
     real(kind=Real8_) :: TAU_LIF,RLpp(NT),Bw,Kpmax
 
@@ -463,9 +464,9 @@ MODULE ModRamWPI
 !     Routine calculates the decay of the distribution function
 !        due to WPI pitch angle diffusion using implicit scheme
 !*************************************************************************
-  SUBROUTINE WPADIF
+  SUBROUTINE WPADIF(S)
     !!!! Module Variables
-    use ModRamMain,      ONLY: Real8_, PathRamOut, S
+    use ModRamMain,      ONLY: Real8_, PathRamOut
     use ModRamGrids,     ONLY: NT, NR, NE, NPA
     use ModRamTiming,    ONLY: Dts, T
     use ModRamVariables, ONLY: F2, FNHS, MU, DMU, WMU, ATAC, ATAW
@@ -474,6 +475,7 @@ MODULE ModRamWPI
 
     implicit none
 
+    integer, intent(in) :: S
     integer :: i, j, k, l
     real(kind=Real8_) :: F(NPA),AN,BN,GN,RP,DENOM,RK(NPA),RL(NPA),FACMU(NPA)
 

@@ -41,15 +41,16 @@ subroutine ram_allocate
            NDAAJ(NR,ENG,NPA,NCF), ENOR(ENG), ECHOR(ENG), BDAAR(NR,NT,ENG,NPA), &
            CDAAR(NR,NT,NE,NPA))
 ! ModRamLoss Variables
-  ALLOCATE(ATLOS(NR,NE), ACHAR(NR,NT,NE,NPA))
+!  ALLOCATE(ATLOS(NR,NE), ACHAR(NR,NT,NE,NPA))
 ! ModRamEField Variables
   ALLOCATE(VT(NR+1,NT), EIR(NR+1,NT), EIP(NR+1,NT), VTOL(NR+1,NT), VTN(NR+1,NT))
 ! ModRamBoundary Variables
   ALLOCATE(FGEOS(NS,NT,NE,NPA))
 ! ModRamDrift Variables
-  ALLOCATE(P1(NR), VR(NR), P2(NR,NE), EDOT(NR,NE), MUDOT(NR,NPA), CDriftR(NR,NT,NE,NPA), &
-           sgnDriftR(NR,NT,NE,NPA), CDriftP(NR,NT,NE,NPA), CDriftE(NR,NT,NE,NPA), &
-           CDriftMu(NR,NT,NE,NPA))
+!  ALLOCATE(P1(NR), VR(NR), P2(NR,NE), EDOT(NR,NE), MUDOT(NR,NPA), CDriftR(NR,NT,NE,NPA), &
+!           sgnDriftR(NR,NT,NE,NPA), CDriftP(NR,NT,NE,NPA), CDriftE(NR,NT,NE,NPA), &
+!           CDriftMu(NR,NT,NE,NPA))
+  ALLOCATE(DtDriftR(nS), DtDriftP(nS), DtDriftE(nS), DtDriftMu(nS))
 ! ModRamRun Variables
   ALLOCATE(SETRC(NS), ELORC(NS), LSDR(NS), LSCHA(NS), LSATM(NS), LSCOE(NS), &
            LSCSC(NS), LSWAE(NS), XNN(NS,NR), XND(NS,NR), LNCN(NS,NR), LNCD(NS,NR), &
@@ -78,14 +79,15 @@ subroutine ram_deallocate
   DEALLOCATE(WALOS1, WALOS2, WALOS3, fpofc, NDVVJ, NDAAJ, ENOR, ECHOR, BDAAR, &
              CDAAR)
 ! ModRamLoss Variables
-  DEALLOCATE(ATLOS, ACHAR)
+!  DEALLOCATE(ATLOS, ACHAR)
 ! ModRamEField Variables
   DEALLOCATE(VT, EIR, EIP, VTOL, VTN)
 ! ModRamBoundary Variables
   DEALLOCATE(FGEOS)
 ! ModRamDrift Variables
-  DEALLOCATE(P1, VR, P2, EDOT, MUDOT, CDriftR, sgnDriftR, CDriftE, CDriftP, &
-             CDriftMu)
+!  DEALLOCATE(P1, VR, P2, EDOT, MUDOT, CDriftR, sgnDriftR, CDriftE, CDriftP, &
+!             CDriftMu)
+  DEALLOCATE(DtDriftR, DtDriftP, DtDriftE, DtDriftMu)
 ! ModRamRun Variables
   DEALLOCATE(SETRC, ELORC, LSDR, LSCHA, LSATM, LSCOE, LSCSC, LSWAE, XNN, XND, &
              LNCN, LNCD, LECN, LECD, ENERN, ENERD, ATEW, ATAW, ATAC, ATEC, &
