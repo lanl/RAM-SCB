@@ -20,6 +20,11 @@ Module ModScbVariables
   REAL(DP) :: sumb, sumdb, normDiff, normDiffPrev, normJxB, normGradP
 !
 
+!
+    REAL(DP), DIMENSION(:,:,:), ALLOCATABLE :: vecd, vec1, vec2, vec3, vec4, vec6, &
+                                               vec7, vec8, vec9, vecx, vecr
+!
+
 !--- SCE Components
   real(DP), allocatable :: paraj(:,:)
 !---

@@ -86,13 +86,10 @@ MODULE ModScbEuler
              CALL spline(alfaOld, zOld, 1.E31_dp, 1.E31_dp, z2derivs)
   
              DO k = 2,nzeta
-!                x(i,j,k) = splint(alfaOld, xOld, x2derivs, alphaval(k))
-!                y(i,j,k) = splint(alfaOld, yOld, y2derivs, alphaval(k))
-!                z(i,j,k) = splint(alfaOld, zOld, z2derivs, alphaval(k))
-!                alfa(i,j,k) = alphaval(k)
-                x(i,j,k) = splint(alfaOld, xOld, x2derivs, alfaPrev(i,j,k))
-                y(i,j,k) = splint(alfaOld, yOld, y2derivs, alfaPrev(i,j,k))
-                z(i,j,k) = splint(alfaOld, zOld, z2derivs, alfaPrev(i,j,k))
+                x(i,j,k) = splint(alfaOld, xOld, x2derivs, alphaval(k))
+                y(i,j,k) = splint(alfaOld, yOld, y2derivs, alphaval(k))
+                z(i,j,k) = splint(alfaOld, zOld, z2derivs, alphaval(k))
+                alfa(i,j,k) = alphaval(k)
              END DO
   
              ! Periodic boundary conditions
@@ -106,10 +103,6 @@ MODULE ModScbEuler
              alfa(i,j,nzetap) = alfa(i,j,2) + 2._dp*pi_d
   
           END DO iloop
-          alfa(1,j,:) = alphaVal(:)
-          alfa(1,j,1) = alfa(1,j,nzeta - 2._dp*pi_d)
-          alfa(nthe,j,:) = alphaVal(:)
-          alfa(nthe,j,nzetap) = alfa(nthe,j,2) + 2._dp*pi_d
        END DO jloop
     END IF
   
@@ -118,22 +111,21 @@ MODULE ModScbEuler
   END SUBROUTINE mapAlpha
   
   !------------------------------------------------------------------------------
-  SUBROUTINE directAlpha(vecd,vec1,vec2,vec3,vec4,vec6,vec7,vec8,vec9,vecx)
+  SUBROUTINE directAlpha
   
     USE ModScbMain,      ONLY: DP
     use ModScbGrids,     ONLY: nzeta, nzetap, nthe, nthem, npsi, npsim
-    use ModScbVariables, ONLY: sumb, sumdb
+    use ModScbVariables, ONLY: sumb, sumdb, vecd, vec1, vec2, &
+                               vec3, vec4, vec6, vec7, vec8, vec9, vecx
   
     use nrtype, ONLY: twopi_d, pi_d
-  
+    use nrmod, ONLY: gaussj
+ 
     IMPLICIT NONE
   
     ! define the (NSIZE-1) vectors Fk and [(NSIZE-1)x(NSIZE-1)] matrices
     ! Ek, & 
     ! which will be kept till end
-  
-    REAL(DP), DIMENSION(:,:,:), INTENT(IN) :: vecd, vec1, vec2, vec3, vec4, vec6, vec7, &
-         vec8, vec9, vecx
   
     REAL(DP), ALLOCATABLE :: alfaPrev(:,:,:)
     REAL(DP), DIMENSION(:, :), ALLOCATABLE :: FMATRIXFULL, UVECTORFULL
@@ -279,7 +271,6 @@ MODULE ModScbEuler
           ! Now time to invert MATRIX1
   
           ! CALL gaussj(MATRIX1, nzeta-1, nzeta-1, AUXMATR, 1, 1, nmaximum) 
-  
           CALL gaussj(MATRIX1, AUXMATR)  ! f90 routine (NR) with full pivoting
   
           ! CALL matrixInversion(nzeta-1, 0, MATRIX1, auxmatr, det)  ! French
@@ -414,38 +405,35 @@ MODULE ModScbEuler
   END SUBROUTINE directAlpha
   
 !==============================================================================
-  SUBROUTINE iterateAlpha(vecd,vec1,vec2,vec3,vec4,vec6,vec7,vec8,vec9,vecx)
+  SUBROUTINE iterateAlpha
     !   iteration procedure to obtain matrix inversion for alfa Eqn.
   
-    USE ModScbMain,      ONLY: nimax, isSorDetailNeeded, iWantAlphaExtrapolation
+    USE ModScbMain,      ONLY: nimax
+    use ModScbParams,    ONLY: isSORDetailNeeded, iWantAlphaExtrapolation, &
+                               InConAlpha
     USE ModScbGrids,     ONLY: nthe, nthem, npsi, nzeta, nzetap, ny
-    USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, xx
+    USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, vecd, vec1, vec2, &
+                               vec3, vec4, vec6, vec7, vec8, vec9, vecx
   
     use nrmod,  ONLY: polint
     use nrtype, ONLY: DP, pi_d
   
     IMPLICIT NONE
   
-    REAL(DP), DIMENSION(:,:,:), INTENT(IN) :: vec1, vec2, vec3, vec4, vec6, vec7, &
-         vec8, vec9, vecx
-    REAL(DP), DIMENSION(:,:,:), INTENT(IN OUT) :: vecd
-    REAL(DP) :: om(ny), anorm, resid, diff, &
+    REAL(DP) :: om(ny), anorm, diff, rjac, &
          & anormaverage, dyDummy, anormResid, anormError, anormf
-    REAL(DP), ALLOCATABLE :: alfaPrev(:,:,:), alfaPrevTemp(:,:,:), radTot(:,:,:)
+    REAL(DP), ALLOCATABLE :: alfaPrev(:,:,:), alfaPrevTemp(:,:,:)
     REAL(DP) :: RESULT, omegaOpt
-    REAL(DP), ALLOCATABLE :: angle(:,:,:)
+    REAL(DP), ALLOCATABLE :: angle(:,:,:), resid(:,:,:)
     INTEGER :: j, i, ni, ict, jz, k, kp, km, iz, im, ip, izmx, jzmx, kmx, ierr, nratio, &
-         myPsiBegin, myPsiEnd, my_array_type2, psiRangeDiff, resultInt
+         myPsiBegin, myPsiEnd, my_array_type2, psiRangeDiff, resultInt, loc(3)
   !  LOGICAL isnand ! Intrinsic in PGF
   
-    ALLOCATE(radTot(nthe, npsi, nzeta+1), STAT = ierr)
     ALLOCATE(angle(nthe,npsi,nzeta+1), STAT = ierr)
     ALLOCATE(alfaprev(nthe,npsi,nzeta+1), STAT = ierr)
     ALLOCATE(alfaPrevTemp(nthe,npsi,nzeta+1), STAT = ierr)
-  
-    xx = SQRT(x**2 + y**2)
-    radTot = SQRT(xx**2+z**2)
-  
+    ALLOCATE(resid(nthe,npsi,nzeta+1), STAT = ierr)
+ 
     DO k = 1, nzeta
        DO j = 1, npsi
           DO i = 1, nthe
@@ -458,11 +446,12 @@ MODULE ModScbEuler
     ! to find optimal SOR omega
   
     om = 1._dp
-    ! omegaOpt = 2._dp / (1._dp + 2._dp*pi_d/REAL(nzeta+nthe, DP))
+    !omegaOpt = 2._dp / (1._dp + pi_d/REAL(nzeta+nthe, DP))
     omegaOpt = 2._dp / (1._dp + SQRT(1._dp - rjac*rjac))
   
     alfaPrev = alfa
     nisave = 0
+    resid = 0
 
     psiloop: DO  jz = 2, npsi-1
        ni = 1
@@ -484,7 +473,7 @@ MODULE ModScbEuler
                 im = iz - 1
                 ip = iz + 1
                 ! Use natural rowwise ordering
-                resid = - vecd(iz,jz,k)*alfa(iz,jz,k)  &
+                resid(iz,jz,k) = - vecd(iz,jz,k)*alfa(iz,jz,k)  &
                         + vec1(iz,jz,k)*alfa(im,jz,km) &
                         + vec2(iz,jz,k)*alfa(iz,jz,km) &
                         + vec3(iz,jz,k)*alfa(ip,jz,km) &
@@ -494,11 +483,10 @@ MODULE ModScbEuler
                         + vec8(iz,jz,k)*alfa(iz,jz,kp) &
                         + vec9(iz,jz,k)*alfa(ip,jz,kp) &
                         - vecx(iz,jz,k)
-                anormResid = anormResid + ABS(resid) ! Residue will decrease with iterations
-                alfa(iz,jz,k) = alfa(iz,jz,k) + om(jz) * resid / vecd(iz,jz,k)
+                anormResid = anormResid + ABS(resid(iz,jz,k)) ! Residue will decrease with iterations
+                alfa(iz,jz,k) = alfa(iz,jz,k) + om(jz) * (resid(iz,jz,k) / vecd(iz,jz,k))
                 if (alfa(iz,jz,k)+1.0.eq.alfa(iz,jz,k)) then
-                   write(*,*) iz, jz, k, om(jz), resid, vecd(iz,jz,k), vecx(iz,jz,k), x(iz,jz,k), y(iz,jz,k), z(iz,jz,k)
-                   stop
+                   call CON_stop('NaN encountered in ModScbEuler iterateAlpha')
                 endif
              END DO thetaloop
           END DO zetaloop
@@ -512,7 +500,8 @@ MODULE ModScbEuler
              END IF
           END IF
   
-          IF((ni > 1) .AND. (anormResid < 5e-6_dp*anormf)) THEN  ! SOR iteration has converged
+          ! Check for inner loop convergence of Alpha
+          IF (maxval(abs(resid(2:nthem,jz,2:nzeta))).lt.InConAlpha) then
              EXIT Iterations
           END IF
   
@@ -521,23 +510,22 @@ MODULE ModScbEuler
        END DO Iterations
        nisave = MAX(nisave, ni) ! We want to know the maximum number of iterations for each processor
     END DO Psiloop
-  
+ 
     sumdb = SUM(ABS(alfa(2:nthem,2:npsi-1,2:nzeta) - alfaprev(2:nthem,2:npsi-1,2:nzeta)))
     sumb = SUM(ABS(alfa(2:nthem,2:npsi-1,2:nzeta)))
-    diffmx = MAXVAL(ABS(alfa(2:nthem,2:npsi-1,2:nzeta) - alfaprev(2:nthem,2:npsi-1,2:nzeta)))
+    diffmx = maxval(abs(resid(2:nthem,2:npsi-1,2:nzeta)))
   
     !  boundary condition at themin and themax delta = 0 and phi = alphaVal
     DO k = 2, nzeta
-       !DO j = 1,npsi
-       !   alfa(1,j,k) = alphaVal(k)
-       !   alfa(nthe,j,k) = alphaVal(k)
-       !END DO
+       DO j = 1,npsi
+          alfa(1,j,k) = alphaVal(k)
+          alfa(nthe,j,k) = alphaVal(k)
+       END DO
        !  extrapolate alfa to the j = 1 & npsi surfaces
        DO i = 1, nthe
           IF (iWantAlphaExtrapolation == 0) THEN
              alfa(i,npsi,k) = alfa(i,npsi-1,k) ! If the extrapolation is problematic
           ELSE
-!             CALL polint(radTot(i,npsi-3:npsi-1,k), alfa(i,npsi-3:npsi-1,k), radTot(i,npsi,k), alfa(i,npsi,k), dyDummy)
              CALL extap(alfa(i,npsi-3,k),alfa(i,npsi-2,k),alfa(i,npsi-1,k),alfa(i,npsi,k))
           END IF
           CALL extap(alfa(i,4,k),alfa(i,3,k),alfa(i,2,k),alfa(i,1,k)) ! This is never a problem - very close to Earth
@@ -548,19 +536,18 @@ MODULE ModScbEuler
     DO  j = 1, npsi
        DO  i = 1, nthe
           DO  k = 2, nzeta
-!             alfa(i,j,k) = alfa(i,j,k) * blendAlpha + alphaVal(k) * (1._dp - blendAlpha)
-             alfa(i,j,k) = alfa(i,j,k) * blendAlpha + alfaPrev(i,j,k) * (1._dp - blendAlpha)
+             alfa(i,j,k) = alfa(i,j,k) * blendAlpha + alphaVal(k) * (1._dp - blendAlpha)
           END DO
           alfa(i,j,1) = alfa(i,j,nzeta) - 2._dp * pi_d
           alfa(i,j,nzetap) = alfa(i,j,2) + 2._dp * pi_d
        END DO
     END DO
 
-    IF (ALLOCATED(radTot)) DEALLOCATE(radTot, STAT = ierr)
     IF (ALLOCATED(angle)) DEALLOCATE(angle, STAT = ierr)
     IF (ALLOCATED(alfaPrev)) DEALLOCATE(alfaPrev)
     IF (ALLOCATED(alfaPrevTemp)) DEALLOCATE(alfaPrevTemp)
-  
+    IF (ALLOCATED(resid)) DEALLOCATE(resid)
+ 
     RETURN
   
   END SUBROUTINE iterateAlpha
@@ -592,7 +579,7 @@ MODULE ModScbEuler
     ! Interpolates the new values of psi at the new locations xnew on midnight 
     ! equator
     !!!! Module Variables
-    USE ModScbMain,  ONLY: iAzimOffset
+    USE ModScbParams,  ONLY: iAzimOffset
     USE ModScbGrids, ONLY: npsi
     use ModScbVariables, ONLY: x, y, nThetaEquator, nZetaMidnight, psiVal, kmax, &
                                radEqmidNew
@@ -683,7 +670,7 @@ MODULE ModScbEuler
        ierr = 0
   
        kloop: DO k = 2, nzeta
-          iloop: DO i = 2, nthem
+          iloop: DO i = 1, nthe
              xOld(1:npsi) = x(i,1:npsi,k)
              yOld(1:npsi) = y(i,1:npsi,k)
              zOld(1:npsi) = z(i,1:npsi,k)
@@ -693,14 +680,11 @@ MODULE ModScbEuler
              CALL spline(psiold, yOld, 1.E31_dp, 1.E31_dp, y2derivs)
              CALL spline(psiold, zOld, 1.E31_dp, 1.E31_dp, z2derivs)
   
-             DO j = 1, npsi
-                x(i,j,k) = splint(psiold, xOld, x2derivs, psiPrev(i,j,k))
-                y(i,j,k) = splint(psiold, yOld, y2derivs, psiPrev(i,j,k))
-                z(i,j,k) = splint(psiold, zOld, z2derivs, psiPrev(i,j,k))
-!                x(i,j,k) = splint(psiold, xOld, x2derivs, psival(j))
-!                y(i,j,k) = splint(psiold, yOld, y2derivs, psival(j))
-!                z(i,j,k) = splint(psiold, zOld, z2derivs, psival(j))
-!                psi(i,j,k) = psival(j)
+             DO j = 2, npsi-1
+                x(i,j,k) = splint(psiold, xOld, x2derivs, psival(j))
+                y(i,j,k) = splint(psiold, yOld, y2derivs, psival(j))
+                z(i,j,k) = splint(psiold, zOld, z2derivs, psival(j))
+                psi(i,j,k) = psival(j)
              END DO
           END DO iloop
        END DO kloop
@@ -714,10 +698,9 @@ MODULE ModScbEuler
        z(:,:,nzetap) = z(:,:,2)
   
        DO j = 1, npsi
-          psi(:,j, 1) = psi(:,j,nzeta)
-          psi(:,j,nzetap) = psi(:,j,2)
+          psi(:,j, 1) = psival(j)
+          psi(:,j,nzetap) = psival(j)
        END DO
-       !diffmx = MAXVAL(sqrt((x-xPrev)**2 + (y-yPrev)**2 + (z-zPrev)**2))
   
     END IF
   
@@ -726,16 +709,15 @@ MODULE ModScbEuler
   END SUBROUTINE mapPsi
   
 !==============================================================================
-  SUBROUTINE directPsi(vecd,vec1,vec2,vec3,vec4,vec6,vec7,vec8,vec9,vecr)
+  SUBROUTINE directPsi
   
     USE ModScbMain,      ONLY: DP
     USE ModScbGrids,     ONLY: nzeta, nzetap, nthe, nthem, npsi, npsim
-    use ModScbVariables, ONLY: sumb, sumdb
-  
+    use ModScbVariables, ONLY: sumb, sumdb, vecd, vec1, vec2, &
+                               vec3, vec4, vec6, vec7, vec8, vec9, vecr
+ 
+    use nrmod, ONLY: gaussj 
     IMPLICIT NONE
-  
-    REAL(DP), DIMENSION(:,:,:), INTENT(IN) :: vecd,vec1,vec2,vec3,vec4, &
-         & vec6,vec7,vec8,vec9,vecr
   
     REAL(DP), ALLOCATABLE :: psiprev(:,:,:)
     INTEGER :: ierra, ierrb, ierrc, ierrd, i, j, k
@@ -1011,25 +993,25 @@ MODULE ModScbEuler
   END SUBROUTINE directPsi
   
 !==============================================================================
-  SUBROUTINE iteratePsi(vecd,vec1,vec2,vec3,vec4,vec6,vec7,vec8,vec9,vecr)
+  SUBROUTINE iteratePsi
     !   iteration procedure to obtain matrix inversion
   
-    USE ModScbMain,      ONLY: DP, nimax, isSorDetailNeeded
+    USE ModScbMain,      ONLY: DP, nimax
+    use ModScbParams,    ONLY: isSORDetailNeeded, InConPsi
     USE ModScbGrids,     ONLY: nthe, nthem, npsi, npsim, nzeta, nzetap, na
-    USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb
+    USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, vecd, vec1, vec2, &
+                               vec3, vec4, vec6, vec7, vec8, vec9, vecr
   
     use nrtype, ONLY: pi_d
   
     IMPLICIT NONE
   
-    REAL(DP), DIMENSION(:,:,:), INTENT(IN) :: vecd,vec1,vec2,vec3,vec4,vec6, &
-         vec7,vec8,vec9,vecr
     REAL(DP) :: om(na)
     REAL(DP) :: omegaOpt
     REAL(DP) :: omc, anorm, anormf, diff, ano, sumbtest, anormResid, anormError
     REAL(DP), ALLOCATABLE :: psiPrev(:,:,:), psiPrevTemp(:,:,:), resid(:,:,:)
     INTEGER :: j, k, i, ierr, ni, ict, jz, jp, jm, iz, im, ip, nratio, myAlphaBegin, myAlphaEnd, &
-         my_array_type_psi2, alphaRangeDiff, resultInt
+         my_array_type_psi2, alphaRangeDiff, resultInt, loc(3)
   
     !     perform SOR iteration
     !..   choose for inner iteration loop
@@ -1080,13 +1062,11 @@ MODULE ModScbEuler
                 anormResid = anormResid + ABS(resid(iz,jz,k))
                 psi(iz,jz,k) = psi(iz,jz,k) + om(k)*resid(iz,jz,k)/vecd(iz,jz,k)
                 if (psi(iz,jz,k)+1.0.eq.psi(iz,jz,k)) then
-                   write(*,*) iz, jz, k, om(k), resid(iz,jz,k), vecd(iz,jz,k), &
-                              vecr(iz,jz,k), x(iz,jz,k), y(iz,jz,k), z(iz,jz,k)
-                   stop
+                   call CON_stop('NaN encountered in ModScbEuler iteratePsi')
                 endif
              END DO iLoop
           END DO jLoop
-  
+
           om(k) = omegaOpt
   
           IF (isSorDetailNeeded == 1) THEN
@@ -1096,8 +1076,8 @@ MODULE ModScbEuler
              END IF
           END IF
 
-          IF((ni > 1) .AND. (anormResid < 1e-8_dp*anormf)) THEN
-             !           print*, 'exiting Iterations, ni = ', ni
+          ! Check for inner loop Psi convergence
+          IF (maxval(abs(resid(2:nthem,2:npsi-1,k))).lt.InConPsi) then
              EXIT Iterations
           END IF
   
@@ -1107,26 +1087,16 @@ MODULE ModScbEuler
        ! print*, 'k, ni = ', k, ni
        nisave = MAX(nisave, ni)
     END DO AlphaLoop
-  
-    !do i=2,nthem
-    !   do j=2,npsi-1
-    !      do k=2,nzeta
-    !         write(*,*) i,j,k,resid(i,j,k)
-    !      enddo
-    !   enddo
-    !enddo
 
     sumdb = SUM(ABS(psi(2:nthem,2:npsim,2:nzeta) - psiprev(2:nthem,2:npsim,2:nzeta)))
     sumb = SUM(ABS(psi(2:nthem,2:npsim,2:nzeta)))
-    diffmx = MAXVAL(ABS(psi(2:nthem,2:npsim,2:nzeta)/psiprev(2:nthem,2:npsim,2:nzeta) - 1))*REAL(npsi, DP)
+    diffmx = maxval(abs(resid(2:nthem,2:npsi-1,2:nzeta)))
   
-    !...  set blend for outer iteration loop, and apply periodic boundary
-    !conditions
+    ! Set blend for outer iteration loop, and apply periodic boundary conditions
     DO  j = 1, npsi
        DO  i = 1, nthe
           DO  k = 2,nzeta
-!             psi(i,j,k) = psi(i,j,k) * blendPsi + psival(j) * (1._dp - blendPsi)
-             psi(i,j,k) = psi(i,j,k) * blendPsi + psiPrev(i,j,k) * (1._dp - blendPsi)
+             psi(i,j,k) = psi(i,j,k) * blendPsi + psival(j) * (1._dp - blendPsi)
           END DO
           psi(i,j,1) = psi(i,j,nzeta)
           psi(i,j,nzetap) = psi(i,j,2)

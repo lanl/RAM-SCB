@@ -75,7 +75,7 @@ module ModRamRestart
     ! OPEN FILE
     NameFile = RamFileName(PathRestartOut//'/restart','nc',TimeRamNow)
     !NameFile = PathRestartOut//'/restart.nc'
-    iStatus = nf90_create(trim(NameFile), nf90_HDF5, iFileID)
+    iStatus = nf90_create(trim(NameFile), nf90_clobber, iFileID)
     call ncdf_check(iStatus, NameSub)
     call write_ncdf_globatts(iFileID)
 
@@ -96,7 +96,7 @@ module ModRamRestart
     !!! Electron Flux
     iStatus = nf90_def_var(iFileID, 'FluxE', nf90_double, &
                            (/nRdim,nTDim,nEDim,nPaDim/), iFluxEVar)
-    iStatus = nf90_def_var_deflate(iFileID, iFluxEVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iFluxEVar, 0, 1, iDeflate)
     call ncdf_check(iStatus,NameSub)
     iStatus = nf90_put_att(iFileID, iFluxEVar, 'title', &
                            'This is an example title')
@@ -104,180 +104,180 @@ module ModRamRestart
     !!! Proton Flux
     iStatus = nf90_def_var(iFileID, 'FluxH', nf90_double, &
                            (/nRdim,nTDim,nEDim,nPaDim/), iFluxHVar)
-    iStatus = nf90_def_var_deflate(iFileID, iFluxHVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iFluxHVar, 0, 1, iDeflate)
 
     !!! Oxygen Flux
     iStatus = nf90_def_var(iFileID, 'FluxO', nf90_double, &
                            (/nRdim,nTDim,nEDim,nPaDim/), iFluxOVar)
-    iStatus = nf90_def_var_deflate(iFileID, iFluxOVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iFluxOVar, 0, 1, iDeflate)
 
     !!! Helium Flux
     iStatus = nf90_def_var(iFileID, 'FluxHe', nf90_double, &
                            (/nRdim,nTDim,nEDim,nPaDim/), iFluxHeVar)
-    iStatus = nf90_def_var_deflate(iFileID, iFluxHeVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iFluxHeVar, 0, 1, iDeflate)
 
     !!! Boundary Flux
     iStatus = nf90_def_var(iFileID, 'FGEOS', nf90_double, &
                            (/nSdim,nTDim,nEDim,nPadim/), iGEOVar)
-    iStatus = nf90_def_var_deflate(iFileID, iGEOVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iGEOVar, 0, 1, iDeflate)
 
     !!! 3D Flux (needed for satellite files)
     iStatus = nf90_def_var(iFileID, 'Flux3D', nf90_double, &
                            (/nSdim,nPsiDim,nZetaDim,nEDim,nPADim/), iFlux3DVar)
-    iStatus = nf90_def_var_deflate(iFileID, iFlux3DVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iFlux3DVar, 0, 1, iDeflate)
 
     !! PRESSURES
     !!! Total Parallel Pressures
     iStatus = nf90_def_var(iFileID, 'PParT', nf90_double, &
                            (/nSdim,nRDim,nTDim/), iPParTVar)
-    iStatus = nf90_def_var_deflate(iFileID, iPParTVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iPParTVar, 0, 1, iDeflate)
 
     !!! Total Perpendicular Pressures
     iStatus = nf90_def_var(iFileID, 'PPerT', nf90_double, &
                            (/nSdim,nRDim,nTDim/), iPPerTVar)
-    iStatus = nf90_def_var_deflate(iFileID, iPPerTVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iPPerTVar, 0, 1, iDeflate)
 
     !! MAGNETIC FIELD
     !!! Bx
     iStatus = nf90_def_var(iFileID, 'Bx', nf90_double, &
                            (/nThetaDim,nPsiDim,nZetaDim/), iBxVar)
-    iStatus = nf90_def_var_deflate(iFileID, iBxVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iBxVar, 0, 1, iDeflate)
 
     !!! By
     iStatus = nf90_def_var(iFileID, 'By', nf90_double, &
                            (/nThetaDim,nPsiDim,nZetaDim/), iByVar)
-    iStatus = nf90_def_var_deflate(iFileID, iByVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iByVar, 0, 1, iDeflate)
 
     !!! Bz
     iStatus = nf90_def_var(iFileID, 'Bz', nf90_double, &
                            (/nThetaDim,nPsiDim,nZetaDim/), iBzVar)
-    iStatus = nf90_def_var_deflate(iFileID, iBzVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iBzVar, 0, 1, iDeflate)
 
     !!! Total B
     iStatus = nf90_def_var(iFileID, 'B', nf90_double, &
                            (/nThetaDim,nPsiDim,nZetaPDim/), iBfVar)
-    iStatus = nf90_def_var_deflate(iFileID, iBfVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iBfVar, 0, 1, iDeflate)
 
     !! ELECTRIC FIELD/POTENTIAL
     !!! Previous Electric Potential
     iStatus = nf90_def_var(iFileID, 'VTOL', nf90_double, &
                            (/nRPDim,nTDim/), iVTOLVar)
-    iStatus = nf90_def_var_deflate(iFileID, iVTOLVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iVTOLVar, 0, 1, iDeflate)
 
     !!! Next Electric Potential
     iStatus = nf90_def_var(iFileID, 'VTN', nf90_double, &
                            (/nRPDim,nTDim/), iVTNVar)
-    iStatus = nf90_def_var_deflate(iFileID, iVTNVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iVTNVar, 0, 1, iDeflate)
 
     !!! Current Electric Potential
     iStatus = nf90_def_var(iFileID, 'VT', nf90_double, &
                            (/nRPDim,nTDim/), iVTVar)
-    iStatus = nf90_def_var_deflate(iFileID, iVTVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iVTVar, 0, 1, iDeflate)
 
 
     !! hI OUTPUTS
     !!! H
     iStatus = nf90_def_var(iFileID, 'FNHS', nf90_double, &
                            (/nRPDim,nTDim,NPaDim/), iHVar)
-    iStatus = nf90_def_var_deflate(iFileID, iHVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iHVar, 0, 1, iDeflate)
 
     !!! Hbn
     iStatus = nf90_def_var(iFileID, 'BOUNHS', nf90_double, &
                            (/nRPDim,nTDim,NPaDim/), iBHVar)
-    iStatus = nf90_def_var_deflate(iFileID, iBHVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iBHVar, 0, 1, iDeflate)
 
     !!! I
     iStatus = nf90_def_var(iFileID, 'FNIS', nf90_double, &
                            (/nRPDim,nTDim,NPaDim/), iIVar)
-    iStatus = nf90_def_var_deflate(iFileID, iIVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iIVar, 0, 1, iDeflate)
 
     !!! Ibn
     iStatus = nf90_def_Var(iFileID, 'BOUNIS', nf90_double, &
                            (/nRPDim,nTDim,NPaDim/), iBIVar)
-    iStatus = nf90_def_var_deflate(iFileID, iBIVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iBIVar, 0, 1, iDeflate)
 
     !!! BNES
     iStatus = nf90_def_var(iFileID, 'BNES', nf90_double, &
                            (/nrPDim,nTDim/), iBNESVar)
-    iStatus = nf90_def_var_deflate(iFileID, iBNESVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iBNESVar, 0, 1, iDeflate)
 
     !!! Neutral Density
     iStatus = nf90_def_var(iFileID, 'HDNS', nf90_double, &
                            (/nRPDim,nTDim,nPaDim/), iHDNSVar)
-    iStatus = nf90_def_var_deflate(iFileID, iHDNSVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iHDNSVar, 0, 1, iDeflate)
 
     !!!
     iStatus = nf90_def_var(iFileID, 'EIR', nf90_double, &
                            (/nrPDim,nTDim/), iEIRVar)
-    iStatus = nf90_def_var_deflate(iFileID, iEIRVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iEIRVar, 0, 1, iDeflate)
 
     !!!
     iStatus = nf90_def_var(iFileID, 'EIP', nf90_double, &
                            (/nrPDim,nTDim/), iEIPVar)
-    iStatus = nf90_def_var_deflate(iFileID, iEIPVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iEIPVar, 0, 1, iDeflate)
 
     !!! db/dt
     iStatus = nf90_def_var(iFileID, 'dBdt', nf90_double, &
                            (/nrPDim,nTDim/), iDBDTVar)
-    iStatus = nf90_def_var_deflate(iFileID, iDBDTVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iDBDTVar, 0, 1, iDeflate)
 
     !!! dI/dt
     iStatus = nf90_def_var(iFileID, 'dIdt', nf90_double, &
                            (/nRPDim,nTDim,NPaDim/), iDIDTVar)
-    iStatus = nf90_def_var_deflate(iFileID, iDIDTVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iDIDTVar, 0, 1, iDeflate)
 
     !!! dIbn/dt
     iStatus = nf90_def_var(iFileID, 'dIbndt', nf90_double, &
                            (/nRPDim,nTDim,NPaDim/), iDIBNVar)
-    iStatus = nf90_def_var_deflate(iFileID, iDIBNVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iDIBNVar, 0, 1, iDeflate)
 
     !! GRID OUTPUTS
     !!! X
     iStatus = nf90_def_var(iFileID, 'x', nf90_double, &
                            (/nThetaDim,nPsiDim,nZetaPDim/), iXVar)
-    iStatus = nf90_def_var_deflate(iFileID, iXVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iXVar, 0, 1, iDeflate)
 
     !!! Y
     iStatus = nf90_def_var(iFileID, 'y', nf90_double, &
                            (/nThetaDim,nPsiDim,nZetaPDim/), iYVar)
-    iStatus = nf90_def_var_deflate(iFileID, iYVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iYVar, 0, 1, iDeflate)
 
     !!! Z
     iStatus = nf90_def_var(iFileID, 'z', nf90_double, &
                            (/nThetaDim,nPsiDim,nZetaPDim/), iZVar)
-    iStatus = nf90_def_var_deflate(iFileID, iZVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iZVar, 0, 1, iDeflate)
 
     !! ALPHA/BETA
     !!! AlphaVal (psiVal)
     iStatus = nf90_def_var(iFileID, 'alphaVal', nf90_double, &
                            (/nZetaPDim/), iAValVar)
-    iStatus = nf90_def_var_deflate(iFileID, iAValVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iAValVar, 0, 1, iDeflate)
 
     !!! BetaVal (alphaVal)
     iStatus = nf90_def_var(iFileID, 'betaVal', nf90_double, &
                            (/nPsiDim/), iBValVar)
-    iStatus = nf90_def_var_deflate(iFileID, iBValVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iBValVar, 0, 1, iDeflate)
 
     !!! Alpha (psi)
     iStatus = nf90_def_var(iFileID, 'alpha', nf90_double, &
                            (/nThetaDim,nPsiDim,nZetaPDim/), iAlphaVar)
-    iStatus = nf90_def_var_deflate(iFileID, iAlphaVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iAlphaVar, 0, 1, iDeflate)
 
     !!! Beta (alpha)
     iStatus = nf90_def_var(iFileID, 'beta', nf90_double, &
                            (/nThetaDim,nPsiDim,nZetaPDim/), iBetaVar)
-    iStatus = nf90_def_var_deflate(iFileID, iBetaVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iBetaVar, 0, 1, iDeflate)
 
     !!! Chi
     iStatus = nf90_def_var(iFileID, 'chi', nf90_double, &
                            (/nThetaDim,nPsiDim,nZetaPDim/), iChiVar)
-    iStatus = nf90_def_var_deflate(iFileID, iChiVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iChiVar, 0, 1, iDeflate)
 
     !! MISC
     !!! Index of pitch angles (needed for satellite files)
     iStatus = nf90_def_var(iFileID, 'IndexPA', nf90_int, &
                            (/nThetaDim,nPsiDim,nZetaDim,nPaDim/), iPaIndexVar)
-    iStatus = nf90_def_var_deflate(iFileID, iPaIndexVar, 0, 1, iDeflate)
+!    iStatus = nf90_def_var_deflate(iFileID, iPaIndexVar, 0, 1, iDeflate)
 
     !!! Previous calculated time step
     iStatus = nf90_def_var(iFileID, 'DtNext', nf90_double, iDtVar)

@@ -55,7 +55,7 @@ MODULE ModScbMain
 
   real(dp) :: relax = 1.1
 
-  integer  :: nrelax = 50 ! Try to increase blending factor after nrelax iterations
+  integer  :: nrelax = 5 ! Try to increase blending factor after nrelax iterations
 
   integer  :: iSm  = 0 ! Even smoother grid respacing, for difficult equilibria
 

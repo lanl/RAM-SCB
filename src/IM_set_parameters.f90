@@ -58,6 +58,8 @@ subroutine IM_set_parameters
         call read_var('MinSCBIterations', MinSCBIterations)
         call read_var('SCBMethod', method)
         call read_var('OuterMethod', iOuterMethod)
+        call read_var('InnerConvergenceAlpha', InConAlpha)
+        call read_var('InnerConvergencePsi',   InConPsi)
 
      case('#SCBFLAGS')
         call read_var('Isotropic', TempLogical)

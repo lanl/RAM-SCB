@@ -32,6 +32,11 @@ MODULE ModScbInit
              bZIntern(nthe,npsi,nzeta), x(nthe,npsi,nzeta+1), y(nthe,npsi,nzeta+1), &
              z(nthe,npsi,nzeta+1), xx(nthe,npsi,nzeta+1), yy(nthe,npsi,nzeta+1), &
              bf(nthe,npsi,nzeta+1), bsq(nthe,npsi,nzeta+1), fluxVolume(npsi,nzeta))
+!
+    ALLOCATE(vecx(nthe,npsi,nzeta), vecr(nthe,npsi,nzeta), vecd(nthe,npsi,nzeta), &
+             vec1(nthe,npsi,nzeta), vec2(nthe,npsi,nzeta), vec3(nthe,npsi,nzeta), &
+             vec4(nthe,npsi,nzeta), vec6(nthe,npsi,nzeta), vec7(nthe,npsi,nzeta), &
+             vec8(nthe,npsi,nzeta), vec9(nthe,npsi,nzeta))
 ! ModScbEuler Variables
     ALLOCATE(psi(nthe,npsi,nzeta+1), psiSav1(nthe,npsi,nzeta+1), psiSav2(nthe,npsi,nzeta+1), &
              alfa(nthe,npsi,nzeta+1), alfaSav1(nthe,npsi,nzeta+1), alfaSav2(nthe,npsi,nzeta+1), &
@@ -97,7 +102,7 @@ MODULE ModScbInit
   rdtdr4  = 0.25_dp * rdt * rdr
 
   nAzimRAM = NT
-  nXRaw    = NR-1
+  nXRaw    = NR
   nXRawExt = NR+3
   nYRaw    = NT
 
@@ -116,6 +121,8 @@ MODULE ModScbInit
 ! Main SCB Variables
     DEALLOCATE(jacobian, bX, bY, bZ, bXIntern, bYIntern, bZIntern, x, y, &
                z, xx, yy, bf, bsq, fluxVolume)
+!
+    DEALLOCATE(vecx, vecr, vecd, vec1, vec2, vec3, vec4, vec6, vec7, vec8, vec9)
 ! ModScbEuler Variables
     DEALLOCATE(psi, psiSav1, psiSav2, alfa, alfaSav1, alfaSav2, alphaVal, &
                alphaValInitial, psiVal, psiPrev, alfaPrev)
@@ -238,13 +245,13 @@ MODULE ModScbInit
     !cc.. pnormal = bnormal**2 in nPa; for xzero = 6.6 R_E, pnormal = 9.255 nPa
     bnormal = 0.31_dp / xzero3 * 1.E5_dp
     enormal = bnormal * 6.4
-    pnormal = 7.958E-4_dp * bnormal*bnormal  ! 0.01/(4pi) in front of bnormal**2
+    pnormal = bnormal*bnormal/(8._dp * pi_d * 1.E-7_dp)*1.E-9_dp  ! Pb = B^2/(2*permeability)
   
     !cc.. p0 is in unit of pnormal
     !cc  For Earth's surface dipole field B_D=0.31e-4 T, R_E=6.4e6 m, permeability=4.*pi*1.e-7 H/m
     !cc  The unit conversion constant pjconst = 0.0134
     !cc  The current is in unit of (microA/m**2) by multiplying with pjconst
-    pjconst = 1.e6_dp * 0.31E-4_dp / (xzero3 * 4._dp * pi_d * 1.E-7_dp * 6.4E6_dp)
+    pjconst = 0.0134 !1.e6_dp * 0.31E-4_dp / (xzero3 * 4._dp * pi_d * 1.E-7_dp * 6.4E6_dp)
  
     !c  Need to make sure that psival is a monotonically increasing function of j
     !c  define psival grids that correspond to dipole psivals for j=1 and j=npsi

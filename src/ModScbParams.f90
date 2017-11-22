@@ -15,7 +15,9 @@ module ModScbParams
               blendAlphaInit       = 0.20,  &
               blendPsiInit         = 0.20,  &
               blendMin             = 0.01,  &
-              blendMax             = 0.5
+              blendMax             = 0.5,   &
+              InConAlpha           = 1e-6,  &
+              InConPsi             = 1e-6
 
  !integer  :: method = 1 ! Direct matrix inversion calculation of Euler Potentials
   integer  :: method = 2 ! Iterative SOR calculation of Euler Potentials

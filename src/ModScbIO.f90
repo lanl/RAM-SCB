@@ -433,9 +433,12 @@ END SUBROUTINE Write_ionospheric_potential
                              GradRhoGradZeta, ppar, pper, nThetaEquator, &
                              normJxB, f, fzet, nZetaMidnight, pnormal, &
                              dPPerdRho, dPPerdZeta, dPPerdTheta, bnormal, &
-                             pjconst, dPdAlpha, dPdPsi 
+                             pjconst, dPdAlpha, dPdPsi, vecd, vec1, vec2, &
+                             vec3, vec4, vec6, vec7, vec8, vec9, vecr, vecx, &
+                             alfa, psi, fp, alphaVal, psiVal
   !!!! Module Subroutine/Function
   use ModRamFunctions, ONLY: RamFileName
+  use ModScbEquation,  ONLY: metric, metrica, newk, newj
   use ModScbSpline,    ONLY: Spline_coord_derivs
   !!!! Share Modules
   USE ModIoUnit, ONLY: UNITTMP_
@@ -447,7 +450,8 @@ END SUBROUTINE Write_ionospheric_potential
   INTEGER :: i, j, k, id, ierr, idealerr
   CHARACTER(len=200) :: FileName
 
-  REAL(DP) :: normDiffRel, volume, bf(nthe,npsi,nzeta+1), bsq(nthe,npsi,nzeta+1)
+  REAL(DP) :: normDiffRel, volume, bf(nthe,npsi,nzeta+1), bsq(nthe,npsi,nzeta+1), &
+              distance(nthe,npsi,nzeta+1)
   REAL(DP), DIMENSION(nthe,npsi,nzeta) :: derivXTheta, derivXRho, derivXZeta, &
        derivYTheta, derivYRho, derivYZeta, derivZTheta, derivZRho, derivZZeta, &
        gradRhoX, gradRhoY, gradRhoZ, gradZetaX, gradZetaY, gradZetaZ, gradThetaX, &
@@ -469,6 +473,7 @@ END SUBROUTINE Write_ionospheric_potential
   REAL(DP), DIMENSION(nthe,npsi,nzeta) :: jrrInt, jrr, jzzInt, jzz, jrtInt, jrt, jztInt, jzt, &
        rhoCompSq, zetaCompSq, thetaCompSq, curlJCrossBSq, curlJCrossB
 
+  REAL(DP), DIMENSION(npsi) :: rtemp, xtemp
 !  LOGICAL, EXTERNAL :: isnand ! Intrinsic for Portland Group Fortran
 
   !**********************************************************************************************************!
@@ -610,9 +615,9 @@ END SUBROUTINE Write_ionospheric_potential
                 2.*gradThetaGradzeta(:,j,k)*(f(j)*fzet(k)*jGradRho(:,j,k)+dPperdZeta(:,j,k))*dPperdTheta(:,j,k) - &
                 2.*dPperdTheta(:,j,k)*derivDiffPTheta(:,j,k)/jacobian(:,j,k)
         else
-           gradPSq(:,j,k) = fzet(k)**2 * dpdAlpha(1:nthe,j,k)**2 * gradZetaSq(:,j,k) + f(j)**2 * &
+           gradPSq(:,j,k) = (fzet(k)**2 * dpdAlpha(1:nthe,j,k)**2 * gradZetaSq(:,j,k) + f(j)**2 * &
                 dpdPsi(1:nthe,j,k)**2 * gradRhoSq(:,j,k) + 2._dp*dpdAlpha(1:nthe,j,k)*dpdPsi(1:nthe,j,k) * &
-                f(j) * fzet(k) * gradRhoGradZeta(:,j,k)
+                f(j) * fzet(k) * gradRhoGradZeta(:,j,k))
 
            jCrossBMinusGradPSq(:,j,k) = f(j)**2 * fzet(k)**2 * (gradRhoSq(:,j,k) * (jGradZeta(:,j,k) - &
                 1. / fzet(k) * dpdPsi(1:nthe,j,k))**2 + &
@@ -624,9 +629,10 @@ END SUBROUTINE Write_ionospheric_potential
      END DO
   END DO
 
-  jCrossB = SQRT(jCrossBSq)*bnormal*pjconst
-  gradP = SQRT(ABS(gradPSq))*pnormal
-  jCrossBMinusGradPMod = SQRT(ABS(jCrossBSq*bnormal**2*pjconst**2+gradPSq*pnormal**2-2*jCrossB*gradP))!SQRT(ABS(jCrossBMinusGradPSq))
+  distance = sqrt(x**2+y**2+z**2)
+  jCrossB = SQRT(jCrossBSq)*(bnormal*pjconst/6.4)*distance(:,:,1:nzeta)
+  gradP = SQRT(ABS(gradPSq))*(pnormal*2.0)/distance(:,:,1:nzeta)
+  jCrossBMinusGradPMod = SQRT(ABS(jCrossBMinusGradPSq))
 
   ! Force balance quantities
   FileName = trim(prefixOut)//'Force_balance_equatorial'
@@ -654,14 +660,50 @@ END SUBROUTINE Write_ionospheric_potential
   END DO
   CLOSE(UNITTMP_)
 
+  call metric
+  call newj
+  DO j = 2, npsi-1
+     i = nThetaEquator
+     k = nZetaMidnight
+     rtemp(j) = - vecd(i,j,k)*psi(i,j,k) &
+                + vec1(i,j,k)*psi(i-1,j-1,k) &
+                + vec2(i,j,k)*psi(i,j-1,k) &
+                + vec3(i,j,k)*psi(i+1,j-1,k) &
+                + vec4(i,j,k)*psi(i-1,j,k) &
+                + vec6(i,j,k)*psi(i+1,j,k) &
+                + vec7(i,j,k)*psi(i-1,j+1,k) &
+                + vec8(i,j,k)*psi(i,j+1,k) &
+                + vec9(i,j,k)*psi(i+1,j+1,k) &
+                - vecr(i,j,k)
+  ENDDO
+  rtemp(1) = 0.
+  rtemp(npsi) = 0.
+
+  call metrica
+  call newk
+  DO j = 1, npsi
+     i = nThetaEquator
+     k = nZetaMidnight
+     xtemp(j) = - vecd(i,j,k)*alfa(i,j,k)  &
+                + vec1(i,j,k)*alfa(i-1,j,k-1) &
+                + vec2(i,j,k)*alfa(i,j,k-1) &
+                + vec3(i,j,k)*alfa(i+1,j,k-1) &
+                + vec4(i,j,k)*alfa(i-1,j,k)  &
+                + vec6(i,j,k)*alfa(i+1,j,k)  &
+                + vec7(i,j,k)*alfa(i-1,j,k+1) &
+                + vec8(i,j,k)*alfa(i,j,k+1) &
+                + vec9(i,j,k)*alfa(i+1,j,k+1) &
+               - vecx(i,j,k)
+  ENDDO
+
   FileName = trim(prefixOut)//'Force_balance_line'
   OPEN(UNITTMP_, file = RamFileName(FileName,'dat',TimeRamNow), status='replace') 
   WRITE(UNITTMP_, *) npsi
   DO j = 1, npsi
      WRITE(UNITTMP_, *) x(nThetaEquator,j,nZetaMidnight), y(nThetaEquator,j,nZetaMidnight), &
           jCrossB(nThetaEquator,j,nZetaMidnight), gradP(nThetaEquator,j,nZetaMidnight), &
-          jCrossBMinusGradPMod(nThetaEquator,j,nZetaMidnight), bf(nThetaEquator,j,nZetaMidnight)*bnormal, &
-          jCrossB(nThetaEquator,j,nZetaMidnight)/gradP(nThetaEquator,j,nZetaMidnight)
+          jCrossBMinusGradPMod(nThetaEquator,j,nZetaMidnight), rtemp(j), xtemp(j), &
+          jacobian(nThetaEquator,j,nZetaMidnight), f(j), fzet(nZetaMidnight)
   END DO
   CLOSE(UNITTMP_)
 
