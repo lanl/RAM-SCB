@@ -31,8 +31,7 @@ subroutine IM_set_parameters
   use ModTimeConvert, ONLY: time_real_to_int, time_int_to_real
   implicit none
 
-  integer :: iPressure, iDomain, iFile, iDebugProc
-  character(len=4) :: sPressure, sDomain
+  integer :: iFile, iDebugProc
 
   integer :: iDate, nrIn, ntIn, neIn, npaIn, dummyi
   logical :: TempLogical, UseStrict = .true.
@@ -53,6 +52,9 @@ subroutine IM_set_parameters
      !!!!!!!!!!!!!!!!!!!!!!!!!!!!
      case('#EVENT')
         call read_var('NameEvent', event)
+
+     case('#BOUNDARY_FILE_PATH')
+        call read_var('NameEvent', BoundaryPath)
 
      case('#SCBSETTINGS')
         call read_var('MinSCBIterations', MinSCBIterations)
@@ -471,21 +473,19 @@ subroutine IM_set_parameters
   ! Set iPressure and iDomain according to selected BC's
   select case(boundary)
   case('SWMF')
-     iPressure = 5
-     sPressure = 'SWMF'
+     NEL = NEL
+     NTL = NTL
+     BoundaryFiles = .false.
   case('LANL')
-     iPressure = 6
-     sPressure = 'LANL'
      NEL = 36
      NTL = 25
   case('PTM')
-     iPressure = 6
-     sPressure = 'LANL'
      NEL = 36
      NTL = 25
-  case('QDM')
-     iPressure = 6
-     sPressure = 'LANL'
+  case('QDMKP')
+     NEL = 36
+     NTL = 25
+  case('QDMVBZ')
      NEL = 36
      NTL = 25
   case default
@@ -494,18 +494,13 @@ subroutine IM_set_parameters
 
   select case(NameBoundMag)
   case('SWMF')
-     iDomain = 20
-     sDomain = 'SWMF'
+     method = method
   case('DIPL') ! Dipole w/o SCB calculation.
-     iDomain = 4
      method = 3
-     sDomain = 'DIPL'
   case('DIPS') ! Dipole w/  SCB calculation.
-     iDomain = 4
-     sDomain = 'DIPS'
+     method = method
   case('T89C')
-     iDomain = 3
-     sDomain = 'T89C'
+     method = method
   case default
      call CON_stop(NameSub//': invalid NameBoundMag='//NameBoundMag)
   end select

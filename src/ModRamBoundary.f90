@@ -13,7 +13,7 @@ subroutine get_boundary_flux
 
   use ModRamMain,   ONLY: S
   use ModRamTiming, ONLY: TimeRamElapsed
-  use ModRamParams, ONLY: boundary
+  use ModRamParams, ONLY: BoundaryFiles
 
   implicit none
  
@@ -23,8 +23,7 @@ subroutine get_boundary_flux
   do iS=1,4
      S = iS
      IF (S.EQ.1) THEN
-        if (boundary .EQ. 'LANL') print*, &
-           'RAM: calling GEOSB at time (hr) = ', TimeRamElapsed/3600.
+        if (BoundaryFiles) print*, 'RAM: calling GEOSB at time (hr) = ', TimeRamElapsed/3600.
      ENDIF
      CALL GEOSB
   end do
@@ -36,7 +35,7 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
 
   use ModRamMain,      ONLY: Real8_, S
   use ModRamTiming,    ONLY: TimeRamNow, TimeRamElapsed, TimeRamStart, Dt_bc
-  use ModRamParams,    ONLY: electrons, boundary
+  use ModRamParams,    ONLY: electrons
   use ModRamGrids,     ONLY: NT, NE, NEL, NEL_prot, NBD, NTL
   use ModRamVariables, ONLY: EKEV, MLT, FGEOS, timeOffset, StringFileDate,  &
                              flux_SIII, fluxLast_SII, eGrid_SI, avgSats_SI, &
@@ -221,7 +220,7 @@ end subroutine get_geomlt_flux
 
     use ModRamMain,      ONLY: Real8_, S, PathSwmfOut, PathRamOut
     use ModRamParams,    ONLY: DoAnisoPressureGMCoupling, IsComponent, boundary, &
-                               DoMultiBcsFile
+                               DoMultiBcsFile, BoundaryFiles
     use ModRamGrids,     ONLY: NTL, NEL, NT, NE, NR
     use ModRamTiming,    ONLY: TimeRamElapsed, TimeRamNow, TimeRamStart
     use ModRamVariables, ONLY: FFACTOR, UPA, EKEV, Kp, F107
@@ -265,7 +264,7 @@ end subroutine get_geomlt_flux
     FGEOS(S,:,:,:)=0.
 
     ! Read LANL flux (1/cm2/s/sr/keV) assumed isotropic
-    IF ((boundary .eq. 'LANL') .OR. (boundary .eq. 'PTM')) THEN
+    IF (BoundaryFiles) THEN
       ! LANL interpolated flux files.
       if (s==1) then
         call get_geomlt_flux('elec', FluxLanl)

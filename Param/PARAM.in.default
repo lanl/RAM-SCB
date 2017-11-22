@@ -61,7 +61,7 @@ T			DoVarDt			! If set to T RAM will adjust its time step based on the current f
 
 *************** COMPONENT BLOCK ***************
 #OUTERBOUNDARY
-LANL			NameBoundPlasma		! Determines the boundary flux source (LANL or SWMF)
+LANL			NameBoundPlasma		! Determines the boundary flux source (LANL, PTM, QDMKP, QDMVBZ, or SWMF)
 DIPL 			NameBoundMag		! Determines the magnetic field source (T89C, DIPL, DIPS, or SWMF)
 MAXW			NameDistribution	! Determines the distribution of the flux (MAXW)
 
@@ -124,6 +124,9 @@ omni.txt		NameOmniFile		! Name of the omni input file (used for certain configur
 
 #INDICES_FILE
 RamIndices.txt		NameIndicesFile		! Name of the KP and F10.7 indices file needed for RAM
+
+#BOUNDARY_FILE_PATH
+IM/input_ram/		BoundaryPath		! Location where the boundary files can be found
 ***********************************************
 
 ***************** OUTPUT BLOCK ****************

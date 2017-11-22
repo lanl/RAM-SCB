@@ -190,7 +190,7 @@ subroutine read_geomlt_file(NameParticle)
   use ModRamMain,      ONLY: PathRamIN
   use ModRamTiming,    ONLY: TimeRamNow, Dt_bc, TimeRamStart
   use ModRamGrids,     ONLY: NE, NEL, NEL_prot, NTL, NBD
-  use ModRamParams,    ONLY: boundary
+  use ModRamParams,    ONLY: boundary, BoundaryPath
   use ModRamVariables, ONLY: EKEV, FGEOS, IsInitialized, timeOffset, StringFileDate,  &
                              flux_SIII, fluxLast_SII, eGrid_SI, avgSats_SI, lGrid_SI, &
                              tGrid_SI
@@ -220,9 +220,9 @@ subroutine read_geomlt_file(NameParticle)
   integer :: FileIndexStart, FileIndexEnd, FileIndex
   integer :: NTL_
   integer :: year, month, day, hour, minute, second, msec
-  character(len=25) :: ISOString, tempString
-  character(len=3)  :: MLTString, NSCString
-  character(len=1)  :: sa
+  character(len=25)  :: ISOString, tempString
+  character(len=3)   :: MLTString, NSCString
+  character(len=1)   :: sa
 
   character(len=25), allocatable :: TimeBuffer(:)
   real(kind=Real8_), allocatable :: MLTBuffer(:), EnergyBuffer(:)
@@ -247,17 +247,21 @@ subroutine read_geomlt_file(NameParticle)
 
   select case (boundary)
      case('LANL')
-        write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a)') trim(PathRamIn)//'/', &
+        write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a)') trim(BoundaryPath)//'/', &
               TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay, &
               '_mpa-sopa_', NameParticle, '_geomlt_5-min.txt'
      case('PTM')
-        write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a)') trim(PathRamIn)//'/', &
+        write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a)') trim(BoundaryPath)//'/', &
               TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay, &
               '_ptm_', NameParticle, '_geomlt_5-min.txt'
-     case('QDM')
-        write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a)') trim(PathRamIn)//'/', &
+     case('QDMKP')
+        write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a)') trim(BoundaryPath)//'/', &
               TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay, &
-              '_qdm_', NameParticle, '_geomlt_5-min.txt'
+              '_qdm-kp_', NameParticle, '_geomlt_5-min.txt'
+     case('QDMVBZ')
+        write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a)') trim(BoundaryPath)//'/', &
+              TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay, &
+              '_qdm-vbz_', NameParticle, '_geomlt_5-min.txt'
   end select
 
   allocate(TimeBuffer(1))

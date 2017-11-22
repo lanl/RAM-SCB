@@ -76,7 +76,7 @@ MODULE ModScbIO
     ALLOCATE(yCeDbl(SIZE(y,1), SIZE(y,2), SIZE(y,3)), STAT = ierr)
     ALLOCATE(zCeDbl(SIZE(z,1), SIZE(z,2), SIZE(z,3)), STAT = ierr)
   
-    IF (boundary == 'SWMF' .OR. boundary == 'LANL') THEN
+!    IF (boundary == 'SWMF' .OR. boundary == 'LANL') THEN
        SELECT CASE (NameBoundMag)
        CASE('SWMF')  ! SWMF-based boundary conditions, 5-min resolution
           call build_scb_init
@@ -111,7 +111,7 @@ MODULE ModScbIO
           call cdf_open (netcdfId, TRIM(fileNameTsyga), 'r')
           call cdf_open (netcdfId2, TRIM(fileNameTsyga2), 'r')
        END SELECT
-    END IF
+!    END IF
   
     CALL cdf_inquire(netcdfId, 'statusBC',   dimlens,  xtype)
     CALL cdf_inquire(netcdfId, 'pdyn',       dimlens,  xtype)
