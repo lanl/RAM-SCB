@@ -20,6 +20,11 @@ Module ModScbVariables
   REAL(DP) :: sumb, sumdb, normDiff, normDiffPrev, normJxB, normGradP
 !
 
+!
+    REAL(DP), DIMENSION(:,:,:), ALLOCATABLE :: vecd, vec1, vec2, vec3, vec4, vec6, &
+                                               vec7, vec8, vec9, vecx, vecr
+!
+
 !--- SCE Components
   real(DP), allocatable :: paraj(:,:)
 !---
@@ -64,7 +69,8 @@ Module ModScbVariables
                            dPPerdZeta(:,:,:), dBsqdAlpha(:,:,:), dBsqdPsi(:,:,:), dBsqdTheta(:,:,:), &
                            gradThetaSq(:,:,:), bfInitial(:,:,:), pressure3D(:,:,:), bj(:,:,:), &
                            phij(:,:,:), ppar(:,:,:), pper(:,:,:), tau(:,:,:), sigma(:,:,:), &
-                           dPdAlpha(:,:,:), dPdPsi(:,:,:), dSqPdAlphaSq(:,:,:), dSqPdPsiSq(:,:,:)
+                           dPdAlpha(:,:,:), dPdPsi(:,:,:), dSqPdAlphaSq(:,:,:), dSqPdPsiSq(:,:,:), &
+                           dBsqdRho(:,:,:), dBsqdZeta(:,:,:)
   REAL(DP) :: DstDPS, DstDPSInsideGeo, DstBiot, DstBiotInsideGeo
   INTEGER :: kmax, nisave, nitry, iteration, iConvGlobal, lconv
 !

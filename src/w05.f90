@@ -545,7 +545,7 @@ subroutine read_potential_coeff05(infile)
 ! Read ascii data file W05scEpot.dat
 ! ---------------------------------- 
 
-  PRINT *,infile
+  !PRINT *,infile
   open(UnitTmp_,file=infile,status='old')
   read(UnitTmp_,"(a)") fname
   read(UnitTmp_,"(28i3)") ab

@@ -3,6 +3,7 @@ Module ModRamVariables
   use nrtype, ONLY: DP
 
   implicit none
+  save
 
 ! UNKNOWN VARIABLES
   real(DP), ALLOCATABLE :: XNE(:,:)
@@ -40,7 +41,7 @@ Module ModRamVariables
               PACHOR_Dxx(NPA_Dxx)
 
 ! ModRamLoss variables
-  real(DP), ALLOCATABLE :: ATLOS(:,:), ACHAR(:,:,:,:)
+!  real(DP), ALLOCATABLE :: ATLOS(:,:), ACHAR(:,:,:,:)
 
 ! ModRamIndices variables
   character(len=4)   :: NameIndexSource = 'file'
@@ -65,10 +66,10 @@ Module ModRamVariables
                            avgSats_SI(:,:), tGrid_SI(:,:), lGrid_SI(:,:)
 
 ! ModRamDrift variables
-  real(DP), ALLOCATABLE :: P1(:), VR(:), P2(:,:), EDOT(:,:), MUDOT(:,:), &
-                           CDriftR(:,:,:,:), CDriftP(:,:,:,:), sgnDriftR(:,:,:,:), &
-                           CDriftE(:,:,:,:), CDriftMu(:,:,:,:)
-  real(DP) :: DTDriftR, DTDriftP, DTDriftE, DTDriftMu
+  !real(DP), ALLOCATABLE :: P1(:), VR(:), P2(:,:), EDOT(:,:), MUDOT(:,:), &
+  !                         CDriftR(:,:,:,:), CDriftP(:,:,:,:), sgnDriftR(:,:,:,:), &
+  !                         CDriftE(:,:,:,:), CDriftMu(:,:,:,:)
+  real(DP), ALLOCATABLE :: DTDriftR(:), DTDriftP(:), DTDriftE(:), DTDriftMu(:)
   real(DP) :: FracCFL = 0.8
 
 ! ModRamRun variables

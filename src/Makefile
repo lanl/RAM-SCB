@@ -60,9 +60,7 @@ SCB_OBJECTS=                  \
 	ModScbRun.o           \
 	ModScbSpline.o        \
         ModScbVariables.o     \
-        scb_ionoPot.o         \
         scb_physQuantities.o  \
-        scb_testConvergence.o \
 	Geopack-2008_dp.o\
 	w2k_r8.o\
 	w05.o
