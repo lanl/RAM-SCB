@@ -459,6 +459,8 @@ end subroutine read_geomlt_file
     use ModRamGrids,     ONLY: nR, nT, nE, nPA, RadiusMax, RadiusMin
     use ModRamVariables, ONLY: F2, FNHS, FNIS, BOUNHS, BOUNIS, BNES, HDNS, EIR, &
                                EIP, dBdt, dIdt, dIbndt, EkeV, Lz, MLT, Pa
+    use ModRamParams,    ONLY: InitializationPath
+
     use netcdf
 
     implicit none
@@ -477,7 +479,7 @@ end subroutine read_geomlt_file
 
     character(len=100)             :: NameFile, StringLine
 
-    character(len=*), parameter :: NameSub='read_restart'
+    character(len=*), parameter :: NameSub='read_initial'
     logical :: DoTest, DoTestMe
     !------------------------------------------------------------------------
     call CON_set_do_test(NameSub, DoTest, DoTestMe)
@@ -485,7 +487,7 @@ end subroutine read_geomlt_file
     call write_prefix
     write(*,*) 'Loading initial condition files.'
     ! LOAD INITIAL FILE
-    iStatus = nf90_open(trim(PathRamIn//'/initialization.nc'),nf90_nowrite,iFileID)
+    iStatus = nf90_open(trim(InitializationPath)//'/initialization.nc',nf90_nowrite,iFileID)
     call ncdf_check(iStatus, NameSub)
 
     ! GET DIMENSIONS

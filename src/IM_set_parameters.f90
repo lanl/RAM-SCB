@@ -54,7 +54,10 @@ subroutine IM_set_parameters
         call read_var('NameEvent', event)
 
      case('#BOUNDARY_FILE_PATH')
-        call read_var('NameEvent', BoundaryPath)
+        call read_var('BoundaryPath', BoundaryPath)
+
+     case('#INITIALIZATION_FILE_PATH')
+        call read_var('InitializationPath', InitializationPath)
 
      case('#SCBSETTINGS')
         call read_var('MinSCBIterations', MinSCBIterations)

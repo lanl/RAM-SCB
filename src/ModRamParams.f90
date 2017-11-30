@@ -84,6 +84,7 @@ module ModRamParams
  character(len=200) :: NameIndexFile = 'RamIndices.txt'
  character(len=200) :: NameOmniFile  = 'omni.txt'
  character(len=200) :: BoundaryPath  = 'IM/input_ram/'
+ character(len=200) :: InitializationPath = 'IM/input_ram/'
 
  ! File write logicals:
  logical :: DoSaveRamSats=.false.
