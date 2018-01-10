@@ -102,8 +102,8 @@ MODULE ModScbInit
   rdtdr4  = 0.25_dp * rdt * rdr
 
   nAzimRAM = NT
-  nXRaw    = NR
-  nXRawExt = NR+3
+  nXRaw    = NR-1
+  nXRawExt = NR+10
   nYRaw    = NT
 
   end subroutine scb_allocate
@@ -169,108 +169,66 @@ MODULE ModScbInit
   
     REAL(DP), PARAMETER :: pow = 1.0_dp, TINY = 1.E-15_dp
 
-    call computational_domain
+    ! Additional parameters
+    nZetaMidnight = (nzeta+1)/2 + 1
+    nThetaEquator = (nthe+1)/2
 
     blendAlpha = blendAlphaInit
     blendPsi = blendPsiInit
-  
+
+!!!!! Set Normalization Constants
     bzero = 1.0_dp
-  
+
     NMAXimum = MAX(nthe, npsi, nzeta)
-  
+
     ! Pressure
     pressurequot = 1._dp  ! 1 is quiet time; used for some quiet-time computations
     xzero = 6.6_dp
-  
-    ! Additional parameters
-    nZetaMidnight = (nzeta+3) / 2
-    nThetaEquator = nthe/2 + 1
-  
+
     re1 = 1.0_dp
     xzero3 = xzero**3
-  
-    dphi  = twopi_d/REAL(nzeta-1, DP)
-  
-    ! Define (theta, rho, zeta) computational coordinates
-    DO i = 1, nthe
-       thetaVal(i) = pi_d * REAL(i-1, DP)/REAL(nthe-1, DP)
-    END DO
-  
-    DO j = 1, npsi
-       rhoVal(j) = REAL(j-1, DP)/REAL(npsi-1, DP)
-    END DO
-  
-    DO k = 1, nzeta
-       phi = REAL(k-2, DP) * dphi
-       zetaVal(k) =  phi
-    END DO
-  
-    chiVal = (thetaVal + constTheta * SIN(2._dp*thetaVal))
-    DO i = 1, nthe
-       DO j = 1, npsi
-          DO k = 2, nzeta
-             chi(i,j,k) = chiVal(i)
-          END DO
-       END DO
-    END DO
-    chi(:,:,1) = chi(:,:,nzeta)
-    chi(:,:,nzeta+1) = chi(:,:,2)
- 
-    DO k = 1, nzeta+1
-       phi         = REAL(k-2, DP) * dphi
-       alphaVal(k) = phi + constz*SIN(phi) ! Concentration at midnight
-       fzet(k)     = 1._dp + constz*COS(phi)
-       fzetp(k)    = - constz * SIN(phi)
-  
-       !Concentration at dusk-midnight (3pi/4), good for storm computations            
-       !alphaVal(k)         = phi + constz*(SIN(phi+0.18_dp*pi_d) -
-       !SIN(0.18_dp*pi_d))
-       !fzet(k)           = 1._dp + constz*COS(phi+0.18_dp*pi_d)
-       !fzetp(k)          = - constz*SIN(phi+0.18_dp*pi_d)
-    END DO
-    alphaValInitial = alphaVal
-  
     !cc...dipole field line in terms of polar coordinate given by
     !r=x*cos(theta)**2
     !c..  B = grad(psi) X grad(alpha), psi = -x0**3 * cos(theta)**2 / r
-  
+
     !c... x0 is the distance from earth in the equatorial plane
     !cc..  B = (x0/r)**3 * [ cos(theta) the-dir - 2.* sin(theta) r-dir]
     !cc..  normalize B(r=xzero)=B0=1.0 at equator with x0=xzero
     !cc..  define psival on j grids
-  
+
     !cc.. bnormal is Earth's dipole magnetic field at xzero in equator (in nT)
-    !cc.. enormal is the normalization unit for the electric field (to give E-field in mV/m)
+    !cc.. enormal is the normalization unit for the electric field (to give
+    !E-field in mV/m)
     !cc.. for xzero = 6.6 R_E, bnormal = 107.83 nT
     !cc.. pnormal = bnormal**2 in nPa; for xzero = 6.6 R_E, pnormal = 9.255 nPa
     bnormal = 0.31_dp / xzero3 * 1.E5_dp
     enormal = bnormal * 6.4
-    pnormal = bnormal*bnormal/(8._dp * pi_d * 1.E-7_dp)*1.E-9_dp  ! Pb = B^2/(2*permeability)
-  
+    pnormal = bnormal*bnormal/(4._dp * pi_d * 1.E-7_dp)*1.E-9_dp  ! Pb = B^2/(2*permeability)
+
     !cc.. p0 is in unit of pnormal
-    !cc  For Earth's surface dipole field B_D=0.31e-4 T, R_E=6.4e6 m, permeability=4.*pi*1.e-7 H/m
+    !cc  For Earth's surface dipole field B_D=0.31e-4 T, R_E=6.4e6 m,
+    !permeability=4.*pi*1.e-7 H/m
     !cc  The unit conversion constant pjconst = 0.0134
     !cc  The current is in unit of (microA/m**2) by multiplying with pjconst
     pjconst = 0.0134 !1.e6_dp * 0.31E-4_dp / (xzero3 * 4._dp * pi_d * 1.E-7_dp * 6.4E6_dp)
- 
-    !c  Need to make sure that psival is a monotonically increasing function of j
-    !c  define psival grids that correspond to dipole psivals for j=1 and j=npsi
-    !c  define psival grids that correspond to equal equatorial distance grids in the midnight sector
-    psiin   = -xzero3/xpsiin
-    psiout  = -xzero3/xpsiout
-    psitot  = psiout-psiin
-    xpsitot = xpsiout - xpsiin
-    DO j = 1, npsi
-       psis = REAL(j-1, DP) / REAL(npsi-1, DP)
-       xpl = xpsiin + xpsitot * psis**pow
-       psival(j) = -xzero3 / xpl
-       f(j) = (xzero3 / xpl**2) * xpsitot * pow * psis**(pow-1.)
-       fp(j) = 0._dp ! If pow = 1
+!!!!!
+
+!!!!! Set computational coordinates grid
+    ! Define (theta, rho, zeta) computational coordinates
+    DO i = 1, nthe
+       thetaVal(i) = pi_d * REAL(i-1, DP)/REAL(nthe-1, DP)
     END DO
 
-    call psiges
-    call alfges
-    call computeBandJacob_initial
+    DO j = 1, npsi
+       rhoVal(j) = REAL(j-1, DP)/REAL(npsi-1, DP)
+    END DO
+
+    dphi  = twopi_d/REAL(nzeta-1, DP)
+    DO k = 1, nzeta
+       phi = REAL(k-2, DP) * dphi
+       zetaVal(k) =  phi
+    END DO
+!!!!!
 
     RETURN
   
@@ -281,7 +239,9 @@ MODULE ModScbInit
     !!!! Module Variables
     USE ModScbGrids,     ONLY: nthe, npsi, nzeta
     use ModScbVariables, ONLY: x, y, z, bf, bsq, jacobian, f, fzet, rhoVal, &
-                               thetaVal, zetaVal
+                               thetaVal, zetaVal, GradRhoSq, GradThetaSq, &
+                               GradZetaSq, GradRhoGradTheta, GradRhoGradZeta, &
+                               GradThetaGradZeta
     !!!! Module Subroutines/Functions
     USE ModScbSpline, ONLY: spline_coord_derivs
     !!!! NR Modules
@@ -294,8 +254,7 @@ MODULE ModScbInit
     REAL(DP), DIMENSION(nthe,npsi,nzeta) :: derivXTheta, derivXRho, derivXZeta, &
          derivYTheta, derivYRho, derivYZeta, derivZTheta, derivZRho, derivZZeta, &
          gradRhoX, gradRhoY, gradRhoZ, gradZetaX, gradZetaY, gradZetaZ, gradThetaX, &
-         gradThetaY, gradThetaZ, gradThetaSq
-    ! gradRhoSq, gradRhoGradZeta are global
+         gradThetaY, gradThetaZ
 
     CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, x(1:nthe, 1:npsi, 1:nzeta), &
                              derivXTheta, derivXRho, derivXZeta)
