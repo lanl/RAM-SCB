@@ -41,7 +41,8 @@ MODULE ModScbEuler
   
     USE ModScbMain,      ONLY: DP
     USE ModScbGrids,     ONLY: nthe, npsi, nzeta, ny, nthem, nzetap
-    USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, alfaPrev
+    USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, alfaPrev, &
+                               left, right
   
     USE ModScbSpline, ONLY: spline, splint
   
@@ -116,7 +117,8 @@ MODULE ModScbEuler
     USE ModScbMain,      ONLY: DP
     use ModScbGrids,     ONLY: nzeta, nzetap, nthe, nthem, npsi, npsim
     use ModScbVariables, ONLY: sumb, sumdb, vecd, vec1, vec2, &
-                               vec3, vec4, vec6, vec7, vec8, vec9, vecx
+                               vec3, vec4, vec6, vec7, vec8, vec9, vecx, &
+                               left, right
   
     use nrtype, ONLY: twopi_d, pi_d
     use nrmod, ONLY: gaussj
@@ -155,7 +157,7 @@ MODULE ModScbEuler
     sumb = 0._dp
     diffmx = 0._dp
   
-    fluxloop: DO jz = 2, npsim   ! jz represents the flux surface
+    fluxloop: DO jz = left+1, right-1   ! jz represents the flux surface
   
        ALLOCATE(FMATRIXFULL(nthe, nzeta-1), STAT=ierrffull)
        ALLOCATE(EMATRIXFULL(nthe, nzeta-1, nzeta-1), STAT=ierrefull)
@@ -374,7 +376,7 @@ MODULE ModScbEuler
        END DO
     END DO
   
-    DO  j = 1,npsi
+    DO  j = left,right
        DO  i = 1,nthe
           DO k = 2, nzeta
              alfa(i,j,k) = alfa(i,j,k) * blendAlpha + alphaVal(k) * (1. - blendAlpha)
@@ -413,7 +415,8 @@ MODULE ModScbEuler
                                InConAlpha
     USE ModScbGrids,     ONLY: nthe, nthem, npsi, nzeta, nzetap, ny
     USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, vecd, vec1, vec2, &
-                               vec3, vec4, vec6, vec7, vec8, vec9, vecx
+                               vec3, vec4, vec6, vec7, vec8, vec9, vecx, &
+                               left, right
   
     use nrmod,  ONLY: polint
     use nrtype, ONLY: DP, pi_d
@@ -453,7 +456,7 @@ MODULE ModScbEuler
     nisave = 0
     resid = 0
 
-    psiloop: DO  jz = 2, npsi-1
+    psiloop: DO  jz = left+1, right-1
        ni = 1
        anormf = 0._dp
        DO k = 2, nzeta
@@ -486,6 +489,8 @@ MODULE ModScbEuler
                 anormResid = anormResid + ABS(resid(iz,jz,k)) ! Residue will decrease with iterations
                 alfa(iz,jz,k) = alfa(iz,jz,k) + om(jz) * (resid(iz,jz,k) / vecd(iz,jz,k))
                 if (alfa(iz,jz,k)+1.0.eq.alfa(iz,jz,k)) then
+                   write(*,*) iz, jz, k
+                   write(*,*) x(iz,jz,k), y(iz,jz,k), z(iz,jz,k)
                    call CON_stop('NaN encountered in ModScbEuler iterateAlpha')
                 endif
              END DO thetaloop
@@ -523,12 +528,16 @@ MODULE ModScbEuler
        END DO
        !  extrapolate alfa to the j = 1 & npsi surfaces
        DO i = 1, nthe
-          IF (iWantAlphaExtrapolation == 0) THEN
-             alfa(i,npsi,k) = alfa(i,npsi-1,k) ! If the extrapolation is problematic
-          ELSE
-             CALL extap(alfa(i,npsi-3,k),alfa(i,npsi-2,k),alfa(i,npsi-1,k),alfa(i,npsi,k))
-          END IF
-          CALL extap(alfa(i,4,k),alfa(i,3,k),alfa(i,2,k),alfa(i,1,k)) ! This is never a problem - very close to Earth
+          do j = right,npsi
+             IF (iWantAlphaExtrapolation == 0) THEN
+                alfa(i,j,k) = alfa(i,j-1,k) ! If the extrapolation is problematic
+             ELSE
+                CALL extap(alfa(i,j-3,k),alfa(i,j-2,k),alfa(i,j-1,k),alfa(i,j,k))
+             END IF
+          enddo
+          do j = left,1
+             CALL extap(alfa(i,j+3,k),alfa(i,j+2,k),alfa(i,j+1,k),alfa(i,j,k)) ! This is never a problem - very close to Earth
+          enddo
        END DO
     END DO
 
@@ -641,7 +650,8 @@ MODULE ModScbEuler
   
     USE ModScbMain,      ONLY: DP
     USE ModScbGrids,     ONLY: nthe, nthem, npsi, npsim, nzeta, nzetap, na
-    USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, psiPrev
+    USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, psiPrev, &
+                               left, right
   
     USE ModScbSpline, ONLY: spline, splint
   
@@ -685,6 +695,9 @@ MODULE ModScbEuler
                 y(i,j,k) = splint(psiold, yOld, y2derivs, psival(j))
                 z(i,j,k) = splint(psiold, zOld, z2derivs, psival(j))
                 psi(i,j,k) = psival(j)
+                !x(i,j,k) = splint(psiold, xOld, x2derivs, psiPrev(i,j,k))
+                !y(i,j,k) = splint(psiold, yOld, y2derivs, psiPrev(i,j,k))
+                !z(i,j,k) = splint(psiold, zOld, z2derivs, psiPrev(i,j,k))
              END DO
           END DO iloop
        END DO kloop
@@ -714,7 +727,8 @@ MODULE ModScbEuler
     USE ModScbMain,      ONLY: DP
     USE ModScbGrids,     ONLY: nzeta, nzetap, nthe, nthem, npsi, npsim
     use ModScbVariables, ONLY: sumb, sumdb, vecd, vec1, vec2, &
-                               vec3, vec4, vec6, vec7, vec8, vec9, vecr
+                               vec3, vec4, vec6, vec7, vec8, vec9, vecr, &
+                               left, right
  
     use nrmod, ONLY: gaussj 
     IMPLICIT NONE
@@ -1000,7 +1014,8 @@ MODULE ModScbEuler
     use ModScbParams,    ONLY: isSORDetailNeeded, InConPsi
     USE ModScbGrids,     ONLY: nthe, nthem, npsi, npsim, nzeta, nzetap, na
     USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, vecd, vec1, vec2, &
-                               vec3, vec4, vec6, vec7, vec8, vec9, vecr
+                               vec3, vec4, vec6, vec7, vec8, vec9, vecr, &
+                               left, right
   
     use nrtype, ONLY: pi_d
   
@@ -1042,7 +1057,7 @@ MODULE ModScbEuler
   
        Iterations: DO WHILE (ni <= nimax)
           anormResid = 0._dp
-          jLoop: DO jz = 2, npsi-1
+          jLoop: DO jz = left+1, right-1
              jp = jz + 1
              jm = jz - 1
              iLoop: DO  iz = 2, nthem
