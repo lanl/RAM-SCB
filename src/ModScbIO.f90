@@ -7,6 +7,179 @@ MODULE ModScbIO
   
   contains
 
+  subroutine create_Bfield
+    !!!! Module Variables  
+    USE ModRamVariables, ONLY: Kp
+    use ModRamConst,     ONLY: Re
+    use ModRamParams,    ONLY: IsComponent, NameBoundMag, boundary
+    USE ModScbMain,      ONLY: PathScbIn, blendInitial, tsygcorrect
+    USE ModScbParams,    ONLY: decreaseConvAlphaMin, decreaseConvPsiMin, &
+                               decreaseConvAlphaMax, decreaseConvPsiMax
+    USE ModScbGrids,     ONLY: npsi, nthe, nzeta
+    USE ModScbVariables, ONLY: by_imf, bz_imf, dst_global, p_dyn, wTsyg, tilt, constZ, &
+                               constTheta, xpsiin, xpsiout, r0Start, byimfglobal, &
+                               bzimfglobal, pdynglobal, blendGlobal, blendGlobalInitial, &
+                               x, y, z, rhoVal, thetaVal, zetaVal, left, right, chiVal
+    !!!! Module Subroutines/Functions
+    use ModScbSpline, ONLY: spline, splint
+    use ModScbCouple, ONLY: build_scb_init
+    !!!! Share Modules
+    USE ModIoUnit, ONLY: UNITTMP_
+    !!!! NR Modules
+    use nrtype, ONLY: DP, SP, pi_d
+
+    IMPLICIT NONE
+
+    INTEGER :: i, j, k
+
+    REAL(DP), ALLOCATABLE :: x0(:,:), y0(:,:), z0(:,:) 
+     
+    REAL(DP) :: ratioFl=1, r0, t0, t1, tt, zt, b, rr, rt
+
+    REAL(DP), DIMENSION(100000) :: distance, xx, yy, zz, distance2derivsX, &
+                                   distance2derivsY, distance2derivsZ, xxGSW, &
+                                   yyGSW, zzGSW
+    INTEGER :: LMAX = 100000
+    INTEGER :: IOPT, LOUT
+    REAL(DP) :: ER, DSMAX, RLIM, PARMOD(10), xf, yf, zf, xf2, yf2, zf2, DIR
+    EXTERNAL :: DIP_08, IGRF_GSW_08, SMGSW_08
+
+    REAL(DP) :: XGSW, YGSW, ZGSW, tmin, tmax, xfGSW, yfGSW, zfGSW
+
+    ! For generating x, y, and z arrays using analytic dipole and analytic compressed dipole
+    left = 1
+    right = npsi
+    if ((NameBoundMag.eq.'DIPS').or.(NameBoundMag.eq.'DIPC')) then
+       constz = 0.0
+       constTheta = 0.2
+       xpsiin = 1.75
+       xpsiout = 7.00
+       b = 0
+       if (NameBoundMag.eq.'DIPC') b = 0.4
+       do k=1,nzeta
+          do j=1,npsi
+             r0 = xpsiin + REAL(j-1, DP)/REAL(npsi-1, DP)*(xpsiout-xpsiin)
+             !if (r0.lt.1.95) left = j
+             !if (r0.lt.6.75) right = j
+             rr = (2-b*cos(zetaVal(k)))/(1+b*cos(zetaVal(k)))
+             t0 = pi_d-dasin((1.0/r0)**(1./rr))
+             t1 = dasin((1.0/r0)**(1./rr))
+             do i=1,nthe
+                tt = t0 + REAL(i-1,DP)/REAL(nthe-1,DP)*(t1-t0)
+                tt = tt + constTheta * SIN(2._dp*tt)
+                zt = zetaVal(k) + constz*cos(zetaVal(k))
+                rt = r0*dsin(tt)**rr
+                x(i,j,k) = (rt)*dcos(zt)*dsin(tt)
+                y(i,j,k) = (rt)*dsin(zt)*dsin(tt)
+                z(i,j,k) = (rt)*dcos(tt)
+             enddo
+          enddo
+       enddo
+       x(:,:,1) = x(:,:,nzeta)
+       y(:,:,1) = y(:,:,nzeta)
+       z(:,:,1) = z(:,:,nzeta)
+       x(:,:,nzeta+1) = x(:,:,2)
+       y(:,:,nzeta+1) = y(:,:,2)
+       z(:,:,nzeta+1) = z(:,:,2)
+       return
+    endif
+
+    ! For generating x, y, and z arrays using field line tracing
+    !! First set up starting field points
+    ALLOCATE(x0(npsi,nzeta),y0(npsi,nzeta),z0(npsi,nzeta))
+!!!!! For now we will use dipole field line starting positions. This means
+!!!!! that we will use x, y, and z starting points that if traced from in 
+!!!!! a dipole field would yield a uniform grid in r, theta, and phi. If
+!!!!! traced in a different field the grid will not be uniform. -ME
+    constZ  = 0.0
+    constTheta = 0.2
+    xpsiin  = 1.75
+    xpsiout = 7.00
+    tmax = 0
+    tmin = 1000
+    do k=1,nzeta
+       do j=1,npsi
+          r0 = xpsiin + REAL(j-1,DP)/REAL(npsi-1,DP)*(xpsiout-xpsiin)
+          rr = 2
+          t0 = pi_d-dasin((1.0/r0)**(1./rr))
+          t1 = dasin((1.0/r0)**(1./rr))
+          tt = t0 + constTheta*dSIN(2._dp*t0)
+          if (tt.gt.tmax) tmax = tt
+          if (tt.lt.tmin) tmin = tt
+          rt = r0*dsin(tt)**rr
+          zt = zetaVal(k) + constz*dcos(zetaVal(k))
+          x0(j,k) = rt*dcos(zt)*dsin(tt)
+          y0(j,k) = rt*dsin(zt)*dsin(tt)
+          z0(j,k) = rt*dcos(tt)
+       enddo
+    enddo
+
+    !! Now we have a rho and phi grid for x,y,z, we need to trace field lines from each of
+    !! these starting points from the northern hemisphere to the southern hemisphere
+!!!!! For now let's just use a makeshift tracing routine in a dipole field to figure the kinks out -ME
+    DIR = -1.0
+    DSMAX = 0.01
+    ER = 0.0001
+    RLIM = 10.0
+    IOPT = 1
+    PARMOD = (/1._dp,1._dp,1._dp,1._dp,1._dp,1._dp,1._dp,1._dp,1._dp,1._dp/)
+    call RECALC_08(2005,1,1,0,0,-400._dp,0._dp,0._dp)
+    do k=1,nzeta
+       do j=1,npsi
+          CALL SMGSW_08(x0(j,k),y0(j,k),z0(j,k),XGSW,YGSW,ZGSW,1)
+          R0 = dsqrt(xGSW**2+yGSW**2+zGSW**2)
+          call TRACE_08(XGSW,YGSW,ZGSW,DIR,DSMAX,ER,RLIM,R0,IOPT,PARMOD,DUMMY,&
+                        IGRF_GSW_08,xfGSW,yfGSW,zfGSW,xxGSW(:),yyGSW(:),zzGSW(:),LOUT,LMAX)
+          CALL SMGSW_08(xf,yf,zf,xfgsw,yfgsw,zfgsw,-1)
+          CALL SMGSW_08(xx(1),yy(1),zz(1),xxGSW(1),yyGSW(1),zzGSW(1),-1)
+          distance(1) = 0._dp
+          do i = 2,LOUT
+             CALL SMGSW_08(xx(i),yy(i),zz(i),xxGSW(i),yyGSW(i),zzGSW(i),-1)
+             distance(i) = pi_d*REAL(i-1,DP)/REAL(LOUT-1,DP)
+          enddo
+          chival = (thetaVal + constTheta*sin(2.*thetaVal))
+          call spline(distance(1:LOUT),xx(1:LOUT),1.E31_DP,1.E31_DP,distance2derivsX(1:LOUT))
+          call spline(distance(1:LOUT),yy(1:LOUT),1.E31_DP,1.E31_DP,distance2derivsY(1:LOUT))
+          call spline(distance(1:LOUT),zz(1:LOUT),1.E31_DP,1.E31_DP,distance2derivsZ(1:LOUT))
+          do i = 2,nthe-1
+             x(i,j,k) = splint(distance(1:LOUT),xx(1:LOUT),distance2derivsX(1:LOUT),chival(i))
+             y(i,j,k) = splint(distance(1:LOUT),yy(1:LOUT),distance2derivsY(1:LOUT),chival(i))
+             z(i,j,k) = splint(distance(1:LOUT),zz(1:LOUT),distance2derivsZ(1:LOUT),chival(i))
+          enddo
+          x(1,j,k) = x0(j,k)
+          y(1,j,k) = y0(j,k)
+          z(1,j,k) = z0(j,k)
+          x(nthe,j,k) = xf
+          y(nthe,j,k) = yf
+          z(nthe,j,k) = zf
+       enddo
+    enddo
+    x(:,:,1) = x(:,:,nzeta)
+    y(:,:,1) = y(:,:,nzeta)
+    z(:,:,1) = z(:,:,nzeta)
+    x(:,:,nzeta+1) = x(:,:,2)
+    y(:,:,nzeta+1) = y(:,:,2)
+    z(:,:,nzeta+1) = z(:,:,2)
+
+    DEALLOCATE(x0,y0,z0)
+    return
+
+  end subroutine create_Bfield
+!=============================================================================!
+
+  subroutine DUMMY(IOPT,PARMOD,PSI,X,Y,Z,BXGSW,BYGSW,BZGSW)
+    use nrtype, ONLY: DP
+    
+    implicit none
+
+    integer :: iopt
+    real(DP) :: parmod(10), x, y, z, bxgsw, bygsw, bzgsw, psi
+
+    BXGSW = 0.0
+    BYGSW = 0.0
+    BZGSW = 0.0
+
+  end subroutine DUMMY
 !=============================================================================!
 !============================= INPUT ROUTINES ================================!
 !=============================================================================!
@@ -19,6 +192,7 @@ MODULE ModScbIO
   SUBROUTINE computational_domain
     !!!! Module Variables  
     USE ModRamVariables, ONLY: Kp
+    use ModRamConst,     ONLY: Re
     use ModRamParams,    ONLY: IsComponent, NameBoundMag, boundary
     USE ModScbMain,      ONLY: PathScbIn, blendInitial, tsygcorrect
     USE ModScbParams,    ONLY: decreaseConvAlphaMin, decreaseConvPsiMin, &
@@ -27,13 +201,13 @@ MODULE ModScbIO
     USE ModScbVariables, ONLY: by_imf, bz_imf, dst_global, p_dyn, wTsyg, tilt, constZ, &
                                constTheta, xpsiin, xpsiout, r0Start, byimfglobal, &
                                bzimfglobal, pdynglobal, blendGlobal, blendGlobalInitial, &
-                               x, y, z
+                               x, y, z, rhoVal, thetaVal, zetaVal, left, right
     !!!! Module Subroutines/Functions
     use ModScbCouple, ONLY: build_scb_init 
     !!!! Share Modules
     USE ModIoUnit, ONLY: UNITTMP_
     !!!! NR Modules
-    use nrtype, ONLY: DP, SP
+    use nrtype, ONLY: DP, SP, pi_d
   
     IMPLICIT NONE
   
@@ -64,7 +238,46 @@ MODULE ModScbIO
     CHARACTER(LEN=1)   :: KpFl, KpCe
     CHARACTER          :: xtype, xtype2, xtype3, xtype4
   
-    REAL(DP) :: ratioFl=1
+    REAL(DP) :: ratioFl=1, r0, t0, t1, t2, tt, zt, to, a, b, c, rr, &
+                rr1, rr2
+    COMPLEX(DP) :: rr3, r1i, r2i, r1, r2, rt
+
+    left = 1
+    right = npsi
+    if (NameBoundMag.eq.'DIPS') then
+    constz = 0.0
+    constTheta = 0.2
+    xpsiin = 1.75
+    xpsiout = 7.00
+    b = 0.0
+    do k=1,nzeta
+       do j=1,npsi
+          r0 = xpsiin + REAL(j-1, DP)/REAL(npsi-1, DP)*(xpsiout-xpsiin)
+          !if (r0.lt.1.95) left = j
+          !if (r0.lt.6.75) right = j
+          !rr = 2.
+          rr = (2-b*cos(zetaVal(k)))/(1+b*cos(zetaVal(k)))
+          t0 = pi_d-dasin((1.0/r0)**(1./rr))
+          t1 = dasin((1.0/r0)**(1./rr))
+          do i=1,nthe
+             tt = t0 + REAL(i-1,DP)/REAL(nthe-1,DP)*(t1-t0)
+             tt = tt + constTheta * SIN(2._dp*tt)
+             zt = zetaVal(k) + constz*cos(zetaVal(k))
+             rt = r0*dsin(tt)**rr
+             x(i,j,k) = (rt)*dcos(zt)*dsin(tt)
+             y(i,j,k) = (rt)*dsin(zt)*dsin(tt)
+             z(i,j,k) = (rt)*dcos(tt)
+          enddo
+       enddo
+    enddo
+    x(:,:,1) = x(:,:,nzeta)
+    y(:,:,1) = y(:,:,nzeta)
+    z(:,:,1) = z(:,:,nzeta)
+    x(:,:,nzeta+1) = x(:,:,2)
+    y(:,:,nzeta+1) = y(:,:,2)
+    z(:,:,nzeta+1) = z(:,:,2)
+    return
+    endif
 
     ALLOCATE(xFl(SIZE(x,1), SIZE(x,2), SIZE(x,3)), STAT = ierr)
     ALLOCATE(yFl(SIZE(y,1), SIZE(y,2), SIZE(y,3)), STAT = ierr)
@@ -250,7 +463,7 @@ MODULE ModScbIO
     IF (ALLOCATED(zCeDbl)) DEALLOCATE(zCeDbl, STAT = ierr)
   
     tsygcorrect = 0  ! If = 1, forces N-S symmetry, taking southern mapping data
-  
+ 
     IF (tsygcorrect /= 1) THEN
        x(:,:,1) = x(:,:,nzeta)
        y(:,:,1) = y(:,:,nzeta)
@@ -421,7 +634,7 @@ END SUBROUTINE Write_ionospheric_potential
 
 !==============================================================================
   ! Previously test_Convergence_anisotropic
-  SUBROUTINE Write_convergence_anisotropic
+  SUBROUTINE Write_convergence_anisotropic(iter)
   !!!! Module Variables
   use ModRamTiming,    ONLY: TimeRamNow
   use ModScbMain,      ONLY: prefixOut
@@ -473,7 +686,11 @@ END SUBROUTINE Write_ionospheric_potential
   REAL(DP), DIMENSION(nthe,npsi,nzeta) :: jrrInt, jrr, jzzInt, jzz, jrtInt, jrt, jztInt, jzt, &
        rhoCompSq, zetaCompSq, thetaCompSq, curlJCrossBSq, curlJCrossB
 
-  REAL(DP), DIMENSION(npsi) :: rtemp, xtemp
+  REAL(DP), DIMENSION(npsi) :: rtemp, xtemp, rLHS, rRHS, xLHS, xRHS
+  REAL(DP), DIMENSION(nthe,npsi,nzeta) :: Jx, Jy, Jz, Bx, By, Bz, JxBx, JxBy, &
+                                          JxBz, GradPx, GradPy, GradPz
+
+  character(len=2), intent(in) :: iter
 !  LOGICAL, EXTERNAL :: isnand ! Intrinsic for Portland Group Fortran
 
   !**********************************************************************************************************!
@@ -548,11 +765,9 @@ END SUBROUTINE Write_ionospheric_potential
   DO j = 1, npsi
      DO k = 1, nzeta
         jGradZetaPartialRho(:,j,k) = jacobian(:,j,k) * f(j) * fzet(k) * &
-             (gradRhoGradZeta(:,j,k) **2 - gradRhoSq(:,j,k) * &
-             gradZetaSq(:,j,k))
+             (gradRhoGradZeta(:,j,k)**2 - gradRhoSq(:,j,k) * gradZetaSq(:,j,k))
         jGradZetaPartialTheta(:,j,k) = jacobian(:,j,k) * f(j) * fzet(k) * &
-             (gradRhoGradZeta(:,j,k) * gradThetaGradZeta(:,j,k) - gradRhoGradTheta(:,j,k) * &
-             & gradZetaSq(:,j,k))
+             (gradRhoGradZeta(:,j,k) * gradThetaGradZeta(:,j,k) - gradRhoGradTheta(:,j,k) * gradZetaSq(:,j,k))
      END DO
   END DO
 
@@ -589,73 +804,179 @@ END SUBROUTINE Write_ionospheric_potential
   !***************************************************************************************************
   ! Now we have jGradRho, jGradZeta
   ! Time to compute |j x B - div dot P|
+  !DO k = 1, nzeta
+  !   DO j = 1, npsi
+  !      jCrossBSq(:,j,k) = f(j)**2 * fzet(k)**2 &
+  !                       * (gradRhoSq(:,j,k) * jGradZeta(:,j,k)**2 &
+  !                       + gradZetaSq(:,j,k) * jGradRho(:,j,k)**2 &
+  !                       - 2._dp * jGradZeta(:,j,k) * jGradRho(:,j,k) * gradRhoGradZeta(:,j,k))
+
+  !      if (isotropy.eq.0) then
+  !         gradPSq(:,j,k) = gradRhoSq(:,j,k)*dPperdRho(:,j,k)**2 &
+  !                        + gradZetaSq(:,j,k)*dPperdZeta(:,j,k)**2 &
+  !                        + gradThetaSq(:,j,k)*dPperdTheta(:,j,k)**2 &
+  !                        + 2.*dPperdRho(:,j,k)*dPperdZeta(:,j,k)*gradRhoGradZeta(:,j,k) &
+  !                        + 2.*dPperdRho(:,j,k)*dPperdTheta(:,j,k)*gradRhoGradTheta(:,j,k) &
+  !                        + 2.*dPperdZeta(:,j,k)*dPperdTheta(:,j,k)*gradThetaGradzeta(:,j,k) &
+  !                        + gradThetaSq(:,j,k)*(derivDiffPTheta(:,j,k)/jacobian(:,j,k))**2 &
+  !                        - 2.*derivDiffPTheta(:,j,k)/jacobian(:,j,k) &
+  !                        * (dPperdRho(:,j,k)*GradRhoGradTheta(:,j,k) &
+  !                         + dPperdZeta(:,j,k)*GradThetaGradZeta(:,j,k) &
+  !                         + dPperdTheta(:,j,k)*GradThetaSq(:,j,k))
+
+! !          gradPSq(:,j,k) = gradRhoSq(:,j,k)*dPperdRho(:,j,k)**2 &
+! !                         + gradZetaSq(:,j,k)*dPperdZeta(:,j,k)**2 &
+! !                         + gradThetaSq(:,j,k)*dPperdTheta(:,j,k)**2 &
+! !                         + 2.*dPperdRho(:,j,k)*dPperdZeta(:,j,k)*gradRhoGradZeta(:,j,k) &
+! !                         + 2.*dPperdRho(:,j,k)*dPperdTheta(:,j,k)*gradRhoGradTheta(:,j,k) &
+! !                         + 2.*dPperdZeta(:,j,k)*dPperdTheta(:,j,k)*gradThetaGradzeta(:,j,k) &
+! !                         + (derivDiffPTheta(:,j,k)/jacobian(:,j,k))**2 &
+! !                         - 2.*dPperdTheta(:,j,k) * derivDiffPTheta(:,j,k)/jacobian(:,j,k)
+
+  !         jCrossBMinusGradPSq(:,j,k) = gradRhoSq(:,j,k)*(f(j)*fzet(k)*jGradZeta(:,j,k)-dPperdRho(:,j,k))**2 + &
+  !              gradZetaSq(:,j,k)*(f(j)*fzet(k)*jGradRho(:,j,k)+dPperdZeta(:,j,k))**2 + gradThetaSq(:,j,k)*dPperdTheta(:,j,k)**2 + &
+  !              (derivDiffPTheta(:,j,k)/jacobian(:,j,k))**2 - &
+  !              2.*gradRhoGradZeta(:,j,k)*(f(j)*fzet(k)*jGradZeta(:,j,k)-dPperdRho(:,j,k)) * &
+  !              (f(j)*fzet(k)*jGradRho(:,j,k)+dPperdZeta(:,j,k)) - &
+  !              2.*gradRhoGradTheta(:,j,k)*(f(j)*fzet(k)*jGradZeta(:,j,k)-dPperdRho(:,j,k))*dPperdTheta(:,j,k) + &
+  !              2.*gradThetaGradzeta(:,j,k)*(f(j)*fzet(k)*jGradRho(:,j,k)+dPperdZeta(:,j,k))*dPperdTheta(:,j,k) - &
+  !              2.*dPperdTheta(:,j,k)*derivDiffPTheta(:,j,k)/jacobian(:,j,k)
+  !      else
+  !         gradPSq(:,j,k) = (fzet(k)**2 * dpdAlpha(1:nthe,j,k)**2 * gradZetaSq(:,j,k) &
+  !                         + f(j)**2 * dpdPsi(1:nthe,j,k)**2 * gradRhoSq(:,j,k) &
+  !                         + 2._dp*dpdAlpha(1:nthe,j,k)*dpdPsi(1:nthe,j,k) * f(j) * fzet(k) * gradRhoGradZeta(:,j,k))
+
+  !         jCrossBMinusGradPSq(:,j,k) = f(j)**2 * fzet(k)**2 * (gradRhoSq(:,j,k) * (jGradZeta(:,j,k) - &
+  !              1. / fzet(k) * dpdPsi(1:nthe,j,k))**2 + &
+  !              gradZetaSq(:,j,k) * (jGradRho(:,j,k) + 1./f(j) * dpdAlpha(1:nthe,j,k))**2 - 2._dp * &
+  !              (jGradZeta(:,j,k) - 1./fzet(k) * dpdPsi(1:nthe,j,k)) * (jGradRho(:,j,k) + 1./f(j)* &
+  !              dpdAlpha(1:nthe,j,k)) * gradRhoGradZeta(:,j,k))
+  !      endif
+
+  !   END DO
+  !END DO
+
+  !jCrossB = SQRT(jCrossBSq)*bnormal*pjconst*6.4
+  !gradP = SQRT(ABS(gradPSq))*pnormal*2
+  !jCrossBMinusGradPMod = SQRT(ABS(jCrossBMinusGradPSq))
+
+! Testing actual J, B, and GradP equations (in Cartesian)
+! -ME
+  Jx = (JGradRho*derivXRho + JGradZeta*derivXZeta + JGradTheta*derivXTheta)
+  Jy = (JGradRho*derivYRho + JGradZeta*derivYZeta + JGradTheta*derivYTheta)
+  Jz = (JGradRho*derivZRho + JGradZeta*derivZZeta + JGradTheta*derivZTheta)
   DO k = 1, nzeta
      DO j = 1, npsi
-        jCrossBSq(:,j,k) = f(j)**2 * fzet(k)**2 &
-                         * (gradRhoSq(:,j,k) * jGradZeta(:,j,k)**2 &
-                         + gradZetaSq(:,j,k) * jGradRho(:,j,k)**2 &
-                         - 2._dp * jGradZeta(:,j,k) * jGradRho(:,j,k) * gradRhoGradZeta(:,j,k))
-
+        Bx(:,j,k) = (f(j)*fzet(k)*derivXTheta(:,j,k)/jacobian(:,j,k))
+        By(:,j,k) = (f(j)*fzet(k)*derivYTheta(:,j,k)/jacobian(:,j,k))
+        Bz(:,j,k) = (f(j)*fzet(k)*derivZTheta(:,j,k)/jacobian(:,j,k))
         if (isotropy.eq.0) then
-           gradPSq(:,j,k) = gradRhoSq(:,j,k)*dPperdRho(:,j,k)**2 &
-                          + gradZetaSq(:,j,k)*dPperdZeta(:,j,k)**2 &
-                          + gradThetaSq(:,j,k)*dPperdTheta(:,j,k)**2 &
-                          + 2.*dPperdRho(:,j,k)*dPperdZeta(:,j,k)*gradRhoGradZeta(:,j,k) &
-                          + 2.*dPperdRho(:,j,k)*dPperdTheta(:,j,k)*gradRhoGradTheta(:,j,k) &
-                          + 2.*dPperdZeta(:,j,k)*dPperdTheta(:,j,k)*gradThetaGradzeta(:,j,k) &
-                          + (derivDiffPTheta(:,j,k)/jacobian(:,j,k))**2 &
-                          - 2.*dPperdTheta(:,j,k) * derivDiffPTheta(:,j,k)/jacobian(:,j,k)
-
-           jCrossBMinusGradPSq(:,j,k) = gradRhoSq(:,j,k)*(f(j)*fzet(k)*jGradZeta(:,j,k)-dPperdRho(:,j,k))**2 + &
-                gradZetaSq(:,j,k)*(f(j)*fzet(k)*jGradRho(:,j,k)+dPperdZeta(:,j,k))**2 + gradThetaSq(:,j,k)*dPperdTheta(:,j,k)**2 + &
-                (derivDiffPTheta(:,j,k)/jacobian(:,j,k))**2 - &
-                2.*gradRhoGradZeta(:,j,k)*(f(j)*fzet(k)*jGradZeta(:,j,k)-dPperdRho(:,j,k)) * &
-                (f(j)*fzet(k)*jGradRho(:,j,k)+dPperdZeta(:,j,k)) - &
-                2.*gradRhoGradTheta(:,j,k)*(f(j)*fzet(k)*jGradZeta(:,j,k)-dPperdRho(:,j,k))*dPperdTheta(:,j,k) + &
-                2.*gradThetaGradzeta(:,j,k)*(f(j)*fzet(k)*jGradRho(:,j,k)+dPperdZeta(:,j,k))*dPperdTheta(:,j,k) - &
-                2.*dPperdTheta(:,j,k)*derivDiffPTheta(:,j,k)/jacobian(:,j,k)
+           GradPx(:,j,k) = (dPperdRho(:,j,k)*GradRhoSq(:,j,k) &
+                          + dPperdZeta(:,j,k)*GradRhoGradZeta(:,j,k) &
+                          + dPperdTheta(:,j,k)*GradRhoGradTheta(:,j,k))*derivXRho(:,j,k) &
+                         + (dPperdRho(:,j,k)*GradRhoGradZeta(:,j,k) &
+                          + dPperdZeta(:,j,k)*GradZetaSq(:,j,k) &
+                          + dPperdTheta(:,j,k)*GradThetaGradZeta(:,j,k))*derivXZeta(:,j,k) &
+                         + (dPperdRho(:,j,k)*GradRhoGradTheta(:,j,k) &
+                          + dPperdZeta(:,j,k)*GradThetaGradZeta(:,j,k) &
+                          + dPperdTheta(:,j,k)*GradThetaSq(:,j,k))*derivXTheta(:,j,k) &
+                         + derivDiffPTheta(:,j,k)*GradRhoGradTheta(:,j,k)*derivXRho(:,j,k) &
+                         + derivDiffPTheta(:,j,k)*GradThetaGradZeta(:,j,k)*derivXZeta(:,j,k) &
+                         + derivDiffPTheta(:,j,k)*GradThetaSq(:,j,k)*derivXTheta(:,j,k)
+           GradPy(:,j,k) = (dPperdRho(:,j,k)*GradRhoSq(:,j,k) &
+                          + dPperdZeta(:,j,k)*GradRhoGradZeta(:,j,k) &
+                          + dPperdTheta(:,j,k)*GradRhoGradTheta(:,j,k))*derivYRho(:,j,k) &
+                         + (dPperdRho(:,j,k)*GradRhoGradZeta(:,j,k) &
+                          + dPperdZeta(:,j,k)*GradZetaSq(:,j,k) &
+                          + dPperdTheta(:,j,k)*GradThetaGradZeta(:,j,k))*derivYZeta(:,j,k) &
+                         + (dPperdRho(:,j,k)*GradRhoGradTheta(:,j,k) &
+                          + dPperdZeta(:,j,k)*GradThetaGradZeta(:,j,k) &
+                          + dPperdTheta(:,j,k)*GradThetaSq(:,j,k))*derivYTheta(:,j,k) &
+                         + derivDiffPTheta(:,j,k)*GradRhoGradTheta(:,j,k)*derivYRho(:,j,k) &
+                         + derivDiffPTheta(:,j,k)*GradThetaGradZeta(:,j,k)*derivYZeta(:,j,k) &
+                         + derivDiffPTheta(:,j,k)*GradThetaSq(:,j,k)*derivYTheta(:,j,k)
+           GradPz(:,j,k) = (dPperdRho(:,j,k)*GradRhoSq(:,j,k) &
+                          + dPperdZeta(:,j,k)*GradRhoGradZeta(:,j,k) &
+                          + dPperdTheta(:,j,k)*GradRhoGradTheta(:,j,k))*derivZRho(:,j,k) &
+                         + (dPperdRho(:,j,k)*GradRhoGradZeta(:,j,k) &
+                          + dPperdZeta(:,j,k)*GradZetaSq(:,j,k) &
+                          + dPperdTheta(:,j,k)*GradThetaGradZeta(:,j,k))*derivZZeta(:,j,k) &
+                         + (dPperdRho(:,j,k)*GradRhoGradTheta(:,j,k) &
+                          + dPperdZeta(:,j,k)*GradThetaGradZeta(:,j,k) &
+                          + dPperdTheta(:,j,k)*GradThetaSq(:,j,k))*derivZTheta(:,j,k) &
+                         + derivDiffPTheta(:,j,k)*GradRhoGradTheta(:,j,k)*derivZRho(:,j,k) &
+                         + derivDiffPTheta(:,j,k)*GradThetaGradZeta(:,j,k)*derivZZeta(:,j,k) &
+                         + derivDiffPTheta(:,j,k)*GradThetaSq(:,j,k)*derivZTheta(:,j,k)
         else
-           gradPSq(:,j,k) = (fzet(k)**2 * dpdAlpha(1:nthe,j,k)**2 * gradZetaSq(:,j,k) + f(j)**2 * &
-                dpdPsi(1:nthe,j,k)**2 * gradRhoSq(:,j,k) + 2._dp*dpdAlpha(1:nthe,j,k)*dpdPsi(1:nthe,j,k) * &
-                f(j) * fzet(k) * gradRhoGradZeta(:,j,k))
-
-           jCrossBMinusGradPSq(:,j,k) = f(j)**2 * fzet(k)**2 * (gradRhoSq(:,j,k) * (jGradZeta(:,j,k) - &
-                1. / fzet(k) * dpdPsi(1:nthe,j,k))**2 + &
-                gradZetaSq(:,j,k) * (jGradRho(:,j,k) + 1./f(j) * dpdAlpha(1:nthe,j,k))**2 - 2._dp * &
-                (jGradZeta(:,j,k) - 1./fzet(k) * dpdPsi(1:nthe,j,k)) * (jGradRho(:,j,k) + 1./f(j)* &
-                dpdAlpha(1:nthe,j,k)) * gradRhoGradZeta(:,j,k))
+           GradPx(:,j,k) = (f(j)*dPdPsi(:,j,k)*GradRhoSq(:,j,k) &
+                          + fzet(k)*dPdAlpha(:,j,k)*GradRhoGradZeta(:,j,k))*derivXRho(:,j,k) &
+                         + (f(j)*dPdPsi(:,j,k)*GradRhoGradZeta(:,j,k) &
+                          + fzet(k)*dPdAlpha(:,j,k)*GradZetaSq(:,j,k))*derivXZeta(:,j,k) &
+                         + (f(j)*dPdPsi(:,j,k)*GradRhoGradTheta(:,j,k) &
+                          + fzet(k)*dPdAlpha(:,j,k)*GradThetaGradZeta(:,j,k))*derivXTheta(:,j,k)
+           GradPy(:,j,k) = (f(j)*dPdPsi(:,j,k)*GradRhoSq(:,j,k) &
+                          + fzet(k)*dPdAlpha(:,j,k)*GradRhoGradZeta(:,j,k))*derivYRho(:,j,k) &
+                         + (f(j)*dPdPsi(:,j,k)*GradRhoGradZeta(:,j,k) &
+                          + fzet(k)*dPdAlpha(:,j,k)*GradZetaSq(:,j,k))*derivYZeta(:,j,k) &
+                         + (f(j)*dPdPsi(:,j,k)*GradRhoGradTheta(:,j,k) &
+                          + fzet(k)*dPdAlpha(:,j,k)*GradThetaGradZeta(:,j,k))*derivYTheta(:,j,k)
+           GradPz(:,j,k) = (f(j)*dPdPsi(:,j,k)*GradRhoSq(:,j,k) &
+                           + fzet(k)*dPdAlpha(:,j,k)*GradRhoGradZeta(:,j,k))*derivZRho(:,j,k) &
+                          + (f(j)*dPdPsi(:,j,k)*GradRhoGradZeta(:,j,k) &
+                          + fzet(k)*dPdAlpha(:,j,k)*GradZetaSq(:,j,k))*derivZZeta(:,j,k) &
+                         + (f(j)*dPdPsi(:,j,k)*GradRhoGradTheta(:,j,k) &
+                          + fzet(k)*dPdAlpha(:,j,k)*GradThetaGradZeta(:,j,k))*derivZTheta(:,j,k)
         endif
+     ENDDO
+  ENDDO
+  JxBx = Jy*Bz-Jz*By
+  JxBy = Jz*Bx-Jx*Bz
+  JxBz = Jx*By-Jy*Bx
 
-     END DO
-  END DO
+  jCrossB = sqrt(JxBx**2+JxBy**2+JxBz**2)
+  gradP = sqrt(GradPx**2+GradPy**2+GradPz**2)
 
-  distance = sqrt(x**2+y**2+z**2)
-  jCrossB = SQRT(jCrossBSq)*(bnormal*pjconst/6.4)*distance(:,:,1:nzeta)
-  gradP = SQRT(ABS(gradPSq))*(pnormal*2.0)/distance(:,:,1:nzeta)
-  jCrossBMinusGradPMod = SQRT(ABS(jCrossBMinusGradPSq))
-
+  GradPx = GradPx * pnormal*2
+  GradPy = GradPy * pnormal*2
+  GradPz = GradPz * pnormal*2
+  Bx = Bx * bnormal
+  By = By * bnormal
+  Bz = Bz * bnormal
+  Jx = Jx * pjconst*6.4
+  Jy = Jy * pjconst*6.4
+  Jz = Jz * pjconst*6.4
+  jCrossB = jCrossB*bnormal*pjconst*6.4
+  !jCrossB(:,npsi,:)   = 1.E-10
+  !jCrossB(:,npsi-1,:) = 1.E-10
+  !jCrossB(:,1,:) = 1.E-10
+  !jCrossB(:,2,:) = 1.E-10
+  GradP   = GradP*pnormal*2
+  jCrossBMinusGradPMod = jCrossB-GradP
+ 
   ! Force balance quantities
-  FileName = trim(prefixOut)//'Force_balance_equatorial'
+  FileName = trim(prefixOut)//'Force_balance_equatorial_'//iter
   OPEN(UNITTMP_, file = RamFileName(FileName,'dat',TimeRamNow), status='replace')
   WRITE(UNITTMP_, *) npsi, nzeta
   DO j = 1, npsi
      DO k = 1, nzeta
         WRITE(UNITTMP_, *) x(nThetaEquator, j, k), y(nThetaEquator, j, k), bf(nThetaEquator, j, k)*bnormal, &
              jCrossB(nThetaEquator,j,k), jCrossBMinusGradPMod(nThetaEquator,j,k), &
-             gradP(nThetaEquator,j,k), jCrossB(nThetaEquator,j,k)/gradP(nThetaEquator,j,k)
+             gradP(nThetaEquator,j,k)
      END DO
   END DO
   CLOSE(UNITTMP_)
 
-  FileName = trim(prefixOut)//'Force_balance_midnight'
+  FileName = trim(prefixOut)//'Force_balance_midnight_'//iter
   OPEN(UNITTMP_, file = RamFileName(FileName,'dat',TimeRamNow), status='replace')
   WRITE(UNITTMP_, *) npsi, nthe
   DO j = 1, npsi
      DO i = 1, nthe
         WRITE(UNITTMP_, *) x(i,j,nZetaMidnight), z(i,j,nZetaMidnight), &
              bf(i,j,nZetaMidnight)*bnormal, jCrossB(i,j,nZetaMidnight), &
-             jCrossBMinusGradPMod(i,j,nZetaMidnight), gradP(i,j,nZetaMidnight), &
-             jCrossBMinusGradPMod(i,j,nZetaMidnight)/jCrossB(i,j,nZetaMidnight)
+             jCrossBMinusGradPMod(i,j,nZetaMidnight), gradP(i,j,nZetaMidnight)
+        WRITE(UNITTMP_, *) x(i,j,nZeta-1), z(i,j,nZeta-1), &
+             bf(i,j,nZeta-1)*bnormal, jCrossB(i,j,nZeta-1), &
+             jCrossBMinusGradPMod(i,j,nZeta-1), gradP(i,j,nZeta-1)
      END DO
   END DO
   CLOSE(UNITTMP_)
@@ -664,8 +985,8 @@ END SUBROUTINE Write_ionospheric_potential
   call newj
   DO j = 2, npsi-1
      i = nThetaEquator
-     k = nZetaMidnight
-     rtemp(j) = - vecd(i,j,k)*psi(i,j,k) &
+     k = 8
+     rLHS(j)  = - vecd(i,j,k)*psi(i,j,k) &
                 + vec1(i,j,k)*psi(i-1,j-1,k) &
                 + vec2(i,j,k)*psi(i,j-1,k) &
                 + vec3(i,j,k)*psi(i+1,j-1,k) &
@@ -673,18 +994,20 @@ END SUBROUTINE Write_ionospheric_potential
                 + vec6(i,j,k)*psi(i+1,j,k) &
                 + vec7(i,j,k)*psi(i-1,j+1,k) &
                 + vec8(i,j,k)*psi(i,j+1,k) &
-                + vec9(i,j,k)*psi(i+1,j+1,k) &
-                - vecr(i,j,k)
+                + vec9(i,j,k)*psi(i+1,j+1,k)
+     rRHS(j)  = vecr(i,j,k)
   ENDDO
-  rtemp(1) = 0.
-  rtemp(npsi) = 0.
+  rLHS(1) = 0.0
+  rRHS(1) = 0.0
+  rLHS(npsi) = 0.0
+  rRHS(npsi) = 0.0 
 
   call metrica
   call newk
-  DO j = 1, npsi
+  DO j = 2, npsi-1
      i = nThetaEquator
-     k = nZetaMidnight
-     xtemp(j) = - vecd(i,j,k)*alfa(i,j,k)  &
+     k = 8
+     xLHS(j)  = - vecd(i,j,k)*alfa(i,j,k)  &
                 + vec1(i,j,k)*alfa(i-1,j,k-1) &
                 + vec2(i,j,k)*alfa(i,j,k-1) &
                 + vec3(i,j,k)*alfa(i+1,j,k-1) &
@@ -692,18 +1015,30 @@ END SUBROUTINE Write_ionospheric_potential
                 + vec6(i,j,k)*alfa(i+1,j,k)  &
                 + vec7(i,j,k)*alfa(i-1,j,k+1) &
                 + vec8(i,j,k)*alfa(i,j,k+1) &
-                + vec9(i,j,k)*alfa(i+1,j,k+1) &
-               - vecx(i,j,k)
+                + vec9(i,j,k)*alfa(i+1,j,k+1)
+     xRHS(j)  = vecx(i,j,k)
   ENDDO
+  xLHS(1) = 0.0
+  xRHS(1) = 0.0
+  xLHS(npsi) = 0.0
+  xRHS(npsi) = 0.0
 
-  FileName = trim(prefixOut)//'Force_balance_line'
+  i = nThetaEquator
+  k = 8
+  FileName = trim(prefixOut)//'Force_balance_line_'//iter
   OPEN(UNITTMP_, file = RamFileName(FileName,'dat',TimeRamNow), status='replace') 
-  WRITE(UNITTMP_, *) npsi
+  WRITE(UNITTMP_, *) i,k
   DO j = 1, npsi
-     WRITE(UNITTMP_, *) x(nThetaEquator,j,nZetaMidnight), y(nThetaEquator,j,nZetaMidnight), &
-          jCrossB(nThetaEquator,j,nZetaMidnight), gradP(nThetaEquator,j,nZetaMidnight), &
-          jCrossBMinusGradPMod(nThetaEquator,j,nZetaMidnight), rtemp(j), xtemp(j), &
-          jacobian(nThetaEquator,j,nZetaMidnight), f(j), fzet(nZetaMidnight)
+     WRITE(UNITTMP_, *) x(i,j,k), y(i,j,k), jCrossB(i,j,k), gradP(i,j,k), rLHS(j), &
+                        rRHS(j), xLHS(j), xRHS(j), Jx(i,j,k), Jy(i,j,k), Jz(i,j,k), &
+                        Bx(i,j,k), By(i,j,k), Bz(i,j,k), JxBx(i,j,k), &
+                        JxBy(i,j,k), JxBz(i,j,k), GradPx(i,j,k), GradPy(i,j,k), &
+                        GradPz(i,j,k), jacobian(i,j,k), z(i,j,k), derivXTheta(i,j,k), &
+                        derivXRho(i,j,k), derivXZeta(i,j,k), derivYTheta(i,j,k), &
+                        derivYRho(i,j,k), derivYZeta(i,j,k), derivZTheta(i,j,k), &
+                        derivZRho(i,j,k), derivZZeta(i,j,k), JGradTheta(i,j,k), &
+                        JGradRho(i,j,k), JGradZeta(i,j,k)
+
   END DO
   CLOSE(UNITTMP_)
 

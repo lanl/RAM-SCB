@@ -7,7 +7,7 @@
                                dBsqdPsi, dBsqdTheta, bfInitial, pressure3D, bj, phij, &
                                ppar, pper, tau, sigma, dPdAlpha, dPdPsi, dSqPdAlphaSq, &
                                dSqPdPsiSq, DstDps, DstDpsInsideGeo, DstBiot, DstBiotInsideGeo, &
-                               kmax, nisave, nitry, iteration, iConvGlobal, lconv
+                               kmax, nisave, nitry, iteration, iConvGlobal, lconv, zetaVal
   
     implicit none
     save
@@ -26,7 +26,8 @@
                                decreaseConvAlpha, decreaseConvPsi, errorAlpha, errorPsi, &
                                diffmx, errorAlphaPrev, errorPsiPrev, x, y, z, sumb, &
                                sumdb, jacobian, xzero3, psiin, psiout, psitot, &
-                               xpsiin, xpsiout, f, fp, fluxVolume, psiPrev, alfaPrev
+                               xpsiin, xpsiout, f, fp, fluxVolume, psiPrev, alfaPrev, &
+                               constZ, fzet, fzetp, chiVal, chi, thetaVal, constTheta
     use ModScbParams,    ONLY: decreaseConvAlphaMin, decreaseConvPsiMin, blendMin, &
                                decreaseConvAlphaMax, decreaseConvPsiMax, blendMax, &
                                blendAlphaInit, blendPsiInit, MinSCBIterations, &
@@ -38,7 +39,8 @@
                               iterateAlpha, directPsi, iteratePsi, psiFunctions, &
                               InterpolatePsiR
     USE ModScbEquation, ONLY: newk, newj, metric, metrica ! LHS and RHS equations
-    USE ModScbIO,       ONLY: computational_domain, Write_Convergence_Anisotropic
+    USE ModScbIO,       ONLY: computational_domain, Write_Convergence_Anisotropic, &
+                              create_BField
     !!!! Share Modules
     USE ModIOUnit, ONLY: UNITTMP_
     !!!! NR Modules
@@ -47,9 +49,9 @@
     IMPLICIT NONE
   
     INTEGER  :: iconv, nisave1, ierr, iCountEntropy
-    INTEGER  :: i, j
+    INTEGER  :: i, j, k
     REAL(DP) :: sumdbconv, errorfirstalpha, diffmxfirstalpha, &
-                errorfirstpsi, diffmxfirstpsi
+                errorfirstpsi, diffmxfirstpsi, dphi, phi
     REAL(DP) :: sumb1, sumdb1, diffmx1, xpsitot, xpl, psis
     REAL(DP) :: entropyFixed(npsi,nzeta)
     REAL(DP), ALLOCATABLE, SAVE :: xPrev(:,:,:), yPrev(:,:,:), zPrev(:,:,:)
@@ -61,23 +63,49 @@
     decreaseConvPsi   = decreaseConvPsiMin + (decreaseConvPsiMax - decreaseConvPsiMin) &
                         *(MIN(Kp,6._dp))**2/36.
 
-    if ((NameBoundMag.eq.'SWMF').or.(NameBoundMag.eq.'T89C')) then
-       call computational_domain
-       psiin   = -xzero3/xpsiin
-       psiout  = -xzero3/xpsiout
-       psitot  = psiout-psiin
-       xpsitot = xpsiout - xpsiin
+!!!!! Compute the SCB computational domain
+    call create_BField
+    psiin   = -xzero3/xpsiin
+    psiout  = -xzero3/xpsiout
+    psitot  = psiout-psiin
+    xpsitot = xpsiout - xpsiin
+    DO j = 1, npsi
+       psis = REAL(j-1, DP) / REAL(npsi-1, DP)
+       xpl = xpsiin + xpsitot * psis**pow
+       psival(j) = -xzero3 / xpl
+       f(j) = (xzero3 / xpl**2) * xpsitot * pow * psis**(pow-1.)
+       fp(j) = 0._dp ! If pow = 1
+    END DO
+    call psiges
+
+    dphi  = twopi_d/REAL(nzeta-1, DP)
+    DO k = 1, nzeta+1
+       phi         = REAL(k-2, DP) * dphi
+       alphaVal(k) = phi + constz*sin(phi) ! Concentration at midnight
+       fzet(k)     = 1._dp + constz*COS(phi)
+       fzetp(k)    = - constz * SIN(phi)
+    END DO
+    call alfges
+
+    chiVal = (thetaVal + constTheta * SIN(2._dp*thetaVal))
+    DO i = 1, nthe
        DO j = 1, npsi
-          psis = REAL(j-1, DP) / REAL(npsi-1, DP)
-          xpl = xpsiin + xpsitot * psis**pow
-          psival(j) = -xzero3 / xpl
-          f(j) = (xzero3 / xpl**2) * xpsitot * pow * psis**(pow-1.)
-          fp(j) = 0._dp ! If pow = 1
+          DO k = 2, nzeta
+             chi(i,j,k) = chiVal(i)
+          END DO
        END DO
-       call psiges
-       call alfges
-    endif
- 
+    END DO
+    chi(:,:,1) = chi(:,:,nzeta)
+    chi(:,:,nzeta+1) = chi(:,:,2)
+
+
+! Shouldn't derivative's be taken with respect to the actual distribution????
+! If so, we need to change all thetaVal -> chiVal and zetaVal -> alphaVal
+! As a first attempt let's try it here -ME
+    thetaVal = chiVal
+    zetaVal = alphaVal(1:nzeta)
+!!!!!
+
     sumb1 = 0._dp
     sumdb1 = 0._dp
     diffmx1 = 0._dp
@@ -91,7 +119,7 @@
     iconv = 0
     sumdbconv = 0.0_dp
     iConvGlobal = 0
-  
+
     IF (iAMR == 1) THEN
        CALL findR
        CALL InterpolatePsiR
@@ -107,27 +135,18 @@
 
        ! Define the right-hand side of the betaEuler equation
        CALL pressure
- 
+
+       ! Moved the convergence test to after the SCB computation completes
+       IF (iteration == 1 .AND. isFBDetailNeeded == 1) THEN
+          CALL Write_Convergence_Anisotropic('00')
+          ! to see how far from equilibrium we are before computing
+       END IF
+
        SCB_CALCULATION: IF (method /= 3) then
           psiPrev(:,:,:) = psi(:,:,:)
           alfaPrev(:,:,:) = alfa(:,:,:)
 
           CALL newk
-  
-          ! Moved the convergence test to after the SCB computation completes
-          IF (iteration == 1 .AND. isFBDetailNeeded == 1) THEN
-             CALL Write_Convergence_Anisotropic
-             ! to see how far from equilibrium we are before computing
-          END IF
-  
-          IF (isEnergDetailNeeded == 1) THEN
-             SELECT CASE(isotropy)
-             CASE(1) ! Isotropic
-                !CALL energy
-             CASE default ! Anisotropic
-                !C   CALL dsp_general ! Computes energies and Dst from DPS relation
-             END SELECT
-          END IF
   
           errorAlphaPrev = errorAlpha
   
@@ -213,9 +232,11 @@
 
           !IF (isotropy == 1) CALL entropy(entropyFixed, fluxVolume, iCountEntropy)
   
-!          CALL computeBandJacob_initial
           CALL metric
           IF (MINVAL(jacobian) < 0._dp) STOP 'CE: metric problem.'
+
+
+          call computeBandJacob_initial
           CALL pressure
   
           !c  define the right-hand side of the alphaEuler equation
@@ -350,7 +371,7 @@
     ! extrapolate to the fixed boundary
     CALL bounextp
 
-    IF (isFBDetailNeeded == 1) CALL Write_Convergence_Anisotropic 
+    IF (isFBDetailNeeded == 1) CALL Write_Convergence_Anisotropic('01')
     ! Computes energies and Dst from DPS relation, write to disk (+ Biot-Savart values) 
     ! Remove for speed
     IF (isotropy == 0 .AND. isEnergDetailNeeded == 1) CALL dps_general
@@ -906,7 +927,7 @@ SUBROUTINE pressure
                                dPPerdZeta, dPPerdTheta, dBsqdRho, dBsqdZeta
     !!!! Module Subroutines/Functions
     USE ModScbSpline, ONLY: Spline_2D_derivs, Spline_2D_point, Spline_coord_Derivs
-    USE ModScbFunctions, ONLY: SavGol7, pRoeRad
+    USE ModScbFunctions, ONLY: SavGol7, pRoeRad, extap
     !!!! NR Modules
     use nrtype, ONLY: DP, SP, pi_d, twopi_d
     IMPLICIT NONE
@@ -1011,6 +1032,7 @@ SUBROUTINE pressure
     REAL(DP) :: xAr(48), yAr(48)
     REAL(DP) :: xSWMF(48,48), ySWMF(48,48), pressSWMF(48,48), rhoSWMF(48,48) 
     CHARACTER(len=4) :: ST3
+    real(dp) :: drad
 
     integer :: mloc(2)
     ! LOGICAL :: isnand ! intrinsic for PGF
@@ -1405,18 +1427,18 @@ SUBROUTINE pressure
   
           IF (ALLOCATED(pValue)) DEALLOCATE(pValue, STAT=ierr)
   
-          pperEq = pperEq * 1.602E1 / pnormal 
-          pparEq = pparEq * 1.602E1 / pnormal
+          pperEq = pperEq / pnormal 
+          pparEq = pparEq / pnormal
   
           ! Sometimes the interpolation can give very small negative values very 
           ! near the Earth; inconsequential
           WHERE(pperEq < 0.0) pperEq = MINVAL(pressPerRaw) ! 1e-1_dp/pnormal
           WHERE(pparEq < 0.0) pparEq = MINVAL(pressParRaw) ! 1e-1_dp/pnormal
           DO k = 1, nzeta
-             DO j = 1, npsi
+             DO j = npsi-3, 1, -1
                 IF (radGrid(j,k) < 2.0) THEN ! Extrapolation inside 2RE from Earth
-                   pperEq(j,k) = pperEq(4,k) ! MINVAL(pressPerRaw)/pnormal ! 1e-1_dp/pnormal
-                   pparEq(j,k) = pparEq(4,k) ! MINVAL(pressParRaw)/pnormal ! 1e-1_dp/pnormal
+                   CALL extap(pperEq(j+3,k),pperEq(j+2,k),pperEq(j+1,k),pperEq(j,k))
+                   CALL extap(pparEq(j+3,k),pparEq(j+2,k),pparEq(j+1,k),pparEq(j,k))
                 END IF
              END DO
           END DO
