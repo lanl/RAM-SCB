@@ -505,16 +505,15 @@ SUBROUTINE ionospheric_potential
 
      if (UseSWMFFile) then
         UseAL = .false.
-        print*, 'IP: year, month, day, hour, min, btot, bz, v, n'
+        print*, 'IP: year, month, day, hour, min, by, bz, v, n'
         Read_SWMF_file_05: DO i = 1, iLines
            read(UNITTMP_,*) iyear_l, imonth_l, iday_l, ihour_l, imin_l, isec_l, imsec_l, &
                             bximf_l, byimf_l, bzimf_l, vx_l, vy_l, vz_l, nk_l, t_l
            if ((TimeRamNow%iYear.eq.iyear_l).and.(TimeRamNow%iMonth.eq.imonth_l).and. &
                (TimeRamNow%iDay.eq.iday_l).and. &
                (TimeRamNow%iHour.eq.ihour_l).and.(TimeRamNow%iMinute.eq.imin_l)) then
-              bTot_l = SQRT(bximf_l**2 + byimf_l**2 + bzimf_l**2)
               vk_l   = SQRT(vx_l**2 + vy_l**2 + vz_l**2)
-              write(*,*)iyear_l,imonth_l,iday_l, ihour_l, imin_l, btot_l, bzimf_l, vk_l, nk_l
+              write(*,*)iyear_l,imonth_l,iday_l, ihour_l, imin_l, byimf_l, bzimf_l, vk_l, nk_l
               EXIT Read_SWMF_file_05
            END IF
         END DO Read_SWMF_file_05
@@ -537,7 +536,8 @@ SUBROUTINE ionospheric_potential
      endif
      CLOSE(UNITTMP_)
 
-     angle = 180._dp/pi_d*ACOS(bzimf_l/bTot_l)
+     if (bzimf_l.lt.-20) bzimf_l = -20
+     if (bzimf_l.gt.20) bzimf_l = 20
      CALL SetModel05(byimf_l, bzimf_l, tilt, Vk_l, Nk_l)
      latGrid = 180._dp/pi_d * latGrid ! Transform latitude to degrees for Weimer EpotVal function
      lonGrid = 12._dp/pi_d * lonGrid ! Transform lonGrid to hours (MLT) for Weimer EpotVal function
