@@ -190,9 +190,9 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   do j=1,nT
      do k=1,nE
         call lintp(logELan, logFlux_II(j,:), NEL_+pE, logERam(k), y, iError)
-        if (y.gt.8)  then
-           y=8
-           write(*,*) ' in ModRamBoundary: limit flux to 1e8'
+        if (y.gt.10)  then
+           y=10
+           write(*,*) ' in ModRamBoundary: limit flux to 1e10'
         end if
         fluxOut_II(j,k)=10.**y
      end do
