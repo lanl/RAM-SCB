@@ -7,11 +7,16 @@ MODULE ModScbIO
   
   contains
 
-  subroutine create_Bfield
+!=============================================================================!
+!============================= INPUT ROUTINES ================================!
+!=============================================================================!
+
+  subroutine computational_domain
     !!!! Module Variables  
     USE ModRamVariables, ONLY: Kp
     use ModRamConst,     ONLY: Re
     use ModRamParams,    ONLY: IsComponent, NameBoundMag, boundary
+    use ModRamTiming,    ONLY: TimeRamNow
     USE ModScbMain,      ONLY: PathScbIn, blendInitial, tsygcorrect
     USE ModScbParams,    ONLY: decreaseConvAlphaMin, decreaseConvPsiMin, &
                                decreaseConvAlphaMax, decreaseConvPsiMax
@@ -19,55 +24,65 @@ MODULE ModScbIO
     USE ModScbVariables, ONLY: by_imf, bz_imf, dst_global, p_dyn, wTsyg, tilt, constZ, &
                                constTheta, xpsiin, xpsiout, r0Start, byimfglobal, &
                                bzimfglobal, pdynglobal, blendGlobal, blendGlobalInitial, &
-                               x, y, z, rhoVal, thetaVal, zetaVal, left, right, chiVal
+                               x, y, z, rhoVal, thetaVal, zetaVal, left, right, chiVal, &
+                               kmax, nThetaEquator
     !!!! Module Subroutines/Functions
+    use ModRamFunctions, ONLY: RamFileName
     use ModScbSpline, ONLY: spline, splint
     use ModScbCouple, ONLY: build_scb_init
     !!!! Share Modules
+    use ModTimeConvert, ONLY: n_day_of_year
     USE ModIoUnit, ONLY: UNITTMP_
     !!!! NR Modules
     use nrtype, ONLY: DP, SP, pi_d
 
     IMPLICIT NONE
 
-    INTEGER :: i, j, k
+    INTEGER :: i, j, k, scans
 
-    REAL(DP), ALLOCATABLE :: x0(:,:), y0(:,:), z0(:,:) 
-     
     REAL(DP) :: ratioFl=1, r0, t0, t1, tt, zt, b, rr, rt
-
-    REAL(DP), DIMENSION(100000) :: distance, xx, yy, zz, distance2derivsX, &
+    REAL(DP) :: Pdyn, Dst, ByIMF, BzIMF, G(3), W(6)
+    REAL(DP), DIMENSION(1000) :: distance, xx, yy, zz, distance2derivsX, &
                                    distance2derivsY, distance2derivsZ, xxGSW, &
-                                   yyGSW, zzGSW
-    INTEGER :: LMAX = 100000
-    INTEGER :: IOPT, LOUT
+                                   yyGSW, zzGSW, bx, by, bz
+    INTEGER :: LMAX = 1000
+    INTEGER :: IOPT, LOUT, iYear, iMonth, iDay, iHour, iMin, iSec
     REAL(DP) :: ER, DSMAX, RLIM, PARMOD(10), xf, yf, zf, xf2, yf2, zf2, DIR
-    EXTERNAL :: DIP_08, IGRF_GSW_08, SMGSW_08
+    REAL(DP) :: x0, y0, z0, XGSW, YGSW, ZGSW, xfGSW, yfGSW, zfGSW, RIN
+    REAL(DP) :: distConsecFluxSqOld, distConsecFluxSq
+    REAL(DP) :: AA, SPS, CPS, PS, AB, tVal(nthe), cVal(nthe)
+    COMMON /GEOPACK1/ AA(10),SPS,CPS,AB(3),PS
 
-    REAL(DP) :: XGSW, YGSW, ZGSW, tmin, tmax, xfGSW, yfGSW, zfGSW
+    integer :: time1, clock_rate = 1000, clock_max = 100000
+    real(dp) :: starttime,stoptime
 
-    ! For generating x, y, and z arrays using analytic dipole and analytic compressed dipole
+
     left = 1
     right = npsi
     if ((NameBoundMag.eq.'DIPS').or.(NameBoundMag.eq.'DIPC')) then
-       constz = 0.0
-       constTheta = 0.2
+       ! For generating x, y, and z arrays using analytic dipole and analytic compressed dipole
+       ! the variable b controls the compression with 0 being no compression
+       constZ = 0.0
+       constTheta = 0.0
        xpsiin = 1.75
        xpsiout = 7.00
        b = 0
        if (NameBoundMag.eq.'DIPC') b = 0.4
+       DO i = 1, nthe
+          tVal(i) = pi_d * REAL(i-1, DP)/REAL(nthe-1, DP)
+       END DO
+       chival = (tVal + constTheta*sin(2.*tVal))
+
        do k=1,nzeta
           do j=1,npsi
              r0 = xpsiin + REAL(j-1, DP)/REAL(npsi-1, DP)*(xpsiout-xpsiin)
-             !if (r0.lt.1.95) left = j
-             !if (r0.lt.6.75) right = j
              rr = (2-b*cos(zetaVal(k)))/(1+b*cos(zetaVal(k)))
              t0 = pi_d-dasin((1.0/r0)**(1./rr))
              t1 = dasin((1.0/r0)**(1./rr))
              do i=1,nthe
                 tt = t0 + REAL(i-1,DP)/REAL(nthe-1,DP)*(t1-t0)
                 tt = tt + constTheta * SIN(2._dp*tt)
-                zt = zetaVal(k) + constz*cos(zetaVal(k))
+                zt = zetaVal(k)!+constZ*SIN(zetaVal(k))
                 rt = r0*dsin(tt)**rr
                 x(i,j,k) = (rt)*dcos(zt)*dsin(tt)
                 y(i,j,k) = (rt)*dsin(zt)*dsin(tt)
@@ -81,92 +96,245 @@ MODULE ModScbIO
        x(:,:,nzeta+1) = x(:,:,2)
        y(:,:,nzeta+1) = y(:,:,2)
        z(:,:,nzeta+1) = z(:,:,2)
-       return
+
+    else
+       ! For generating x, y, and z arrays using field line tracing
+       !! Define the inputs needed for the magnetic field models for the tracing
+       DIR = -1.0
+       DSMAX = 0.1
+       ER = 0.001
+       RLIM = 20.0
+       IOPT = 1
+       PARMOD = (/1._dp,1._dp,1._dp,1._dp,1._dp,1._dp,1._dp,1._dp,1._dp,1._dp/)
+       iYear  = TimeRamNow%iYear
+       iMonth = TimeRamNow%iMonth
+       iDay   = TimeRamNow%iDay
+       iHour  = TimeRamNow%iHour
+       iMin   = TimeRamNow%iMinute
+       iSec   = TimeRamNow%iSecond
+       call RECALC_08(iYear,n_day_of_year(iYear,iMonth,iDay),iHour,iMin,iSec,-400._dp,0._dp,0._dp)
+
+       ! For now set dipole tile angle to 0
+       SPS = 0.0
+       CPS = 1.0
+       PS = 0.0
+       !
+
+       ! Get correct model inputs and place them in cooresponding variables
+       call get_model_inputs(Pdyn,Dst,ByIMF,BzIMF,G,W)
+       IF ((NameBoundMag.eq.'T89I').or.(NameBoundMag.eq.'T89D')) THEN
+          IOPT = floor(Kp)
+       ELSEIF ((NameBoundMag.eq.'T96I').or.(NameBoundMag.eq.'T96D')) THEN
+          PARMOD(1) = Pdyn
+          PARMOD(2) = Dst
+          PARMOD(3) = ByIMF
+          PARMOD(4) = BzIMF
+       ELSEIF ((NameBoundMag.eq.'T02I').or.(NameBoundMag.eq.'T02D')) THEN
+          PARMOD(1) = Pdyn
+          PARMOD(2) = Dst
+          PARMOD(3) = ByIMF
+          PARMOD(4) = BzIMF
+          PARMOD(5) = G(1)
+          PARMOD(6) = G(2)
+       ELSEIF ((NameBoundMag.eq.'T04I').or.(NameBoundMag.eq.'T04D')) THEN
+          PARMOD(1) = Pdyn
+          PARMOD(2) = Dst
+          PARMOD(3) = ByIMF
+          PARMOD(4) = BzIMF
+          PARMOD(5) = W(1)
+          PARMOD(6) = W(2)
+          PARMOD(7) = W(3)
+          PARMOD(8) = W(4)
+          PARMOD(9) = W(5)
+          PARMOD(10) = W(6)
+       ELSEIF (NameBoundMag.eq.'IGRF') THEN
+          ! Don't need to do anything, just want it to not fail
+       ELSE
+          CALL CON_STOP('Unrecognized magnetic boundary')
+       ENDIF
+
+       ! Start tracing timing
+       call system_clock(time1,clock_rate,clock_max)
+       starttime=time1/real(clock_rate,dp)
+   
+       ! Find the correct starting point for the outer edge.
+       ! We have to scan the night sector for the most stretched
+       ! location since it isn't always at midnight
+       scans = 100
+       xpsiout = 8.0
+       do k = 1,scans
+          x0 = 8._dp*dcos(pi_d/2._dp+(k-1)*pi_d/(scans-1))
+          y0 = 8._dp*dsin(pi_d/2._dp+(k-1)*pi_d/(scans-1))
+          z0 = 0._dp
+          call trace(x0,y0,z0,DIR,DSMAX,ER,RLIM,1._dp,IOPT,PARMOD, &
+                     xf,yf,zf,xx(:),yy(:),zz(:),LOUT,LMAX,bx,by,bz)
+          xpsiout = min(xpsiout,1./(1.-zf**2/(xf**2+yf**2+zf**2)))
+       enddo
+
+       ! Find the correct starting point for the inner edge.
+       ! No need to scan through the night sector since the field
+       ! lines won't vary much longitudinally
+       !x0 = -1.75_dp
+       !y0 = 0._dp
+       !z0 = 0._dp
+       !call trace(x0,y0,z0,DIR,DSMAX,ER,RLIM,1._dp,IOPT,PARMOD, &
+       !           xf,yf,zf,xx(:),yy(:),zz(:),LOUT,LMAX,bx,by,bz)
+       xpsiin = 1.75  !1./(1.-zf**2/(xf**2+yf**2+zf**2))
+
+       ! Calculate dipole starting points for given xpsiin and xpsiout
+       ! in chosen field and perform nzeta*npsi traces to create grid
+       constZ = 0.0
+       constTheta = 0.0
+       DO i = 1, nthe
+          tVal(i) = pi_d * REAL(i-1, DP)/REAL(nthe-1, DP)
+       END DO
+       do k=2,nzeta
+          do j=1,npsi
+             r0 = xpsiin + REAL(j-1,DP)/REAL(npsi-1,DP)*(xpsiout-xpsiin)
+             tt = pi_d-dasin(dsqrt(1.0/r0))
+             rt = r0*dsin(tt)**2
+             zt = zetaVal(k)!+constZ*sin(zetaVal(k))
+             x0 = rt*dcos(zt)*dsin(tt)
+             y0 = rt*dsin(zt)*dsin(tt)
+             z0 = rt*dcos(tt)
+             CALL trace(x0,y0,z0,DIR,DSMAX,ER,RLIM,-1._dp,IOPT,PARMOD, &
+                        xf,yf,zf,xx(:),yy(:),zz(:),LOUT,LMAX,bx,by,bz)
+             distance(1) = 0._dp
+             do i = 2,LOUT
+                distance(i) = distance(i-1) + SQRT((xx(i)-xx(i-1))**2 &
+                              +(yy(i)-yy(i-1))**2 +(zz(i)-zz(i-1))**2)
+             enddo
+             cVal = (tVal + constTheta * SIN(2.*tVal)) * distance(LOUT)/pi_d
+
+             call spline(distance(1:LOUT),xx(1:LOUT),1.E31_DP,1.E31_DP,distance2derivsX(1:LOUT))
+             call spline(distance(1:LOUT),yy(1:LOUT),1.E31_DP,1.E31_DP,distance2derivsY(1:LOUT))
+             call spline(distance(1:LOUT),zz(1:LOUT),1.E31_DP,1.E31_DP,distance2derivsZ(1:LOUT))
+             do i = 2,nthe
+                x(i,j,k) = splint(distance(1:LOUT),xx(1:LOUT),distance2derivsX(1:LOUT),cval(i))
+                y(i,j,k) = splint(distance(1:LOUT),yy(1:LOUT),distance2derivsY(1:LOUT),cval(i))
+                z(i,j,k) = splint(distance(1:LOUT),zz(1:LOUT),distance2derivsZ(1:LOUT),cval(i))
+             enddo
+             x(1,j,k) = x0
+             y(1,j,k) = y0
+             z(1,j,k) = z0
+          enddo
+       enddo
+
+       ! Finish tracing timing
+       call system_clock(time1,clock_rate,clock_max)
+       stoptime=time1/real(clock_rate,dp)
+       write(*,*) 'trace: ',stoptime-starttime
+
+       ! Periodic in zeta
+       x(:,:,1) = x(:,:,nzeta)
+       y(:,:,1) = y(:,:,nzeta)
+       z(:,:,1) = z(:,:,nzeta)
+       x(:,:,nzeta+1) = x(:,:,2)
+       y(:,:,nzeta+1) = y(:,:,2)
+       z(:,:,nzeta+1) = z(:,:,2)
+       chival = (tVal + constTheta*sin(2.*tVal))
     endif
 
-    ! For generating x, y, and z arrays using field line tracing
-    !! First set up starting field points
-    ALLOCATE(x0(npsi,nzeta),y0(npsi,nzeta),z0(npsi,nzeta))
-!!!!! For now we will use dipole field line starting positions. This means
-!!!!! that we will use x, y, and z starting points that if traced from in 
-!!!!! a dipole field would yield a uniform grid in r, theta, and phi. If
-!!!!! traced in a different field the grid will not be uniform. -ME
-    constZ  = 0.0
-    constTheta = 0.2
-    xpsiin  = 1.75
-    xpsiout = 7.00
-    tmax = 0
-    tmin = 1000
-    do k=1,nzeta
-       do j=1,npsi
-          r0 = xpsiin + REAL(j-1,DP)/REAL(npsi-1,DP)*(xpsiout-xpsiin)
-          rr = 2
-          t0 = pi_d-dasin((1.0/r0)**(1./rr))
-          t1 = dasin((1.0/r0)**(1./rr))
-          tt = t0 + constTheta*dSIN(2._dp*t0)
-          if (tt.gt.tmax) tmax = tt
-          if (tt.lt.tmin) tmin = tt
-          rt = r0*dsin(tt)**rr
-          zt = zetaVal(k) + constz*dcos(zetaVal(k))
-          x0(j,k) = rt*dcos(zt)*dsin(tt)
-          y0(j,k) = rt*dsin(zt)*dsin(tt)
-          z0(j,k) = rt*dcos(tt)
-       enddo
-    enddo
+    distConsecFluxSq = 0._dp
+    distConsecFluxSqOld = 0._dp
+    DO k = 2, nzeta
+       do j = npsi-1, npsi
+          distConsecFluxSq = (x(nThetaEquator,j,k) - x(nThetaEquator,j-1,k))**2 &
+                            +(y(nThetaEquator,j,k) - y(nThetaEquator,j-1,k))**2
+          IF (distConsecFluxSq > distConsecFluxSqOld) THEN
+             distConsecFluxSqOld = distConsecFluxSq
+             kMax = k
+          END IF
+       END DO
+    END DO
 
-    !! Now we have a rho and phi grid for x,y,z, we need to trace field lines from each of
-    !! these starting points from the northern hemisphere to the southern hemisphere
-!!!!! For now let's just use a makeshift tracing routine in a dipole field to figure the kinks out -ME
-    DIR = -1.0
-    DSMAX = 0.01
-    ER = 0.0001
-    RLIM = 10.0
-    IOPT = 1
-    PARMOD = (/1._dp,1._dp,1._dp,1._dp,1._dp,1._dp,1._dp,1._dp,1._dp,1._dp/)
-    call RECALC_08(2005,1,1,0,0,-400._dp,0._dp,0._dp)
-    do k=1,nzeta
-       do j=1,npsi
-          CALL SMGSW_08(x0(j,k),y0(j,k),z0(j,k),XGSW,YGSW,ZGSW,1)
-          R0 = dsqrt(xGSW**2+yGSW**2+zGSW**2)
-          call TRACE_08(XGSW,YGSW,ZGSW,DIR,DSMAX,ER,RLIM,R0,IOPT,PARMOD,DUMMY,&
-                        IGRF_GSW_08,xfGSW,yfGSW,zfGSW,xxGSW(:),yyGSW(:),zzGSW(:),LOUT,LMAX)
-          CALL SMGSW_08(xf,yf,zf,xfgsw,yfgsw,zfgsw,-1)
-          CALL SMGSW_08(xx(1),yy(1),zz(1),xxGSW(1),yyGSW(1),zzGSW(1),-1)
-          distance(1) = 0._dp
-          do i = 2,LOUT
-             CALL SMGSW_08(xx(i),yy(i),zz(i),xxGSW(i),yyGSW(i),zzGSW(i),-1)
-             distance(i) = pi_d*REAL(i-1,DP)/REAL(LOUT-1,DP)
-          enddo
-          chival = (thetaVal + constTheta*sin(2.*thetaVal))
-          call spline(distance(1:LOUT),xx(1:LOUT),1.E31_DP,1.E31_DP,distance2derivsX(1:LOUT))
-          call spline(distance(1:LOUT),yy(1:LOUT),1.E31_DP,1.E31_DP,distance2derivsY(1:LOUT))
-          call spline(distance(1:LOUT),zz(1:LOUT),1.E31_DP,1.E31_DP,distance2derivsZ(1:LOUT))
-          do i = 2,nthe-1
-             x(i,j,k) = splint(distance(1:LOUT),xx(1:LOUT),distance2derivsX(1:LOUT),chival(i))
-             y(i,j,k) = splint(distance(1:LOUT),yy(1:LOUT),distance2derivsY(1:LOUT),chival(i))
-             z(i,j,k) = splint(distance(1:LOUT),zz(1:LOUT),distance2derivsZ(1:LOUT),chival(i))
-          enddo
-          x(1,j,k) = x0(j,k)
-          y(1,j,k) = y0(j,k)
-          z(1,j,k) = z0(j,k)
-          x(nthe,j,k) = xf
-          y(nthe,j,k) = yf
-          z(nthe,j,k) = zf
-       enddo
+    ! For outputing the outer shell of the magnetic field
+    open(UNITTMP_,FILE=RamFileName('MAGxyz','dat',TimeRamNow))
+    write(UNITTMP_,*) nthe, nzeta-1
+    do i = 1,nthe
+     do k = 2,nzeta
+      write(UNITTMP_,*) x(i,npsi,k), y(i,npsi,k), z(i,npsi,k)
+     enddo
     enddo
-    x(:,:,1) = x(:,:,nzeta)
-    y(:,:,1) = y(:,:,nzeta)
-    z(:,:,1) = z(:,:,nzeta)
-    x(:,:,nzeta+1) = x(:,:,2)
-    y(:,:,nzeta+1) = y(:,:,2)
-    z(:,:,nzeta+1) = z(:,:,2)
+    close(UNITTMP_)
 
-    DEALLOCATE(x0,y0,z0)
     return
 
-  end subroutine create_Bfield
-!=============================================================================!
+  end subroutine computational_domain
 
+!=============================================================================!
+  subroutine trace(x0,y0,z0,DIR,DSMAX,ER,RLIM,RIN,IOPT,PARMOD,xf,yf,zf, &
+                   xx,yy,zz,LOUT,LMAX,bx,by,bz)
+    use ModRamParams, ONLY: NameBoundMag
+
+    use nrtype, ONLY: DP
+    implicit none
+
+    EXTERNAL :: DIP_08, IGRF_GSW_08, SMGSW_08, T89C, T96_01, T01_01, T04_s
+    integer, intent(in)   :: IOPT,LMAX
+    REAL(DP), intent(in)  :: x0, y0, z0, ER, DSMAX, RLIM, PARMOD(10), DIR, RIN
+    integer, intent(out)  :: LOUT
+    REAL(DP), intent(out) :: xf, yf, zf, xx(:), yy(:), zz(:), bx(:), by(:), bz(:)
+
+    integer :: i
+    REAL(DP) :: xGSW, yGSW, zGSW, xfGSW, yfGSW, zfGSW, R0
+    REAL(DP), DIMENSION(LMAX) :: xxGSW, yyGSW, zzGSW, BxGSW, ByGSW, BzGSW 
+
+    CALL SMGSW_08(x0,y0,z0,XGSW,YGSW,ZGSW,1)
+    if (RIN.lt.0) then
+       R0 = SQRT(XGSW**2+YGSW**2+ZGSW**2)
+    else
+       R0 = RIN
+    endif
+    IF (NameBoundMag.eq.'T89D') THEN
+       call TRACE_08(XGSW,YGSW,ZGSW,DIR,DSMAX,ER,RLIM,R0,IOPT,PARMOD, &
+                     T89C,DIP_08,xfGSW,yfGSW,zfGSW,xxGSW(:),yyGSW(:),zzGSW(:), &
+                     LOUT,LMAX,BXGSW,BYGSW,BZGSW)
+    ELSEIF (NameBoundMag.eq.'T89I') THEN
+       call TRACE_08(XGSW,YGSW,ZGSW,DIR,DSMAX,ER,RLIM,R0,IOPT,PARMOD, &
+                     T89C,IGRF_GSW_08,xfGSW,yfGSW,zfGSW,xxGSW(:),yyGSW(:),zzGSW(:), &
+                     LOUT,LMAX,BXGSW,BYGSW,BZGSW)
+    ELSEIF (NameBoundMag.eq.'T96D') THEN
+       call TRACE_08(XGSW,YGSW,ZGSW,DIR,DSMAX,ER,RLIM,R0,IOPT,PARMOD, &
+                     T96_01,DIP_08,xfGSW,yfGSW,zfGSW,xxGSW(:),yyGSW(:),zzGSW(:), &
+                     LOUT,LMAX,BXGSW,BYGSW,BZGSW)
+    ELSEIF (NameBoundMag.eq.'T96I') THEN
+       call TRACE_08(XGSW,YGSW,ZGSW,DIR,DSMAX,ER,RLIM,R0,IOPT,PARMOD, &
+                     T96_01,IGRF_GSW_08,xfGSW,yfGSW,zfGSW,xxGSW(:),yyGSW(:),zzGSW(:), &
+                     LOUT,LMAX,BXGSW,BYGSW,BZGSW)
+    ELSEIF (NameBoundMag.eq.'T02D') THEN
+       call TRACE_08(XGSW,YGSW,ZGSW,DIR,DSMAX,ER,RLIM,R0,IOPT,PARMOD, &
+                     T01_01,DIP_08,xfGSW,yfGSW,zfGSW,xxGSW(:),yyGSW(:),zzGSW(:), &
+                     LOUT,LMAX,BXGSW,BYGSW,BZGSW)
+    ELSEIF (NameBoundMag.eq.'T02I') THEN
+       call TRACE_08(XGSW,YGSW,ZGSW,DIR,DSMAX,ER,RLIM,R0,IOPT,PARMOD, &
+                     T01_01,IGRF_GSW_08,xfGSW,yfGSW,zfGSW,xxGSW(:),yyGSW(:),zzGSW(:), &
+                     LOUT,LMAX,BXGSW,BYGSW,BZGSW)
+    ELSEIF (NameBoundMag.eq.'T04D') THEN
+       call TRACE_08(XGSW,YGSW,ZGSW,DIR,DSMAX,ER,RLIM,R0,IOPT,PARMOD, &
+                     T04_s,DIP_08,xfGSW,yfGSW,zfGSW,xxGSW(:),yyGSW(:),zzGSW(:), &
+                     LOUT,LMAX,BXGSW,BYGSW,BZGSW)
+    ELSEIF (NameBoundMag.eq.'T04I') THEN
+       call TRACE_08(XGSW,YGSW,ZGSW,DIR,DSMAX,ER,RLIM,R0,IOPT,PARMOD, &
+                     T04_s,IGRF_GSW_08,xfGSW,yfGSW,zfGSW,xxGSW(:),yyGSW(:),zzGSW(:), &
+                     LOUT,LMAX,BXGSW,BYGSW,BZGSW)
+    ELSEIF (NameBoundMag.eq.'IGRF') THEN
+       call TRACE_08(XGSW,YGSW,ZGSW,DIR,DSMAX,ER,RLIM,R0,IOPT,PARMOD, &
+                     DUMMY,IGRF_GSW_08,xfGSW,yfGSW,zfGSW,xxGSW(:),yyGSW(:),zzGSW(:), &
+                     LOUT,LMAX,BXGSW,BYGSW,BZGSW)
+    ENDIF
+
+    CALL SMGSW_08(xf,yf,zf,xfGSW,yfGSW,zfGSW,-1)
+    do i=1,LOUT
+       CALL SMGSW_08(xx(i),yy(i),zz(i),xxGSW(i),yyGSW(i),zzGSW(i),-1)
+       CALL SMGSW_08(Bx(i),By(i),Bz(i),BxGSW(i),ByGSW(i),BzGSW(i),-1)
+    enddo
+
+    return
+
+  end subroutine trace
+
+!=============================================================================!
   subroutine DUMMY(IOPT,PARMOD,PSI,X,Y,Z,BXGSW,BYGSW,BZGSW)
     use nrtype, ONLY: DP
     
@@ -180,321 +348,114 @@ MODULE ModScbIO
     BZGSW = 0.0
 
   end subroutine DUMMY
+
 !=============================================================================!
-!============================= INPUT ROUTINES ================================!
-!=============================================================================!
-!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!  Takes magnetic boundary conditions and initial guess for X, Y, Z 
-!  from file obtained by (empirical or MHD) magnetic field model tracing
-!  Copyright (c) 2016, Los Alamos National Security, LLC
-!  All rights reserved.
-!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-  SUBROUTINE computational_domain
-    !!!! Module Variables  
-    USE ModRamVariables, ONLY: Kp
-    use ModRamConst,     ONLY: Re
-    use ModRamParams,    ONLY: IsComponent, NameBoundMag, boundary
-    USE ModScbMain,      ONLY: PathScbIn, blendInitial, tsygcorrect
-    USE ModScbParams,    ONLY: decreaseConvAlphaMin, decreaseConvPsiMin, &
-                               decreaseConvAlphaMax, decreaseConvPsiMax
-    USE ModScbGrids,     ONLY: npsi, nthe, nzeta
-    USE ModScbVariables, ONLY: by_imf, bz_imf, dst_global, p_dyn, wTsyg, tilt, constZ, &
-                               constTheta, xpsiin, xpsiout, r0Start, byimfglobal, &
-                               bzimfglobal, pdynglobal, blendGlobal, blendGlobalInitial, &
-                               x, y, z, rhoVal, thetaVal, zetaVal, left, right
-    !!!! Module Subroutines/Functions
-    use ModScbCouple, ONLY: build_scb_init 
-    !!!! Share Modules
+  subroutine get_model_inputs(Pdyn,Dst,ByIMF,BzIMF,G,W)
+    use ModRamTiming, ONLY: TimeRamNow
+    use ModRamParams, ONLY: Optim
+
+    use ModTimeConvert, ONLY: time_int_to_real
     USE ModIoUnit, ONLY: UNITTMP_
-    !!!! NR Modules
-    use nrtype, ONLY: DP, SP, pi_d
-  
-    IMPLICIT NONE
-  
-    INTEGER :: i, j, k, ierr, ilat, ilon, ifld, inBlank, iKpFl, iKpCe, &
-               ntheTsyg, npsiTsyg, nzetaTsyg, netcdfId, netcdfId2
-  
-    INTEGER, DIMENSION(3) :: dimlens, dimlens2
-  
-    REAL(SP) :: tiltSP = 0.0
-    REAL(DP) :: tiltDP = 0.0
-    REAL(DP) :: er, error, xpsi_in, xpsi_out, KpReal, xpsiin_fl, &
-                xpsiin_ce, xpsiout_fl, xpsiout_ce
-  
-    REAL(SP), ALLOCATABLE :: xFl(:,:,:), yFl(:,:,:), zFl(:,:,:), &
-                             xCe(:,:,:), yCe(:,:,:), zCe(:,:,:) ! SP for SWMF
-    REAL(DP), ALLOCATABLE :: xFlDbl(:,:,:), yFlDbl(:,:,:), zFlDbl(:,:,:), &
-                             xCeDbl(:,:,:), yCeDbl(:,:,:), zCeDbl(:,:,:) ! DP for empirical models
-  
-    CHARACTER(LEN=300) :: fileNameTsyga, fileNameTsyga2
-    CHARACTER(LEN=10)  :: statusBound, timeChar
-    CHARACTER(LEN=8)   :: pdyn_char, byimf_char, bzimf_char, dst_char, r00_char, &
-                          xpsiin_char, xpsiout_char, xpsiin_char_fl, xpsiout_char_fl, &
-                          xpsiin_char_ce, xpsiout_char_ce, constz_char, consttheta_char, &
-                          nthe_char, npsi_char, nzeta_char
-    CHARACTER(LEN=6)   :: kpChar
-    CHARACTER(LEN=4)   :: KpTrunc, ST3
-    CHARACTER(LEN=2)   :: minuteInteger
-    CHARACTER(LEN=1)   :: KpFl, KpCe
-    CHARACTER          :: xtype, xtype2, xtype3, xtype4
-  
-    REAL(DP) :: ratioFl=1, r0, t0, t1, t2, tt, zt, to, a, b, c, rr, &
-                rr1, rr2
-    COMPLEX(DP) :: rr3, r1i, r2i, r1, r2, rt
 
-    left = 1
-    right = npsi
-    if (NameBoundMag.eq.'DIPS') then
-    constz = 0.0
-    constTheta = 0.2
-    xpsiin = 1.75
-    xpsiout = 7.00
-    b = 0.0
-    do k=1,nzeta
-       do j=1,npsi
-          r0 = xpsiin + REAL(j-1, DP)/REAL(npsi-1, DP)*(xpsiout-xpsiin)
-          !if (r0.lt.1.95) left = j
-          !if (r0.lt.6.75) right = j
-          !rr = 2.
-          rr = (2-b*cos(zetaVal(k)))/(1+b*cos(zetaVal(k)))
-          t0 = pi_d-dasin((1.0/r0)**(1./rr))
-          t1 = dasin((1.0/r0)**(1./rr))
-          do i=1,nthe
-             tt = t0 + REAL(i-1,DP)/REAL(nthe-1,DP)*(t1-t0)
-             tt = tt + constTheta * SIN(2._dp*tt)
-             zt = zetaVal(k) + constz*cos(zetaVal(k))
-             rt = r0*dsin(tt)**rr
-             x(i,j,k) = (rt)*dcos(zt)*dsin(tt)
-             y(i,j,k) = (rt)*dsin(zt)*dsin(tt)
-             z(i,j,k) = (rt)*dcos(tt)
-          enddo
-       enddo
+    use nrtype, ONLY: DP
+    implicit none
+
+    real(DP), intent(out) :: Pdyn, Dst, ByIMF, BzIMF, G(3), W(6)
+
+    character(len=4)   :: StringFileFolder
+    character(len=8)   :: StringFileDate
+    character(len=25)  :: TimeBuffer, StringHeader
+    character(len=500) :: QDFile
+    integer :: Year, Month, Day, FileIndexStart, FileIndexEnd, nIndex
+    integer :: iYear, iMonth, iDay, iHour, iMinute, iSecond
+    integer :: i, iError
+    real(DP) :: dsA, dsI
+    real(DP), allocatable :: Buffer(:,:), BufferA(:,:), nSeconds(:)
+
+    Year   = TimeRamNow%iYear
+    Month  = TimeRamNow%iMonth
+    Day    = TimeRamNow%iDay
+    call time_int_to_real(TimeRamNow)
+
+    write(StringFileDate,'(i4.4,i2.2,i2.2)') Year, Month, Day
+    write(StringFileFolder,'(i4.4)') Year
+    if (Optim) QDFile = '/projects/space_data/MagModelInputs/OptimQinDenton_TS04/'
+    if (.not.Optim) QDFile = '/projects/space_data/MagModelInputs/QinDenton/'
+    QDFile = trim(QDFile)//StringFileFolder//'/QinDenton_'//StringFileDate//'_1min.txt'
+write(*,*) 'Reading File: ', QDFile
+    open(unit=UNITTMP_, file=QDFile, status='OLD', iostat=iError)
+    if(iError/=0) call CON_stop('get_model_inputs: Error opening file '//trim(QDFile))
+    FileIndexStart = 0
+    FileIndexEnd = 0
+    nIndex = 0
+    Read_QDFile_Dates: DO
+       read(UNITTMP_,*,IOSTAT=iError) TimeBuffer
+       if ((trim(TimeBuffer).ne.'#').and.(FileIndexStart.eq.0)) FileIndexStart = nIndex
+       if (iError.lt.0) then
+          FileIndexEnd = nIndex
+          exit Read_QDFile_Dates
+       else
+          nIndex = nIndex + 1
+          cycle Read_QDFile_Dates
+       endif
+    ENDDO Read_QDFile_Dates
+    nIndex = FileIndexEnd-FileIndexStart-1
+    close(UNITTMP_)
+
+    open(unit=UNITTMP_, file=QDFile, status='OLD', iostat=iError)
+    do i=1,FileIndexStart
+       read(UNITTMP_,*) StringHeader
     enddo
-    x(:,:,1) = x(:,:,nzeta)
-    y(:,:,1) = y(:,:,nzeta)
-    z(:,:,1) = z(:,:,nzeta)
-    x(:,:,nzeta+1) = x(:,:,2)
-    y(:,:,nzeta+1) = y(:,:,2)
-    z(:,:,nzeta+1) = z(:,:,2)
-    return
-    endif
 
-    ALLOCATE(xFl(SIZE(x,1), SIZE(x,2), SIZE(x,3)), STAT = ierr)
-    ALLOCATE(yFl(SIZE(y,1), SIZE(y,2), SIZE(y,3)), STAT = ierr)
-    ALLOCATE(zFl(SIZE(z,1), SIZE(z,2), SIZE(z,3)), STAT = ierr)
-    ALLOCATE(xFlDbl(SIZE(x,1), SIZE(x,2), SIZE(x,3)), STAT = ierr)
-    ALLOCATE(yFlDbl(SIZE(y,1), SIZE(y,2), SIZE(y,3)), STAT = ierr)
-    ALLOCATE(zFlDbl(SIZE(z,1), SIZE(z,2), SIZE(z,3)), STAT = ierr)
-    ALLOCATE(xCeDbl(SIZE(x,1), SIZE(x,2), SIZE(x,3)), STAT = ierr)
-    ALLOCATE(yCeDbl(SIZE(y,1), SIZE(y,2), SIZE(y,3)), STAT = ierr)
-    ALLOCATE(zCeDbl(SIZE(z,1), SIZE(z,2), SIZE(z,3)), STAT = ierr)
-  
-!    IF (boundary == 'SWMF' .OR. boundary == 'LANL') THEN
-       SELECT CASE (NameBoundMag)
-       CASE('SWMF')  ! SWMF-based boundary conditions, 5-min resolution
-          call build_scb_init
-          fileNameTsyga = 'SWMF_config_test.cdf'
-          inBlank = INDEX(fileNameTsyga, ' ') - 1
-          PRINT*, 'Calling magnetic boundary file: ', fileNameTsyga(1:inBlank)
-          blendGlobalInitial = blendInitial
-          blendGlobal = blendInitial
-          CALL  cdf_open (netcdfId, fileNameTsyga(1:inBlank), 'r')
-       CASE('DIPL')
-          CALL  cdf_open (netcdfId, trim(PathScbIn)//'dipole_config.cdf', 'r')
-          blendGlobalInitial = blendInitial
-          blendGlobal = blendGlobalInitial
-       CASE('DIPS')
-          CALL  cdf_open (netcdfId, trim(PathScbIn)//'dipole_config.cdf', 'r')
-          blendGlobalInitial = blendInitial
-          blendGlobal = blendGlobalInitial
-       CASE('T89C')
-          blendGlobalInitial = blendInitial
-          blendGlobal = blendGlobalInitial
-          KpReal = Kp
-          iKpFl = min(FLOOR(KpReal),6)
-          iKpCe = min(CEILING(KpReal),6)
-          ratioFl = 1. - (KpReal - iKpFl)
-          WRITE(KpFl, '(I1)') iKpFl
-          WRITE(KpCe, '(I1)') iKpCe
-          fileNameTsyga = TRIM(ADJUSTL(PathScbIn))//'/t89_config_KP'//KpFl//'.cdf'
-          fileNameTsyga2 = TRIM(ADJUSTL(PathScbIn))//'/t89_config_KP'//KpCe//'.cdf'
-          inBlank = INDEX(fileNameTsyga, ' ') - 1
-          PRINT*, 'Will call files: ', fileNameTsyga(1:inBlank), ' and ', fileNameTsyga2(1:inBlank)
-          WRITE(*, '(A, 2 F10.2)') 'KpReal, ratioFl = ', KpReal, ratioFl
-          call cdf_open (netcdfId, TRIM(fileNameTsyga), 'r')
-          call cdf_open (netcdfId2, TRIM(fileNameTsyga2), 'r')
-       END SELECT
-!    END IF
-  
-    CALL cdf_inquire(netcdfId, 'statusBC',   dimlens,  xtype)
-    CALL cdf_inquire(netcdfId, 'pdyn',       dimlens,  xtype)
-    CALL cdf_inquire(netcdfId, 'byimf',      dimlens,  xtype)
-    CALL cdf_inquire(netcdfId, 'bzimf',      dimlens,  xtype)
-    CALL cdf_inquire(netcdfId, 'DST',        dimlens,  xtype)
-    CALL cdf_inquire(netcdfId, 'xpsi_in',    dimlens,  xtype)
-    CALL cdf_inquire(netcdfId, 'xpsi_out',   dimlens,  xtype)
-    CALL cdf_inquire(netcdfId, 'rStart',     dimlens,  xtype)
-    CALL cdf_inquire(netcdfId, 'Constz',     dimlens,  xtype)
-    CALL cdf_inquire(netcdfId, 'Consttheta', dimlens,  xtype)
-    CALL cdf_inquire(netcdfId, 'ntheta',     dimlens,  xtype)
-    CALL cdf_inquire(netcdfId, 'npsi',       dimlens,  xtype)
-    CALL cdf_inquire(netcdfId, 'nzeta',      dimlens,  xtype)
-    CALL cdf_inquire(netcdfId, 'tilt',       dimlens,  xtype4)
-    CALL cdf_inquire(netcdfId, 'wTsyg',      dimlens,  xtype3)
-    CALL cdf_inquire(netcdfId, 'xTsyg',      dimlens2, xtype2)
-    CALL cdf_inquire(netcdfId, 'yTsyg',      dimlens2, xtype2)
-    CALL cdf_inquire(netcdfId, 'zTsyg',      dimlens2, xtype2)
-  
-    IF (NameBoundMag /= 'SWMF') THEN
-       CALL cdf_read(netcdfId, 'pdyn',  pdyn_char)
-       CALL cdf_read(netcdfId, 'byimf', byimf_char)
-       CALL cdf_read(netcdfId, 'bzimf', bzimf_char)
-       CALL cdf_read(netcdfId, 'DST',   dst_char)
-       CALL cdf_read(netcdfId, 'wTsyg', wTsyg)
-    END IF
-    CALL cdf_read(netcdfId, 'xpsi_in',    xpsiin_char_fl)
-    CALL cdf_read(netcdfId, 'xpsi_out',   xpsiout_char_fl)
-    CALL cdf_read(netcdfId, 'rStart',     r00_char)
-    CALL cdf_read(netcdfId, 'Constz',     constz_char)
-    CALL cdf_read(netcdfId, 'Consttheta', consttheta_char)
-    CALL cdf_read(netcdfId, 'ntheta',     nthe_char)
-    CALL cdf_read(netcdfId, 'npsi',       npsi_char)
-    CALL cdf_read(netcdfId, 'nzeta',      nzeta_char)
-  
-    IF (NameBoundMag == 'SWMF') THEN ! SP
-       CALL cdf_read(netcdfId, 'xTsyg', xFl)
-       CALL cdf_read(netcdfId, 'yTsyg', yFl)
-       CALL cdf_read(netcdfId, 'zTsyg', zFl)
-       CALL cdf_read(netcdfId, 'tilt',  tiltSP)
-    ELSE
-       CALL cdf_read(netcdfId, 'xTsyg', xFlDbl)
-       CALL cdf_read(netcdfId, 'yTsyg', yFlDbl)
-       CALL cdf_read(netcdfId, 'zTsyg', zFlDbl)
-       CALL cdf_read(netcdfId, 'tilt',  tiltDP)
-    END IF
-  
-    if (NameBoundMag == 'T89C') THEN
-       CALL cdf_read(netcdfId2, 'xTsyg',    xCeDbl)
-       CALL cdf_read(netcdfId2, 'yTsyg',    yCeDbl)
-       CALL cdf_read(netcdfId2, 'zTsyg',    zCeDbl)
-       CALL cdf_read(netcdfId2, 'xpsi_in',  xpsiin_char_ce)
-       CALL cdf_read(netcdfId2, 'xpsi_out', xpsiout_char_ce)
-       CALL cdf_close(netcdfId2)
-    end if
-  
-    CALL cdf_close(netcdfId)
-  
-    ! transform characters to variables using internal file read
-    IF (NameBoundMag /= 'SWMF') THEN
-       READ(pdyn_char,  '(SP, F6.2)') p_dyn
-       READ(byimf_char, '(SP, F6.2)') by_imf
-       READ(bzimf_char, '(SP, F6.2)') bz_imf
-       READ(dst_char,   '(SP, F6.1)') dst_global
-       pdynGlobal  = p_dyn
-       byimfGlobal = by_imf
-       bzimfGlobal = bz_imf
-    END IF
-    READ(xpsiin_char_fl,  '(SP, F6.2)') xpsiin_fl
-    READ(xpsiout_char_fl, '(SP, F6.2)') xpsiout_fl
-    if (NameBoundMag == 'T89C') THEN
-       READ(xpsiin_char_ce,  '(SP, F6.2)') xpsiin_ce
-       READ(xpsiout_char_ce, '(SP, F6.2)') xpsiout_ce
-    end if
-    READ(r00_char,        '(SP, F6.2)') r0Start
-    READ(constz_char,     '(SP, F6.2)') constz
-    READ(consttheta_char, '(SP, F6.2)') constTheta
-    READ(nthe_char,  '(I4)') ntheTsyg
-    READ(npsi_char,  '(I4)') npsiTsyg
-    READ(nzeta_char, '(I4)') nzetaTsyg
-  
-    IF (NameBoundMag=='DIPL' .OR. NameBoundMag=='DIPS') THEN ! 5-min. cadence TS04, no interpolations; or dipole (double prec.) 
-       x = ratioFl*xFlDbl
-       y = ratioFl*yFlDbl
-       z = ratioFl*zFlDbl
-       xpsiin  = ratioFl*xpsiin_fl
-       xpsiout = ratioFl*xpsiout_fl
-    ELSE IF (NameBoundMag == 'T89C') THEN
-       x = ratioFl*xFlDbl + (1._dp - ratioFl)*xCeDbl
-       y = ratioFl*yFlDbl + (1._dp - ratioFl)*yCeDbl
-       z = ratioFl*zFlDbl + (1._dp - ratioFl)*zCeDbl
-       xpsiin  = ratioFl*xpsiin_fl + (1._dp - ratioFl)*xpsiin_ce
-       xpsiout = ratioFl*xpsiout_fl + (1._dp - ratioFl)*xpsiout_ce
-    ELSE
-       x = xFl
-       y = yFl
-       z = zFl
-       xpsiin  = xpsiin_fl
-       xpsiout = xpsiout_fl
-    END IF
-  
-    IF (NameBoundMag == 'SWMF') THEN
-       tilt = REAL(tiltSP, DP) ! tilt is defined as DP in Module1
-    ELSE
-       tilt = tiltDP
-    END IF
-       IF(NameBoundMag /= 'T89C' .AND. NameBoundMag /= 'SWMF') THEN
-          WRITE(*, '(A12, F11.3)') 'p_dyn = ', p_dyn
-          WRITE(*, '(A12, F11.3)') 'by_imf = ', by_imf
-          WRITE(*, '(A12, F11.3)') 'bz_imf = ', bz_imf
-          WRITE(*, '(A12, F11.3)') 'dst = ', dst_global
-       END IF
-       IF (NameBoundMag == 'T89C') THEN
-          WRITE(*, '(A35, 3F11.3)') 'xpsiinFl, xpsiinCe, xpsiin = ', xpsiin_fl, xpsiin_ce, xpsiin
-          WRITE(*, '(A35, 3F11.3)') 'xpsioutFl, xpsioutCe, xpsiout = ', xpsiout_fl, xpsiout_ce, xpsiout
-       END IF
-       WRITE(*, '(A12, F11.3)') 'r00 = ', r0Start
-       WRITE(*, '(A12, F11.3)') 'constZ = ', constz
-       ! constTheta = 0._dp ! Temporary here
-       WRITE(*, '(A12, F11.3)') 'constTheta = ', constTheta
-       PRINT*, ' '
-  
-       PRINT*, 'Domain starts from a sphere of radius ', INT(r0Start), ' R_E'
-       PRINT*, 'MIN, MAX x: ', MINVAL(x), MAXVAL(x)
-       PRINT*, ' '
-  
-    IF (ALLOCATED(xFl)) DEALLOCATE(xFl, STAT = ierr)
-    IF (ALLOCATED(yFl)) DEALLOCATE(yFl, STAT = ierr)
-    IF (ALLOCATED(zFl)) DEALLOCATE(zFl, STAT = ierr)
-    IF (ALLOCATED(xFlDbl)) DEALLOCATE(xFlDbl, STAT = ierr)
-    IF (ALLOCATED(yFlDbl)) DEALLOCATE(yFlDbl, STAT = ierr)
-    IF (ALLOCATED(zFlDbl)) DEALLOCATE(zFlDbl, STAT = ierr)
-    IF (ALLOCATED(xCeDbl)) DEALLOCATE(xCeDbl, STAT = ierr)
-    IF (ALLOCATED(yCeDbl)) DEALLOCATE(yCeDbl, STAT = ierr)
-    IF (ALLOCATED(zCeDbl)) DEALLOCATE(zCeDbl, STAT = ierr)
-  
-    tsygcorrect = 0  ! If = 1, forces N-S symmetry, taking southern mapping data
- 
-    IF (tsygcorrect /= 1) THEN
-       x(:,:,1) = x(:,:,nzeta)
-       y(:,:,1) = y(:,:,nzeta)
-       z(:,:,1) = z(:,:,nzeta)
-       x(:,:,nzeta+1) = x(:,:,2)
-       y(:,:,nzeta+1) = y(:,:,2)
-       z(:,:,nzeta+1) = z(:,:,2)
-       RETURN
-    END IF
-  
-    DO j = 1, npsi
-       DO k = 2, nzeta
-          DO i = 1, nthe/2
-             x(nthe + 1 - i,j,k) = x(i, j, k)
-             y(nthe + 1 - i,j,k) = y(i, j, k)
-             z(nthe + 1 - i,j,k) = -z(i, j, k)  ! Force N-S symmetry on Tsyganenko data, using south data 
-             ! (the tracing can lead to slight asymmetry, even with zero tilt)
-          END DO
-          z(nthe/2 + 1, j, k) = 0.0_dp
-       END DO
-    END DO
-    x(:,:,1) = x(:,:,nzeta)
-    y(:,:,1) = y(:,:,nzeta)
-    z(:,:,1) = z(:,:,nzeta)
-    x(:,:,nzeta+1) = x(:,:,2)
-    y(:,:,nzeta+1) = y(:,:,2)
-    z(:,:,nzeta+1) = z(:,:,2)
-  
-    RETURN
-  END SUBROUTINE Computational_domain
+    allocate(nSeconds(nIndex),Buffer(nIndex,36), BufferA(nIndex,36))
 
+    i = 1
+    Cycle_QDFile: do
+       read(UNITTMP_,*) TimeBuffer, iYear, iMonth, iDay, iHour, iMinute, iSecond, Buffer(i,:)
+       if (iSecond.eq.60) then
+          iMinute = iMinute + 1
+          iSecond = 0
+       endif
+       if (iMinute.eq.60) then
+          iHour = iHour + 1
+          iMinute = 0
+       endif
+       call time_int_to_real((/iYear,iMonth,iDay,iHour,iMinute,iSecond,0/),nSeconds(i))
+       if (nSeconds(i).ge.TimeRamNow%Time) then  ! Check that we are on or past the time we want
+          dsA = nSeconds(i) - TimeRamNow%Time
+          if (dsA.eq.0) then                     ! Check if we are exactly on the time or past
+             BufferA(i,:) = Buffer(i,:)
+          else
+             if (i.eq.1) then                    ! Check if we are on the first time step
+                BufferA(i,:) = Buffer(i,:)
+             else
+                dsA = TimeRamNow%Time - nSeconds(i-1)
+                dsI = nSeconds(i) - nSeconds(i-1)
+                BufferA(i,:) = Buffer(i-1,:) + (dsA/dsI)*(Buffer(i,:)-Buffer(i-1,:))
+             endif
+          endif
+          Pdyn = BufferA(i,5)
+          Dst = BufferA(i,19)
+          ByIMF = BufferA(i,1)
+          BzIMF = BufferA(i,2)
+          G(:) = BufferA(i,6:8)
+          W(:) = BufferA(i,26:31)
+          exit Cycle_QDFile
+       elseif (i.eq.nIndex) then
+          Pdyn = Buffer(i,5)
+          Dst = Buffer(i,19)
+          ByIMF = Buffer(i,1)
+          BzIMF = Buffer(i,2)
+          G(:) = Buffer(i,6:8)
+          W(:) = Buffer(i,26:31)
+          exit Cycle_QDFile
+       endif
+       i = i + 1
+    enddo Cycle_QDFile
+
+    deallocate(nSeconds,Buffer,BufferA)
+
+  end subroutine get_model_inputs
 !=============================================================================!
 !============================= OUTPUT ROUTINES ===============================!
 !=============================================================================!
@@ -686,7 +647,8 @@ END SUBROUTINE Write_ionospheric_potential
   REAL(DP), DIMENSION(nthe,npsi,nzeta) :: jrrInt, jrr, jzzInt, jzz, jrtInt, jrt, jztInt, jzt, &
        rhoCompSq, zetaCompSq, thetaCompSq, curlJCrossBSq, curlJCrossB
 
-  REAL(DP), DIMENSION(npsi) :: rtemp, xtemp, rLHS, rRHS, xLHS, xRHS
+  REAL(DP), DIMENSION(nthe,npsi,nzeta) :: xRHS, xLHS, rRHS, rLHS
+  REAL(DP), DIMENSION(npsi,nzeta) :: erRHS, erLHS, exRHS, exLHS
   REAL(DP), DIMENSION(nthe,npsi,nzeta) :: Jx, Jy, Jz, Bx, By, Bz, JxBx, JxBy, &
                                           JxBz, GradPx, GradPy, GradPz
 
@@ -800,68 +762,6 @@ END SUBROUTINE Write_ionospheric_potential
   CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, jacobian(1:nthe,1:npsi,1:nzeta) * &
        (pper(1:nthe,1:npsi,1:nzeta)-ppar(1:nthe,1:npsi,1:nzeta)), derivDiffPTheta, derivNU1, derivNU2)
 
-
-  !***************************************************************************************************
-  ! Now we have jGradRho, jGradZeta
-  ! Time to compute |j x B - div dot P|
-  !DO k = 1, nzeta
-  !   DO j = 1, npsi
-  !      jCrossBSq(:,j,k) = f(j)**2 * fzet(k)**2 &
-  !                       * (gradRhoSq(:,j,k) * jGradZeta(:,j,k)**2 &
-  !                       + gradZetaSq(:,j,k) * jGradRho(:,j,k)**2 &
-  !                       - 2._dp * jGradZeta(:,j,k) * jGradRho(:,j,k) * gradRhoGradZeta(:,j,k))
-
-  !      if (isotropy.eq.0) then
-  !         gradPSq(:,j,k) = gradRhoSq(:,j,k)*dPperdRho(:,j,k)**2 &
-  !                        + gradZetaSq(:,j,k)*dPperdZeta(:,j,k)**2 &
-  !                        + gradThetaSq(:,j,k)*dPperdTheta(:,j,k)**2 &
-  !                        + 2.*dPperdRho(:,j,k)*dPperdZeta(:,j,k)*gradRhoGradZeta(:,j,k) &
-  !                        + 2.*dPperdRho(:,j,k)*dPperdTheta(:,j,k)*gradRhoGradTheta(:,j,k) &
-  !                        + 2.*dPperdZeta(:,j,k)*dPperdTheta(:,j,k)*gradThetaGradzeta(:,j,k) &
-  !                        + gradThetaSq(:,j,k)*(derivDiffPTheta(:,j,k)/jacobian(:,j,k))**2 &
-  !                        - 2.*derivDiffPTheta(:,j,k)/jacobian(:,j,k) &
-  !                        * (dPperdRho(:,j,k)*GradRhoGradTheta(:,j,k) &
-  !                         + dPperdZeta(:,j,k)*GradThetaGradZeta(:,j,k) &
-  !                         + dPperdTheta(:,j,k)*GradThetaSq(:,j,k))
-
-! !          gradPSq(:,j,k) = gradRhoSq(:,j,k)*dPperdRho(:,j,k)**2 &
-! !                         + gradZetaSq(:,j,k)*dPperdZeta(:,j,k)**2 &
-! !                         + gradThetaSq(:,j,k)*dPperdTheta(:,j,k)**2 &
-! !                         + 2.*dPperdRho(:,j,k)*dPperdZeta(:,j,k)*gradRhoGradZeta(:,j,k) &
-! !                         + 2.*dPperdRho(:,j,k)*dPperdTheta(:,j,k)*gradRhoGradTheta(:,j,k) &
-! !                         + 2.*dPperdZeta(:,j,k)*dPperdTheta(:,j,k)*gradThetaGradzeta(:,j,k) &
-! !                         + (derivDiffPTheta(:,j,k)/jacobian(:,j,k))**2 &
-! !                         - 2.*dPperdTheta(:,j,k) * derivDiffPTheta(:,j,k)/jacobian(:,j,k)
-
-  !         jCrossBMinusGradPSq(:,j,k) = gradRhoSq(:,j,k)*(f(j)*fzet(k)*jGradZeta(:,j,k)-dPperdRho(:,j,k))**2 + &
-  !              gradZetaSq(:,j,k)*(f(j)*fzet(k)*jGradRho(:,j,k)+dPperdZeta(:,j,k))**2 + gradThetaSq(:,j,k)*dPperdTheta(:,j,k)**2 + &
-  !              (derivDiffPTheta(:,j,k)/jacobian(:,j,k))**2 - &
-  !              2.*gradRhoGradZeta(:,j,k)*(f(j)*fzet(k)*jGradZeta(:,j,k)-dPperdRho(:,j,k)) * &
-  !              (f(j)*fzet(k)*jGradRho(:,j,k)+dPperdZeta(:,j,k)) - &
-  !              2.*gradRhoGradTheta(:,j,k)*(f(j)*fzet(k)*jGradZeta(:,j,k)-dPperdRho(:,j,k))*dPperdTheta(:,j,k) + &
-  !              2.*gradThetaGradzeta(:,j,k)*(f(j)*fzet(k)*jGradRho(:,j,k)+dPperdZeta(:,j,k))*dPperdTheta(:,j,k) - &
-  !              2.*dPperdTheta(:,j,k)*derivDiffPTheta(:,j,k)/jacobian(:,j,k)
-  !      else
-  !         gradPSq(:,j,k) = (fzet(k)**2 * dpdAlpha(1:nthe,j,k)**2 * gradZetaSq(:,j,k) &
-  !                         + f(j)**2 * dpdPsi(1:nthe,j,k)**2 * gradRhoSq(:,j,k) &
-  !                         + 2._dp*dpdAlpha(1:nthe,j,k)*dpdPsi(1:nthe,j,k) * f(j) * fzet(k) * gradRhoGradZeta(:,j,k))
-
-  !         jCrossBMinusGradPSq(:,j,k) = f(j)**2 * fzet(k)**2 * (gradRhoSq(:,j,k) * (jGradZeta(:,j,k) - &
-  !              1. / fzet(k) * dpdPsi(1:nthe,j,k))**2 + &
-  !              gradZetaSq(:,j,k) * (jGradRho(:,j,k) + 1./f(j) * dpdAlpha(1:nthe,j,k))**2 - 2._dp * &
-  !              (jGradZeta(:,j,k) - 1./fzet(k) * dpdPsi(1:nthe,j,k)) * (jGradRho(:,j,k) + 1./f(j)* &
-  !              dpdAlpha(1:nthe,j,k)) * gradRhoGradZeta(:,j,k))
-  !      endif
-
-  !   END DO
-  !END DO
-
-  !jCrossB = SQRT(jCrossBSq)*bnormal*pjconst*6.4
-  !gradP = SQRT(ABS(gradPSq))*pnormal*2
-  !jCrossBMinusGradPMod = SQRT(ABS(jCrossBMinusGradPSq))
-
-! Testing actual J, B, and GradP equations (in Cartesian)
-! -ME
   Jx = (JGradRho*derivXRho + JGradZeta*derivXZeta + JGradTheta*derivXTheta)
   Jy = (JGradRho*derivYRho + JGradZeta*derivYZeta + JGradTheta*derivYTheta)
   Jz = (JGradRho*derivZRho + JGradZeta*derivZZeta + JGradTheta*derivZTheta)
@@ -946,92 +846,109 @@ END SUBROUTINE Write_ionospheric_potential
   Jy = Jy * pjconst*6.4
   Jz = Jz * pjconst*6.4
   jCrossB = jCrossB*bnormal*pjconst*6.4
-  !jCrossB(:,npsi,:)   = 1.E-10
-  !jCrossB(:,npsi-1,:) = 1.E-10
-  !jCrossB(:,1,:) = 1.E-10
-  !jCrossB(:,2,:) = 1.E-10
-  GradP   = GradP*pnormal*2
+  GradP   = GradP*pnormal
   jCrossBMinusGradPMod = jCrossB-GradP
+
+  call metric
+  call newj
+  DO i = 2,nthe-1
+     DO j = 2, npsi-1
+        DO k = 2, nzeta
+           rLHS(i,j,k) = - vecd(i,j,k)*psi(i,j,k) &
+                         + vec1(i,j,k)*psi(i-1,j-1,k) &
+                         + vec2(i,j,k)*psi(i,j-1,k) &
+                         + vec3(i,j,k)*psi(i+1,j-1,k) &
+                         + vec4(i,j,k)*psi(i-1,j,k) &
+                         + vec6(i,j,k)*psi(i+1,j,k) &
+                         + vec7(i,j,k)*psi(i-1,j+1,k) &
+                         + vec8(i,j,k)*psi(i,j+1,k) &
+                         + vec9(i,j,k)*psi(i+1,j+1,k)
+           rRHS(i,j,k) = vecr(i,j,k)
+        ENDDO
+     ENDDO
+  ENDDO
+  rLHS(1,:,:) = 0
+  rLHS(nthe,:,:) = 0
+  rRHS(1,:,:) = 0
+  rRHS(nthe,:,:) = 0
+  rLHS(:,:,1) = rLHS(:,:,nzeta)
+  rRHS(:,:,1) = rRHS(:,:,nzeta)
+
+  call metrica
+  call newk
+  DO i = 2, nthe-1
+     DO j = 2, npsi-1
+        DO k = 2, nzeta
+           xLHS(i,j,k) = - vecd(i,j,k)*alfa(i,j,k)  &
+                         + vec1(i,j,k)*alfa(i-1,j,k-1) &
+                         + vec2(i,j,k)*alfa(i,j,k-1) &
+                         + vec3(i,j,k)*alfa(i+1,j,k-1) &
+                         + vec4(i,j,k)*alfa(i-1,j,k)  &
+                         + vec6(i,j,k)*alfa(i+1,j,k)  &
+                         + vec7(i,j,k)*alfa(i-1,j,k+1) &
+                         + vec8(i,j,k)*alfa(i,j,k+1) &
+                         + vec9(i,j,k)*alfa(i+1,j,k+1)
+           xRHS(i,j,k) = vecx(i,j,k)
+!if ((i.eq.47).and.(j.eq.8)) then
+!write(*,*) k, xLHS(i,j,k), xRHS(i,j,k), vecd(i,j,k), vec1(i,j,k), vec2(i,j,k), vec3(i,j,k), &
+!           vec4(i,j,k), vec6(i,j,k), vec7(i,j,k), vec8(i,j,k), vec9(i,j,k)
+!write(*,*) alfa(i,j,k), alfa(i-1,j,k-1), alfa(i,j,k-1), alfa(i+1,j,k-1), alfa(i-1,j,k), &
+!           alfa(i+1,j,k), alfa(i-1,j,k+1), alfa(i,j,k+1), alfa(i+1,j,k+1)
+!endif
+        ENDDO
+     ENDDO
+  ENDDO
+  xLHS(1,:,:) = 0
+  xLHS(nthe,:,:) = 0
+  xRHS(1,:,:) = 0
+  xRHS(nthe,:,:) = 0
+  xLHS(:,:,1) = xLHS(:,:,nzeta)
+  xRHS(:,:,1) = xRHS(:,:,nzeta)
  
   ! Force balance quantities
   FileName = trim(prefixOut)//'Force_balance_equatorial_'//iter
   OPEN(UNITTMP_, file = RamFileName(FileName,'dat',TimeRamNow), status='replace')
-  WRITE(UNITTMP_, *) npsi, nzeta
-  DO j = 1, npsi
+  WRITE(UNITTMP_, *) npsi-2, nzeta
+  i = nThetaEquator
+  DO j = 2, npsi-1
      DO k = 1, nzeta
-        WRITE(UNITTMP_, *) x(nThetaEquator, j, k), y(nThetaEquator, j, k), bf(nThetaEquator, j, k)*bnormal, &
-             jCrossB(nThetaEquator,j,k), jCrossBMinusGradPMod(nThetaEquator,j,k), &
-             gradP(nThetaEquator,j,k)
+        WRITE(UNITTMP_, *) x(i, j, k), y(i, j, k), bf(i, j, k)*bnormal, &
+                           jCrossB(i,j,k), jCrossBMinusGradPMod(i,j,k), &
+                           gradP(i,j,k), rLHS(i,j,k), rRHS(i,j,k), xLHS(i,j,k), &
+                           xRHS(i,j,k)
      END DO
   END DO
   CLOSE(UNITTMP_)
 
   FileName = trim(prefixOut)//'Force_balance_midnight_'//iter
   OPEN(UNITTMP_, file = RamFileName(FileName,'dat',TimeRamNow), status='replace')
-  WRITE(UNITTMP_, *) npsi, nthe
-  DO j = 1, npsi
+  WRITE(UNITTMP_, *) npsi-2, nthe
+  k = nZetaMidnight
+  DO j = 2, npsi-1
      DO i = 1, nthe
-        WRITE(UNITTMP_, *) x(i,j,nZetaMidnight), z(i,j,nZetaMidnight), &
-             bf(i,j,nZetaMidnight)*bnormal, jCrossB(i,j,nZetaMidnight), &
-             jCrossBMinusGradPMod(i,j,nZetaMidnight), gradP(i,j,nZetaMidnight)
-        WRITE(UNITTMP_, *) x(i,j,nZeta-1), z(i,j,nZeta-1), &
-             bf(i,j,nZeta-1)*bnormal, jCrossB(i,j,nZeta-1), &
-             jCrossBMinusGradPMod(i,j,nZeta-1), gradP(i,j,nZeta-1)
+        k = nZetaMidnight
+        WRITE(UNITTMP_, *) x(i,j,k), z(i,j,k), bf(i,j,k)*bnormal, &
+                           jCrossB(i,j,k), jCrossBMinusGradPMod(i,j,k), &
+                           gradP(i,j,k), rLHS(i,j,k), rRHS(i,j,k), xLHS(i,j,k), &
+                           xRHS(i,j,k)
+        k = 2
+        WRITE(UNITTMP_, *) x(i,j,k), z(i,j,k), bf(i,j,k)*bnormal, &
+                           jCrossB(i,j,k), jCrossBMinusGradPMod(i,j,k), &
+                           gradP(i,j,k), rLHS(i,j,k), rRHS(i,j,k), xLHS(i,j,k), &
+                           xRHS(i,j,k)
      END DO
   END DO
   CLOSE(UNITTMP_)
-
-  call metric
-  call newj
-  DO j = 2, npsi-1
-     i = nThetaEquator
-     k = 8
-     rLHS(j)  = - vecd(i,j,k)*psi(i,j,k) &
-                + vec1(i,j,k)*psi(i-1,j-1,k) &
-                + vec2(i,j,k)*psi(i,j-1,k) &
-                + vec3(i,j,k)*psi(i+1,j-1,k) &
-                + vec4(i,j,k)*psi(i-1,j,k) &
-                + vec6(i,j,k)*psi(i+1,j,k) &
-                + vec7(i,j,k)*psi(i-1,j+1,k) &
-                + vec8(i,j,k)*psi(i,j+1,k) &
-                + vec9(i,j,k)*psi(i+1,j+1,k)
-     rRHS(j)  = vecr(i,j,k)
-  ENDDO
-  rLHS(1) = 0.0
-  rRHS(1) = 0.0
-  rLHS(npsi) = 0.0
-  rRHS(npsi) = 0.0 
-
-  call metrica
-  call newk
-  DO j = 2, npsi-1
-     i = nThetaEquator
-     k = 8
-     xLHS(j)  = - vecd(i,j,k)*alfa(i,j,k)  &
-                + vec1(i,j,k)*alfa(i-1,j,k-1) &
-                + vec2(i,j,k)*alfa(i,j,k-1) &
-                + vec3(i,j,k)*alfa(i+1,j,k-1) &
-                + vec4(i,j,k)*alfa(i-1,j,k)  &
-                + vec6(i,j,k)*alfa(i+1,j,k)  &
-                + vec7(i,j,k)*alfa(i-1,j,k+1) &
-                + vec8(i,j,k)*alfa(i,j,k+1) &
-                + vec9(i,j,k)*alfa(i+1,j,k+1)
-     xRHS(j)  = vecx(i,j,k)
-  ENDDO
-  xLHS(1) = 0.0
-  xRHS(1) = 0.0
-  xLHS(npsi) = 0.0
-  xRHS(npsi) = 0.0
 
   i = nThetaEquator
   k = 8
   FileName = trim(prefixOut)//'Force_balance_line_'//iter
   OPEN(UNITTMP_, file = RamFileName(FileName,'dat',TimeRamNow), status='replace') 
   WRITE(UNITTMP_, *) i,k
-  DO j = 1, npsi
-     WRITE(UNITTMP_, *) x(i,j,k), y(i,j,k), jCrossB(i,j,k), gradP(i,j,k), rLHS(j), &
-                        rRHS(j), xLHS(j), xRHS(j), Jx(i,j,k), Jy(i,j,k), Jz(i,j,k), &
-                        Bx(i,j,k), By(i,j,k), Bz(i,j,k), JxBx(i,j,k), &
+  DO j = 2, npsi-1
+     WRITE(UNITTMP_, *) x(i,j,k), y(i,j,k), jCrossB(i,j,k), gradP(i,j,k), rLHS(i,j,k), &
+                        rRHS(i,j,k), xLHS(i,j,k), xRHS(i,j,k), Jx(i,j,k), Jy(i,j,k), &
+                        Jz(i,j,k), Bx(i,j,k), By(i,j,k), Bz(i,j,k), JxBx(i,j,k), &
                         JxBy(i,j,k), JxBz(i,j,k), GradPx(i,j,k), GradPy(i,j,k), &
                         GradPz(i,j,k), jacobian(i,j,k), z(i,j,k), derivXTheta(i,j,k), &
                         derivXRho(i,j,k), derivXZeta(i,j,k), derivYTheta(i,j,k), &
@@ -1048,7 +965,7 @@ END SUBROUTINE Write_ionospheric_potential
   normGradP = 0.0_dp
   volume   = 0.0_dp
   DO i = 2, nthe-1
-     DO j = 2, npsi-1
+     DO j = 2, npsi
         DO k = 2, nzeta
            !IF (2.*pper(i,j,k) > 1.E-1_dp*bsq(i,j,k)) THEN
               ! Only in regions with beta > 1E-2 
@@ -1070,7 +987,9 @@ END SUBROUTINE Write_ionospheric_potential
 
   !  Norms of |jxB-grad P|,      |jxB|,      |gradP| 
   WRITE(*, *) normDiff, normJxB, normGradP
-
+  if ((normDiff.ne.normDiff).or.(normJxB.ne.normJxB).or.(normGradP.ne.normGradP)) then
+   call con_stop('NaN encountered in ModScbIO.write_convergence subroutine')
+  endif
   RETURN
 
   END SUBROUTINE Write_convergence_anisotropic
