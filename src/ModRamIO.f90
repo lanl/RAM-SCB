@@ -461,11 +461,13 @@ end subroutine read_geomlt_file
                                EIP, dBdt, dIdt, dIbndt, EkeV, Lz, MLT, Pa
     use ModRamParams,    ONLY: InitializationPath
 
+    use ModScbSpline,    ONLY: Spline_2D_linear
+
     use netcdf
 
     implicit none
 
-    integer :: i, j, k, l, iS
+    integer :: i, j, k, l, iS, iDomain
     integer :: iRDim, iTDim, iEDim, iPaDim, iR, iT, iE, iPa, iError
     integer :: iFluxEVar, iFluxHVar, iFluxHeVar, iFluxOVar, iHVar, iBHVar, &
                iIVar, iBIVar, iBNESVar, iHDNSVar, iEIRVar, iEIPVar, &
@@ -474,7 +476,11 @@ end subroutine read_geomlt_file
     real(kind=Real8_), allocatable :: iF2(:,:,:,:,:), iFNHS(:,:,:), iFNIS(:,:,:), &
          iBOUNHS(:,:,:), iBOUNIS(:,:,:), iEIR(:,:), iEIP(:,:), iBNES(:,:), &
          iHDNS(:,:,:), idBdt(:,:), idIdt(:,:,:), idIbndt(:,:,:), iLz(:), iMLT(:), &
-         iEkeV(:), iPaVar(:)
+         iEkeV(:), iPaVar(:), radGrid(:,:), angleGrid(:,:), tF2(:,:,:,:,:)
+    real(kind=Real8_), allocatable :: pF2(:,:,:,:,:), pFNHS(:,:,:), pFNIS(:,:,:), &
+         pBOUNHS(:,:,:), pBOUNIS(:,:,:), pEIR(:,:), pEIP(:,:), pBNES(:,:), &
+         pHDNS(:,:,:), pdBdt(:,:), pdIdt(:,:,:), pdIbndt(:,:,:), pLz(:), pMLT(:)
+
     real(kind=Real8_) :: DL1, DPHI
 
     character(len=100)             :: NameFile, StringLine
@@ -557,7 +563,7 @@ end subroutine read_geomlt_file
 
     DPHI=2.*PI/(iT-1)
     DO J=1,iT
-      iMLT(J)=(J-1)*DPHI*12./PI
+      iMLT(J)=(J-1)*DPHI
     END DO
 
     iEkeV = EkeV
@@ -566,7 +572,7 @@ end subroutine read_geomlt_file
     ! Now we need to check the dimensions of the initialization file and
     ! interpolate if they are different
     if ((nR.eq.iR).and.(nT.eq.iT).and.(nE.eq.iE).and.(nPa.eq.iPa)) then
-       F2 = iF2
+       F2 = iF2(:,1:iR,:,:,:)
        FNHS = iFNHS
        FNIS = iFNIS
        BOUNHS = iBOUNHS
@@ -581,64 +587,117 @@ end subroutine read_geomlt_file
     else
        ! Interpolate spatially for each energy and pitch angle (if required)
        if ((nR.ne.iR).or.(nT.ne.iT)) then
-          do i=1,nR+1
-             do j=1,nT
-                call lintp2(iLz(:),iMLT(:),iBNES(:,:),iR,iT,Lz(i),MLT(j),BNES(i,j),iError)
-                call lintp2(iLz(:),iMLT(:),idBdt(:,:),iR,iT,Lz(i),MLT(j),dBdt(i,j),iError)
-                call lintp2(iLz(:),iMLT(:),iEIP(:,:),iR,iT,Lz(i),MLT(j),EIR(i,j),iError)
-                call lintp2(iLz(:),iMLT(:),iEIR(:,:),iR,iT,Lz(i),MLT(j),EIP(i,j),iError)
-                do l=1,nPa
-                   call lintp2(iLz(:),iMLT(:),iFNHS(:,:,l),iR,iT,Lz(i),MLT(j),FNHS(i,j,l),iError)
-                   call lintp2(iLz(:),iMLT(:),iFNIS(:,:,l),iR,iT,Lz(i),MLT(j),FNIS(i,j,l),iError)
-                   call lintp2(iLz(:),iMLT(:),iHDNS(:,:,l),iR,iT,Lz(i),MLT(j),HDNS(i,j,l),iError)
-                   call lintp2(iLz(:),iMLT(:),idIdt(:,:,l),iR,iT,Lz(i),MLT(j),dIdt(i,j,l),iError)
-                   call lintp2(iLz(:),iMLT(:),iBOUNHS(:,:,l),iR,iT,Lz(i),MLT(j),BOUNHS(i,j,l),iError)
-                   call lintp2(iLz(:),iMLT(:),iBOUNIS(:,:,l),iR,iT,Lz(i),MLT(j),BOUNIS(i,j,l),iError)
-                   call lintp2(iLz(:),iMLT(:),idIbndt(:,:,l),iR,iT,Lz(i),MLT(j),dIbndt(i,j,l),iError)
-                   do k=1,nE
-                      do iS=1,4
-                         if (i.lt.nR+1) call lintp2(iLz(:),iMLT(:),iF2(iS,:,:,k,l),iR,iT,Lz(i),MLT(j),F2(iS,i,j,k,l),iError)
-                      enddo
-                   enddo
+          ALLOCATE(radGrid(nR+1,nT),angleGrid(nR+1,nT))
+          ALLOCATE(pF2(4,iR+1,iT+2,iE,iPa), pLz(iR+2), pMLT(iT+2))
+          ALLOCATE(pFNHS(iR+2,iT+2,iPa), pBOUNHS(iR+2,iT+2,iPa), pdBdt(iR+2,iT+2), pHDNS(iR+2,iT+2,iPa), &
+                   pFNIS(iR+2,iT+2,iPa), pBOUNIS(iR+2,iT+2,iPa), pdIdt(iR+2,iT+2,iPa), pBNES(iR+2,iT+2), &
+                   pdIbndt(iR+2,iT+2,iPa), pEIR(iR+2,iT+2), pEIP(iR+2,iT+2))
+          ALLOCATE(tF2(4,nR+1,nT,nE,nPa))
+          DO i=1,NR+1
+             radGrid(i,:) = Lz(i)
+          ENDDO
+          DO j=2,NT
+             angleGrid(:,j) = MLT(j)*2*PI/24
+          ENDDO
+          DL1 = (RadiusMax - RadiusMin)/(iR - 1)
+          DO I=1,iR+2
+             pLz(I)=2.+(I-2)*DL1
+          END DO
+          DPHI=2.*PI/(iT-1)
+          DO J=1,iT+2
+             pMLT(J)=(J-2)*DPHI
+          END DO
+        !!!
+          pBNES(1:iR+1,2:iT+1) = iBNES
+          pBNES(iR+2,:) = pBNES(iR+1,:)
+          pBNES(:,1) = pBNES(:,iT)
+          pBNES(:,iT+2) = pBNES(:,3)
+        !!!
+          pdBdt(1:iR+1,2:iT+1) = idBdt
+          pdBdt(iR+2,:) = pdBdt(iR+1,:)
+          pdBdt(:,1) = pdBdt(:,iT)
+          pdBdt(:,iT+2) = pdBdt(:,3)
+        !!!
+          pEIP(1:iR+1,2:iT+1) = iEIP
+          pEIP(iR+2,:) = pEIP(iR+1,:)
+          pEIP(:,1) = pEIP(:,iT)
+          pEIP(:,iT+2) = pEIP(:,3)
+        !!!
+          pEIR(1:iR+1,2:iT+1) = iEIR
+          pEIR(iR+2,:) = pEIR(iR+1,:)
+          pEIR(:,1) = pEIR(:,iT)
+          pEIR(:,iT+2) = pEIR(:,3)
+        !!!
+          pFNHS(1:iR+1,2:iT+1,:) = iFNHS
+          pFNHS(iR+2,:,:) = pFNHS(iR+1,:,:)
+          pFNHS(:,1,:) = pFNHS(:,iT,:)
+          pFNHS(:,iT+2,:) = pFNHS(:,3,:)
+        !!!
+          pFNIS(1:iR+1,2:iT+1,:) = iFNIS
+          pFNIS(iR+2,:,:) = pFNIS(iR+1,:,:)
+          pFNIS(:,1,:) = pFNIS(:,iT,:)
+          pFNIS(:,iT+2,:) = pFNIS(:,3,:)
+        !!!
+          pHDNS(1:iR+1,2:iT+1,:) = iHDNS
+          pHDNS(iR+2,:,:) = pHDNS(iR+1,:,:)
+          pHDNS(:,1,:) = pHDNS(:,iT,:)
+          pHDNS(:,iT+2,:) = pHDNS(:,3,:)
+        !!!
+          pdIdt(1:iR+1,2:iT+1,:) = idIdt
+          pdIdt(iR+2,:,:) = pdIdt(iR+1,:,:)
+          pdIdt(:,1,:) = pdIdt(:,iT,:)
+          pdIdt(:,iT+2,:) = pdIdt(:,3,:)
+        !!!
+          pBOUNHS(1:iR+1,2:iT+1,:) = iBOUNHS
+          pBOUNHS(iR+2,:,:) = pBOUNHS(iR+1,:,:)
+          pBOUNHS(:,1,:) = pBOUNHS(:,iT,:)
+          pBOUNHS(:,iT+2,:) = pBOUNHS(:,3,:)
+        !!!
+          pBOUNIS(1:iR+1,2:iT+1,:) = iBOUNIS
+          pBOUNIS(iR+2,:,:) = pBOUNIS(iR+1,:,:)
+          pBOUNIS(:,1,:) = pBOUNIS(:,iT,:)
+          pBOUNIS(:,iT+2,:) = pBOUNIS(:,3,:)
+        !!!
+          pdIbndt(1:iR+1,2:iT+1,:) = idIbndt
+          pdIbndt(iR+2,:,:) = pdIbndt(iR+1,:,:)
+          pdIbndt(:,1,:) = pdIbndt(:,iT,:)
+          pdIbndt(:,iT+2,:) = pdIbndt(:,3,:)
+        !!!
+          CALL Spline_2D_linear(pLz, pMLT, pBNES, radGrid, angleGrid, BNES, iDomain)
+          CALL Spline_2D_linear(pLz, pMLT, pdBdt, radGrid, angleGrid, dBdt, iDomain)
+          CALL Spline_2D_linear(pLz, pMLT, pEIP, radGrid, angleGrid, EIP, iDomain)
+          CALL Spline_2D_linear(pLz, pMLT, pEIR, radGrid, angleGrid, EIR, iDomain)
+          do l=1,nPa
+             CALL Spline_2D_linear(pLz, pMLT, pFNHS(:,:,l), radGrid, angleGrid, FNHS(:,:,l), iDomain)
+             CALL Spline_2D_linear(pLz, pMLT, pFNIS(:,:,l), radGrid, angleGrid, FNIS(:,:,l), iDomain)
+             CALL Spline_2D_linear(pLz, pMLT, pHDNS(:,:,l), radGrid, angleGrid, HDNS(:,:,l), iDomain)
+             CALL Spline_2D_linear(pLz, pMLT, pdIdt(:,:,l), radGrid, angleGrid, dIdt(:,:,l), iDomain)
+             CALL Spline_2D_linear(pLz, pMLT, pBOUNHS(:,:,l), radGrid, angleGrid, BOUNHS(:,:,l), iDomain)
+             CALL Spline_2D_linear(pLz, pMLT, pBOUNIS(:,:,l), radGrid, angleGrid, BOUNIS(:,:,l), iDomain)
+             CALL Spline_2D_linear(pLz, pMLT, pdIbndt(:,:,l), radGrid, angleGrid, dIbndt(:,:,l), iDomain)
+             do k=1,nE
+                do iS=1,4
+                   pF2(iS,1:iR,2:iT+1,k,l) = iF2(iS,:,:,k,l)
+                   pF2(iS,iR+1,:,k,l) = pF2(iS,iR,:,k,l)
+                   pF2(iS,:,1,k,l) = pF2(iS,:,iT,k,l)
+                   pF2(iS,:,iT+2,k,l) = pF2(iS,:,3,k,l)
+                   CALL Spline_2D_linear(pLz(1:iR+1), pMLT, pF2(iS,:,:,k,l), &
+                                        radGrid, angleGrid, tF2(iS,:,:,k,l), iDomain)
+                   F2(iS,:,:,k,l) = tF2(iS,1:nR,:,k,l)
                 enddo
              enddo
           enddo
+          DEALLOCATE(radGrid,angleGrid)
+          DEALLOCATE(pF2, tF2, pMLT, pLz)
+          DEALLOCATE(pFNHS, pBOUNHS, pFNIS, pBOUNIS, pBNES, pHDNS, pEIR, pEIP, &
+                     pdBdt, pdIbndt, pdIdt)
+          HDNS = HDNS
        endif
+
        ! Interpolate across pitch angle
-       if (nPa.ne.iPa) then
-          do i=1,nR
-             do j=1,nT
-                do l=1,nPa
-                   call lintp(iPaVar(:),iFNHS(i,j,:),iPa,Pa(l),FNHS(i,j,l),iError)
-                   call lintp(iPaVar(:),iFNIS(i,j,:),iPa,Pa(l),FNIS(i,j,l),iError)
-                   call lintp(iPaVar(:),iHDNS(i,j,:),iPa,Pa(l),HDNS(i,j,l),iError)
-                   call lintp(iPaVar(:),idIdt(i,j,:),iPa,Pa(l),dIdt(i,j,l),iError)
-                   call lintp(iPaVar(:),iBOUNHS(i,j,:),iPa,Pa(l),BOUNHS(i,j,l),iError)
-                   call lintp(iPaVar(:),iBOUNIS(i,j,:),iPa,Pa(l),BOUNIS(i,j,l),iError)
-                   call lintp(iPaVar(:),idIbndt(i,j,:),iPa,Pa(l),dIbndt(i,j,l),iError)
-                   do k=1,nE
-                      do iS=1,4
-                         call lintp(iPaVar(:),iF2(iS,i,j,k,:),iPa,Pa(l),F2(iS,i,j,k,l),iError)
-                      enddo
-                   enddo
-                enddo
-             enddo
-          enddo
-       endif
-       ! Interpolate across energy (F2 only)
-       ! For now just do linear, add linear of log later
-       if (nE.ne.iE) then
-          do iS=1,4
-             do i=1,nR
-                do j=1,nT
-                   do l=1,nPa
-                      do k=1,nE
-                         call lintp(iEkeV(:),iF2(iS,i,j,:,l),iE,EkeV(k),F2(iS,i,j,k,l),iError)
-                      enddo
-                   enddo
-                enddo
-             enddo
-          enddo
+       if ((nPa.ne.iPa).or.(nE.ne.iE)) then
+        call CON_stop('Changing pitch angle and energy resolution in RAM is not &
+                       currently supported')
        endif
     endif
 
@@ -875,11 +934,11 @@ end subroutine read_geomlt_file
     do i=2, NR
        do j=1, NT
           if (.not.DoAnisoPressureGMCoupling) then
-             write(UNITTMP_,*) LZ(I),NINT(PHI(J)*12/PI),PPERH(I,J),PPARH(I,J), &
+             write(UNITTMP_,*) LZ(I),PHI(J)*12/PI,PPERH(I,J),PPARH(I,J), &
                                PPERO(I,J),PPARO(I,J), PPERHE(I,J),PPARHE(I,J), &
                                PPERE(I,J),PPARE(I,J),PAllSum(i,j)
           else
-             write(UNITTMP_,*) LZ(I),NINT(PHI(J)*12/PI),PPERH(I,J),PPARH(I,J), &
+             write(UNITTMP_,*) LZ(I),PHI(J)*12/PI,PPERH(I,J),PPARH(I,J), &
                                PPERO(I,J),PPARO(I,J),PPERHE(I,J),PPARHE(I,J), &
                                PPERE(I,J),PPARE(I,J),PAllSum(i,j),PparSum(i,j)
           end if
@@ -909,7 +968,7 @@ subroutine ram_write_hI
   OPEN(UNITTMP_, file = TRIM(filenamehI), action = 'write', status = 'unknown')
   WRITE(UNITTMP_, *) '   Lsh        MLT    NPA    h(Lsh,MLT,NPA) hBoun(Lsh,MLT,NPA) '//&
              'I(Lsh,MLT,NPA) IBoun(Lsh,MLT,NPA) Bz(Lsh,MLT) HDENS(Lsh,MLT,NPA)'
-  DO i = 2, nR
+  DO i = 2, nR+1
      DO j = 1, nT
         DO L = 1, NPA
            WRITE(UNITTMP_, *) LZ(i), NINT(MLT(j)), L, FNHS(i,j,L), BOUNHS(i,j,L), &
@@ -950,4 +1009,215 @@ subroutine write_dsbnd
 end Subroutine write_dsbnd
 
 !==============================================================================
+
+  subroutine write_fail_file
+
+    !!!! Module Variables
+    use ModRamMain,      ONLY: PathRestartOut, PathRestartIn, niter
+    use ModRamFunctions, ONLY: RamFileName
+    use ModRamTiming,    ONLY: TimeRamElapsed, TimeRamStart, TimeRamNow, DtsNext, &
+                               TOld
+    use ModRamGrids,     ONLY: NR, NT, NE, NPA
+    use ModRamVariables, ONLY: F2, PParT, PPerT, FNHS, FNIS, BOUNHS, BOUNIS, &
+                               BNES, HDNS, EIR, EIP, dBdt, dIdt, dIbndt, VTN, &
+                               VTOL, VT, EIR, EIP, FGEOS, PParH, PPerH, PParO, &
+                               PPerO, PParHe, PPerHe, PParE, PPerE
+    use ModRamScb,       ONLY: indexPA, FLUX3DEQ
+    use ModScbGrids,     ONLY: nthe, npsi, nzeta, nzetap
+    use ModScbVariables, ONLY: x, y, z, bX, bY, bZ, bf, alfa, psi, alphaVal, psiVal, &
+                               chi, GradRhoSq, GradZetaSq, GradRhoGradZeta, &
+                               GradRhoGradTheta, GradThetaGradZeta, dPPerdRho, &
+                               dPPerdZeta, dPPerdTheta, dBsqdRho, dBsqdZeta, &
+                               dBsqdTheta, sigma, f, fzet
+    !!!! Module Subroutines/Functions
+    use ModRamNCDF, ONLY: ncdf_check, write_ncdf_globatts
+    !!!! Share Modules
+    use ModIOUnit, ONLY: UNITTMP_
+    !!!! NetCdf Modules
+    use netcdf
+
+    implicit none
+    
+    integer :: stat
+    integer :: iFluxEVar, iFluxHVar, iFluxHeVar, iFluxOVar, iPParTVar, &
+               iPPerTVar, iBxVar, iByVar, iBzVar, iBfVar, iHVar, iBHVar, &
+               iIVar, iBIVar, iBNESVar, iHDNSVar, iEIRVar, iEIPVar, &
+               iGEOVar, iPaIndexVar, iDtVar, iXVar, iYVar, iZVar, &
+               iVTNVar, iAlphaVar, iBetaVar, iAValVar, iBValVar, iVTOLVar, &
+               iVTVar, iDBDTVar, iDIDTVar, iDIBNVar, iFileID, iStatus, &
+               iChiVar, iTOldVar
+    integer :: igrgr, igpgp, igrgp, igrgt, igtgp, idpdr, idpdp, idpdt, &
+               idbdr, idbdp, idbdt, isigma, ifVar, ifzetVar
+    integer :: nRDim, nTDim, nEDim, nPaDim, nSDim, nThetaDim, nPsiDim, &
+               nZetaDim, nRPDim, nZetaPDim, iFlux3DVar
+    integer, parameter :: iDeflate = 2
+
+    character(len=2), dimension(4):: NameSpecies = (/'e_','h_','he','o_'/)
+    character(len=200)            :: NameFile,CWD
+
+    character(len=*), parameter :: NameSub='write_fail_file'
+    logical :: DoTest, DoTestMe
+    !------------------------------------------------------------------------
+    call CON_set_do_test(NameSub, DoTest, DoTestMe)
+    
+    ! OPEN FILE
+    !NameFile = RamFileName(PathRestartOut//'/restart','nc',TimeRamNow)
+    NameFile = 'failed.nc'
+    iStatus = nf90_create(trim(NameFile), nf90_clobber, iFileID)
+    !iStatus = nf90_create(trim(NameFile), nf90_HDF5, iFileID)
+    call ncdf_check(iStatus, NameSub)
+    call write_ncdf_globatts(iFileID)
+
+    ! CREATE DIMENSIONS
+    iStatus = nf90_def_dim(iFileID, 'nR',     nR,     nRDim)
+    iStatus = nf90_def_dim(iFileID, 'nRP',    nR+1,   nRPDim)
+    iStatus = nf90_def_dim(iFileID, 'nT',     nT,     nTDim)
+    iStatus = nf90_def_dim(iFileID, 'nE',     nE,     nEDim)
+    iStatus = nf90_def_dim(iFileID, 'nPa',    nPa,    nPaDim)
+    iStatus = nf90_def_dim(iFileID, 'nS',     4,      nSDim)
+    iStatus = nf90_def_dim(iFileID, 'nTheta', nthe,   nThetaDim)
+    iStatus = nf90_def_dim(iFileID, 'nPsi',   npsi,   nPsiDim)
+    iStatus = nf90_def_dim(iFileID, 'nZeta',  nzeta,  nZetaDim)
+    iStatus = nf90_def_dim(iFileID, 'nZetaP', nzetap, nZetaPDim)
+
+    ! START DEFINE MODE
+    !! FLUXES
+    iStatus = nf90_def_var(iFileID, 'FluxE', nf90_double,(/nRdim,nTDim,nEDim,nPaDim/), iFluxEVar)
+    iStatus = nf90_def_var(iFileID, 'FluxH', nf90_double,(/nRdim,nTDim,nEDim,nPaDim/), iFluxHVar)
+    iStatus = nf90_def_var(iFileID, 'FluxO', nf90_double,(/nRdim,nTDim,nEDim,nPaDim/), iFluxOVar)
+    iStatus = nf90_def_var(iFileID, 'FluxHe', nf90_double,(/nRdim,nTDim,nEDim,nPaDim/), iFluxHeVar)
+    !iStatus = nf90_def_var(iFileID, 'FGEOS', nf90_double,(/nSdim,nTDim,nEDim,nPadim/), iGEOVar)
+    !iStatus = nf90_def_var(iFileID, 'Flux3D', nf90_double,(/nSdim,nPsiDim,nZetaDim,nEDim,nPADim/), iFlux3DVar)
+
+    !! PRESSURES
+    iStatus = nf90_def_var(iFileID, 'PParT', nf90_double,(/nSdim,nRDim,nTDim/), iPParTVar)
+    iStatus = nf90_def_var(iFileID, 'PPerT', nf90_double,(/nSdim,nRDim,nTDim/), iPPerTVar)
+
+    !! MAGNETIC FIELD
+    iStatus = nf90_def_var(iFileID, 'Bx', nf90_double,(/nThetaDim,nPsiDim,nZetaDim/), iBxVar)
+    iStatus = nf90_def_var(iFileID, 'By', nf90_double,(/nThetaDim,nPsiDim,nZetaDim/), iByVar)
+    iStatus = nf90_def_var(iFileID, 'Bz', nf90_double,(/nThetaDim,nPsiDim,nZetaDim/), iBzVar)
+    iStatus = nf90_def_var(iFileID, 'B', nf90_double,(/nThetaDim,nPsiDim,nZetaPDim/), iBfVar)
+
+    !! ELECTRIC FIELD/POTENTIAL
+    !iStatus = nf90_def_var(iFileID, 'VTOL', nf90_double,(/nRPDim,nTDim/), iVTOLVar)
+    !iStatus = nf90_def_var(iFileID, 'VTN', nf90_double,(/nRPDim,nTDim/), iVTNVar)
+    !iStatus = nf90_def_var(iFileID, 'VT', nf90_double,(/nRPDim,nTDim/), iVTVar)
+
+    !! hI OUTPUTS
+    !iStatus = nf90_def_var(iFileID, 'FNHS', nf90_double,(/nRPDim,nTDim,NPaDim/), iHVar)
+    !iStatus = nf90_def_var(iFileID, 'BOUNHS', nf90_double,(/nRPDim,nTDim,NPaDim/), iBHVar)
+    !iStatus = nf90_def_var(iFileID, 'FNIS', nf90_double,(/nRPDim,nTDim,NPaDim/), iIVar)
+    !iStatus = nf90_def_Var(iFileID, 'BOUNIS', nf90_double,(/nRPDim,nTDim,NPaDim/), iBIVar)
+    !iStatus = nf90_def_var(iFileID, 'BNES', nf90_double,(/nrPDim,nTDim/), iBNESVar)
+    !iStatus = nf90_def_var(iFileID, 'HDNS', nf90_double,(/nRPDim,nTDim,nPaDim/), iHDNSVar)
+    !iStatus = nf90_def_var(iFileID, 'EIR', nf90_double,(/nrPDim,nTDim/), iEIRVar)
+    !iStatus = nf90_def_var(iFileID, 'EIP', nf90_double,(/nrPDim,nTDim/), iEIPVar)
+    !iStatus = nf90_def_var(iFileID, 'dBdt', nf90_double,(/nrPDim,nTDim/), iDBDTVar)
+    !iStatus = nf90_def_var(iFileID, 'dIdt', nf90_double,(/nRPDim,nTDim,NPaDim/), iDIDTVar)
+    !iStatus = nf90_def_var(iFileID, 'dIbndt', nf90_double,(/nRPDim,nTDim,NPaDim/), iDIBNVar)
+
+    !! GRID OUTPUTS
+    iStatus = nf90_def_var(iFileID, 'x', nf90_double,(/nThetaDim,nPsiDim,nZetaPDim/), iXVar)
+    iStatus = nf90_def_var(iFileID, 'y', nf90_double,(/nThetaDim,nPsiDim,nZetaPDim/), iYVar)
+    iStatus = nf90_def_var(iFileID, 'z', nf90_double,(/nThetaDim,nPsiDim,nZetaPDim/), iZVar)
+
+    !! ALPHA/BETA
+    iStatus = nf90_def_var(iFileID, 'alpha', nf90_double,(/nThetaDim,nPsiDim,nZetaPDim/), iAlphaVar)
+    iStatus = nf90_def_var(iFileID, 'beta', nf90_double,(/nThetaDim,nPsiDim,nZetaPDim/), iBetaVar)
+    iStatus = nf90_def_var(iFileID, 'chi', nf90_double,(/nThetaDim,nPsiDim,nZetaPDim/), iChiVar)
+
+    !! Gradients/Derivatives
+    iStatus = nf90_def_var(iFileID, 'GradRhoSq',nf90_double,(/nThetaDim,nPsiDim,nZetaDim/), igrgr)
+    iStatus = nf90_def_var(iFileID, 'GradPhiSq',nf90_double,(/nThetaDim,nPsiDim,nZetaDim/), igpgp)
+    iStatus = nf90_def_var(iFileID, 'GradRhoGradPhi',nf90_double,(/nThetaDim,nPsiDim,nZetaDim/), igrgp)
+    iStatus = nf90_def_var(iFileID, 'GradRhoGradTheta',nf90_double,(/nThetaDim,nPsiDim,nZetaDim/), igrgt)
+    iStatus = nf90_def_var(iFileID, 'GradThetaGradPhi',nf90_double,(/nThetaDim,nPsiDim,nZetaDim/), igtgp)
+    iStatus = nf90_def_var(iFileID, 'dPPerdRho',nf90_double,(/nThetaDim,nPsiDim,nZetaDim/), idpdr)
+    iStatus = nf90_def_var(iFileID, 'dPPerdPhi',nf90_double,(/nThetaDim,nPsiDim,nZetaDim/), idpdp)
+    iStatus = nf90_def_var(iFileID, 'dPPerdTheta',nf90_double,(/nThetaDim,nPsiDim,nZetaDim/), idpdt)
+    iStatus = nf90_def_var(iFileID, 'dBsqdRho',nf90_double,(/nThetaDim,nPsiDim,nZetaDim/), idbdr)
+    iStatus = nf90_def_var(iFileID, 'dBsqdPhi',nf90_double,(/nThetaDim,nPsiDim,nZetaDim/), idbdp)
+    iStatus = nf90_def_var(iFileID, 'dBsqdTheta',nf90_double,(/nThetaDim,nPsiDim,nZetaDim/), idbdt)
+    iStatus = nf90_def_var(iFileID, 'sigma',nf90_double,(/nThetaDim,nPsiDim,nZetaDim/), isigma)
+    iStatus = nf90_def_var(iFileID, 'f',nf90_double,(/nPsiDim/), ifVar)
+    iStatus = nf90_def_var(iFileID, 'fzet',nf90_double,(/nZetaPDim/), ifzetVar)
+
+    ! END DEFINE MODE
+    iStatus = nf90_enddef(iFileID)
+    call ncdf_check(iStatus, NameSub)
+
+    ! START WRITE MODE
+    !! FLUXES
+    iStatus = nf90_put_var(iFileID, iFluxEVar,  F2(1,:,:,:,:))
+    iStatus = nf90_put_var(iFileID, iFluxHVar,  F2(2,:,:,:,:))
+    iStatus = nf90_put_var(iFileID, iFluxHeVar, F2(3,:,:,:,:))
+    iStatus = nf90_put_var(iFileID, iFluxOVar,  F2(4,:,:,:,:))
+    !iStatus = nf90_put_var(iFileID, iGEOVar,    FGEOS(:,:,:,:))
+    !iStatus = nf90_put_var(iFileID, iFlux3DVar, FLUX3DEQ(:,:,:,:,:))
+
+    !! PRESSURES
+    iStatus = nf90_put_var(iFileID, iPParTVar, PParT(:,:,:))
+    iStatus = nf90_put_var(iFileID, iPPerTVar, PPerT(:,:,:))
+
+    !! MAGNETIC FIELD
+    iStatus = nf90_put_var(iFileID, iBxVar, bX(:,:,:))
+    iStatus = nf90_put_var(iFileID, iByVar, bY(:,:,:))
+    iStatus = nf90_put_var(iFileID, iBzVar, bZ(:,:,:))
+    iStatus = nf90_put_var(iFileID, iBfVar, bf(:,:,:))
+
+    !! ELECTRIC FIELD
+    !iStatus = nf90_put_var(iFileID, iVTOLVar, VTOL(:,:))
+    !iStatus = nf90_put_var(iFileID, iVTNVar,  VTN(:,:))
+    !iStatus = nf90_put_var(iFileID, iVTVar,   VT(:,:))
+
+    !! hI OUTPUTS
+    !iStatus = nf90_put_var(iFileID, iHVar,    FNHS(:,:,:))
+    !iStatus = nf90_put_var(iFileID, iBHVar,   BOUNHS(:,:,:))
+    !iStatus = nf90_put_var(iFileID, iIVar,    FNIS(:,:,:))
+    !iStatus = nf90_put_var(iFileID, iBIVar,   BOUNIS(:,:,:))
+    !iStatus = nf90_put_var(iFileID, iBNESVar, BNES(:,:))
+    !iStatus = nf90_put_var(iFileID, iHDNSVar, HDNS(:,:,:))
+    !iStatus = nf90_put_var(iFileID, iEIRVar,  EIR(:,:))
+    !iStatus = nf90_put_var(iFileID, iEIPVar,  EIP(:,:))
+    !iStatus = nf90_put_var(iFileID, iDBDTVar, dBdt(:,:))
+    !iStatus = nf90_put_var(iFileID, iDIDTVar, dIdt(:,:,:))
+    !iStatus = nf90_put_var(iFileID, iDIBNVar, dIbndt(:,:,:))
+
+    !! GRID OUTPUTS
+    iStatus = nf90_put_var(iFileID, iXVar, x(:,:,:))
+    iStatus = nf90_put_var(iFileID, iYVar, y(:,:,:))
+    iStatus = nf90_put_var(iFileID, iZVar, z(:,:,:))
+
+    !! ALPHA/BETA
+    iStatus = nf90_put_var(iFileID, iAlphaVar, psi(:,:,:))
+    iStatus = nf90_put_var(iFileID, iBetaVar,  alfa(:,:,:))
+    iStatus = nf90_put_var(iFileID, iChiVar,   chi(:,:,:))
+
+    !! Gradients/Derivatives
+    iStatus = nf90_put_var(iFileID, igrgr, GradRhoSq(:,:,:))
+    iStatus = nf90_put_var(iFileID, igpgp, GradZetaSq(:,:,:))
+    iStatus = nf90_put_var(iFileID, igrgp, GradRhoGradZeta(:,:,:))
+    iStatus = nf90_put_var(iFileID, igrgt, GradRhoGradTheta(:,:,:))
+    iStatus = nf90_put_var(iFileID, igtgp, GradThetaGradZeta(:,:,:))
+    iStatus = nf90_put_var(iFileID, idpdr, dPPerdRho(:,:,:))
+    iStatus = nf90_put_var(iFileID, idpdp, dPPerdZeta(:,:,:))
+    iStatus = nf90_put_var(iFileID, idpdt, dPPerdTheta(:,:,:))
+    iStatus = nf90_put_var(iFileID, idbdr, dBsqdRho(:,:,:))
+    iStatus = nf90_put_var(iFileID, idbdp, dBsqdZeta(:,:,:))
+    iStatus = nf90_put_var(iFileID, idbdt, dBsqdTheta(:,:,:))
+    iStatus = nf90_put_var(iFileID, isigma, sigma(:,:,:))
+    iStatus = nf90_put_var(iFileID, ifVar, f(:))
+    iStatus = nf90_put_var(iFileID, ifzetVar, fzet(:))
+
+    ! END WRITE MODE
+    call ncdf_check(iStatus, NameSub)
+    
+    ! CLOSE FILE
+    iStatus = nf90_close(iFileID)
+    call ncdf_check(iStatus, NameSub)
+
+  end subroutine write_fail_file
+!==============================================================================
+
 END MODULE ModRamIO
