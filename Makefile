@@ -327,6 +327,10 @@ test4_check:
                 ${TESTDIR4}/output_ram/pressure_d20130317_t001500.dat \
                 ${IMDIR}/output/test3/pressure.ref                    \
                 > test4.diff
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                             \
+                ${TESTDIR4}/output_scb/hI_output_d20130317_t001500.dat \
+                ${IMDIR}/output/test3/hI.ref                           \
+                >> test4.diff
 	ncrcat ${TESTDIR4}/output_ram/sat1_d20130317_t000000.nc       \
                ${TESTDIR4}/output_ram/sat1_d20130317_t000800.nc       \
                ${TESTDIR4}/output_ram/sat1.nc
