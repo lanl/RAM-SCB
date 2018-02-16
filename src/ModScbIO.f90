@@ -59,7 +59,7 @@ MODULE ModScbIO
 
     left = 1
     right = npsi
-    if ((NameBoundMag.eq.'DIPS').or.(NameBoundMag.eq.'DIPC')) then
+    if ((NameBoundMag.eq.'DIPS').or.(NameBoundMag.eq.'DIPC').or.(NameBoundMag.eq.'DIPL')) then
        ! For generating x, y, and z arrays using analytic dipole and analytic compressed dipole
        ! the variable b controls the compression with 0 being no compression
        constZ = 0.0
@@ -250,10 +250,12 @@ MODULE ModScbIO
 
     ! For outputing the outer shell of the magnetic field
     open(UNITTMP_,FILE=RamFileName('MAGxyz','dat',TimeRamNow))
-    write(UNITTMP_,*) nthe, nzeta-1
+    write(UNITTMP_,*) nthe, npsi, nzeta
     do i = 1,nthe
-     do k = 2,nzeta
-      write(UNITTMP_,*) x(i,npsi,k), y(i,npsi,k), z(i,npsi,k)
+     do j = 1,npsi
+      do k = 1,nzeta
+       write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
+      enddo
      enddo
     enddo
     close(UNITTMP_)
@@ -889,12 +891,6 @@ END SUBROUTINE Write_ionospheric_potential
                          + vec8(i,j,k)*alfa(i,j,k+1) &
                          + vec9(i,j,k)*alfa(i+1,j,k+1)
            xRHS(i,j,k) = vecx(i,j,k)
-!if ((i.eq.47).and.(j.eq.8)) then
-!write(*,*) k, xLHS(i,j,k), xRHS(i,j,k), vecd(i,j,k), vec1(i,j,k), vec2(i,j,k), vec3(i,j,k), &
-!           vec4(i,j,k), vec6(i,j,k), vec7(i,j,k), vec8(i,j,k), vec9(i,j,k)
-!write(*,*) alfa(i,j,k), alfa(i-1,j,k-1), alfa(i,j,k-1), alfa(i+1,j,k-1), alfa(i-1,j,k), &
-!           alfa(i+1,j,k), alfa(i-1,j,k+1), alfa(i,j,k+1), alfa(i+1,j,k+1)
-!endif
         ENDDO
      ENDDO
   ENDDO
@@ -994,4 +990,38 @@ END SUBROUTINE Write_ionospheric_potential
 
   END SUBROUTINE Write_convergence_anisotropic
 
+!==================================================================================================
+  subroutine write_scb_pressure
+    !!!! Module Variables
+    USE ModRamTiming,    ONLY: TimeRamNow
+    USE ModScbMain,      ONLY: prefixOut
+    USE ModScbGrids,     ONLY: nthe, npsi, nzeta
+    USE ModScbVariables, ONLY: x, y, z, pressure3D, pnormal
+    
+    !!!! Module Subroutine/Function
+    use ModRamFunctions, ONLY: RamFileName
+  
+    !!!! Share Modules
+    USE ModIoUnit, ONLY: UNITTMP_
+
+    implicit none
+
+    integer :: i, j, k
+    character(len=200) :: FileName
+
+    FileName = trim(prefixOut)//'Pressure3D'
+    OPEN(UNITTMP_, file = RamFileName(FileName,'dat',TimeRamNow), status='replace')
+    WRITE(UNITTMP_, *) "X (Re)    Y (Re)    Z (Re)    P (nPa)"
+    DO i = 1,nthe
+       DO j = 1,npsi
+          DO k = 1,nzeta
+             WRITE(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k), pressure3D(i,j,k)*pnormal
+          ENDDO
+       ENDDO
+    ENDDO
+    CLOSE(UNITTMP_)
+
+    return
+
+  end subroutine write_scb_pressure
 END MODULE ModScbIO

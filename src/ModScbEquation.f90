@@ -2,8 +2,6 @@ MODULE ModScbEquation
 ! Contains subroutines for calculating the left hand side and
 ! right hand side of the force balance equation
 
-  use ModScbFunctions, ONLY: extap
-
   implicit none
 
 contains
@@ -21,7 +19,6 @@ SUBROUTINE metrica
   use ModScbVariables, ONLY: f, fzet, x, y, z, sumb, sumdb, bf, bsq, jacobian, &
                              thetaVal, rhoVal, zetaVal, vecd, vec1, vec2, vec3, &
                              vec4, vec6, vec7, vec8, vec9, left, right
-  use ModScbSpline,    ONLY: Spline_Coord_Derivs
 
   IMPLICIT NONE
 
@@ -59,11 +56,13 @@ SUBROUTINE metrica
            xtc(i)=(x(i,j,k)-x(i-1,j,k))*rdt
            xtd(i)=(x(i+1,j,k)+x(i+1,j,k-1)-x(i-1,j,k)-x(i-1,j,k-1))*rdt4
            xte(i)=(x(i+1,j,k)-x(i-1,j,k))*rdt2
+           
            xpa(i)=(x(i+1,j,k+1)+x(i,j,k+1)-x(i+1,j,k-1)-x(i,j,k-1))*rdp4
            xpb(i)=(x(i,j,k+1)-x(i,j,k))*rdp
            xpc(i)=(x(i,j,k+1)+x(i-1,j,k+1)-x(i,j,k-1)-x(i-1,j,k-1))*rdp4
            xpd(i)=(x(i,j,k)-x(i,j,k-1))*rdp
            xpe(i)=(x(i,j,k+1)-x(i,j,k-1))*rdp2
+           
            xra(i)=(x(i+1,j+1,k)+x(i,j+1,k)-x(i+1,j-1,k)-x(i,j-1,k))*rdr4
            xrb(i)=(x(i,j+1,k+1)+x(i,j+1,k)-x(i,j-1,k+1)-x(i,j-1,k))*rdr4
            xrc(i)=(x(i,j+1,k)+x(i-1,j+1,k)-x(i,j-1,k)-x(i-1,j-1,k))*rdr4
@@ -75,11 +74,13 @@ SUBROUTINE metrica
            ytc(i)=(y(i,j,k)-y(i-1,j,k))*rdt
            ytd(i)=(y(i+1,j,k)+y(i+1,j,k-1)-y(i-1,j,k)-y(i-1,j,k-1))*rdt4
            yte(i)=(y(i+1,j,k)-y(i-1,j,k))*rdt2
+           
            ypa(i)=(y(i+1,j,k+1)+y(i,j,k+1)-y(i+1,j,k-1)-y(i,j,k-1))*rdp4
            ypb(i)=(y(i,j,k+1)-y(i,j,k))*rdp
            ypc(i)=(y(i,j,k+1)+y(i-1,j,k+1)-y(i,j,k-1)-y(i-1,j,k-1))*rdp4
            ypd(i)=(y(i,j,k)-y(i,j,k-1))*rdp
            ype(i)=(y(i,j,k+1)-y(i,j,k-1))*rdp2
+           
            yra(i)=(y(i+1,j+1,k)+y(i,j+1,k)-y(i+1,j-1,k)-y(i,j-1,k))*rdr4
            yrb(i)=(y(i,j+1,k+1)+y(i,j+1,k)-y(i,j-1,k+1)-y(i,j-1,k))*rdr4
            yrc(i)=(y(i,j+1,k)+y(i-1,j+1,k)-y(i,j-1,k)-y(i-1,j-1,k))*rdr4
@@ -91,11 +92,13 @@ SUBROUTINE metrica
            ztc(i)=(z(i,j,k)-z(i-1,j,k))*rdt
            ztd(i)=(z(i+1,j,k)+z(i+1,j,k-1)-z(i-1,j,k)-z(i-1,j,k-1))*rdt4
            zte(i)=(z(i+1,j,k)-z(i-1,j,k))*rdt2
+           
            zpa(i)=(z(i+1,j,k+1)+z(i,j,k+1)-z(i+1,j,k-1)-z(i,j,k-1))*rdp4
            zpb(i)=(z(i,j,k+1)-z(i,j,k))*rdp
            zpc(i)=(z(i,j,k+1)+z(i-1,j,k+1)-z(i,j,k-1)-z(i-1,j,k-1))*rdp4
            zpd(i)=(z(i,j,k)-z(i,j,k-1))*rdp
            zpe(i)=(z(i,j,k+1)-z(i,j,k-1))*rdp2
+           
            zra(i)=(z(i+1,j+1,k)+z(i,j+1,k)-z(i+1,j-1,k)-z(i,j-1,k))*rdr4
            zrb(i)=(z(i,j+1,k+1)+z(i,j+1,k)-z(i,j-1,k+1)-z(i,j-1,k))*rdr4
            zrc(i)=(z(i,j+1,k)+z(i-1,j+1,k)-z(i,j-1,k)-z(i-1,j-1,k))*rdr4
@@ -120,7 +123,7 @@ SUBROUTINE metrica
            jacobian(i,j,k) = aje(i)
 
            IF (jacobian(i,j,k) < 0._dp) THEN
-              PRINT*, 'metrica: J < 0; i, j, k = ', i, j, k
+              PRINT*, 'metrica: i, j, k, jacobian(i,j,k) = ', i, j, k, jacobian(i,j,k)
            END IF
 
            grxa(i) = (ypa(i)*zta(i)-yta(i)*zpa(i))/aja(i)
@@ -226,6 +229,7 @@ SUBROUTINE metrica
            vec7(i,j,k) = -(v2c(i)+v2b(i))
            vec8(i,j,k) = v3b(i) + (v2a(i)-v2c(i))
            vec9(i,j,k) = (v2a(i) + v2b(i))
+
         END DO
      END DO
   END DO
@@ -244,7 +248,6 @@ SUBROUTINE metric
   use ModScbVariables, ONLY: f, fzet, x, y, z, sumb, sumdb, bf, bsq, jacobian, &
                              thetaVal, rhoVal, zetaVal, vecd, vec1, vec2, vec3, &
                              vec4, vec6, vec7, vec8, vec9, left, right
-  use ModScbSpline,    ONLY: Spline_coord_Derivs
 
   IMPLICIT NONE
 
@@ -344,7 +347,6 @@ SUBROUTINE metric
 
            IF (jacobian(i,j,k) < 0._dp) THEN
               PRINT*, 'metric: i, j, k, jacobian(i,j,k) = ', i, j, k, jacobian(i,j,k)
-             ! STOP
            END IF
 
            grxa(i) = (ypa(i)*zta(i)-yta(i)*zpa(i))/aja(i)
@@ -481,7 +483,7 @@ SUBROUTINE newk
   REAL(DP) :: xpz, xpt, c0, tz, tt
 
   IF (isotropy == 1) THEN      ! Isotropic case
-     DO j = left+1, right-1
+     DO j = left, right
         IF (iOuterMethod == 2) THEN   ! Newton method
            DO k = 2, nzeta
               vecx(1:nthe, j, k) = -jacobian(1:nthe,j,k)/f(j)**2 * (dpdAlpha(1:nthe,j,k) - dSqpdAlphaSq(1:nthe,j,k) * &

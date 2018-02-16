@@ -4,6 +4,60 @@ MODULE ModScbSpline
   
   contains
 !==============================================================================
+  SUBROUTINE Spline_1D(x_1, f, x, func, ierrDomain)
+    ! Used in ModScbCouple
+
+    USE nrtype, ONLY : DP
+    USE EZspline_obj ! import the modules
+    USE EZspline
+
+    IMPLICIT NONE
+
+    INTEGER, PARAMETER :: r8 = DP
+    REAL(r8), PARAMETER :: twopi = 6.2831853071795862320_r8
+
+    REAL(r8), DIMENSION(:), INTENT(IN) :: x_1 ! independent variable
+    REAL(r8), DIMENSION(:), INTENT(IN) :: f
+    REAL(r8), DIMENSION(:), INTENT(OUT) :: func   ! interpolated values 
+    INTEGER           :: n1, n_x, ier, BCS1(2)
+    TYPE(EZspline1_r8) :: spline_o ! 1-D EZspline object
+
+    INTEGER           :: j
+    INTEGER, INTENT(OUT) :: ierrDomain
+    REAL(r8), DIMENSION(:), INTENT(IN)    :: x  ! grid of points for output
+
+    n1 = SIZE(x_1)
+
+    ! Boundary conditions for interpolation
+    BCS1 = (/0, 0/)  ! periodic spline 
+
+    CALL EZspline_init(spline_o, n1, BCS1, ier)
+    CALL EZspline_error(ier)
+
+    spline_o%x1 = x_1
+    spline_o%isHermite = 0
+
+    CALL EZspline_setup(spline_o, f, ier)
+    CALL EZspline_error(ier)
+
+    n_x = SIZE(x,1)
+    DO j = 1, n_x
+       CALL EZspline_isInDomain(spline_o, x(j), ierrDomain)
+       IF (ierrDomain <= 0) THEN
+          CALL EZspline_interp(spline_o, x(j), func(j), ier)
+          CALL EZspline_error(ier)
+       END IF
+    END DO
+
+    !C PRINT *,'Spline_1D_point: cleaning up'
+    CALL Ezspline_free(spline_o, ier)
+    CALL EZspline_error(ier)
+
+    RETURN
+
+  END SUBROUTINE Spline_1D
+
+!==============================================================================
   SUBROUTINE Spline_1D_periodic(x_1, f, x, func, ierrDomain) 
     ! Used in ModScbCouple
   
@@ -29,42 +83,18 @@ MODULE ModScbSpline
     n1 = SIZE(x_1)
   
     ! Boundary conditions for interpolation
-  
     BCS1 = (/-1, -1/)  ! periodic spline 
-    ! BCS2 = (/ 0, 0 /) ! "not-a-knot" spline 
-    ! BCS2 = (/ 2, 2 /) !  "natural" spline
-  
-    ! initialize/allocate memory
-    !  PRINT *,'initializing...'
   
     CALL EZspline_init(spline_o, n1, BCS1, ier)
-    !C CALL EZLinear_init(spline_o, n1, n2, ier)
     CALL EZspline_error(ier)
   
-    spline_o%x1 = x_1    ! necessary if spline_o%x1 not in [0, 2 pi]; spline_o%x1 is a pointer, 
-    ! and is aliased to x_1 now
-    spline_o%isHermite = 1 ! Akima spline; smoother, more "natural"  interpolation (see Akima's paper)
-  
-      ! need to set explicitly the following if boundary conditions 
-    ! are anything but not-a-knot or periodic, i.e. BCS(n) has
-    ! element /= -1, 0.
-  !   spline_o%bcval1min = 0._r8 ; spline_o%bcval1max = 0._r8  ! values for 2nd derivatives at BCs
-  !  spline_o%bcval2min = 0._r8 ; spline_o%bcval2max = 0._r8  ! values for 2nd derivatives at BCs
-    
-    !  PRINT *,'setting up 1D spline ...'
+    spline_o%x1 = x_1
+    spline_o%isHermite = 0
   
     CALL EZspline_setup(spline_o, f, ier)
     CALL EZspline_error(ier)
   
-    ! save object
-  
-    !C CALL EZspline_save(spline_o, "spline.nc", ier)  ! Not necessary to save it if not loading again; slow by NFS on hyrax nodes
-    CALL EZspline_error(ier)
-  
-    ! Cloud interpolation
-  
     n_x = SIZE(x,1)
-  
     DO j = 1, n_x
        CALL EZspline_isInDomain(spline_o, x(j), ierrDomain)
        IF (ierrDomain <= 0) THEN
@@ -74,7 +104,6 @@ MODULE ModScbSpline
     END DO
   
     !C PRINT *,'Spline_1D_point: cleaning up'
-    
     CALL Ezspline_free(spline_o, ier)
     CALL EZspline_error(ier)
 
@@ -85,18 +114,6 @@ MODULE ModScbSpline
 !==============================================================================
   SUBROUTINE Spline_2D_derivs(x1, x2, f, derivsX1, derivsX2)
     ! Used in ModRamEField and ModScbRun
-  
-    ! example of ezspline calls
-    ! -------------------------
-    ! On PPPL cluster machine use the following command at compile:
-    ! On Alpha-Linux:
-    ! f90 -assume no2underscores -I/usr/ntcc/mod -o spline_test spline_test.f90 -L/usr/ntcc/lib -lpspline -lezcdf -L/usr/local/lib -lnetcdf
-    ! On Alpha-OSF1:
-    ! f90 -I/usr/ntcc/mod -o spline_test spline_test.f90 -L/usr/ntcc/lib -lpspline -lezcdf -L/usr/local/lib -lnetcdf
-    ! On Solaris:
-    ! f90 -M/usr/ntcc/mod -dalign -o spline_test spline_test.f90 -L/usr/ntcc/lib -lpspline -lezcdf -L/usr/local/lib -lnetcdf
-    ! On Linux (Fujitsu):
-    ! f90 -Am -g -I /usr/ntcc/ffc/mod -o spline_test spline_test.f90 -L/usr/ntcc/ffc/lib -lpspline -lezcdf -L/usr/local/ffc/lib -lnetcdf
   
     USE EZspline_obj ! import the modules
     USE EZspline  
@@ -130,42 +147,21 @@ MODULE ModScbSpline
     BCS1 = (/ 2, 2 /)    ! "natural" spline in first coordinate
     BCS2 = (/ -1, -1 /) ! periodic spline in second coordinate (zeta)
   
-    ! initialize/allocate memory
-    !  PRINT *,'initializing...'
-  
     CALL EZspline_init(spline_o, n1, n2, BCS1, BCS2, ier)
-    !CALL EZlinear_init(spline_o, n1, n2, ier)
     CALL EZspline_error(ier)
   
-    spline_o%x1 = x1    ! necessary if spline_o%x1 not in [0, 2 pi]; spline_o%x1 is a pointer, 
-    ! and is aliased to x1 now
+    spline_o%x1 = x1
     spline_o%x2 = x2
   
     ! need to set explicitly the following if boundary conditions 
     ! are anything but not-a-knot or periodic, i.e. BCS(n) has element /= -1, 0.
     spline_o%bcval1min = 0._r8
-    spline_o%bcval1max = 0._r8  ! values for 2nd derivatives at BCs
-    ! spline_o%bcval2min = 0._r8 ; spline_o%bcval2max = 0._r8  ! values for 2nd derivatives at BCs
-  
-    !  PRINT *,'setting up 2D spline ...'
+    spline_o%bcval1max = 0._r8
   
     CALL EZspline_setup(spline_o, f, ier)
     CALL EZspline_error(ier)
   
-    ! save object
-  
-    !C  CALL EZspline_save(spline_o, "spline.nc", ier)  ! Not necessary, it is define at each call
-    CALL EZspline_error(ier)
-  
-    ! Cloud interpolation
-  
-    !  PRINT *,'cloud interpolation ...'
-    !  CALL EZspline_interp(spline_o, k, x, y, func, ier)
-    !  CALL EZspline_error(ier)
-  
-    !  PRINT*, 'derivatives 2D spline ...'
     CALL EZspline_gradient(spline_o, n1, n2, x1, x2, grad, ier)
-    ! partial wrt the coordinate for all points
     derivsX1 = grad(:,:,1)
     derivsX2 = grad(:,:,2)
    
@@ -175,27 +171,6 @@ MODULE ModScbSpline
     CALL Ezspline_free(spline_o, ier)
     CALL EZspline_error(ier)
 
-!    rdr = 1./n1
-!    rdp = 1./n2
-!    do i=1,n1
-!       do j=1,n2
-!          if (i.eq.1) then
-!             derivsX1(i,j) = (f(2,j)-f(1,j))*rdr
-!          elseif (i.eq.n1) then
-!             derivsX1(i,j) = (f(n1,j)-f(n1-1,j))*rdr
-!          else
-!             derivsX1(i,j) = 0.5*(f(i+1,j)-f(i-1,j))*rdr
-!          endif
-!          if (j.eq.1) then
-!             derivsX2(i,j) = 0.5*(f(i,2)-f(i,n2-1))*rdp
-!          elseif (j.eq.n2) then
-!             derivsX2(i,j) = 0.5*(f(i,2)-f(i,n2-1))*rdp
-!          else
-!             derivsX2(i,j) = 0.5*(f(i,j+1)-f(i,j-1))*rdp
-!          endif
-!       enddo
-!    enddo
- 
     RETURN
   
   END SUBROUTINE Spline_2D_derivs
@@ -288,7 +263,6 @@ MODULE ModScbSpline
   
   END SUBROUTINE Spline_2D_periodic
   
-  
 !==============================================================================
   SUBROUTINE Spline_2D_point(x_1, x_2, f, x, y, func, ierrDomain)
     ! Used in ModRamCouple, ModRamScb, and ModScbRun
@@ -322,38 +296,26 @@ MODULE ModScbSpline
     BCS2 = (/-1, -1/)  ! periodic spline in second coordinate
     ! BCS2 = (/ 0, 0 /) ! "not-a-knot" spline in second coordinate
     ! BCS2 = (/ 2, 2 /) !  "natural" spline
-  
-    ! initialize/allocate memory
-    !  PRINT *,'initializing...'
-  
-    CALL EZspline_init(spline_o, n1, n2, BCS1, BCS2, ier)
-    !CALL EZLinear_init(spline_o, n1, n2, ier)
+
+    CALL EZspline_init(spline_o, n1, n2, BCS1, BCS2, ier)  
     CALL EZspline_error(ier)
   
-    spline_o%x1 = x_1    ! necessary if spline_o%x1 not in [0, 2 pi]; spline_o%x1 is a pointer, 
-    ! and is aliased to x_1 now
+    spline_o%x1 = x_1
     spline_o%x2 = x_2
-    !spline_o%isHermite = 1 ! Akima spline; smoother, more "natural"  interpolation (see Akima's paper)
+   ! spline_o%isHermite = 1 ! Akima spline; smoother, more "natural"  interpolation (see Akima's paper)
   
-    ! need to set explicitly the following if boundary conditions 
-    ! are anything but not-a-knot or periodic, i.e. BCS(n) has element /= -1, 0.
     spline_o%bcval1min = 0._r8
     spline_o%bcval1max = 0._r8  ! values for 2nd derivatives at BCs
-    !spline_o%bcval2min = 0._r8 ; spline_o%bcval2max = 0._r8  ! values for 2nd derivatives at BCs
+    !spline_o%bcval2min = 0._r8
+    !spline_o%bcval2max = 0._r8  ! values for 2nd derivatives at BCs
   
-    !  PRINT *,'setting up 2D spline ...'
     CALL EZspline_setup(spline_o, f, ier)
-    CALL EZspline_error(ier)
-  
-    ! save object
-  
-    !C CALL EZspline_save(spline_o, "spline.nc", ier)  ! Not necessary to save it if not loading again; slow by NFS on hyrax nodes
     CALL EZspline_error(ier)
   
     ! Cloud interpolation
   
     n_x = SIZE(x,1)
-    n_y = SIZE(x,2)   ! x and y have the same shape and size
+    n_y = SIZE(x,2)
   
     DO j = 1, n_x
        DO k = 1, n_y
@@ -373,7 +335,66 @@ MODULE ModScbSpline
     RETURN
   
   END SUBROUTINE Spline_2D_point
-  
+
+!==============================================================================
+  SUBROUTINE Spline_2D_linear(x_1, x_2, f, x, y, func, ierrDomain)
+    ! Used in ModRamCouple, ModRamScb, and ModScbRun
+
+    USE EZspline_obj ! import the modules
+    USE EZspline
+    use nrtype, ONLY : DP
+
+    IMPLICIT NONE
+
+    INTEGER, PARAMETER :: r8 = DP
+    REAL(r8), PARAMETER :: twopi = 6.2831853071795862320_r8
+
+    REAL(r8), DIMENSION(:), INTENT(IN) :: x_1, x_2 ! independent variable
+    REAL(r8), DIMENSION(:,:), INTENT(IN) :: f
+    REAL(r8), DIMENSION(:,:), INTENT(OUT) :: func   ! interpolated values 
+    INTEGER           :: n1, n2, n_x, n_y, ier, BCS1(2), BCS2(2)
+    TYPE(EZspline2_r8) :: spline_o ! 2-D EZspline object
+
+    INTEGER           :: j, k
+    INTEGER, INTENT(OUT) :: ierrDomain
+    REAL(r8), DIMENSION(:,:), INTENT(IN)    :: x, y  ! grid of points for output
+
+    n1 = SIZE(x_1)
+    n2 = SIZE(x_2)
+
+    CALL EZLinear_init(spline_o, n1, n2, ier)
+    CALL EZspline_error(ier)
+
+    spline_o%x1 = x_1
+    spline_o%x2 = x_2
+
+    !  PRINT *,'setting up 2D spline ...'
+    CALL EZspline_setup(spline_o, f, ier)
+    CALL EZspline_error(ier)
+
+    ! Cloud interpolation
+    n_x = SIZE(x,1)
+    n_y = SIZE(x,2)
+
+    DO j = 1, n_x
+       DO k = 1, n_y
+          CALL EZspline_isInDomain(spline_o, x(j,k), y(j,k), ierrDomain)
+          IF (ierrDomain <= 0) THEN
+             CALL EZspline_interp(spline_o, x(j,k), y(j,k), func(j,k), ier)
+             CALL EZspline_error(ier)
+          END IF
+       END DO
+    END DO
+
+    !C PRINT *,'Spline_2D_point: cleaning up'
+
+    CALL Ezspline_free(spline_o, ier)
+    CALL EZspline_error(ier)
+
+    RETURN
+
+  END SUBROUTINE Spline_2D_linear
+ 
 !==============================================================================
   SUBROUTINE Spline_coord_derivs(x_1, x_2, x_3, f_input, derivsX1, derivsX2, derivsX3)
 
@@ -406,12 +427,12 @@ MODULE ModScbSpline
 
     !allocate(x1_temp(n1),x2_temp(n2),x3_temp(n3),f_temp(n1,n2,n3))
 
-    BCS1 = (/ 0, 0 /) ! "not-a-knot" spline in theta
+   !BCS1 = (/ 0, 0 /) ! "not-a-knot" spline in theta
    !BCS1 = (/ 1, 1/)
-   !BCS1 = (/ 2, 2 /) ! "natural" spline in theta
-    BCS2 = (/ 0, 0 /) ! "not-a-knot" spline in rho
+    BCS1 = (/ 2, 2 /) ! "natural" spline in theta
+   !BCS2 = (/ 0, 0 /) ! "not-a-knot" spline in rho
    !BCS2 = (/ 1, 1 /) ! first derivative imposed in rho
-   !BCS2 = (/ 2, 2 /) ! "natural" spline in rho
+    BCS2 = (/ 2, 2 /) ! "natural" spline in rho
     BCS3 = (/ -1,-1 /)  ! periodic in zeta
    !BCS3 = (/ 0, 0 /)
   
@@ -451,11 +472,7 @@ MODULE ModScbSpline
     !  CALL EZspline_error(ier)
   
     !  PRINT*, 'gradient is being called ...'
-  
     CALL EZspline_gradient(spline_o, n1, n2, n3, x_1, x_2, x_3, grad, ier)
-    !CALL EZspline_derivative(spline_o, 1,0,0,n1, n2, n3, x_1, x_2, x_3, derivsX1, ier)
-    !CALL EZspline_derivative(spline_o, 0,1,0,n1, n2, n3, x_1, x_2, x_3, derivsX2, ier)
-    !CALL EZspline_derivative(spline_o, 0,0,1,n1, n2, n3, x_1, x_2, x_3, derivsX3, ier)
 
     derivsX1 = grad(:,:,:, 1)
     derivsX2 = grad(:,:,:, 2)
@@ -467,46 +484,6 @@ MODULE ModScbSpline
     CALL Ezspline_free(spline_o, ier)
     CALL EZspline_error(ier)
 
-    !do i=1,n1
-    !   do j=1,n2
-    !      do k=1,n3
-    !         if (i.eq.1) then
-    !            derivsX1(i,j,k) = (f_input(2,j,k)-f_input(1,j,k))*rdt
-    !         elseif (i.eq.n1) then
-    !            derivsX1(i,j,k) = (f_input(n1,j,k)-f_input(n1-1,j,k))*rdt
-    !         else
-    !            derivsX1(i,j,k) = (f_input(i+1,j,k)-f_input(i-1,j,k))*rdt2
-    !         endif
-    !         if (j.eq.1) then
-    !            derivsX2(i,j,k) = (f_input(i,2,k)-f_input(i,1,k))*rdr
-    !         elseif (j.eq.n2) then
-    !            derivsX2(i,j,k) = (f_input(i,n2,k)-f_input(i,n2-1,k))*rdr
-    !         else
-    !            derivsX2(i,j,k) = (f_input(i,j+1,k)-f_input(i,j-1,k))*rdr2
-    !         endif
-    !         if (k.eq.1) then
-    !            derivsX3(i,j,k) = (f_input(i,j,2)-f_input(i,j,n3-1))*rdp2
-    !         elseif (k.eq.n3) then
-    !            derivsX3(i,j,k) = (f_input(i,j,2)-f_input(i,j,n3-1))*rdp2
-    !         else
-    !            derivsX3(i,j,k) = (f_input(i,j,k+1)-f_input(i,j,k-1))*rdp2
-    !         endif
-    !      enddo
-    !   enddo
-    !enddo
-    
-    do k=1,n3
-       do j=1,n2
-          call extap(derivsX1(4,j,k),derivsX1(3,j,k),derivsX1(2,j,k),derivsX1(1,j,k))
-          call extap(derivsX1(n1-3,j,k),derivsX1(n1-2,j,k),derivsX1(n1-1,j,k),derivsX1(n1,j,k))
-       enddo
-       do i=1,n1
-          call extap(derivsX2(i,4,k),derivsX2(i,3,k),derivsX2(i,2,k),derivsX2(i,1,k))
-          call extap(derivsX2(i,n2-3,k),derivsX2(i,n2-2,k),derivsX2(i,n2-1,k),derivsX2(i,n2,k))
-       enddo
-    enddo
-
- 
     RETURN
   
   END SUBROUTINE Spline_coord_derivs
@@ -515,18 +492,6 @@ MODULE ModScbSpline
   SUBROUTINE Spline_derivs_1D(x1, f, func, derivsX1)
     ! Used in ModScbEuler
  
-    ! example of ezspline calls
-    ! -------------------------
-    ! On PPPL cluster machine use the following command at compile:
-    ! On Alpha-Linux:
-    ! f90 -assume no2underscores -I/usr/ntcc/mod -o spline_test spline_test.f90 -L/usr/ntcc/lib -lpspline -lezcdf -L/usr/local/lib -lnetcdf
-    ! On Alpha-OSF1:
-    ! f90 -I/usr/ntcc/mod -o spline_test spline_test.f90 -L/usr/ntcc/lib -lpspline -lezcdf -L/usr/local/lib -lnetcdf
-    ! On Solaris:
-    ! f90 -M/usr/ntcc/mod -dalign -o spline_test spline_test.f90 -L/usr/ntcc/lib -lpspline -lezcdf -L/usr/local/lib -lnetcdf
-    ! On Linux (Fujitsu):
-    ! f90 -Am -g -I /usr/ntcc/ffc/mod -o spline_test spline_test.f90 -L/usr/ntcc/ffc/lib -lpspline -lezcdf -L/usr/local/ffc/lib -lnetcdf
-  
     USE EZspline_obj ! import the modules
     USE EZspline  
     USE nrtype, ONLY : DP
@@ -550,28 +515,12 @@ MODULE ModScbSpline
     BCS1 = (/ 0, 0 /) ! "not-a-knot" spline 
     ! BCS1 = (/ 2, 2 /)    ! "natural" spline 
   
-    ! initialize/allocate memory
-    !  PRINT *,'initializing...'
-  
     CALL EZspline_init(spline_o, n1, BCS1, ier)
     CALL EZspline_error(ier)
   
-    spline_o%x1 = x1    ! necessary if spline_o%x1 not in [0, 2 pi]; spline_o%x1 is a pointer, 
-    ! and is aliased to x1 now
-  
-    ! need to set explicitly the following if boundary conditions 
-    ! are anything but not-a-knot or periodic, i.e. BCS(n) has
-    ! element /= -1, 0.
-    ! spline_o%bcval1min = 0._r8 ; spline_o%bcval1max = 0._r8  ! values for 2nd derivatives at BCs
-  
-  !  PRINT *,'setting up 1D spline ...'
+    spline_o%x1 = x1
   
     CALL EZspline_setup(spline_o, f, ier)
-    CALL EZspline_error(ier)
-  
-    ! save object
-  
-    !C CALL EZspline_save(spline_o, "spline.nc", ier) ! Not necessary, it is defined at each call
     CALL EZspline_error(ier)
   
     ! Array interpolation  
@@ -582,20 +531,13 @@ MODULE ModScbSpline
        z1(j) = (float(j) - 1._r8) / (float(k1) - 1._r8)
     END DO
   
-  !  PRINT *,'array interpolation 1D spline ...'
-   
     CALL EZspline_interp(spline_o, k1, z1, func, ier)
     CALL EZspline_error(ier)
   
   !  PRINT*, 'derivatives 1D spline ...'
-  
     CALL EZspline_derivative(spline_o, 1, k1, z1, derivsX1, ier)
-    ! partial wrt the coordinate for all points
-  
-    ! clean up and free up memory
   
   !  PRINT *,'cleaning up'
-  
     CALL Ezspline_free(spline_o, ier)
     CALL EZspline_error(ier)
   
@@ -603,6 +545,62 @@ MODULE ModScbSpline
   
     RETURN
   END SUBROUTINE Spline_derivs_1D
+!==========================================
+  SUBROUTINE Spline_derivs_1D_Periodic(x1, f, func, derivsX1)
+    ! Used in ModScbEuler
+
+    USE EZspline_obj ! import the modules
+    USE EZspline
+    USE nrtype, ONLY : DP
+
+    IMPLICIT NONE
+
+    INTEGER, PARAMETER :: r8 = DP
+    REAL(r8), PARAMETER :: twopi = 6.2831853071795862320_r8
+
+    REAL(r8), DIMENSION(:), INTENT(IN) :: x1 ! independent variable
+    REAL(r8), DIMENSION(:), INTENT(IN) :: f
+    REAL(r8), DIMENSION(:), INTENT(OUT) :: func, derivsX1 ! interpolated values
+    INTEGER n1, ier, BCS1(2), j
+    TYPE(EZspline1_r8) :: spline_o ! 1-D EZspline object
+
+    INTEGER k1
+    REAL(r8), DIMENSION(:), ALLOCATABLE :: z1
+
+    n1 = SIZE(x1)
+
+    BCS1 = (/ -1, -1 /) ! periodic spline 
+
+    CALL EZspline_init(spline_o, n1, BCS1, ier)
+    CALL EZspline_error(ier)
+
+    spline_o%x1 = x1    
+
+    CALL EZspline_setup(spline_o, f, ier)
+    CALL EZspline_error(ier)
+
+    ! Array interpolation  
+    k1 = SIZE(derivsX1)
+    ALLOCATE(z1(k1))
+
+    DO j = 1, k1
+       z1(j) = (float(j) - 1._r8) / (float(k1) - 1._r8)
+    END DO
+
+    CALL EZspline_interp(spline_o, k1, z1, func, ier)
+    CALL EZspline_error(ier)
+
+  !  PRINT*, 'derivatives 1D spline ...'
+    CALL EZspline_derivative(spline_o, 1, k1, z1, derivsX1, ier)
+
+  !  PRINT *,'cleaning up'
+    CALL Ezspline_free(spline_o, ier)
+    CALL EZspline_error(ier)
+
+    DEALLOCATE(z1)
+
+    RETURN
+  END SUBROUTINE Spline_derivs_1D_Periodic
 
 !==============================================================================
   SUBROUTINE spline(x,y,yp1,ypn,y2)   ! MOD everything is DP

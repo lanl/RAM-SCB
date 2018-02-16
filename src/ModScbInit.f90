@@ -103,7 +103,7 @@ MODULE ModScbInit
 
   nAzimRAM = NT
   nXRaw    = NR-1
-  nXRawExt = NR+10
+  nXRawExt = NR+floor(1.5/(5./nR))
   nYRaw    = NT
 
   end subroutine scb_allocate
@@ -157,7 +157,6 @@ MODULE ModScbInit
                                psiVal, xpsiout, xpsiin
 
     use ModScbEuler, ONLY: psiges, alfges
-    use ModScbIO,    ONLY: computational_domain
 
     use nrtype, ONLY: DP, pi_d, twopi_d
 

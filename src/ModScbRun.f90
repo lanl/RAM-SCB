@@ -37,10 +37,9 @@
     USE ModScbInit,     ONLY: computeBandJacob_Initial
     USE ModScbEuler,    ONLY: alfges, psiges, mapalpha, mappsi, directAlpha, &
                               iterateAlpha, directPsi, iteratePsi, psiFunctions, &
-                              InterpolatePsiR
+                              InterpolatePsiR, alphaFunctions, InterpolateAlphaPhi
     USE ModScbEquation, ONLY: newk, newj, metric, metrica ! LHS and RHS equations
-    USE ModScbIO,       ONLY: computational_domain, Write_Convergence_Anisotropic, &
-                              create_BField
+    USE ModScbIO,       ONLY: computational_domain, Write_Convergence_Anisotropic
     !!!! Share Modules
     USE ModIOUnit, ONLY: UNITTMP_
     !!!! NR Modules
@@ -64,30 +63,34 @@
                         *(MIN(Kp,6._dp))**2/36.
 
 !!!!! Compute the SCB computational domain
-    call create_BField
+    call computational_domain
+
+    ! Get the Psi (Alpha) Euler Potential
+    ! This is done by assuming a dipole on the field line foot points
+    ! and then assigning the value of where they would cross the equator
+    ! to the actual equatorial cross point
     psiin   = -xzero3/xpsiin
     psiout  = -xzero3/xpsiout
     psitot  = psiout-psiin
     xpsitot = xpsiout - xpsiin
     DO j = 1, npsi
        psis = REAL(j-1, DP) / REAL(npsi-1, DP)
-       xpl = xpsiin + xpsitot * psis**pow
+       xpl = xpsiin + xpsitot * psis
        psival(j) = -xzero3 / xpl
-       f(j) = (xzero3 / xpl**2) * xpsitot * pow * psis**(pow-1.)
-       fp(j) = 0._dp ! If pow = 1
+       f(j) = (xzero3 / xpl**2) * xpsitot !dPsi/dR -- For converting between euler potential
+       fp(j) = 0._dp                      !           and the curvilinear coordinate
     END DO
     call psiges
 
     dphi  = twopi_d/REAL(nzeta-1, DP)
     DO k = 1, nzeta+1
        phi         = REAL(k-2, DP) * dphi
-       alphaVal(k) = phi + constz*sin(phi) ! Concentration at midnight
-       fzet(k)     = 1._dp + constz*COS(phi)
-       fzetp(k)    = - constz * SIN(phi)
+       alphaVal(k) = phi! + constZ*sin(phi)
+       fzet(k)     = 1._dp ! dAlpha/dPhi -- For converting between the euler potential
+       fzetp(k)    = 0._dp !                and the curvilinar coordinate
     END DO
     call alfges
 
-    chiVal = (thetaVal + constTheta * SIN(2._dp*thetaVal))
     DO i = 1, nthe
        DO j = 1, npsi
           DO k = 2, nzeta
@@ -97,13 +100,6 @@
     END DO
     chi(:,:,1) = chi(:,:,nzeta)
     chi(:,:,nzeta+1) = chi(:,:,2)
-
-
-! Shouldn't derivative's be taken with respect to the actual distribution????
-! If so, we need to change all thetaVal -> chiVal and zetaVal -> alphaVal
-! As a first attempt let's try it here -ME
-    thetaVal = chiVal
-    zetaVal = alphaVal(1:nzeta)
 !!!!!
 
     sumb1 = 0._dp
@@ -120,12 +116,21 @@
     sumdbconv = 0.0_dp
     iConvGlobal = 0
 
-    IF (iAMR == 1) THEN
-       CALL findR
+    IF (isFBDetailNeeded == 1) THEN
+       CALL pressure
+       CALL Write_Convergence_Anisotropic('00')
+       ! to see how far from equilibrium we are before computing
+    END IF
+
+    IF (iAMR == 1 .and. method /= 3) THEN
        CALL InterpolatePsiR
        CALL mappsi(0) ! Full mapping needed, psis changed
        CALL psifunctions
        CALL maptheta
+       !CALL InterpolateAlphaPhi
+       !CALL mapalpha(0)
+       !call alphafunctions
+       !call maptheta
     ENDIF
 
     Outeriters: DO
@@ -135,12 +140,6 @@
 
        ! Define the right-hand side of the betaEuler equation
        CALL pressure
-
-       ! Moved the convergence test to after the SCB computation completes
-       IF (iteration == 1 .AND. isFBDetailNeeded == 1) THEN
-          CALL Write_Convergence_Anisotropic('00')
-          ! to see how far from equilibrium we are before computing
-       END IF
 
        SCB_CALCULATION: IF (method /= 3) then
           psiPrev(:,:,:) = psi(:,:,:)
@@ -192,12 +191,13 @@
              ! move zeta grid points along constant alphaEuler and theta lines
              CALL mapalpha(iSm)
              ! move theta grid points along constant alphaEuler and zeta lines
-             CALL maptheta
+             !CALL maptheta
              CALL metrica
 
-             IF (MINVAL(jacobian) < 0._dp) THEN
+             IF (MINVAL(jacobian(2:nthe-1,2:npsi-1,:)) < 0._dp) THEN
                 blendAlpha = damp * blendAlpha
                 if (blendAlpha.lt.blendMin) then
+                   write(*,*) minval(jacobian(2:nthe-1,2:npsi-1,:))
                    call CON_stop('Failed to converge Alpha potential with minimum blend size')
                 endif
                 PRINT*, 'CE: Cycling alpha_theta pts, blendAlpha = ', blendAlpha
@@ -223,18 +223,22 @@
           END IF
 
           IF (iAMR == 1) THEN
-             CALL findR
              CALL InterpolatePsiR
              CALL mappsi(0)  ! Full mapping needed, changed psis
              CALL psifunctions
              CALL maptheta
+             !CALL InterpolateAlphaPhi
+             !CALL mapalpha(0)
+             !call alphafunctions
+             !call maptheta
           ENDIF
 
           !IF (isotropy == 1) CALL entropy(entropyFixed, fluxVolume, iCountEntropy)
-  
+          IF (isFBDetailNeeded == 1) CALL Write_Convergence_Anisotropic('02')
+ 
+ 
           CALL metric
-          IF (MINVAL(jacobian) < 0._dp) STOP 'CE: metric problem.'
-
+          IF (MINVAL(jacobian(2:nthe-1,2:npsi-1,:)) < 0._dp) call CON_STOP('CE: metric problem.')
 
           call computeBandJacob_initial
           CALL pressure
@@ -272,9 +276,10 @@
              CALL mappsi(iSm)
              CALL maptheta
              CALL metric
-             IF (MINVAL(jacobian) < 0._dp) THEN
+             IF (MINVAL(jacobian(2:nthe-1,2:npsi-1,:)) < 0._dp) THEN
                 blendPsi = damp * blendPsi
                 if (blendPsi.lt.blendMin) then
+                   write(*,*) minval(jacobian(2:nthe-1,2:npsi-1,:))
                    call CON_stop('Failed to converge Psi potential with minimum blend size')
                 endif
                 PRINT*, 'CE: Cycling psi_theta pts, blendPsi = ', blendPsi
@@ -311,11 +316,14 @@
           WRITE(*,*) iteration, blendAlpha, blendPsi, nisave1,sumdb1,errorAlpha/twopi_d,nisave,sumdb,errorPsi/MAXVAL(ABS(psival))  !C relative diffmx errors now
   
           IF (iAMR == 1) THEN
-             CALL findR
              CALL InterpolatePsiR
              CALL mappsi(0)  ! Full mapping needed, changed psis
              CALL psiFunctions
              CALL maptheta
+             !CALL InterpolateAlphaPhi
+             !CALL mapalpha(0)
+             !call alphafunctions
+             !call maptheta
           ENDIF
 
           ! Need to set an actual convergence criteria using the JxB and GradP
@@ -379,61 +387,6 @@
     RETURN
   
   END SUBROUTINE scb_run
-  
-!==============================================================================
-  SUBROUTINE findR
-    ! Obtains equidistant x-s on the equatorial plane, at a local time where the
-    ! plasma gradients are strong (e.g. between midnight and dusk
-    ! during a storm main phase)
-    !!!! Module Variables
-    USE ModScbParams,    ONLY: iAzimOffset
-    USE ModScbGrids,     ONLY: npsi, nzeta
-    use ModScbVariables, ONLY: x, y, nThetaEquator, nZetaMidnight
-    !!!! NR Modules
-    use nrtype, ONLY: DP
-
-    IMPLICIT NONE
-  
-    REAL(DP) :: deltaR, distConsecFluxSqOld, distConsecFluxSq
-    REAL(DP) :: radius(npsi)
-    INTEGER :: j, k
-  
-    distConsecFluxSq = 0._dp
-    distConsecFluxSqOld = 0._dp
-  
-    IF (iAzimOffset == 2) THEN
-       DO k = 2, nzeta
-          do j = 2, npsi
-             distConsecFluxSq = (x(nThetaEquator,j,k) - x(nThetaEquator,j-1,k))**2 &
-                               +(y(nThetaEquator,j,k) - y(nThetaEquator,j-1,k))**2
-             IF (distConsecFluxSq > distConsecFluxSqOld) THEN
-                distConsecFluxSqOld = distConsecFluxSq
-                kMax = k ! (3*nzeta)/8 < what???? not even an integer with nzeta = 61
-             END IF
-          END DO
-       end DO
-       DO j = 1, npsi
-          radius(j) = SQRT(x(nThetaEquator,j,kMax)**2 + &
-               y(nThetaEquator,j,kMax)**2)
-       END DO
-    ELSE IF (iAzimOffset == 1) THEN
-       DO j = 1, npsi
-          radius(j) = SQRT(x(nThetaEquator,j,nZetaMidnight)**2 + &
-               y(nThetaEquator,j,nZetaMidnight)**2)
-       END DO
-    END IF
-  
-    deltaR = (radius(npsi) - radius(1)) / REAL(npsi-1,dp)
-  
-    DO j = 2, npsi
-       radEqMidNew(j) = radius(1) + REAL(j-1,dp)*deltaR
-    END DO
-  
-    radEqMidNew(1) = radius(1)
-  
-    RETURN
-  
-  END SUBROUTINE findR
   
 !==============================================================================
   SUBROUTINE energy
@@ -838,11 +791,12 @@
 !==============================================================================
   SUBROUTINE mapTheta
     !!!! Module Variables
+    USE ModScbParams,    ONLY: psiChange, theChange
     USE ModScbGrids,     ONLY: nthe, nthem, npsi, nzeta, nzetap, ny
     USE ModScbVariables, ONLY: diffmx, rjac, nisave,  x, y, z, sumb, sumdb, chiVal, &
                                chi
     !!!! Module Subroutines/Functions
-    use ModScbSpline, ONLY: spline, splint
+    use ModScbSpline, ONLY: spline, splint, Spline_1D
     !!!! NR Modules
     use nrtype, ONLY: DP, pi_d
   
@@ -851,16 +805,13 @@
     REAL(DP), DIMENSION(nthe) :: xOld, yOld, zOld, distance, chiValOld, chi2derivsX, &
                                  chi2derivsY, chi2derivsZ
     REAL(DP), DIMENSION(nthe,npsi,nzetap) :: chiPrev
-
-    INTEGER :: i, j, k
+    INTEGER :: i, j, k, ierr
   
     !     now move theta coordinates along each surface
     !     equal arc length along the i grids
   
-    chiPrev(:,:,:) = chi(:,:,:)
-
     zetaloop: DO k = 2, nzeta
-       fluxloop: DO j = 1, npsi
+       fluxloop: DO j = 1+psiChange, npsi-psiChange
           distance(1) = 0._dp
           xOld(:) = x(1:nthe,j,k)
           yOld(:) = y(1:nthe,j,k)
@@ -873,21 +824,20 @@
           END DO
   
           chiValOld = distance / distance(nthe) * pi_d
-  
-          ! "Natural" splines
-          CALL spline(chiValOld, xOld, 1.E31_dp, 1.E31_dp, chi2derivsX)
-          CALL spline(chiValOld, yOld, 1.E31_dp, 1.E31_dp, chi2derivsY)
-          CALL spline(chiValOld, zOld, 1.E31_dp, 1.E31_dp, chi2derivsZ)
-  
-          DO i = 2, nthem
-             x(i,j,k) = splint(chiValOld, xOld, chi2derivsX, chiVal(i))
-             y(i,j,k) = splint(chiValOld, yOld, chi2derivsY, chiVal(i))
-             z(i,j,k) = splint(chiValOld, zOld, chi2derivsZ, chiVal(i))
-!             x(i,j,k) = splint(chiValOld, xOld, chi2derivsX, chiPrev(i,j,k))
-!             y(i,j,k) = splint(chiValOld, yOld, chi2derivsY, chiPrev(i,j,k))
-!             z(i,j,k) = splint(chiValOld, zOld, chi2derivsZ, chiPrev(i,j,k))
-             chi(i,j,k) = chiVal(i)
+ 
+          CALL spline(chiValOld, xOld, 1.E31_dp, 1.E31_dp, chi2DerivsX)
+          CALL spline(chiValOld, yOld, 1.E31_dp, 1.E31_dp, chi2DerivsY)
+          CALL spline(chiValOld, zOld, 1.E31_dp, 1.E31_dp, chi2DerivsZ)
+
+          DO i = 1+theChange, nthe-theChange
+             x(i,j,k) = splint(chiValOld, xOld, chi2DerivsX, chival(i))
+             y(i,j,k) = splint(chiValOld, yOld, chi2DerivsY, chival(i))
+             z(i,j,k) = splint(chiValOld, zOld, chi2DerivsZ, chival(i))
           END DO
+ 
+          !CALL Spline_1D(chiValOld,xOld,chiVal,x(:,j,k),ierr)
+          !CALL Spline_1D(chiValOld,yOld,chiVal,y(:,j,k),ierr)
+          !CALL Spline_1D(chiValOld,zOld,chiVal,z(:,j,k),ierr)
        END DO fluxloop
     END DO zetaloop
   
@@ -895,13 +845,9 @@
     x(:,:,1) = x(:,:,nzeta)
     y(:,:,1) = y(:,:,nzeta)
     z(:,:,1) = z(:,:,nzeta)
-    chi(:,:,1) = chi(:,:,nzeta)
     x(:,:,nzetap) = x(:,:,2)
     y(:,:,nzetap) = y(:,:,2)
     z(:,:,nzetap) = z(:,:,2)
-    chi(:,:,nzetap) = chi(:,:,2)
-  
-  !C z(nThetaEquator,:,:) = 0.0_dp ! Symmetry
   
     RETURN
   
@@ -918,7 +864,8 @@ SUBROUTINE pressure
                                PPerE, PHI, LZ
     use ModRamParams,    ONLY: boundary
     use ModScbMain,      ONLY: iCountPressureCall, iSm2
-    use ModScbParams,    ONLY: iLossCone, iOuterMethod, iReduceAnisotropy, isotropy
+    use ModScbParams,    ONLY: iLossCone, iOuterMethod, iReduceAnisotropy, isotropy, &
+                               isPressureDetailNeeded
     USE ModScbGrids,     ONLY: nthe, npsi, nzeta, nzetap, nXRaw, nXRawExt, nYRaw, &
                                nAzimRAM
     use ModScbVariables, ONLY: x, y, z, xx, yy, bf, bsq, rhoVal, zetaVal, thetaVal, &
@@ -926,10 +873,12 @@ SUBROUTINE pressure
                                dela, azimRaw, radGrid, angleGrid, ratioEq, dPPerdRho, &
                                dPPerdZeta, dPPerdTheta, dBsqdRho, dBsqdZeta
     !!!! Module Subroutines/Functions
-    USE ModScbSpline, ONLY: Spline_2D_derivs, Spline_2D_point, Spline_coord_Derivs
+    USE ModSCBIO,        ONLY: write_scb_pressure
+    USE ModScbSpline,    ONLY: Spline_2D_derivs, Spline_2D_point, Spline_coord_Derivs
     USE ModScbFunctions, ONLY: SavGol7, pRoeRad, extap
     !!!! NR Modules
     use nrtype, ONLY: DP, SP, pi_d, twopi_d
+
     IMPLICIT NONE
   
     INTEGER :: i, iloopOut, ierflg, j, j1, k1, jSKBoundary, k, ierr, ierrDom, idealerr, m1, mstate, n1
@@ -959,8 +908,6 @@ SUBROUTINE pressure
     INTEGER, PARAMETER :: nXRoe = 17, nYRoe = 14, nEnergRoe = 12, nPARoe = 18
     INTEGER, PARAMETER :: nXRoeGeo = 8 ! Index of first Roeder radius > 6.6 RE (or less, if overlapping is chosen) !
     !C (more if GEO data to be more efficient in determining the fit)
-    !C INTEGER, PARAMETER :: nXRaw = 121, nYRaw = 49 ! For DMSP runs
-    !C INTEGER, PARAMETER :: nXRawExt = 171, nAzimRAM = 49 ! For DMSP runs
     REAL(DP) :: xRaw(nXRaw,nYRaw), YRaw(nXRaw,nYRaw),pressProtonPerRaw(nXRaw,nYRaw), pressProtonParRaw(nXRaw,nYRaw), &
                 pressOxygenPerRaw(nXRaw,nYRaw), pressOxygenParRaw(nXRaw,nYRaw), pressHeliumPerRaw(nXRaw,nYRaw), &
                 pressHeliumParRaw(nXRaw,nYRaw), pressPerRaw(nXRaw,nYRaw), pressParRaw(nXRaw,nYRaw), &
@@ -974,14 +921,6 @@ SUBROUTINE pressure
     REAL(DP), PARAMETER :: l0 = 50._dp
     CHARACTER(len=93)  :: firstLine, secondLine
     CHARACTER(len=200) :: header
-    !  INTEGER, PARAMETER :: ISLIM = nXRaw*nYRaw, NUMXOUT = npsi, NUMYOUT = nzeta-1
-    !  INTEGER, PARAMETER :: IDIM = 2*NUMXOUT*NUMYOUT
-    !  REAL(dp) :: X_neighbor(ISLIM), Y_neighbor(ISLIM), Z_neighbor(ISLIM), indexPsi(npsi,nzeta), &
-    !       indexAlpha(npsi,nzeta)
-  
-    ! REAL(DP) :: XI(NUMXOUT), YI(NUMYOUT)
-    ! REAL     ::        XP(NUMXOUT), YP(NUMYOUT), ZP(NUMXOUT,NUMYOUT)
-    ! INTEGER :: IWORK(IDIM)
     INTEGER :: ier, iCount_neighbor, iDomain
     REAL(DP) :: w1, w2, w3, w4, w5, w6, w7, w8, w9
     REAL(DP), PARAMETER :: Rweight = 0.1_dp, gammaEnt = 5./3.
@@ -994,9 +933,8 @@ SUBROUTINE pressure
     REAL :: wrk(lwrk), wrk1(lwrk1), wrk2(lwrk2)
     REAL :: fpResids, fpResidsPer, fpResidsPar
     REAL :: smoothFactor, smoothFactorPer, smoothFactorPar  
-    INTEGER, PARAMETER :: kwrk = 50000, kwrk1 = 5000!, nuest = nXRaw+7, nvest = nYRaw+7 !C nuest = nXRawExt + 7, nvest = nAzimRAM+7
+    INTEGER, PARAMETER :: kwrk = 50000, kwrk1 = 5000
     INTEGER, PARAMETER :: kx = 3, ky = 3  ! Must be 3 for polar, can vary for surfit
-    !C  INTEGER, PARAMETER :: nxest = 24, nyest = 12, nmax = MAX(nxest, nyest)
     INTEGER, PARAMETER :: nxest = 15, nyest = 15, nmax = MAX(nxest, nyest) 
     ! For Roeder expansion, not wise to go for larger nx, ny as it might force an unnatural spline
     REAL :: coeff((nXRaw+7-4)*(nYRaw+7-4))
@@ -1008,8 +946,6 @@ SUBROUTINE pressure
     REAL :: t, tout, ydriv, epsFit, epsdriv, deltaDev
   
     INTEGER, PARAMETER :: number = 5929, mlat_range = 121, mlon_range = 49
-    !C INTEGER, PARAMETER :: mlat_range_Y = 48, mlon_range_Y = 25, number_Y = mlat_range_Y*mlon_range_Y ! Prev. case
-    !C INTEGER, PARAMETER :: mlat_range_Y = 95, mlon_range_Y = 49, number_Y = mlat_range_Y*mlon_range_Y ! Higher res
     INTEGER, PARAMETER :: mlat_range_Y = 47, mlon_range_Y = 49, number_Y = mlat_range_Y*mlon_range_Y
     INTEGER :: indexLatMax
     INTEGER, PARAMETER :: nuestY = mlat_range_Y+7, nvestY = mlon_range_Y+7
@@ -1033,11 +969,10 @@ SUBROUTINE pressure
     REAL(DP) :: xSWMF(48,48), ySWMF(48,48), pressSWMF(48,48), rhoSWMF(48,48) 
     CHARACTER(len=4) :: ST3
     real(dp) :: drad
-
     integer :: mloc(2)
-    ! LOGICAL :: isnand ! intrinsic for PGF
-  
-    ! PRINT*, 'Beginning of pressure call; icount_local = ', icount_local
+ 
+    CHARACTER(len=3) :: Isotropic
+ 
     iCountPressureCall = iCountPressureCall + 1 ! global variable, counts how many times pressure is called
   
     DO  j = 1,npsi
@@ -1067,135 +1002,143 @@ SUBROUTINE pressure
   
   
     Isotropy_choice:  IF (isotropy == 1) THEN    ! isotropic case
-! For now this takes the anisotropic pressure from RAM and used it for the SCB
-! calculation. For some reason the isotropic case of RAM-SCB never worked, or at
-! least never worked with the version of the code I started with. -ME
-!          DO j1 = 1, nXRaw
-!             DO k1 = 1, nYRaw
-!                radRaw_local(j1) = LZ(j1+1)
-!                azimRaw(k1) = PHI(k1)*12/pi_d
-!                pressProtonPerRaw(j1,k1) = PPERH(j1+1,k1)
-!                pressProtonParRaw(j1,k1) = PPARH(j1+1,k1)
-!                pressOxygenPerRaw(j1,k1) = PPERO(j1+1,k1)
-!                pressOxygenParRaw(j1,k1) = PPARO(j1+1,k1)
-!                pressHeliumPerRaw(j1,k1) = PPERHE(j1+1,k1)
-!                pressHeliumParRaw(j1,k1) = PPARHE(j1+1,k1)
-!                pressElePerRaw(j1,k1)    = PPERE(j1+1,k1)
-!                pressEleParRaw(j1,k1)    = PPARE(j1+1,k1)
-!             END DO
-!          END DO
-!
-!          azimRaw = azimRaw * 360./24 * pi_d / 180._dp ! In radians
-!
-!          pressPerRaw = 0.16_dp * (pressProtonPerRaw + pressOxygenPerRaw + pressHeliumPerRaw + pressElePerRaw) ! from keV/cm^3 to nPa
-!          pressParRaw = 0.16_dp * (pressProtonParRaw + pressOxygenParRaw + pressHeliumParRaw + pressEleParRaw) ! from keV/cm^3 to nPa
-!
-!          ratioRaw = pressOxygenPerRaw/pressProtonPerRaw
-!
-!
-!          radRawExt(1:nXRaw) = radRaw_local(1:nXRaw)
-!          DO j1 = nXRaw+1, nXRawExt
-!             radRawExt(j1) = radRaw_local(nXRaw) + REAL(j1-nXRaw, DP)*(radRaw_local(nXRaw)-radRaw_local(1))/(REAL(nXRaw-1, DP))
-!          END DO
-!
-!          azimRawExt(1:nAzimRAM) = azimRaw(1:nYRaw) ! nYRaw = nAzimRAM
-!
-!          pressPerRawExt(1:nXRaw,:) = pressPerRaw(1:nXRaw,:)
-!          pressParRawExt(1:nXRaw,:) = pressParRaw(1:nXRaw,:)
-!          ratioRawExt(1:nXRaw,:) = ratioRaw(1:nXRaw,:)
-!
-!          DO k1 = 1, nAzimRAM
-!             DO j1 = nXRaw+1, nXRawExt
-!                ! Alternatively, extrapolate the pressure assuming SK dependence
-!                ! in regions where we don't know it instead of f(R)
-!                ! extrapolation; 
-!                ! or, decrease the order of the polynomial extrapolation
-!                pressPerRawExt(j1,k1) = pressPerRawExt(nXRaw,k1) * (89.*EXP(-0.59*radRawExt(j1)) + 8.9*radRawExt(j1)**(-1.53)) / &
-!                     (89.*EXP(-0.59*radRawExt(nXRaw)) + 8.9*radRawExt(nXRaw)**(-1.53))
-!                pressParRawExt(j1,k1) = pressParRawExt(nXRaw,k1) * (89.*EXP(-0.59*radRawExt(j1)) + 8.9*radRawExt(j1)**(-1.53)) / &
-!                     (89.*EXP(-0.59*radRawExt(nXRaw)) + 8.9*radRawExt(nXRaw)**(-1.53))
-!                ratioRawExt(j1,k1) = pressOxygenPerRaw(nXRaw,k1)/pressProtonPerRaw(nXRaw,k1)
-!             END DO
-!          END DO
-!
-!          !  pressure functions
-!          DO k = 2, nzeta
-!             DO j = 1, npsi
-!
-!                radius = SQRT((x(nThetaEquator,j,k))**2 + y(nThetaEquator,j,k)**2)
-!                angle = ASIN(y(nThetaEquator,j,k) / radius) + pi_d
-!
-!                IF ((x(nThetaEquator,j,k) .LE. 0) .AND. (y(nThetaEquator,j,k) .GE.0)) &
-!                     angle = twopi_d - ASIN(y(nThetaEquator,j,k) / radius)
-!
-!                IF ((x(nThetaEquator,j,k) .LE. 0) .AND. (y(nThetaEquator,j,k) .LE.0)) &
-!                     angle = - ASIN(y(nThetaEquator,j,k) / radius)
-!
-!                radGrid(j,k) = radius
-!                angleGrid(j,k) = angle
-!
-!             END DO
-!          END DO
-!
-!          IF (iSm2 == 1) THEN ! Savitzky-Golay smoothing (possibly multiple) for the pressure
-!             pressPerRawExt(1:nXRawExt,1:nAzimRAM) = SavGol7(pressPerRawExt(1:nXRawExt,1:nAzimRAM))
-!             pressParRawExt(1:nXRawExt,1:nAzimRAM) = SavGol7(pressParRawExt(1:nXRawExt,1:nAzimRAM))
-!          END IF
-!
-!          !Cubic spline interpolation
-!          CALL Spline_2D_point(radRawExt**2, azimRawExt, pressPerRawExt, &
-!               radGrid(1:npsi,2:nzeta)**2, angleGrid(1:npsi,2:nzeta), pperEq(1:npsi,2:nzeta), iDomain)
-!          CALL Spline_2D_point(radRawExt**2, azimRawExt, pressParRawExt, &
-!               radGrid(1:npsi,2:nzeta)**2, angleGrid(1:npsi,2:nzeta), pparEq(1:npsi,2:nzeta), iDomain)
-!          CALL Spline_2D_point(radRawExt**2, azimRawExt, ratioRawExt, &
-!               radGrid(1:npsi,2:nzeta)**2, angleGrid(1:npsi,2:nzeta), ratioEq(1:npsi,2:nzeta), iDomain)
-!          ratioEq(1:npsi,1) = ratioEq(1:npsi,nzeta)
-!          IF (iDomain > 0) THEN
-!             PRINT*, 'Stop; problem with pressure domain; iDomain = ', iDomain
-!             STOP
-!          END IF
-!
-!          ! Sometimes the interpolation can give very small negative values very 
-!          ! near the Earth; inconsequential
-!          WHERE(pperEq < 0.0) pperEq = 1e-2_dp
-!          WHERE(pparEq < 0.0) pparEq = 1e-2_dp
-!          DO k = 2, nzeta
-!             DO j = 1, npsi
-!                IF (radGrid(j,k) < 2.0) THEN ! Extrapolation inside 2 RE from Earth
-!                   pperEq(j,k) = pressPerRaw(1,1)
-!                   pparEq(j,k) = pressParRaw(1,1)
-!                END IF
-!             END DO
-!          END DO
-!
-!         pperEq(:,nzeta+1) = pperEq(:,2)
-!         pparEq(:,nzeta+1) = pparEq(:,2)
-!         pperEq(:,1) = pperEq(:,nzeta)
-!         pparEq(:,1) = pparEq(:,nzeta)
-!
-!         pperEq = pperEq/pnormal
-!         pparEq = pparEq/pnormal
-!
-!       press = 1.0/3.0 * pparEq + 2.0/3.0 * pperEq
-       do j=1,npsi
-          do k=1,nzeta
-             press(j,k) = pressureTsygMuk(x(nThetaEquator,j,k), y(nThetaEquator,j,k))
-          enddo
-       enddo
+       Isotropic = 'RAM' ! For now just hard code the analytic isotropic pressure for testing -ME
+       IF (Isotropic.eq.'RAM') THEN
+          ! Isotropic pressure gotten from 2*PPer + 1*PPar from RAM
+          DO j1 = 1, nXRaw
+             DO k1 = 1, nYRaw
+                radRaw_local(j1) = LZ(j1+1)
+                azimRaw(k1) = PHI(k1)*12/pi_d
+                pressProtonPerRaw(j1,k1) = PPERH(j1+1,k1)
+                pressProtonParRaw(j1,k1) = PPARH(j1+1,k1)
+                pressOxygenPerRaw(j1,k1) = PPERO(j1+1,k1)
+                pressOxygenParRaw(j1,k1) = PPARO(j1+1,k1)
+                pressHeliumPerRaw(j1,k1) = PPERHE(j1+1,k1)
+                pressHeliumParRaw(j1,k1) = PPARHE(j1+1,k1)
+                pressElePerRaw(j1,k1)    = PPERE(j1+1,k1)
+                pressEleParRaw(j1,k1)    = PPARE(j1+1,k1)
+             END DO
+          END DO
 
-       CALL Spline_2D_derivs(rhoVal, zetaVal(2:nzeta), press(:,2:nzeta), &
-            dPresdRho(:,2:nzeta), dPresdZeta(:,2:nzeta))
+          azimRaw = azimRaw * 360./24 * pi_d / 180._dp ! In radians
+
+          pressPerRaw = 0.16_dp * (pressProtonPerRaw + pressOxygenPerRaw + pressHeliumPerRaw)! + pressElePerRaw) ! from keV/cm^3 to nPa
+          pressParRaw = 0.16_dp * (pressProtonParRaw + pressOxygenParRaw + pressHeliumParRaw)! + pressEleParRaw) ! from keV/cm^3 to nPa
+
+          ratioRaw = pressOxygenPerRaw/pressProtonPerRaw
+
+
+          radRawExt(1:nXRaw) = radRaw_local(1:nXRaw)
+          DO j1 = nXRaw+1, nXRawExt
+             radRawExt(j1) = radRaw_local(nXRaw) + REAL(j1-nXRaw, DP)*(radRaw_local(nXRaw)-radRaw_local(1))/(REAL(nXRaw-1, DP))
+          END DO
+
+          azimRawExt(1:nAzimRAM) = azimRaw(1:nYRaw) ! nYRaw = nAzimRAM
+
+          pressPerRawExt(1:nXRaw,:) = pressPerRaw(1:nXRaw,:)
+          pressParRawExt(1:nXRaw,:) = pressParRaw(1:nXRaw,:)
+          ratioRawExt(1:nXRaw,:) = ratioRaw(1:nXRaw,:)
+
+          !DO k1 = 1, nAzimRAM
+          !   DO j1 = nXRaw+1, nXRawExt
+          !      ! Alternatively, extrapolate the pressure assuming SK dependence
+          !      ! in regions where we don't know it instead of f(R) extrapolation; 
+          !      ! or, decrease the order of the polynomial extrapolation
+          !      pressPerRawExt(j1,k1) = pressPerRawExt(nXRaw,k1) * (89.*EXP(-0.59*radRawExt(j1)) + 8.9*radRawExt(j1)**(-1.53)) / &
+          !           (89.*EXP(-0.59*radRawExt(nXRaw)) + 8.9*radRawExt(nXRaw)**(-1.53))
+          !      pressParRawExt(j1,k1) = pressParRawExt(nXRaw,k1) * (89.*EXP(-0.59*radRawExt(j1)) + 8.9*radRawExt(j1)**(-1.53)) / &
+          !           (89.*EXP(-0.59*radRawExt(nXRaw)) + 8.9*radRawExt(nXRaw)**(-1.53))
+          !      ratioRawExt(j1,k1) = pressOxygenPerRaw(nXRaw,k1)/pressProtonPerRaw(nXRaw,k1)
+          !   END DO
+          !END DO
+
+          DO k1 = 1, nAzimRAM
+             DO j1 = nXRaw+1, nXRawExt
+                pressPerRawExt(j1,k1) = pressPerRawExt(nXRaw,k1) * pRoeRad(radRawExt(j1))/pRoeRad(radRawExt(nXRaw))
+                pressParRawExt(j1,k1) = pressParRawExt(nXRaw,k1) * pRoeRad(radRawExt(j1))/pRoeRad(radRawExt(nXRaw))
+             END DO
+          END DO
+
+
+          !  pressure functions
+          DO k = 2, nzeta
+             DO j = 1, npsi
+                radius = SQRT((x(nThetaEquator,j,k))**2 + y(nThetaEquator,j,k)**2)
+                angle = ASIN(y(nThetaEquator,j,k) / radius) + pi_d
+
+                IF ((x(nThetaEquator,j,k) .LE. 0) .AND. (y(nThetaEquator,j,k) .GE.0)) &
+                     angle = twopi_d - ASIN(y(nThetaEquator,j,k) / radius)
+
+                IF ((x(nThetaEquator,j,k) .LE. 0) .AND. (y(nThetaEquator,j,k) .LE.0)) &
+                     angle = - ASIN(y(nThetaEquator,j,k) / radius)
+
+                radGrid(j,k) = radius
+                angleGrid(j,k) = angle
+             END DO
+          END DO
+
+          IF (iSm2 == 1) THEN ! Savitzky-Golay smoothing (possibly multiple) for the pressure
+             pressPerRawExt(1:nXRawExt,1:nAzimRAM) = SavGol7(pressPerRawExt(1:nXRawExt,1:nAzimRAM))
+             pressParRawExt(1:nXRawExt,1:nAzimRAM) = SavGol7(pressParRawExt(1:nXRawExt,1:nAzimRAM))
+          END IF
+
+          !Cubic spline interpolation
+          CALL Spline_2D_point(radRawExt**2, azimRawExt, pressPerRawExt, &
+               radGrid(1:npsi,2:nzeta)**2, angleGrid(1:npsi,2:nzeta), pperEq(1:npsi,2:nzeta), iDomain)
+          CALL Spline_2D_point(radRawExt**2, azimRawExt, pressParRawExt, &
+               radGrid(1:npsi,2:nzeta)**2, angleGrid(1:npsi,2:nzeta), pparEq(1:npsi,2:nzeta), iDomain)
+          CALL Spline_2D_point(radRawExt**2, azimRawExt, ratioRawExt, &
+               radGrid(1:npsi,2:nzeta)**2, angleGrid(1:npsi,2:nzeta), ratioEq(1:npsi,2:nzeta), iDomain)
+          ratioEq(1:npsi,1) = ratioEq(1:npsi,nzeta)
+          IF (iDomain > 0) THEN
+             PRINT*, 'Stop; problem with pressure domain; iDomain = ', iDomain
+             STOP
+          END IF
+
+          ! Sometimes the interpolation can give very small negative values very 
+          ! near the Earth; inconsequential
+          WHERE(pperEq < 0.0) pperEq = MINVAL(pressPerRaw) ! 1e-1_dp/pnormal
+          WHERE(pparEq < 0.0) pparEq = MINVAL(pressParRaw) ! 1e-1_dp/pnormal
+          DO k = 1, nzeta
+             DO j = npsi-3, 1, -1
+                IF (radGrid(j,k) < 2.0) THEN ! Extrapolation inside 2RE from Earth
+                   CALL extap(pperEq(j+3,k),pperEq(j+2,k),pperEq(j+1,k),pperEq(j,k))
+                   CALL extap(pparEq(j+3,k),pparEq(j+2,k),pparEq(j+1,k),pparEq(j,k))
+                END IF
+             END DO
+          END DO
+          pperEq(:,nzeta+1) = pperEq(:,2)
+          pparEq(:,nzeta+1) = pparEq(:,2)
+          pperEq(:,1) = pperEq(:,nzeta)
+          pparEq(:,1) = pparEq(:,nzeta)
+
+          pperEq = pperEq/pnormal
+          pparEq = pparEq/pnormal
+
+          press = 1.0/3.0 * pparEq + 2.0/3.0 * pperEq
+
+       ELSEIF (Isotropic.eq.'ANA') THEN
+       ! Isotropic analytic pressure from TsygMuk and SK
+          do j=1,npsi
+             do k=1,nzeta
+                press(j,k) = pressureTsygMuk(x(nThetaEquator,j,k), y(nThetaEquator,j,k))
+             enddo
+          enddo
+       ENDIF
+
        press(:,nzetap) = press(:,2)
        press(:,1) = press(:,nzeta)
+       CALL Spline_2D_derivs(rhoVal, zetaVal(1:nzeta), press(:,1:nzeta), &
+            dPresdRho(:,1:nzeta), dPresdZeta(:,1:nzeta))
        dPresdRho(:,nzetap) = dPresdRho(:,2)
        dPresdRho(:,1) = dPresdRho(:,nzeta)
        dPresdZeta(:,nzetap) = dPresdZeta(:,2)
        dPresdZeta(:,1) = dPresdZeta(:,nzeta)
   
-       CALL Spline_2D_derivs(rhoVal, zetaVal(2:nzeta), dPresdRho(:,2:nzeta), &
-            dSqPresdRhoSq(:,2:nzeta), dSqPresdRhodZeta(:,2:nzeta))
-       CALL Spline_2D_derivs(rhoVal, zetaVal(2:nzeta), dPresdZeta(:,2:nzeta), &
-            dSqPresdRhodZeta(:,2:nzeta), dSqPresdZetaSq(:,2:nzeta))
+       CALL Spline_2D_derivs(rhoVal, zetaVal(1:nzeta), dPresdRho(:,1:nzeta), &
+            dSqPresdRhoSq(:,1:nzeta), dSqPresdRhodZeta(:,1:nzeta))
+       CALL Spline_2D_derivs(rhoVal, zetaVal(1:nzeta), dPresdZeta(:,1:nzeta), &
+            dSqPresdRhodZeta(:,1:nzeta), dSqPresdZetaSq(:,1:nzeta))
        dSqPresdRhoSq(:,nzetap) = dSqPresdRhoSq(:,2)
        dSqPresdRhoSq(:,1) = dSqPresdRhoSq(:,nzeta)
        dSqPresdZetaSq(:,nzetap) = dSqPresdZetaSq(:,2)
@@ -1215,10 +1158,7 @@ SUBROUTINE pressure
   
   
     ELSE    ! Anisotropic pressure case
-       IF ((boundary.eq.'LANL+').or.(boundary.eq.'SWMF')) THEN ! Calculation using RAM pressures
-          ! print*, 'rank, 1st line: ', rank, firstLine; call flush(6)
-          ! print*, 'rank, 2nd line:', rank, secondLine; call flush(6)
-          ! print*, 'HERE'; call flush(6)
+       IF ((boundary.eq.'LANL').or.(boundary.eq.'SWMF')) THEN ! Calculation using RAM pressures
           DO j1 = 1, nXRaw
              DO k1 = 1, nYRaw
                 radRaw_local(j1) = LZ(j1+1)
@@ -1236,8 +1176,8 @@ SUBROUTINE pressure
   
           azimRaw = azimRaw * 360./24 * pi_d / 180._dp ! In radians
   
-          pressPerRaw = 0.16_dp * (pressProtonPerRaw + pressOxygenPerRaw + pressHeliumPerRaw + pressElePerRaw) ! from keV/cm^3 to nPa
-          pressParRaw = 0.16_dp * (pressProtonParRaw + pressOxygenParRaw + pressHeliumParRaw + pressEleParRaw) ! from keV/cm^3 to nPa
+          pressPerRaw = 0.16_dp * (pressProtonPerRaw + pressOxygenPerRaw + pressHeliumPerRaw)! + pressElePerRaw) ! from keV/cm^3 to nPa
+          pressParRaw = 0.16_dp * (pressProtonParRaw + pressOxygenParRaw + pressHeliumParRaw)! + pressEleParRaw) ! from keV/cm^3 to nPa
   
           ratioRaw = pressOxygenPerRaw/pressProtonPerRaw
   
@@ -1253,18 +1193,25 @@ SUBROUTINE pressure
           pressParRawExt(1:nXRaw,:) = pressParRaw(1:nXRaw,:)
           ratioRawExt(1:nXRaw,:) = ratioRaw(1:nXRaw,:)
           
+          !DO k1 = 1, nAzimRAM
+          !   DO j1 = nXRaw+1, nXRawExt
+          !      ! Alternatively, extrapolate the pressure assuming SK dependence in regions where we don't know it instead of f(R) extrapolation; 
+          !      ! or, decrease the order of the polynomial extrapolation
+          !      pressPerRawExt(j1,k1) = pressPerRawExt(nXRaw,k1) * (89.*EXP(-0.59*radRawExt(j1)) + 8.9*radRawExt(j1)**(-1.53)) / &
+          !           (89.*EXP(-0.59*radRawExt(nXRaw)) + 8.9*radRawExt(nXRaw)**(-1.53))
+          !      pressParRawExt(j1,k1) = pressParRawExt(nXRaw,k1) * (89.*EXP(-0.59*radRawExt(j1)) + 8.9*radRawExt(j1)**(-1.53)) / &
+          !           (89.*EXP(-0.59*radRawExt(nXRaw)) + 8.9*radRawExt(nXRaw)**(-1.53)) 
+          !      ratioRawExt(j1,k1) = pressOxygenPerRaw(nXRaw,k1)/pressProtonPerRaw(nXRaw,k1)
+          !   END DO
+          !END DO
+ 
           DO k1 = 1, nAzimRAM
              DO j1 = nXRaw+1, nXRawExt
-                ! Alternatively, extrapolate the pressure assuming SK dependence in regions where we don't know it instead of f(R) extrapolation; 
-                ! or, decrease the order of the polynomial extrapolation
-                pressPerRawExt(j1,k1) = pressPerRawExt(nXRaw,k1) * (89.*EXP(-0.59*radRawExt(j1)) + 8.9*radRawExt(j1)**(-1.53)) / &
-                     (89.*EXP(-0.59*radRawExt(nXRaw)) + 8.9*radRawExt(nXRaw)**(-1.53))
-                pressParRawExt(j1,k1) = pressParRawExt(nXRaw,k1) * (89.*EXP(-0.59*radRawExt(j1)) + 8.9*radRawExt(j1)**(-1.53)) / &
-                     (89.*EXP(-0.59*radRawExt(nXRaw)) + 8.9*radRawExt(nXRaw)**(-1.53)) 
-                ratioRawExt(j1,k1) = pressOxygenPerRaw(nXRaw,k1)/pressProtonPerRaw(nXRaw,k1)
+                pressPerRawExt(j1,k1) = pressPerRawExt(nXRaw,k1) * pRoeRad(radRawExt(j1))/pRoeRad(radRawExt(nXRaw))
+                pressParRawExt(j1,k1) = pressParRawExt(nXRaw,k1) * pRoeRad(radRawExt(j1))/pRoeRad(radRawExt(nXRaw))
              END DO
           END DO
-  
+ 
           !  anisotropic pressure functions
           DO k = 2, nzeta
              DO j = 1, npsi
@@ -1304,22 +1251,22 @@ SUBROUTINE pressure
   
           ! Sometimes the interpolation can give very small negative values very 
           ! near the Earth; inconsequential
-          WHERE(pperEq < 0.0) pperEq = 1e-2_dp
-          WHERE(pparEq < 0.0) pparEq = 1e-2_dp
-          DO k = 2, nzeta
-             DO j = 1, npsi
-                IF (radGrid(j,k) < 2.0) THEN ! Extrapolation inside 2 RE from Earth
-                   pperEq(j,k) = pressPerRaw(1,1)
-                   pparEq(j,k) = pressParRaw(1,1)
+          WHERE(pperEq < 0.0) pperEq = MINVAL(pressPerRaw) ! 1e-1_dp/pnormal
+          WHERE(pparEq < 0.0) pparEq = MINVAL(pressParRaw) ! 1e-1_dp/pnormal
+          DO k = 1, nzeta
+             DO j = npsi-3, 1, -1
+                IF (radGrid(j,k) < 2.0) THEN ! Extrapolation inside 2RE from Earth
+                   CALL extap(pperEq(j+3,k),pperEq(j+2,k),pperEq(j+1,k),pperEq(j,k))
+                   CALL extap(pparEq(j+3,k),pparEq(j+2,k),pparEq(j+1,k),pparEq(j,k))
                 END IF
              END DO
           END DO
-  
-         pperEq(:,nzeta+1) = pperEq(:,2)
-         pparEq(:,nzeta+1) = pparEq(:,2)
-         pperEq(:,1) = pperEq(:,nzeta)
-         pparEq(:,1) = pparEq(:,nzeta)
-  
+          pperEq(:,nzeta+1) = pperEq(:,2)
+          pparEq(:,nzeta+1) = pparEq(:,2)
+          pperEq(:,1) = pperEq(:,nzeta)
+          pparEq(:,1) = pparEq(:,nzeta)
+
+
          pperEq = pperEq/pnormal
          pparEq = pparEq/pnormal
 
@@ -1356,7 +1303,7 @@ SUBROUTINE pressure
              END DO
           END DO
   
-       ELSEIF (boundary == 'LANL') THEN ! RAM pressures & Roeder model extension; only protons for now in the 
+       ELSEIF (boundary == 'LANR') THEN ! RAM pressures & Roeder model extension; only protons for now in the 
           ! extension formula, but apply the formula to the total (H+, He++, O+) pressures
   
           !  radius, angle in flux coordinates
@@ -1375,21 +1322,21 @@ SUBROUTINE pressure
   
           DO j1 = 1, nXRaw
              DO k1 = 1, nYRaw
-                radRaw_local(j1) = LZ(j1)
+                radRaw_local(j1) = LZ(j1+1)
                 azimRaw(k1) = PHI(k1)*12/pi_d
-                pressProtonPerRaw(j1,k1) = PPERH(j1,k1)
-                pressProtonParRaw(j1,k1) = PPARH(j1,k1)
-                pressOxygenPerRaw(j1,k1) = PPERO(j1,k1)
-                pressOxygenParRaw(j1,k1) = PPARO(j1,k1)
-                pressHeliumPerRaw(j1,k1) = PPERHE(j1,k1)
-                pressHeliumParRaw(j1,k1) = PPARHE(j1,k1)
-                pressElePerRaw(j1,k1)    = PPERE(j1,k1)
-                pressEleParRaw(j1,k1)    = PPARE(j1,k1)
+                pressProtonPerRaw(j1,k1) = PPERH(j1+1,k1)
+                pressProtonParRaw(j1,k1) = PPARH(j1+1,k1)
+                pressOxygenPerRaw(j1,k1) = PPERO(j1+1,k1)
+                pressOxygenParRaw(j1,k1) = PPARO(j1+1,k1)
+                pressHeliumPerRaw(j1,k1) = PPERHE(j1+1,k1)
+                pressHeliumParRaw(j1,k1) = PPARHE(j1+1,k1)
+                pressElePerRaw(j1,k1)    = PPERE(j1+1,k1)
+                pressEleParRaw(j1,k1)    = PPARE(j1+1,k1)
              END DO
           END DO
           azimRaw = azimRaw * 360./24 * pi_d / 180._dp
-          pressPerRaw = 0.16_dp * (pressProtonPerRaw + 1.*pressOxygenPerRaw + 1.*pressHeliumPerRaw + 1.*pressElePerRaw)  ! from keV/cm^3 to nPa
-          pressParRaw = 0.16_dp * (pressProtonParRaw + 1.*pressOxygenParRaw + 1.*pressHeliumParRaw + 1.*pressEleParRaw)  ! from keV/cm^3 to nPa
+          pressPerRaw = 0.16_dp * (pressProtonPerRaw + 1.*pressOxygenPerRaw + 1.*pressHeliumPerRaw)  ! from keV/cm^3 to nPa
+          pressParRaw = 0.16_dp * (pressProtonParRaw + 1.*pressOxygenParRaw + 1.*pressHeliumParRaw)  ! from keV/cm^3 to nPa
   
           radRawExt(1:nXRaw) = radRaw_local(1:nXRaw)
           DO j1 = nXRaw+1, nXRawExt
@@ -1421,6 +1368,9 @@ SUBROUTINE pressure
           CALL Spline_2D_point(radRawExt, azimRawExt, pressParRawExt, &
                radGrid(1:npsi,2:nzeta), angleGrid(1:npsi,2:nzeta), pparEq(1:npsi,2:nzeta), iDomain) 
           IF (iDomain > 0) THEN
+             write(*,*) radRawExt
+             write(*,*) radGrid(:,32)
+             write(*,*) radGrid(:,2)
              PRINT*, 'Stop; problem with pressure domain; iDomain = ', iDomain
              STOP
           END IF
@@ -1579,9 +1529,9 @@ SUBROUTINE pressure
           IF(ALLOCATED(dummy1)) DEALLOCATE(dummy1, stat = idealerr)
           IF(ALLOCATED(dummy2)) DEALLOCATE(dummy2, stat = idealerr)
        END IF
-  
+
     END IF Isotropy_choice
-  
+ 
     DO j = 1, npsi
        DO i = 1, nthe
           colatitudeMid = ATAN2(xx(i,j,nZetaMidnight), z(i,j,nZetaMidnight))
@@ -1590,7 +1540,9 @@ SUBROUTINE pressure
           dipoleFactorNoo(i,j) = SQRT(1. + 3. * (COS(colatitudeNoo))**2) / (SIN(colatitudeMid))**6 
        END DO
     END DO
-  
+
+    IF (iteration==1.and.isPressureDetailNeeded==1) call write_scb_pressure 
+
     RETURN
   
   END SUBROUTINE pressure
@@ -1633,11 +1585,11 @@ FUNCTION pressureTsygMuk(xEqGsm, yEqGsm)
 
   rhoStar = 0.1_dp * SQRT(xEqGsm**2+yEqGsm**2) ! 1/10RE * rho
 
-  phi = ATAN2(xEqGsm, yEqGsm) ! azimuthal angle, atan(y/x)
+  phi = ATAN2(yEqGsm, xEqGsm) ! azimuthal angle, atan(y/x)
 
   PSWStar = pdynGlobal/3._dp
 
-  theta = ATAN2(byimfGlobal,bzimfGlobal) ! IMF clock angle
+  theta = ATAN2(bzimfGlobal,byimfGlobal) ! IMF clock angle
   IF (theta < 0.0) theta = theta + twopi_d
   Bperp = SQRT(byimfGlobal**2 + bzimfGlobal**2) ! BSW perpendicular to Sun-Earth axis
   F = ABS(Bperp)*SQRT(SIN(0.5_dp*theta))
