@@ -176,7 +176,6 @@ SUBROUTINE computehI
 
   Alpha_loop_parallel_oper:  DO k = 2, nzeta
      Psi_loop_oper: DO j = 1, npsi
-!!!!! Is this really needed? -ME
         ! If bf(theta) not strictly increasing; to weed out very small differences  
         ! Generally if needed it means have to increase number of theta
         ! points (or crowd them more near the equatorial plane)
@@ -214,7 +213,6 @@ SUBROUTINE computehI
            IF (iFix == 0) EXIT Monotonicity_down
            CYCLE Monotonicity_down
         END DO Monotonicity_down
-!!!!!
 
 !!!!! Compute IndexPA to go along with Flux3D
         ! Define indexPA for 90 degree pitch angle (-1 for all distances
@@ -249,8 +247,8 @@ SUBROUTINE computehI
      RETURN 
 
   CASE default  ! Regular calculation of h, I, bounce-averaged charge xchange etc.
-       call system_clock(time1,clock_rate,clock_max)
-       starttime=time1/real(clock_rate,dp)
+     call system_clock(time1,clock_rate,clock_max)
+     starttime=time1/real(clock_rate,dp)
 
      RhoLoop: DO j = 2, npsi-1
         PhiLoop: DO k = 2,nzeta
@@ -300,7 +298,7 @@ SUBROUTINE computehI
               if (chiMirror(L,2).lt.0.) chiMirror(L,2) = 0._dp ! Occasionally get a negative number when near 0
               if (chiMirror(L,1).lt.chiMirror(L,2)) then ! Occasionally messes up for low pitch angles
                  chiMirror(L,1) = pi_d - chiMirror(L,2)
-                 if (chiMirror(L,1).lt.0.) chiMirror(L,1) = chiMirror(L,2) + 0.001
+                 if (chiMirror(L,1).lt.0.) chiMirror(L,1) = chiMirror(L,2) + 0.01
               endif
 
               ! Evaluate I Integral, can use DQAG since I has no singularities
@@ -320,17 +318,17 @@ SUBROUTINE computehI
               H_value(j,k,L) = (length/(pi_d*2*r0(j,k))) * valueIntegralH*SQRT(Bfmirror(L))
               HDens_value(j,k,L) = 1.E10_dp * valueIntegralHDens/valueIntegralH ! Re-normalize (see definition in hdens_rairden)
 
-              !if (I_value(j,k,L)+1.eq.I_value(j,k,L)) I_Value(j,k,L) = I_Value(j,k-1,L)
-              !if (H_value(j,k,L)+1.eq.H_value(j,k,L)) H_Value(j,k,L) = H_Value(j,k-1,L)
-              !if ((HDens_value(j,k,L)+1.eq.HDens_value(j,k,L)).or.(hDens_value(j,k,L).eq.0)) then
-              !   Hdens_Value(j,k,L) = Hdens_Value(j,k-1,L)
-              !endif
+              if (I_value(j,k,L)+1.eq.I_value(j,k,L)) I_Value(j,k,L) = I_Value(j,k-1,L)
+              if (H_value(j,k,L)+1.eq.H_value(j,k,L)) H_Value(j,k,L) = H_Value(j,k-1,L)
+              if ((HDens_value(j,k,L)+1.eq.HDens_value(j,k,L)).or.(hDens_value(j,k,L).eq.0)) then
+                 Hdens_Value(j,k,L) = Hdens_Value(j,k-1,L)
+              endif
            END DO PitchAngleLoop
         END DO PhiLoop
      END DO RhoLoop
-       call system_clock(time1,clock_rate,clock_max)
-       stoptime=time1/real(clock_rate,dp)
-       write(*,*) 'SCB h and I: ',stoptime-starttime
+     call system_clock(time1,clock_rate,clock_max)
+     stoptime=time1/real(clock_rate,dp)
+     write(*,*) 'SCB h and I: ',stoptime-starttime
 
      ! Handle pitch angle of 90 degrees
      I_value(:,:,1) = 0._dp
@@ -347,8 +345,8 @@ SUBROUTINE computehI
      beqdip(1:npsi,2:nzeta)=b0dip/(x(nThetaEquator,1:npsi,2:nzeta)**2+y(nThetaEquator,1:npsi,2:nzeta)**2)**1.5
 
      !! Interpolate data for output in POLAR coordinates (for RAM)
-       call system_clock(time1,clock_rate,clock_max)
-       starttime=time1/real(clock_rate,dp)
+     call system_clock(time1,clock_rate,clock_max)
+     starttime=time1/real(clock_rate,dp)
 
      CALL Interpolation_SCB_to_RAM(radRaw(1:nR), azimRaw, &
                                    h_value(2:npsi-1,2:nzeta,1:NPA), &
@@ -362,9 +360,9 @@ SUBROUTINE computehI
                                    flux_vol_Cart(1:nR,1:nT), &
                                    hdens_Cart(1:nR,1:nT,1:NPA))
 
-       call system_clock(time1,clock_rate,clock_max)
-       stoptime=time1/real(clock_rate,dp)
-       write(*,*) 'Interpolation: ',stoptime-starttime
+     call system_clock(time1,clock_rate,clock_max)
+     stoptime=time1/real(clock_rate,dp)
+     write(*,*) 'Interpolation: ',stoptime-starttime
 
      !! Add dipole field back
      beqdip_Cart(1:nR) = b0dip/radRaw(1:nR)**3
@@ -373,8 +371,8 @@ SUBROUTINE computehI
      END DO
 
      !! Check for points from the RAM grid that were outside the SCB grid
-       call system_clock(time1,clock_rate,clock_max)
-       starttime=time1/real(clock_rate,dp)
+     call system_clock(time1,clock_rate,clock_max)
+     starttime=time1/real(clock_rate,dp)
 
      DIR = -1.0
      DSMAX = 0.1
@@ -486,9 +484,9 @@ SUBROUTINE computehI
      H_cart(:,:,1) = H_cart(:,:,2)
      HDens_cart(:,:,1) = HDens_cart(:,:,2)
 
-       call system_clock(time1,clock_rate,clock_max)
-       stoptime=time1/real(clock_rate,dp)
-       write(*,*) 'RAM h and I: ',stoptime-starttime
+     call system_clock(time1,clock_rate,clock_max)
+     stoptime=time1/real(clock_rate,dp)
+     write(*,*) 'RAM h and I: ',stoptime-starttime
 
      ! Make sure all H and I integrals have been filled in correctly
      IF (MINVAL(h_Cart) < 0._dp .OR. MINVAL(I_Cart)<0._dp) THEN
