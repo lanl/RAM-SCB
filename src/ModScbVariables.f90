@@ -5,6 +5,8 @@ Module ModScbVariables
   implicit none
   save
 
+  integer :: left, right
+
 ! Figure out
   REAL(DP), ALLOCATABLE :: EXInd(:,:,:), EYInd(:,:,:), EZInd(:,:,:), EXConv(:,:,:), &
                            EYConv(:,:,:), EZConv(:,:,:), PhiIono(:,:), dPhiIonodAlpha(:,:), &

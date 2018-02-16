@@ -109,7 +109,7 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
          DtEndMax   = (TimeMax-TimeRamElapsed)/2.0
          DtOutputMax = max_output_timestep(TimeRamElapsed)
          DTs = min(DTsNext,DTsmax,DtOutputMax,DtEndMax,DTsFramework)
-         if (Kp.gt.6.0 .AND. DTs.gt.5.0) DTs = 5.0   !1. or 0.25 
+!         if (Kp.gt.6.0 .AND. DTs.gt.5.0) DTs = 5.0
       else if(mod(UTs, Dt_hI) .eq. 0) then
          DTs = 5.0
          if(Kp .ge. 5.0) DTs = min(DTsMin,DTs)
@@ -132,21 +132,10 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
       end if
 !!!!!!!!!
 
-!!!!!!!!! INJECTION TEST
-!      if ((iCal.eq.150).or.  &
-!         (iCal.eq.100).or.  &
-!         (iCal.eq.500).or.  &
-!         (iCal.eq.1200).or. &
-!         (iCal.eq.2000)) then
-!         call injection(iCal)
-!      endif
-!!!!!!!!!
-
 !!!!!!!!!! RUN RAM
       ! Broadcast current call to ram_all
       call write_prefix
       write(*,*) 'Calling ram_run for UTs, DTs,Kp = ', UTs, Dts, Kp
-
       ! Call RAM for each species.
       call ram_run
 
@@ -166,16 +155,17 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
          call ram_sum_pressure
          call scb_run
 
-!         FileName = RamFileName('MAG_xyz','dat',TimeRamNow)
-!         open(UNITTMP_, File=FileName, Status='NEW')
-!         write(UNITTMP_,*) npsi, nthe, nzeta
-!         do j=1,npsi
-!           do i=1,nthe
-!             do k=1,nzeta
-!               write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
-!             enddo
-!           enddo
-!         enddo
+         FileName = RamFileName('MAGxyz2','dat',TimeRamNow)
+         open(UNITTMP_, File=FileName)
+         write(UNITTMP_,*) nthe, npsi, nzeta
+         do i=1,nthe
+            do j=1,npsi
+               do k=1,nzeta
+                  write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
+               enddo
+            enddo
+         enddo
+         Close(UNITTMP_)
 
          ! Couple SCB -> RAM
          call computehI
@@ -244,13 +234,39 @@ end program ram_scb
 !============================================================================
 subroutine CON_stop(String)
   ! "Safely" stop RAM-SCB on all nodes.
-  use ModRamTiming, ONLY: TimeRamElapsed
+  use ModScbGrids,     ONLY: nthe, npsi, nzeta
+  use ModScbVariables, ONLY: x,y,z
+  use ModRamTiming,    ONLY: TimeRamElapsed, TimeRamNow
+  use ModRamIO,        ONLY: write_fail_file
+  use ModRamFunctions, ONLY: RamFileName
+
+  use ModIOUnit,       ONLY: UNITTMP_
+
   implicit none
 
   character(len=*), intent(in) :: String
+  character(len=200) :: FileName
+
+  integer :: i, j, k
+
   write(*,*)'Stopping execution! at time=',TimeRamElapsed,&
        ' with msg:'
   write(*,*)String
+
+  call write_fail_file
+
+  FileName = RamFileName('MAGxyz2','dat',TimeRamNow)
+  open(UNITTMP_, File=FileName)
+  write(UNITTMP_,*) nthe, npsi, nzeta
+  do i=1,nthe
+     do j = 1, npsi
+        do k=1,nzeta
+           write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
+        enddo
+    enddo
+  enddo
+  close(UNITTMP_)
+
   stop
 end subroutine CON_stop
 

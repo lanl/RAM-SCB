@@ -61,8 +61,12 @@ SCB_OBJECTS=                  \
 	ModScbSpline.o        \
         ModScbVariables.o     \
         scb_physQuantities.o  \
-	Geopack-2008_dp.o\
-	w2k_r8.o\
+	Geopack-2008_dp.o     \
+        T89.o		      \
+	T96.o		      \
+	T02.o		      \
+	TS04.o		      \
+	w2k_r8.o	      \
 	w05.o
 
 CPL_OBJECTS=            \
@@ -100,7 +104,7 @@ ${SLATEC_OBJECTS}:
 	cd ../srcSlatec; make slatec
 
 
-OBJECTS = ${RAM_OBJECTS} ${SCB_OBJECTS} ${CPL_OBJECTS} ${EXT_OBJECTS} ${SCE_OBJECTS}
+OBJECTS = ${RAM_OBJECTS} ${SCB_OBJECTS} ${CPL_OBJECTS} ${EXT_OBJECTS} #${SCE_OBJECTS}
 
 # List of objects required for executable:
 OBJECTS_EXE = Main.o
