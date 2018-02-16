@@ -11,6 +11,8 @@ module ModRamParams
   save
 
 !!!! PARAM Variables
+ logical :: Optim = .false.
+
  ! Standalone or Component (default = standalone)  logical :: IsComponent = .false.
  logical :: IsComponent = .false.
 
