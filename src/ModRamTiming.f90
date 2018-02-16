@@ -122,11 +122,16 @@ contains
 !    use ModRamIO, ONLY: write_prefix
 
     real(kind=Real8_) :: CpuTimeNow
+    integer :: t1, clock_rate = 100, clock_max = 100000
+
     !-------------------------------------------------------------------------
     close(iUnitEffFile)
 
     ! Update system time.
-    call cpu_time(CpuTimeNow)
+    !call cpu_time(CpuTimeNow)
+    !SysTimeNow = CpuTimeNow - SysTimeStart
+    call system_clock(t1,clock_rate,clock_max)
+    CpuTimeNow = t1/clock_rate
     SysTimeNow = CpuTimeNow - SysTimeStart
 
     ! Update timing metrics (only efficiency so far...)

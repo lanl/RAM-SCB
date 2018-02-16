@@ -17,6 +17,87 @@ MODULE ModScbEuler
 !================================================!
 !=========== Alpha Euler Potential ==============!
 !================================================!
+  SUBROUTINE alphaFunctions
+
+    USE ModScbMain,      ONLY: DP
+    USE ModScbGrids,     ONLY: nzeta
+    use ModScbVariables, ONLY: zetaVal, fzet, fzetp, alphaVal
+
+    USE ModScbSpline, ONLY: Spline_derivs_1D_Periodic
+
+    IMPLICIT NONE
+
+    REAL(DP) :: alphaValue(nzeta)
+
+    CALL Spline_derivs_1D_Periodic(zetaVal(1:nzeta), alphaval(1:nzeta), alphaValue, fzet(1:nzeta))
+    CALL Spline_derivs_1D_Periodic(zetaVal(1:nzeta), fzet(1:nzeta), alphaValue, fzetp(1:nzeta))
+
+    RETURN
+  END SUBROUTINE alphaFunctions
+
+!==============================================================================
+  SUBROUTINE InterpolateAlphaPhi
+    ! Interpolates the new values of psi at the new locations xnew on midnight 
+    ! equator
+    !!!! Module Variables
+    USE ModScbParams,    ONLY: iAzimOffset
+    USE ModScbGrids, ONLY: nzeta, npsi
+    use ModScbVariables, ONLY: x, y, nThetaEquator, alphaVal, zetaVal
+    !!!! Module Subroutines/Functions
+    USE ModScbSpline, ONLY: spline, splint, Spline_1D_Periodic
+    !!!! NR Modules
+    use nrtype, ONLY: DP, twopi_d
+
+    IMPLICIT NONE
+
+    REAL(DP), DIMENSION(nzeta+1) :: phiEqmid, alphaval1D, alpha2Deriv
+    INTEGER :: ialloc, ierr, k, j, jmax
+
+    REAL(DP) :: distConsecFluxSqOld, distConsecFluxSq
+
+    distConsecFluxSq = 0._dp
+    distConsecFluxSqOld = 0._dp
+
+    IF (iAzimOffset == 2) THEN
+       DO j = 2, npsi
+          phiEqmid = atan2(y(nThetaEquator,j,:),x(nThetaEquator,j,:))
+          where (phiEqMid(3:nzeta).lt.0) phiEqMid(3:nzeta) = phiEqMid(3:nzeta) + twopi_d
+          phiEqMid(1) = phiEqMid(nzeta) - twopi_d
+          phiEqMid(nzeta+1) = phiEqMid(2) + twopi_d
+          do k = 2, nzeta
+             distConsecFluxSq = phiEqMid(k) - phiEqMid(k-1)
+             IF (distConsecFluxSq > distConsecFluxSqOld) THEN
+                distConsecFluxSqOld = distConsecFluxSq
+                jMax = j
+             END IF
+          END DO
+       end DO
+    ELSE IF (iAzimOffset == 1) THEN
+       jmax = npsi
+    END IF
+
+    phiEqmid = atan2(y(nThetaEquator,jMax,:),x(nThetaEquator,jMax,:))
+    where (phiEqMid(3:nzeta).lt.0) phiEqMid(3:nzeta) = phiEqMid(3:nzeta) + twopi_d
+    phiEqMid(1) = phiEqMid(nzeta) - twopi_d
+    phiEqMid(nzeta+1) = phiEqMid(2) + twopi_d
+
+    alphaval1D = alphaval
+
+    CALL spline(phiEqmid, alphaval1D, 1.E31_dp, 1.E31_dp, alpha2Deriv)
+
+    DO k = 2, nzeta
+       alphaval(k) = splint(phiEqmid, alphaval1D, alpha2Deriv, zetaVal(k))
+    END DO
+
+    !CALL Spline_1D_Periodic(phiEqMid,alphaVal1D,zetaVal(2:nzeta),alphaVal(2:nzeta),ierr)
+
+    alphaVal(1) = alphaVal(nzeta) - twopi_d
+    alphaVal(nzeta+1) = alphaval(2) + twopi_d
+    
+    RETURN
+
+  END SUBROUTINE InterpolateAlphaPhi
+
 !==============================================================================
   SUBROUTINE alfges
     !   initial guess of alpha 
@@ -38,19 +119,17 @@ MODULE ModScbEuler
   SUBROUTINE mapAlpha(iSmoothMove)
     ! new cubic spline interpolation, without involving linear distance
     ! calculation
-  
     USE ModScbMain,      ONLY: DP
+    USE ModScbParams,    ONLY: psiChange, theChange
     USE ModScbGrids,     ONLY: nthe, npsi, nzeta, ny, nthem, nzetap
-    USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, alfaPrev
+    USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, alfaPrev, &
+                               left, right
   
-    USE ModScbSpline, ONLY: spline, splint
+    USE ModScbSpline, ONLY: Spline_1D_Periodic, spline, splint
   
     use nrtype, ONLY: pi_d
   
     IMPLICIT NONE
-  
-    !  ignore i = 1 & nthe lines since the boundary condition is delta = 0 there
-    !  (on Earth surface)
   
     INTEGER, INTENT(IN) :: iSmoothMove
     REAL(DP), DIMENSION(nzeta+1) :: xOld, yOld, zOld, alfaOld, x2derivs, y2derivs, &
@@ -73,37 +152,39 @@ MODULE ModScbEuler
        zPrev = z
   
        ierr = 0
-  
-       jloop : DO j = 1, npsi
-          iloop: DO i = 2, nthem
+
+       jloop : DO j = 1+psiChange, npsi-psiChange
+          iloop: DO i = 1+theChange, nthe-theChange
              xOld(1:nzetap) = x(i,j,1:nzetap)
              yOld(1:nzetap) = y(i,j,1:nzetap)
              zOld(1:nzetap) = z(i,j,1:nzetap)
              alfaOld(1:nzetap) = alfa(i,j,1:nzetap)
 
-             CALL spline(alfaOld, xOld, 1.E31_dp, 1.E31_dp, x2derivs)
-             CALL spline(alfaOld, yOld, 1.E31_dp, 1.E31_dp, y2derivs)
-             CALL spline(alfaOld, zOld, 1.E31_dp, 1.E31_dp, z2derivs)
-  
-             DO k = 2,nzeta
-                x(i,j,k) = splint(alfaOld, xOld, x2derivs, alphaval(k))
-                y(i,j,k) = splint(alfaOld, yOld, y2derivs, alphaval(k))
-                z(i,j,k) = splint(alfaOld, zOld, z2derivs, alphaval(k))
-                alfa(i,j,k) = alphaval(k)
+             CALL spline(alfaOld, xOld, 1.E31_dp, 1.E31_dp, x2Derivs)
+             CALL spline(alfaOld, yOld, 1.E31_dp, 1.E31_dp, y2Derivs)
+             CALL spline(alfaOld, zOld, 1.E31_dp, 1.E31_dp, z2Derivs)
+
+             DO k = 2, nzeta
+                x(i,j,k) = splint(alfaOld, xOld, x2Derivs, alphaval(k))
+                y(i,j,k) = splint(alfaOld, yOld, y2Derivs, alphaval(k))
+                z(i,j,k) = splint(alfaOld, zOld, z2Derivs, alphaval(k))
              END DO
-  
-             ! Periodic boundary conditions
-             x(i,j,1) = x(i,j,nzeta)
-             y(i,j,1) = y(i,j,nzeta)
-             z(i,j,1) = z(i,j,nzeta)
-             alfa(i,j,1) = alfa(i,j,nzeta) - 2._dp*pi_d
-             x(i,j,nzetap) = x(i,j,2)
-             y(i,j,nzetap) = y(i,j,2)
-             z(i,j,nzetap) = z(i,j,2)
-             alfa(i,j,nzetap) = alfa(i,j,2) + 2._dp*pi_d
-  
+
+             !CALL Spline_1D_Periodic(alfaOld,xOld,alphaVal,x(i,j,:),ierr)
+             !CALL Spline_1D_Periodic(alfaOld,yOld,alphaVal,y(i,j,:),ierr)
+             !CALL Spline_1D_Periodic(alfaOld,zOld,alphaVal,z(i,j,:),ierr)
           END DO iloop
        END DO jloop
+
+       ! Periodic boundary conditions
+       x(:,:,1) = x(:,:,nzeta)
+       y(:,:,1) = y(:,:,nzeta)
+       z(:,:,1) = z(:,:,nzeta)
+       x(:,:,nzetap) = x(:,:,2)
+       y(:,:,nzetap) = y(:,:,2)
+       z(:,:,nzetap) = z(:,:,2)
+
+       call alfges
     END IF
   
     RETURN
@@ -116,7 +197,8 @@ MODULE ModScbEuler
     USE ModScbMain,      ONLY: DP
     use ModScbGrids,     ONLY: nzeta, nzetap, nthe, nthem, npsi, npsim
     use ModScbVariables, ONLY: sumb, sumdb, vecd, vec1, vec2, &
-                               vec3, vec4, vec6, vec7, vec8, vec9, vecx
+                               vec3, vec4, vec6, vec7, vec8, vec9, vecx, &
+                               left, right
   
     use nrtype, ONLY: twopi_d, pi_d
     use nrmod, ONLY: gaussj
@@ -155,7 +237,7 @@ MODULE ModScbEuler
     sumb = 0._dp
     diffmx = 0._dp
   
-    fluxloop: DO jz = 2, npsim   ! jz represents the flux surface
+    fluxloop: DO jz = left+1, right-1   ! jz represents the flux surface
   
        ALLOCATE(FMATRIXFULL(nthe, nzeta-1), STAT=ierrffull)
        ALLOCATE(EMATRIXFULL(nthe, nzeta-1, nzeta-1), STAT=ierrefull)
@@ -374,7 +456,7 @@ MODULE ModScbEuler
        END DO
     END DO
   
-    DO  j = 1,npsi
+    DO  j = left,right
        DO  i = 1,nthe
           DO k = 2, nzeta
              alfa(i,j,k) = alfa(i,j,k) * blendAlpha + alphaVal(k) * (1. - blendAlpha)
@@ -413,7 +495,8 @@ MODULE ModScbEuler
                                InConAlpha
     USE ModScbGrids,     ONLY: nthe, nthem, npsi, nzeta, nzetap, ny
     USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, vecd, vec1, vec2, &
-                               vec3, vec4, vec6, vec7, vec8, vec9, vecx
+                               vec3, vec4, vec6, vec7, vec8, vec9, vecx, &
+                               left, right
   
     use nrmod,  ONLY: polint
     use nrtype, ONLY: DP, pi_d
@@ -453,7 +536,7 @@ MODULE ModScbEuler
     nisave = 0
     resid = 0
 
-    psiloop: DO  jz = 2, npsi-1
+    psiloop: DO  jz = left+1, right-1
        ni = 1
        anormf = 0._dp
        DO k = 2, nzeta
@@ -474,19 +557,23 @@ MODULE ModScbEuler
                 ip = iz + 1
                 ! Use natural rowwise ordering
                 resid(iz,jz,k) = - vecd(iz,jz,k)*alfa(iz,jz,k)  &
-                        + vec1(iz,jz,k)*alfa(im,jz,km) &
-                        + vec2(iz,jz,k)*alfa(iz,jz,km) &
-                        + vec3(iz,jz,k)*alfa(ip,jz,km) &
-                        + vec4(iz,jz,k)*alfa(im,jz,k)  &
-                        + vec6(iz,jz,k)*alfa(ip,jz,k)  &
-                        + vec7(iz,jz,k)*alfa(im,jz,kp) &
-                        + vec8(iz,jz,k)*alfa(iz,jz,kp) &
-                        + vec9(iz,jz,k)*alfa(ip,jz,kp) &
-                        - vecx(iz,jz,k)
+                                 + vec1(iz,jz,k)*alfa(im,jz,km) &
+                                 + vec2(iz,jz,k)*alfa(iz,jz,km) &
+                                 + vec3(iz,jz,k)*alfa(ip,jz,km) &
+                                 + vec4(iz,jz,k)*alfa(im,jz,k)  &
+                                 + vec6(iz,jz,k)*alfa(ip,jz,k)  &
+                                 + vec7(iz,jz,k)*alfa(im,jz,kp) &
+                                 + vec8(iz,jz,k)*alfa(iz,jz,kp) &
+                                 + vec9(iz,jz,k)*alfa(ip,jz,kp) &
+                                 - vecx(iz,jz,k)
                 anormResid = anormResid + ABS(resid(iz,jz,k)) ! Residue will decrease with iterations
                 alfa(iz,jz,k) = alfa(iz,jz,k) + om(jz) * (resid(iz,jz,k) / vecd(iz,jz,k))
-                if (alfa(iz,jz,k)+1.0.eq.alfa(iz,jz,k)) then
+                if (alfa(iz,jz,k).ne.alfa(iz,jz,k)) then
+                   write(*,*) iz,jz,k,alfa(iz,jz,k), resid(iz,jz,k), vecd(iz,jz,k)
                    call CON_stop('NaN encountered in ModScbEuler iterateAlpha')
+                elseif (alfa(iz,jz,k)+1.0.eq.alfa(iz,jz,k)) then
+                   write(*,*) iz,jz,k,alfa(iz,jz,k), resid(iz,jz,k), vecd(iz,jz,k)
+                   call CON_stop('Large number encountered in ModScbEuler iterateAlpha')
                 endif
              END DO thetaloop
           END DO zetaloop
@@ -514,23 +601,17 @@ MODULE ModScbEuler
     sumdb = SUM(ABS(alfa(2:nthem,2:npsi-1,2:nzeta) - alfaprev(2:nthem,2:npsi-1,2:nzeta)))
     sumb = SUM(ABS(alfa(2:nthem,2:npsi-1,2:nzeta)))
     diffmx = maxval(abs(resid(2:nthem,2:npsi-1,2:nzeta)))
-  
-    !  boundary condition at themin and themax delta = 0 and phi = alphaVal
+
     DO k = 2, nzeta
+       DO i = 2,nthe
+          CALL extap(alfa(i,npsi-3,k),alfa(i,npsi-2,k),alfa(i,npsi-1,k),alfa(i,npsi,k))
+          CALL extap(alfa(i,4,k),alfa(i,3,k),alfa(i,2,k),alfa(i,1,k))
+       ENDDO
        DO j = 1,npsi
-          alfa(1,j,k) = alphaVal(k)
-          alfa(nthe,j,k) = alphaVal(k)
-       END DO
-       !  extrapolate alfa to the j = 1 & npsi surfaces
-       DO i = 1, nthe
-          IF (iWantAlphaExtrapolation == 0) THEN
-             alfa(i,npsi,k) = alfa(i,npsi-1,k) ! If the extrapolation is problematic
-          ELSE
-             CALL extap(alfa(i,npsi-3,k),alfa(i,npsi-2,k),alfa(i,npsi-1,k),alfa(i,npsi,k))
-          END IF
-          CALL extap(alfa(i,4,k),alfa(i,3,k),alfa(i,2,k),alfa(i,1,k)) ! This is never a problem - very close to Earth
-       END DO
-    END DO
+          CALL extap(alfa(nthe-3,j,k),alfa(nthe-2,j,k),alfa(nthe-1,j,k),alfa(nthe,j,k))
+          CALL extap(alfa(4,j,k),alfa(3,j,k),alfa(2,j,k),alfa(1,j,k))
+       ENDDO
+    ENDDO
 
     !...  set "blending" in alpha for outer iteration loop
     DO  j = 1, npsi
@@ -576,11 +657,10 @@ MODULE ModScbEuler
 
 !==============================================================================
   SUBROUTINE InterpolatePsiR
-    ! Interpolates the new values of psi at the new locations xnew on midnight 
-    ! equator
+    ! Interpolates the new values of psi at the new locations xnew on midnight equator
     !!!! Module Variables
-    USE ModScbParams,  ONLY: iAzimOffset
-    USE ModScbGrids, ONLY: npsi
+    USE ModScbParams,    ONLY: iAzimOffset, psiChange
+    USE ModScbGrids, ONLY: npsi, nzeta
     use ModScbVariables, ONLY: x, y, nThetaEquator, nZetaMidnight, psiVal, kmax, &
                                radEqmidNew
     !!!! Module Subroutines/Functions
@@ -591,21 +671,42 @@ MODULE ModScbEuler
     IMPLICIT NONE
 
     REAL(DP), DIMENSION(npsi) :: radEqmid, psival1D, psi2Deriv
-    INTEGER :: ialloc, ierr, j
+    INTEGER :: ialloc, ierr, j, k
 
-    IF (iAzimOffset == 1) THEN
-       radEqmid(1:npsi) = SQRT(x(nThetaEquator, 1:npsi, nZetaMidnight)**2 + &
-            y(nThetaEquator, 1:npsi, nZetaMidnight)**2)
-    ELSE IF (iAzimOffset == 2) THEN
-       radEqmid(1:npsi) = SQRT(x(nThetaEquator, 1:npsi, kMax)**2 + &
-            y(nThetaEquator, 1:npsi, kMax)**2)
+    REAL(DP) :: deltaR, distConsecFluxSqOld, distConsecFluxSq
+    REAL(DP) :: radius(npsi)
+
+    distConsecFluxSq = 0._dp
+    distConsecFluxSqOld = 0._dp
+
+    IF (iAzimOffset == 2) THEN
+       DO k = 2, nzeta
+          distConsecFluxSq = x(nThetaEquator,npsi-psiChange,k)**2 &
+                           + y(nThetaEquator,npsi-psiChange,k)**2
+          IF (distConsecFluxSq > distConsecFluxSqOld) THEN
+             distConsecFluxSqOld = distConsecFluxSq
+             kMax = k 
+          END IF
+       end DO
+    ELSE IF (iAzimOffset == 1) THEN
+       kmax = kmax
     END IF
 
-    psival1D(1:npsi) = psival(1:npsi)
+    DO j = 1, npsi
+       radius(j) = SQRT(x(nThetaEquator,j,kMax)**2 + y(nThetaEquator,j,kMax)**2)
+    END DO
 
+    deltaR = (radius(npsi) - radius(1)) / REAL(npsi-1,dp)
+    radEqMidNew(1) = radius(1)
+    DO j = 2, npsi
+       radEqMidNew(j) = radius(1) + REAL(j-1,dp)*deltaR
+    END DO
+
+    radEqmid = SQRT(x(nThetaEquator,:,kMax)**2 + y(nThetaEquator,:,kMax)**2)
+
+    psival1D = psival
     CALL spline(radEqmid, psival1D, 1.E31_dp, 1.E31_dp, psi2Deriv)
-
-    DO j = 2, npsi-1
+    DO j = 1, npsi
        psival(j) = splint(radEqmid, psival1D, psi2Deriv, radEqmidNew(j))
     END DO
 
@@ -622,12 +723,8 @@ MODULE ModScbEuler
     INTEGER :: i, j, k
   
     !     initial guess for psi
-    DO  k=1,nzetap
-       DO  j=1,npsi
-          DO  i=1,nthe
-             psi(i,j,k)=psival(j)
-          END DO
-       END DO
+    DO j=1,npsi
+       psi(:,j,:)=psival(j)
     END DO
   
     RETURN
@@ -638,12 +735,13 @@ MODULE ModScbEuler
   SUBROUTINE mapPsi(iSmoothMove)
     ! new psiMap, without computing linear distance
     ! first and last flux surface remain unchanged
-  
     USE ModScbMain,      ONLY: DP
+    USE ModScbParams,    ONLY: psiChange, theChange
     USE ModScbGrids,     ONLY: nthe, nthem, npsi, npsim, nzeta, nzetap, na
-    USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, psiPrev
+    USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, psiPrev, &
+                               left, right
   
-    USE ModScbSpline, ONLY: spline, splint
+    USE ModScbSpline, ONLY: Spline_1D, spline, splint
   
     IMPLICIT NONE
   
@@ -670,22 +768,25 @@ MODULE ModScbEuler
        ierr = 0
   
        kloop: DO k = 2, nzeta
-          iloop: DO i = 1, nthe
+          iloop: DO i = 1+theChange, nthe-theChange
              xOld(1:npsi) = x(i,1:npsi,k)
              yOld(1:npsi) = y(i,1:npsi,k)
              zOld(1:npsi) = z(i,1:npsi,k)
              psiOld(1:npsi) = psi(i,1:npsi,k)
-  
-             CALL spline(psiold, xOld, 1.E31_dp, 1.E31_dp, x2derivs)
-             CALL spline(psiold, yOld, 1.E31_dp, 1.E31_dp, y2derivs)
-             CALL spline(psiold, zOld, 1.E31_dp, 1.E31_dp, z2derivs)
-  
-             DO j = 2, npsi-1
-                x(i,j,k) = splint(psiold, xOld, x2derivs, psival(j))
-                y(i,j,k) = splint(psiold, yOld, y2derivs, psival(j))
-                z(i,j,k) = splint(psiold, zOld, z2derivs, psival(j))
-                psi(i,j,k) = psival(j)
+
+             CALL spline(psiOld, xOld, 1.E31_dp, 1.E31_dp, x2Derivs)
+             CALL spline(psiOld, yOld, 1.E31_dp, 1.E31_dp, y2Derivs)
+             CALL spline(psiOld, zOld, 1.E31_dp, 1.E31_dp, z2Derivs)
+
+             DO j = 1+psiChange, npsi-psiChange
+                x(i,j,k) = splint(psiOld, xOld, x2Derivs, psival(j))
+                y(i,j,k) = splint(psiOld, yOld, y2Derivs, psival(j))
+                z(i,j,k) = splint(psiOld, zOld, z2Derivs, psival(j))
              END DO
+ 
+             !CALL Spline_1D(psiOld,xOld,psiVal(2:npsi-1),x(i,2:npsi-1,k),ierr)
+             !CALL Spline_1D(psiOld,yOld,psiVal(2:npsi-1),y(i,2:npsi-1,k),ierr)
+             !CALL Spline_1D(psiOld,zOld,psiVal(2:npsi-1),z(i,2:npsi-1,k),ierr)
           END DO iloop
        END DO kloop
   
@@ -697,11 +798,7 @@ MODULE ModScbEuler
        y(:,:,nzetap) = y(:,:,2)
        z(:,:,nzetap) = z(:,:,2)
   
-       DO j = 1, npsi
-          psi(:,j, 1) = psival(j)
-          psi(:,j,nzetap) = psival(j)
-       END DO
-  
+       call psiges
     END IF
   
     RETURN
@@ -714,7 +811,8 @@ MODULE ModScbEuler
     USE ModScbMain,      ONLY: DP
     USE ModScbGrids,     ONLY: nzeta, nzetap, nthe, nthem, npsi, npsim
     use ModScbVariables, ONLY: sumb, sumdb, vecd, vec1, vec2, &
-                               vec3, vec4, vec6, vec7, vec8, vec9, vecr
+                               vec3, vec4, vec6, vec7, vec8, vec9, vecr, &
+                               left, right
  
     use nrmod, ONLY: gaussj 
     IMPLICIT NONE
@@ -1000,7 +1098,8 @@ MODULE ModScbEuler
     use ModScbParams,    ONLY: isSORDetailNeeded, InConPsi
     USE ModScbGrids,     ONLY: nthe, nthem, npsi, npsim, nzeta, nzetap, na
     USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, vecd, vec1, vec2, &
-                               vec3, vec4, vec6, vec7, vec8, vec9, vecr
+                               vec3, vec4, vec6, vec7, vec8, vec9, vecr, &
+                               left, right
   
     use nrtype, ONLY: pi_d
   
@@ -1042,7 +1141,7 @@ MODULE ModScbEuler
   
        Iterations: DO WHILE (ni <= nimax)
           anormResid = 0._dp
-          jLoop: DO jz = 2, npsi-1
+          jLoop: DO jz = left+1, right-1
              jp = jz + 1
              jm = jz - 1
              iLoop: DO  iz = 2, nthem
@@ -1061,8 +1160,12 @@ MODULE ModScbEuler
                         - vecr(iz,jz,k)
                 anormResid = anormResid + ABS(resid(iz,jz,k))
                 psi(iz,jz,k) = psi(iz,jz,k) + om(k)*resid(iz,jz,k)/vecd(iz,jz,k)
-                if (psi(iz,jz,k)+1.0.eq.psi(iz,jz,k)) then
+                if (psi(iz,jz,k).ne.psi(iz,jz,k)) then
+                   write(*,*) iz,jz,k,psi(iz,jz,k), resid(iz,jz,k), vecd(iz,jz,k)
                    call CON_stop('NaN encountered in ModScbEuler iteratePsi')
+                elseif (psi(iz,jz,k)+1.0.eq.psi(iz,jz,k)) then
+                   write(*,*) iz,jz,k,psi(iz,jz,k), resid(iz,jz,k), vecd(iz,jz,k)
+                   call CON_stop('Large number encountered in ModScbEuler iteratePsi')
                 endif
              END DO iLoop
           END DO jLoop
@@ -1091,7 +1194,18 @@ MODULE ModScbEuler
     sumdb = SUM(ABS(psi(2:nthem,2:npsim,2:nzeta) - psiprev(2:nthem,2:npsim,2:nzeta)))
     sumb = SUM(ABS(psi(2:nthem,2:npsim,2:nzeta)))
     diffmx = maxval(abs(resid(2:nthem,2:npsi-1,2:nzeta)))
-  
+
+    DO k = 2, nzeta
+       DO i = 2,nthe
+          CALL extap(psi(i,npsi-3,k),psi(i,npsi-2,k),psi(i,npsi-1,k),psi(i,npsi,k))
+          CALL extap(psi(i,4,k),psi(i,3,k),psi(i,2,k),psi(i,1,k))
+       ENDDO
+       DO j = 1,npsi
+          CALL extap(psi(nthe-3,j,k),psi(nthe-2,j,k),psi(nthe-1,j,k),psi(nthe,j,k))
+          CALL extap(psi(4,j,k),psi(3,j,k),psi(2,j,k),psi(1,j,k))
+       ENDDO
+    ENDDO
+
     ! Set blend for outer iteration loop, and apply periodic boundary conditions
     DO  j = 1, npsi
        DO  i = 1, nthe

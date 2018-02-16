@@ -104,7 +104,7 @@ MODULE ModScbInterp
   END SUBROUTINE Interpolation_natgrid_2D_EField
 
 !==============================================================================
-  SUBROUTINE Interpolation_natgrid_2D(r_local, azim_local, hFlux_l, IFlux_l, bZEqFlux_l, &
+  SUBROUTINE Interpolation_SCB_to_RAM(r_local, azim_local, hFlux_l, IFlux_l, bZEqFlux_l, &
        flux_vol_l, hdensFlux_l, hCart_l, ICart_l, bZEqCart_l, flux_vol_Cart_l, hdensCart_l)
   
     ! gives values on polar grid, using interpolation
@@ -113,6 +113,7 @@ MODULE ModScbInterp
     USE nrtype,          ONLY: DP, pi_d
     USE ModScbVariables, ONLY: x, y, z, nThetaEquator
     USE ModScbMain,      ONLY: prefixOut
+    USE ModScbGrids, ONLY: npsi,nzeta
 
     use ModRamGrids, ONLY: NPA
  
@@ -157,6 +158,8 @@ MODULE ModScbInterp
     REAL(DP), ALLOCATABLE :: distance(:)
     REAL(DP), DIMENSION(NN) :: xNear, yNear, bZNear, fluxVolNear, EPotNear
     REAL(DP), DIMENSION(NN,NPA) :: hNear, INear, hDensNear
+    REAL(DP) :: yn, yp, yo, xn, xp, xo
+    INTEGER :: wn
     INTEGER, DIMENSION(1) :: iTemp
 !
     npsil = SIZE(hFlux_l,1)
@@ -202,50 +205,74 @@ MODULE ModScbInterp
 
     DO ix = 1, nxl
        DO jy = 1, nyl
-          coordPoint(1) = r_local(ix) * COS(azim_local(jy)*2._dp*pi_d/24._dp - pi_d)
-          coordPoint(2) = r_local(ix) * SIN(azim_local(jy)*2._dp*pi_d/24._dp - pi_d)
-!!!!!!!!!!!!!!
-! ME My basic attempt at a nearest neighbor search
-          distance = (xScatter - coordPoint(1))**2 &
-                    +(yScatter - coordPoint(2))**2
-          do i = 1,NN
-             iTemp = minloc(distance)
-             xNear(i)       = xScatter(iTemp(1))
-             yNear(i)       = yScatter(iTemp(1))
-             bZNear(i)      = bZScatter(iTemp(1))
-             fluxVolNear(i) = fluxVolScatter(iTemp(1))
-             hNear(i,:)     = hScatter(iTemp(1),:)
-             INear(i,:)     = IScatter(iTemp(1),:)
-             hDensNear(i,:) = hDensScatter(iTemp(1),:)
-             distance(iTemp(1)) = 999999.9
-          end do
-          CALL DSPNT2D(NN,xNear,yNear,bZNear,1,coordPoint(1),coordPoint(2),bZEqCart_l(ix,jy),ierr)
-          CALL DSPNT2D(NN,xNear,yNear,fluxVolNear,1,coordPoint(1),coordPoint(2),flux_vol_Cart_l(ix,jy),ierr)
-          do L = 1,NPAL
-             CALL DSPNT2D(NN,xNear,yNear,hNear(:,L),1,coordPoint(1),coordPoint(2),hCart_l(ix,jy,L),ierr)
-             CALL DSPNT2D(NN,xNear,yNear,INear(:,L),1,coordPoint(1),coordPoint(2),ICart_l(ix,jy,L),ierr)
-             CALL DSPNT2D(NN,xNear,yNear,hDensNear(:,L),1,coordPoint(1),coordPoint(2),hDensCart_l(ix,jy,L),ierr)
-          end do
-!!!!!!!!!!!!!!
+          xo = r_local(ix) * COS(azim_local(jy)*2._dp*pi_d/24._dp - pi_d)
+          yo = r_local(ix) * SIN(azim_local(jy)*2._dp*pi_d/24._dp - pi_d)
+
+          ! Test if the RAM point is inside or outside of the convex hull of SCB
+          wn = 0
+          DO k = 1,nzeta
+             yn = y(nThetaEquator,npsi,k)
+             yp = y(nThetaEquator,npsi,k+1)
+             xn = x(nThetaEquator,npsi,k)
+             xp = x(nThetaEquator,npsi,k+1)
+             if (yn.le.yo) then
+                if (yp.gt.yo) then
+                   if (((xp-xn)*(yo-yn)-(yp-yn)*(xo-xn)).gt.0) wn = wn + 1
+                endif
+             else
+                if (yp.le.yo) then
+                   if (((xp-xn)*(yo-yn)-(yp-yn)*(xo-xn)).lt.0) wn = wn - 1
+                endif
+             endif
+          ENDDO
+          if (wn.eq.0) then ! wn=0 means the point is outside of SCB
+             hCart_l(ix,jy,:) = -1
+             ICart_l(ix,jy,:) = -1
+             hDensCart_l(ix,jy,:) = -1
+             bZEqCart_l(ix,jy) = -1
+             flux_vol_Cart_l(ix,jy) = -1
+          else
+             ! Use a nearest neighbor search to interpolate
+             distance = (xScatter - xo)**2 &
+                       +(yScatter - yo)**2
+             do i = 1,NN
+                iTemp = minloc(distance)
+                xNear(i)       = xScatter(iTemp(1))
+                yNear(i)       = yScatter(iTemp(1))
+                bZNear(i)      = bZScatter(iTemp(1))
+                fluxVolNear(i) = fluxVolScatter(iTemp(1))
+                hNear(i,:)     = hScatter(iTemp(1),:)
+                INear(i,:)     = IScatter(iTemp(1),:)
+                hDensNear(i,:) = hDensScatter(iTemp(1),:)
+                distance(iTemp(1)) = 999999.9
+             end do
+             CALL DSPNT2D(NN,xNear,yNear,bZNear,1,xo,yo,bZEqCart_l(ix,jy),ierr)
+             CALL DSPNT2D(NN,xNear,yNear,fluxVolNear,1,xo,yo,flux_vol_Cart_l(ix,jy),ierr)
+             do L = 1,NPAL
+                CALL DSPNT2D(NN,xNear,yNear,hNear(:,L),1,xo,yo,hCart_l(ix,jy,L),ierr)
+                CALL DSPNT2D(NN,xNear,yNear,INear(:,L),1,xo,yo,ICart_l(ix,jy,L),ierr)
+                CALL DSPNT2D(NN,xNear,yNear,hDensNear(:,L),1,xo,yo,hDensCart_l(ix,jy,L),ierr)
+             end do
+          end if
        END DO
     END DO
   
     if (ALLOCATED(distance)) DEALLOCATE(distance, stat=ierr)
   
-    IF(ALLOCATED(xScatter))  DEALLOCATE(xScatter, stat = ierr)
+    IF (ALLOCATED(xScatter))  DEALLOCATE(xScatter, stat = ierr)
     IF (ALLOCATED(yScatter))  DEALLOCATE(yScatter, stat = ierr)
-    IF(ALLOCATED(radSqScatter))  DEALLOCATE(radSqScatter, stat = ierr)
+    IF (ALLOCATED(radSqScatter))  DEALLOCATE(radSqScatter, stat = ierr)
   
-    IF(ALLOCATED(hScatter))  DEALLOCATE(hScatter, stat = ierr)
-    IF(ALLOCATED(IScatter))  DEALLOCATE(IScatter, stat = ierr)
-    IF(ALLOCATED(bZScatter))  DEALLOCATE(bZScatter, stat = ierr)
-    IF(ALLOCATED(hdensScatter))  DEALLOCATE(hdensScatter, stat = ierr)
+    IF (ALLOCATED(hScatter))  DEALLOCATE(hScatter, stat = ierr)
+    IF (ALLOCATED(IScatter))  DEALLOCATE(IScatter, stat = ierr)
+    IF (ALLOCATED(bZScatter))  DEALLOCATE(bZScatter, stat = ierr)
+    IF (ALLOCATED(hdensScatter))  DEALLOCATE(hdensScatter, stat = ierr)
   
     IF (ALLOCATED(fluxVolScatter)) DEALLOCATE(fluxVolScatter, stat = ierr)
   
     RETURN
   
-  END SUBROUTINE Interpolation_natgrid_2D
+  END SUBROUTINE Interpolation_SCB_to_RAM
   
 !==============================================================================
   SUBROUTINE Interpolation_natgrid_Euler_2D(r_local, azim_local, alpha_l, beta_l, alphaCyl_l, betaCyl_l)
