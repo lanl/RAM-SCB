@@ -56,9 +56,9 @@ MODULE ModScbIO
     integer :: time1, clock_rate = 1000, clock_max = 100000
     real(dp) :: starttime,stoptime
 
-
     left = 1
     right = npsi
+    r0Start = 1.0
     if ((NameBoundMag.eq.'DIPS').or.(NameBoundMag.eq.'DIPC').or.(NameBoundMag.eq.'DIPL')) then
        ! For generating x, y, and z arrays using analytic dipole and analytic compressed dipole
        ! the variable b controls the compression with 0 being no compression
@@ -82,7 +82,7 @@ MODULE ModScbIO
              do i=1,nthe
                 tt = t0 + REAL(i-1,DP)/REAL(nthe-1,DP)*(t1-t0)
                 tt = tt + constTheta * SIN(2._dp*tt)
-                zt = zetaVal(k)!+constZ*SIN(zetaVal(k))
+                zt = zetaVal(k)+constZ*SIN(zetaVal(k))
                 rt = r0*dsin(tt)**rr
                 x(i,j,k) = (rt)*dcos(zt)*dsin(tt)
                 y(i,j,k) = (rt)*dsin(zt)*dsin(tt)
@@ -96,7 +96,15 @@ MODULE ModScbIO
        x(:,:,nzeta+1) = x(:,:,2)
        y(:,:,nzeta+1) = y(:,:,2)
        z(:,:,nzeta+1) = z(:,:,2)
-
+    elseif (NameBoundMag.eq.'SWMF') then
+       ! For generating x, y, and z arrays using the Space Weather Modelling Framework
+       if (.not.IsComponent) then
+          CALL CON_Stop('SWMF Magnetic Boundary currently does not work unless RAM-SCB is being run in SWMF')
+       endif
+! This needs to be modified to actually place the x,y,z into the correct arrays,
+! no more of this write to file then immediatly read from file. -ME
+       CALl CON_Stop('SWMF Magnetic Boundary not currently working, need to modify ModScbCouple')
+       call build_scb_init
     else
        ! For generating x, y, and z arrays using field line tracing
        !! Define the inputs needed for the magnetic field models for the tracing
@@ -118,7 +126,6 @@ MODULE ModScbIO
        SPS = 0.0
        CPS = 1.0
        PS = 0.0
-       !
 
        ! Get correct model inputs and place them in cooresponding variables
        call get_model_inputs(Pdyn,Dst,ByIMF,BzIMF,G,W)
@@ -191,7 +198,7 @@ MODULE ModScbIO
        do k=2,nzeta
           do j=1,npsi
              r0 = xpsiin + REAL(j-1,DP)/REAL(npsi-1,DP)*(xpsiout-xpsiin)
-             tt = pi_d-dasin(dsqrt(1.0/r0))
+             tt = pi_d-asin(dsqrt(1.0/r0))
              rt = r0*dsin(tt)**2
              zt = zetaVal(k)!+constZ*sin(zetaVal(k))
              x0 = rt*dcos(zt)*dsin(tt)
@@ -384,7 +391,7 @@ MODULE ModScbIO
     if (Optim) QDFile = '/projects/space_data/MagModelInputs/OptimQinDenton_TS04/'
     if (.not.Optim) QDFile = '/projects/space_data/MagModelInputs/QinDenton/'
     QDFile = trim(QDFile)//StringFileFolder//'/QinDenton_'//StringFileDate//'_1min.txt'
-write(*,*) 'Reading File: ', QDFile
+    write(*,*) 'Reading File: ', QDFile
     open(unit=UNITTMP_, file=QDFile, status='OLD', iostat=iError)
     if(iError/=0) call CON_stop('get_model_inputs: Error opening file '//trim(QDFile))
     FileIndexStart = 0
@@ -911,7 +918,9 @@ END SUBROUTINE Write_ionospheric_potential
         WRITE(UNITTMP_, *) x(i, j, k), y(i, j, k), bf(i, j, k)*bnormal, &
                            jCrossB(i,j,k), jCrossBMinusGradPMod(i,j,k), &
                            gradP(i,j,k), rLHS(i,j,k), rRHS(i,j,k), xLHS(i,j,k), &
-                           xRHS(i,j,k)
+                           xRHS(i,j,k), Jx(i,j,k), Jy(i,j,k), Jz(i,j,k), &
+                           Bx(i,j,k), By(i,j,k), Bz(i,j,k), GradPx(i,j,k), &
+                           GradPy(i,j,k), GradPz(i,j,k)
      END DO
   END DO
   CLOSE(UNITTMP_)
@@ -926,12 +935,16 @@ END SUBROUTINE Write_ionospheric_potential
         WRITE(UNITTMP_, *) x(i,j,k), z(i,j,k), bf(i,j,k)*bnormal, &
                            jCrossB(i,j,k), jCrossBMinusGradPMod(i,j,k), &
                            gradP(i,j,k), rLHS(i,j,k), rRHS(i,j,k), xLHS(i,j,k), &
-                           xRHS(i,j,k)
+                           xRHS(i,j,k), Jx(i,j,k), Jy(i,j,k), Jz(i,j,k), &
+                           Bx(i,j,k), By(i,j,k), Bz(i,j,k), GradPx(i,j,k), &
+                           GradPy(i,j,k), GradPz(i,j,k)
         k = 2
         WRITE(UNITTMP_, *) x(i,j,k), z(i,j,k), bf(i,j,k)*bnormal, &
                            jCrossB(i,j,k), jCrossBMinusGradPMod(i,j,k), &
                            gradP(i,j,k), rLHS(i,j,k), rRHS(i,j,k), xLHS(i,j,k), &
-                           xRHS(i,j,k)
+                           xRHS(i,j,k), Jx(i,j,k), Jy(i,j,k), Jz(i,j,k), &
+                           Bx(i,j,k), By(i,j,k), Bz(i,j,k), GradPx(i,j,k), &
+                           GradPy(i,j,k), GradPz(i,j,k)
      END DO
   END DO
   CLOSE(UNITTMP_)
@@ -1011,6 +1024,7 @@ END SUBROUTINE Write_ionospheric_potential
 
     FileName = trim(prefixOut)//'Pressure3D'
     OPEN(UNITTMP_, file = RamFileName(FileName,'dat',TimeRamNow), status='replace')
+    write(UNITTMP_, *) nthe, npsi, nzeta
     WRITE(UNITTMP_, *) "X (Re)    Y (Re)    Z (Re)    P (nPa)"
     DO i = 1,nthe
        DO j = 1,npsi

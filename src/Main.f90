@@ -121,34 +121,8 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
 !!!!!!!!!! UPDATES AS NEEDED
       call get_indices(TimeRamNow%Time, Kp, f107)
 
-      ! Update Boundary Flux if Dt_bc has passed
-      if (mod(TimeRamElapsed, Dt_bc).eq.0) then
-         call get_boundary_flux
-      end if
-
-      ! Update Electric Fields if DtEfi has passed
-      if (mod(TimeRamElapsed, DtEfi).eq.0) then
-         call get_electric_field
-      end if
-!!!!!!!!!
-
-!!!!!!!!!! RUN RAM
-      ! Broadcast current call to ram_all
-      call write_prefix
-      write(*,*) 'Calling ram_run for UTs, DTs,Kp = ', UTs, Dts, Kp
-      ! Call RAM for each species.
-      call ram_run
-
-      ! Increment and update time
-      TimeRamElapsed = TimeRamElapsed + 2.0 * DTs
-      TimeRamNow % Time = TimeRamStart % Time + TimeRamElapsed
-      call time_real_to_int(TimeRamNow)
-!!!!!!!!!
-
-!!!!!!!!! RUN SCB
       ! Call SCB if Dt_hI has passed
       if (((mod(TimeRamElapsed, Dt_hI).eq.0).or.(Dt_hI.eq.1))) then
-!       if (mod(iCal,5).eq.0) then
          call write_prefix
          write(*,*) 'Running SCB model to update B-field...'
 
@@ -173,6 +147,29 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
          call write_prefix
          write(*,*) 'Finished 3D Equilibrium code.'
       end if
+
+      ! Update Boundary Flux if Dt_bc has passed
+      if (mod(TimeRamElapsed, Dt_bc).eq.0) then
+         call get_boundary_flux
+      end if
+
+      ! Update Electric Fields if DtEfi has passed
+      if (mod(TimeRamElapsed, DtEfi).eq.0) then
+         call get_electric_field
+      end if
+!!!!!!!!!
+
+!!!!!!!!!! RUN RAM
+      ! Broadcast current call to ram_all
+      call write_prefix
+      write(*,*) 'Calling ram_run for UTs, DTs,Kp = ', UTs, Dts, Kp
+      ! Call RAM for each species.
+      call ram_run
+
+      ! Increment and update time
+      TimeRamElapsed = TimeRamElapsed + 2.0 * DTs
+      TimeRamNow % Time = TimeRamStart % Time + TimeRamElapsed
+      call time_real_to_int(TimeRamNow)
 !!!!!!!!!
 
 !!!!!!!!! CREATE OUTPUTS
@@ -212,7 +209,6 @@ if ((.not.IsComponent)) then
      write(*,*) &
           '==============================================================='
 end if
-
 
 call MPI_Finalize(iError)
 

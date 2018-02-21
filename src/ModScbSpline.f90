@@ -177,7 +177,7 @@ MODULE ModScbSpline
   
 !==============================================================================
   SUBROUTINE Spline_2D_periodic(x_1, x_2, f, x, y, func, ierrDomain)
-    ! Used in ModRamEField
+    ! Used in ModRamEField, ModRamCouple, ModRamScb, and ModScbRun
   
     USE EZspline_obj ! import the modules
     USE EZspline  
@@ -206,40 +206,21 @@ MODULE ModScbSpline
     BCS1 = (/ 2, 2 /)    ! "natural" spline 
   
     BCS2 = (/-1, -1/)  ! periodic spline in second coordinate
-    ! BCS2 = (/ 0, 0 /) ! "not-a-knot" spline in second coordinate
-    ! BCS2 = (/ 2, 2 /) !  "natural" spline
-  
-    ! initialize/allocate memory
-    !  PRINT *,'initializing...'
   
     CALL EZspline_init(spline_o, n1, n2, BCS1, BCS2, ier)
-    !C CALL EZLinear_init(spline_o, n1, n2, ier)
     CALL EZspline_error(ier)
   
-    spline_o%x1 = x_1    ! necessary if spline_o%x1 not in [0, 2 pi]; spline_o%x1 is a pointer, 
-    ! and is aliased to x_1 now
+    spline_o%x1 = x_1
     spline_o%x2 = x_2
-    spline_o%isHermite = 1 ! Akima spline; smoother, more "natural"  interpolation (see Akima's paper)
+    spline_o%isHermite = 0 
   
-    ! need to set explicitly the following if boundary conditions 
-    ! are anything but not-a-knot or periodic, i.e. BCS(n) has element /= -1, 0.
     spline_o%bcval1min = 0._r8
     spline_o%bcval1max = 0._r8  ! values for 2nd derivatives at BCs
-  !  spline_o%bcval2min = 0._r8 ; spline_o%bcval2max = 0._r8  ! values for 2nd derivatives at BCs
-  
-  
-    !  PRINT *,'setting up 2D spline ...'
   
     CALL EZspline_setup(spline_o, f, ier)
     CALL EZspline_error(ier)
   
-    ! save object
-  
-    !C CALL EZspline_save(spline_o, "spline.nc", ier)  ! Not necessary to save it if not loading again; slow by NFS on hyrax nodes
-    CALL EZspline_error(ier)
-  
     ! Cloud interpolation
-  
     n_x = SIZE(x,1)
     n_y = SIZE(x,2)   ! x and y have the same shape and size
   
@@ -254,7 +235,6 @@ MODULE ModScbSpline
     END DO
   
     !C PRINT *,'Spline_2D_point: cleaning up'
-  
     CALL Ezspline_free(spline_o, ier)
     CALL EZspline_error(ier)
   
@@ -265,7 +245,7 @@ MODULE ModScbSpline
   
 !==============================================================================
   SUBROUTINE Spline_2D_point(x_1, x_2, f, x, y, func, ierrDomain)
-    ! Used in ModRamCouple, ModRamScb, and ModScbRun
+    ! Used in ModRamCouple
  
     USE EZspline_obj ! import the modules
     USE EZspline  
@@ -293,9 +273,8 @@ MODULE ModScbSpline
     BCS1 = (/ 0, 0 /) ! "not-a-knot" spline in first coordinate
     !BCS1 = (/ 2, 2 /)    ! "natural" spline 
   
-    BCS2 = (/-1, -1/)  ! periodic spline in second coordinate
-    ! BCS2 = (/ 0, 0 /) ! "not-a-knot" spline in second coordinate
-    ! BCS2 = (/ 2, 2 /) !  "natural" spline
+    BCS2 = (/ 0, 0 /) ! "not-a-knot" spline in second coordinate
+    !BCS2 = (/ 2, 2 /) !  "natural" spline
 
     CALL EZspline_init(spline_o, n1, n2, BCS1, BCS2, ier)  
     CALL EZspline_error(ier)
@@ -306,8 +285,8 @@ MODULE ModScbSpline
   
     spline_o%bcval1min = 0._r8
     spline_o%bcval1max = 0._r8  ! values for 2nd derivatives at BCs
-    !spline_o%bcval2min = 0._r8
-    !spline_o%bcval2max = 0._r8  ! values for 2nd derivatives at BCs
+    spline_o%bcval2min = 0._r8
+    spline_o%bcval2max = 0._r8  ! values for 2nd derivatives at BCs
   
     CALL EZspline_setup(spline_o, f, ier)
     CALL EZspline_error(ier)

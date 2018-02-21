@@ -12,18 +12,18 @@ module ModScbParams
   integer :: theChange = 1
 
   integer :: iDumpRAMFlux = 0 ! Writes RAM flux mapped along 3D field lines in NetCDF format
-  integer :: MinSCBIterations = 1
+  integer :: MinSCBIterations = 5
 
   real(DP) :: decreaseConvAlphaMin = 5e-1,  &
               decreaseConvAlphaMax = 5e-1,  &
               decreaseConvPsiMin   = 5e-1,  &
               decreaseConvPsiMax   = 5e-1,  &
-              blendAlphaInit       = 0.20,  &
-              blendPsiInit         = 0.20,  &
+              blendAlphaInit       = 0.25,  &
+              blendPsiInit         = 0.25,  &
               blendMin             = 0.01,  &
-              blendMax             = 0.5,   &
-              InConAlpha           = 1e-6,  &
-              InConPsi             = 1e-6
+              blendMax             = 1.0,   &
+              InConAlpha           = 1e-9,  &
+              InConPsi             = 1e-7
 
  !integer  :: method = 1 ! Direct matrix inversion calculation of Euler Potentials
   integer  :: method = 2 ! Iterative SOR calculation of Euler Potentials
@@ -32,8 +32,8 @@ module ModScbParams
   integer  :: isotropy = 0 ! Anisotropic pressure case 
  !integer  :: isotropy = 1 ! Isotropic pressure case
 
-  integer  :: iAMR = 0 ! Mesh refinement in magnetic flux, so that one has equidistant magnetic flux surfaces; improves convergence a lot
-
+  integer  :: iAMR = 1 ! Mesh refinement in magnetic flux, so that one has equidistant magnetic flux surfaces; improves convergence a lot
+  
   integer  :: iReduceAnisotropy = 0 ! No change in anisotropy 
  !integer  :: iReduceAnisotropy = 1 ! Change anisotropy to marginally mirror-stable
 

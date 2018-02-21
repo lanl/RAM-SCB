@@ -93,9 +93,9 @@ SUBROUTINE computehI
                              hdens_Cart, radRaw, azimRaw, nThetaEquator, fluxVolume
 
   use ModRamFunctions, ONLY: RamFileName, COSD, FUNT, FUNI
-
+  use ModScbFunctions, ONLY: extap
   use ModScbIO,     ONLY: trace
-  use ModScbSpline, ONLY: Spline_2D_point, spline, splint
+  use ModScbSpline, ONLY: Spline_2D_point, spline, splint, Spline_2D_periodic
   use ModScbInterp, ONLY: Interpolation_SCB_to_RAM
 
   USE nrmod,     ONLY: locate
@@ -164,10 +164,10 @@ SUBROUTINE computehI
      DO L = 1, NPA
         DO K = 1, NE
            !Cubic spline interpolation
-           CALL Spline_2D_point(radRaw(1:nR), azimRaw*pi_d/12.0, &
-                                REAL(FLUX(iSpecies, 1:nR,1:nT,K,L),DP), &   
-                                radGrid(1:npsi,2:nzeta), angleGrid(1:npsi,2:nzeta), &
-                                flux3DEQ(iSpecies, 1:npsi,2:nzeta,K,L), iDomain) 
+           CALL Spline_2D_periodic(radRaw(1:nR), azimRaw*pi_d/12.0, &
+                                   REAL(FLUX(iSpecies, 1:nR,1:nT,K,L),DP), &   
+                                   radGrid(1:npsi,2:nzeta), angleGrid(1:npsi,2:nzeta), &
+                                   flux3DEQ(iSpecies, 1:npsi,2:nzeta,K,L), iDomain) 
         END DO
      END DO
   END DO
@@ -250,7 +250,7 @@ SUBROUTINE computehI
      call system_clock(time1,clock_rate,clock_max)
      starttime=time1/real(clock_rate,dp)
 
-     RhoLoop: DO j = 2, npsi-1
+     RhoLoop: DO j = 1, npsi
         PhiLoop: DO k = 2,nzeta
            bfmirror = bf(nThetaEquator,j,k)/(1._dp - mu**2)
 
@@ -324,17 +324,18 @@ SUBROUTINE computehI
                  Hdens_Value(j,k,L) = Hdens_Value(j,k-1,L)
               endif
            END DO PitchAngleLoop
+           ! Handle pitch angles near 90 degrees
+           ! For now just extrapolate, but there are actual equtions we can use
+           DO L = 4,1,-1
+              CALL extap(H_value(j,k,L+3),H_value(j,k,L+2),H_value(j,k,L+1),H_value(j,k,L))
+              CALL extap(HDens_value(j,k,L+3),HDens_value(j,k,L+2),HDens_value(j,k,L+1),HDens_value(j,k,L))
+           ENDDO
+           I_value(j,k,1) = 0._dp
         END DO PhiLoop
      END DO RhoLoop
      call system_clock(time1,clock_rate,clock_max)
      stoptime=time1/real(clock_rate,dp)
      write(*,*) 'SCB h and I: ',stoptime-starttime
-
-     ! Handle pitch angle of 90 degrees
-     I_value(:,:,1) = 0._dp
-     H_value(:,:,2) = H_value(:,:,3) ! These two should be changed to using an actual calculation
-     H_value(:,:,1) = H_value(:,:,2) ! for near 90 degree pitch angle particles -ME
-     HDens_value(:,:,1) = HDens_value(:,:,2)
 
      ! Handle periodicity
      I_value(:,1,:) = I_value(:,nzeta,:)
@@ -475,15 +476,16 @@ SUBROUTINE computehI
                  I_cart(i,j,L) = I_cart(i,j,L)*scalingI(j,L)
                  H_cart(i,j,L) = H_cart(i,j,L)*scalingH(j,L)
                  HDens_cart(i,j,L) = HDens_cart(i,j,L)*scalingD(j,L)
+                 DO k = 4,1,-1
+                    !CALL extap(I_cart(i,j,k+3),I_cart(i,j,k+2),I_cart(i,j,k+1),I_cart(i,j,k))
+                    CALL extap(H_cart(i,j,k+3),H_cart(i,j,k+2),H_cart(i,j,k+1),H_cart(i,j,k))
+                    CALL extap(HDens_cart(i,j,k+3),HDens_cart(i,j,k+2),HDens_cart(i,j,k+1),HDens_cart(i,j,k))
+                 ENDDO
+                 I_cart(i,j,1) = 0._dp
               ENDDO
            endif
         enddo
      enddo
-     I_cart(:,:,1) = 0._dp
-     H_cart(:,:,2) = H_cart(:,:,3) ! Again, need to add actual 90 degree calculation -ME
-     H_cart(:,:,1) = H_cart(:,:,2)
-     HDens_cart(:,:,1) = HDens_cart(:,:,2)
-
      call system_clock(time1,clock_rate,clock_max)
      stoptime=time1/real(clock_rate,dp)
      write(*,*) 'RAM h and I: ',stoptime-starttime
@@ -529,8 +531,13 @@ SUBROUTINE computehI
               BOUNHS(I,J,L) = h_Cart_interp(I-1,J,L)
               BOUNIS(I,J,L) = i_Cart_interp(I-1,J,L)
               !
-              dIdt(I,J,L)=(FNIS(I,J,L)-FNISPrev(I,J,L))/DThI
-              dIbndt(I,J,L)=(BOUNIS(I,J,L)-BOUNISPrev(I,J,L))/DThI
+              if (DthI.eq.0) then
+                 dIdt(I,J,L)   = 0._dp
+                 dIbndt(I,J,L) = 0._dp
+              else
+                 dIdt(I,J,L)   = (FNIS(I,J,L)-FNISPrev(I,J,L))/DThI
+                 dIbndt(I,J,L) = (BOUNIS(I,J,L)-BOUNISPrev(I,J,L))/DThI
+              endif
            ENDDO
            IF (J.LT.8.or.J.GT.18) THEN
               DO L=15,2,-1
@@ -540,7 +547,11 @@ SUBROUTINE computehI
               ENDDO
            ENDIF
            BNES(I,J)=BNES(I,J)/1e9 ! to convert in [T]
-           dBdt(I,J)=(BNES(I,J)-BNESPrev(I,J))/DThI
+           if (DthI.eq.0) then
+              dBdt(I,J) = 0._dp
+           else
+              dBdt(I,J) = (BNES(I,J)-BNESPrev(I,J))/DThI
+           endif
         ENDDO
      ENDDO
      DO J=1,NT ! use dipole B at I=1

@@ -16,9 +16,9 @@ SUBROUTINE metrics
                              EZInd, GradRhoSq, bsq, GradAlphaSq, GradPsiGradAlpha, &
                              dPPardPsi, dPPardAlpha, GradThetaGradZeta, dPdPsi, &
                              dPdAlpha, bf, bj, GradRhoGradTheta, dBsqdTheta, &
-                             EXConv, EYConv, EZConv, rhoVal, &
+                             EXConv, EYConv, EZConv, rhoVal, r0Start, &
                              nZetaMidnight, nThetaEquator, jParDirect, iteration, &
-                             DstBiotInsideGEO, DstBiot, &
+                             DstBiotInsideGEO, DstBiot, paraj, &
                              phij, thetaVal, zetaVal, pjconst, &
                              xzero, xzero3, dBetadT, dPhiIonodBeta, sigma, &
                              dPPerdAlpha, dBsqdAlpha, dBsqdPsi, dPPerdPsi, &
@@ -29,7 +29,7 @@ SUBROUTINE metrics
   !!!! PSPLINE Modules
   use ezcdf
   !!!! NR Modules
-  use nrtype, ONLY: DP, SP, twopi_d, pi_d
+  use nrtype, ONLY: DP, SP, twopi_d, pi_d, pio2_d
 
   IMPLICIT NONE
 
@@ -51,6 +51,9 @@ SUBROUTINE metrics
        & derivjGradThetaPartialZeta, jGradTheta, jGradThetaFactor, phiToroid, derivPhiRho, derivPhiZeta, &
        & derivPhiTheta, dPpardZeta, dPpardRho, dPpardTheta, generateFAC, generateFACPAlpha, generateFACPPsi !, &
  !      distanceAlongLine
+  REAL(DP) :: dipoleFactor, dipoleFactor4RE, factorIncrease, thangle, thangleOnEarth, rr1, rr2, rr
+  REAL(DP) :: rrx(npsi,nzeta+1),rry(npsi,nzeta+1),parajDirect(npsi,nzeta+1)
+  REAL(DP) :: rrlatx(201),rrlaty(201), wlabels(4), zangle
 
   !  Compute metrics after the solution has converged
   !  xx is the radius in cylindrical coordinate system
@@ -488,7 +491,66 @@ SUBROUTINE metrics
         END DO
      END DO
 
-     !  PRINT*, 'Computed Dst is ', dstComputed, ' nT'
+     alphaLoop :  DO k = 2, nzeta + 1
+        psiLoop :   DO j = 1, npsi
+           rr2 = xx(i,j,k)**2 + z(i,j,k)**2
+           rr1 = SQRT(rr2)
+           zangle = yy(i,j,k)
+           !!  thangle is the polar angle
+           thangle = ASIN(z(i,j,k) / rr1)
+           IF ((ABS(thangle) > 1000.) .OR. (ABS(zangle) > 1000.)) THEN
+              PRINT*, j, k, rr1, z(i,j,k), thangle, zangle
+              STOP
+           END IF
+
+           thangleOnEarth = ACOS(SQRT((COS(thangle))**2/r0Start))
+
+           !!  radius that corresponds to polar angle is normalized to 1 for every 10 degree in 
+           ! latitude zangle is toroidal angle; zangle = 0 is local noon
+           IF (INT(r0Start) /= 1) rr = (90._dp - thangleOnEarth * 360._dp / twopi_d) / 10.0_dp
+           IF (INT(r0Start) == 1) rr = (90._dp - thangle * 360._dp / twopi_d) / 10.0_dp
+           rrx(j,k) = rr * COS(zangle + pio2_d)
+           rry(j,k) = rr * SIN(zangle + pio2_d)
+
+           !C if (j==1) print*, 'plot_physical: j, k, zangle, rr, rrx, rry = ', j,
+           !k, zangle, rr, rrx(j,k), rry(j,k)
+
+           ! Plot at 1000 km above Earth's surface using interpolation
+           !        distance(nThetaEquator) = 0._dp
+           !        parCurrent(nThetaEquator) = 0._dp
+           !        DO iTheta = nThetaEquator-1, 1, -1
+           !           distance(iTheta) = distance(iTheta+1) +
+           !           SQRT((x(iTheta,j,k)-x(iTheta+1,j,k))**2 + &
+           !                (y(iTheta,j,k)-y(iTheta+1,j,k))**2 +
+           !                (z(iTheta,j,k)-z(iTheta+1,j,k))**2)
+           !           parCurrent(iTheta) = bj(nthe - iTheta + 1, j, k)
+           !     END DO
+           !CALL spline(distance(1:nThetaEquator), parCurrent(1:nThetaEquator),
+           !1.E31_dp, 1.E31_dp, &
+           !     distance2derivs(1:nThetaEquator))
+           !paraj(j,k) = splint(distance(1:nThetaEquator),
+           !parCurrent(1:nThetaEquator), &
+           !     distance2derivs(1:nThetaEquator), oneThousandKm)
+
+           !        dist =  SQRT((x(nthe,j,k)-x(nthe-1,j,k))**2 + &
+           !     (y(nthe,j,k)-y(nthe-1,j,k))**2 + (z(nthe,j,k)-z(nthe-1,j,k))**2)
+           !        paraj(j,k) = bj(nthe,j,k) - oneThousandKm * (bj(nthe,j,k) -
+           !        bj(nthe-1,j,k)) / dist
+
+           ! Dipole field at the Earth's surface
+           dipoleFactor = SQRT(1. + 3. * (SIN(thangleOnEarth))**2)
+           dipoleFactor4RE = SQRT(1. + 3. * (SIN(thangle))**2)
+           factorIncrease = dipoleFactor * r0Start**3 / dipoleFactor4RE
+
+           IF (INT(r0Start) /= 1) THEN
+              paraj(j,k) = bj(1,j,k) * factorIncrease
+              parajDirect(j,k) = jParDirect(1,j,k) * factorIncrease
+           ELSE
+              paraj(j,k) = bj(1,j,k)
+              parajDirect(j,k) = jParDirect(1,j,k)
+           END IF
+        END DO psiLoop
+     END DO alphaLoop
 
      ! Express physical quantities (use normalization constants)
      pjconst = 1.E6  * 0.31E-4 / (xzero3 * 4. * pi_d * 1.e-7 * 6.4E6)

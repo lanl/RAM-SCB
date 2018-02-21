@@ -48,7 +48,7 @@ T			DoVarDt			! If set to T RAM will adjust its time step based on the current f
 *************** COMPONENT BLOCK ***************
 #OUTERBOUNDARY
 LANL			NameBoundPlasma		! Determines the boundary flux source (LANL, PTM, QDMKP, QDMVBZ, or SWMF)
-DIPL 			NameBoundMag		! Determines the magnetic field source (T89C, DIPL, DIPS, or SWMF)
+DIPL 			NameBoundMag		! Determines the magnetic field source (DIPL, DIPS, T89D, T96D, T02D, T04D, or SWMF)
 MAXW			NameDistribution	! Determines the distribution of the flux (MAXW)
 
 #EFIELD
@@ -94,6 +94,11 @@ T                       DoElectrons             ! Whether to run electrons
 1			OuterMethod		! Which outer SCB method to use (1 = Picard Iteration, 2 = Newton Method)
 1E-10                   InnerConvergenceAlpha   ! Convergence criteria for the Alpha residual
 1E-8                    InnerConvergencePsi	! Convergence Criteria for the Psi residual
+
+#SCBGRID
+71                      nTheta                  ! Number of theta grid points used in SCB
+95                      nPsi                    ! Number of psi (radial) surfaces used in SCB
+121                     nZeta                   ! Number of zeta (azamuthal) surfaces used in SCB 
 
 #SCBFLAGS
 F			Isotropic		! Whether to use isotropic pressure mappings in SCB (does not effect RAM)
