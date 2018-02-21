@@ -5,6 +5,9 @@ module ModScbParams
   implicit none
   save
 
+  character(len=3) :: PressMode = 'ROE'
+  character(len=3) :: Isotropic = 'RAM'
+
   integer :: psiChange = 1
   integer :: theChange = 1
 
