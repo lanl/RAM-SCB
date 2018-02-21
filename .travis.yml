@@ -11,6 +11,6 @@ before_install:
 script:
   - docker run -it $REPO:$COMMIT /bin/bash -c "cd SHIELDS && make test"
 
-after_success:
+after_script:
   - docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
   - docker push $REPO
