@@ -106,10 +106,10 @@ TESTDIR3 = run_test3
 TESTDIR4 = run_test4
 
 test:
-	-@(make test1)
-	-@(make test2)
-	-@(make test3)
-	-@(make test4)
+	@(make test1)
+	@(make test2)
+	@(make test3)
+	@(make test4)
 
 test_help:
 	@echo "Preceed all commands with 'make'..."
@@ -158,10 +158,6 @@ test1_check:
 		${TESTDIR1}/output_ram/pressure_d20130317_t001500.dat   \
 		${IMDIR}/output/test1/pressure.ref                      \
 		>> test1.diff			        
-	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9		                \
-		${TESTDIR1}/output_ram/log_n000000.log 		        \
-		${IMDIR}/output/test1/log.ref                   	\
-		>> test1.diff
 	ncdump -v "FluxH+","B_xyz"                              	\
                ${TESTDIR1}/output_ram/sat1_d20130317_t000000.nc 	\
                | sed -e '1,/data:/d' >                          	\
@@ -266,10 +262,6 @@ test3_check:
 		${TESTDIR3}/output_ram/pressure_d20130317_t001500.dat  \
 		${IMDIR}/output/test3/pressure.ref      	       \
 		> test3.diff
-	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9	                       \
-		${TESTDIR3}/output_ram/log_n000000.log                 \
-		${IMDIR}/output/test3/log.ref                          \
-		>> test3.diff
 	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9			       \
 		${TESTDIR3}/output_scb/hI_output_d20130317_t001500.dat \
 		${IMDIR}/output/test3/hI.ref 		 	       \
