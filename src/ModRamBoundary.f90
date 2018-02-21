@@ -313,6 +313,7 @@ end subroutine get_geomlt_flux
           end do
         end do
       else ! Open file if running stand alone.
+         CALL CON_Stop('SWMF Flux Boundary not currently working in stand alone mode')
 !        if (DoMultiBcsFile) then
 !          write(NameFluxFile, "(a,'/',a,'_',i1,'.swf')") trim(PathSwmfOut), ST7, S
 !          nlines = 25
