@@ -11,6 +11,8 @@ module ModRamParams
   save
 
 !!!! PARAM Variables
+ logical :: Optim = .false.
+
  ! Standalone or Component (default = standalone)  logical :: IsComponent = .false.
  logical :: IsComponent = .false.
 
@@ -65,6 +67,9 @@ module ModRamParams
  ! Limiter Beta (scales MC Limiter from min-mod=1 to superbee=2; default=1.5)
  real(kind=Real8_) :: BetaLim = 1.5
 
+ ! Whether or not to use boundary files
+ logical :: BoundaryFiles = .true.
+
  logical :: DoVarDt = .true.                        ! Use variable timestep.
 
  character(len=100) :: StringTest=''                ! List of tested subroutines
@@ -80,6 +85,8 @@ module ModRamParams
 
  character(len=200) :: NameIndexFile = 'RamIndices.txt'
  character(len=200) :: NameOmniFile  = 'omni.txt'
+ character(len=200) :: BoundaryPath  = 'IM/input_ram/'
+ character(len=200) :: InitializationPath = 'IM/input_ram/'
 
  ! File write logicals:
  logical :: DoSaveRamSats=.false.

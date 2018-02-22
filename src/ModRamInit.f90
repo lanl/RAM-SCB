@@ -422,6 +422,7 @@ subroutine init_input
   use ModRamTiming,    ONLY: DtEfi, T, TimeRamNow, TimeRamElapsed, TOld
   use ModRamVariables,  ONLY: F2, XNN, XND, ENERD, ENERN, FNHS, Kp, F107, TOLV
   !!!! Module Subroutines/Functions
+  use ModRamRun,       ONLY: ANISCH
   use ModRamRestart,   ONLY: read_restart
   use ModRamIndices,   ONLY: get_indices
   use ModRamFunctions, ONLY: FUNT
@@ -461,7 +462,26 @@ subroutine init_input
   end if
 !!!!!!!!
 
-30  FORMAT(75(1PE11.3))
+  ! Set initial flux
+  DO iS = 1,4
+     CALL ANISCH(iS)
+     DO I = 2, NR
+        DO K = 2, NE
+           DO L = 2, NPA
+              DO J = 1, NT-1
+                 FLUX(iS,I,J,K,L) = F2(iS,I,J,K,L)/FFACTOR(iS,I,K,L)/FNHS(I,J,L)
+              ENDDO
+           ENDDO
+        ENDDO
+     ENDDO
+  ENDDO
+
+  ! Update species pressures
+  PPerO  = PPerT(4,:,:); PParO  = PParT(4,:,:)
+  PPerHe = PPerT(3,:,:); PParHe = PParT(3,:,:)
+  PPerE  = PPerT(1,:,:); PParE  = PParT(1,:,:)
+  PPerH  = PPerT(2,:,:); PParH  = PParT(2,:,:)
+
  return
 
 end
