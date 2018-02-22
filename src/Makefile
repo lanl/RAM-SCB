@@ -83,7 +83,7 @@ EXT_OBJECTS=       \
 	mpi.o      \
 	ModRamMpi.o 
 
-SCE_OBJECTS=                \
+#SCE_OBJECTS=                \
         ModIESize.o         \
         ModIonosphere.o     \
         ModConductance.o    \
@@ -104,7 +104,7 @@ ${SLATEC_OBJECTS}:
 	cd ../srcSlatec; make slatec
 
 
-OBJECTS = ${RAM_OBJECTS} ${SCB_OBJECTS} ${CPL_OBJECTS} ${EXT_OBJECTS} ${SCE_OBJECTS}
+OBJECTS = ${RAM_OBJECTS} ${SCB_OBJECTS} ${CPL_OBJECTS} ${EXT_OBJECTS} #${SCE_OBJECTS}
 
 # List of objects required for executable:
 OBJECTS_EXE = Main.o

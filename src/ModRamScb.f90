@@ -132,8 +132,8 @@ SUBROUTINE computehI
 
   switch = -1.0_dp
 
-  EPSABS = 0.0001_dp
-  EPSREL = 1.E-6_dp
+  EPSABS = 1.E-4_dp
+  EPSREL = -1.E-3_dp
 
   h_Cart = 0._dp
   I_Cart = 0._dp
@@ -304,14 +304,17 @@ SUBROUTINE computehI
               ! Evaluate I Integral, can use DQAG since I has no singularities
               CALL DQAG(fIInt,chiMirror(L,2),chiMirror(L,1),EPSABS,EPSREL,3,valueIntegralI, &
                         ABSERR,NEVAL,IERR,LIMIT,LENW,LAST,IWORK,WORK)
+if (IERR.ne.0) write(*,*) 'I', bfMirror(L), chiMirror(L,:), valueIntegralI, ABSERR, NEVAL
 
               ! Evaluate H Integral, need to use DQAGS since it has end point singularities
               CALL DQAGS(fHInt,chiMirror(L,2),chiMirror(L,1),EPSABS,EPSREL,valueIntegralH, &
                          ABSERR,NEVAL,IERR,LIMIT,LENW,LAST,IWORK,WORK)
+if (IERR.ne.0) write(*,*) 'H', bfMirror(L), chiMirror(L,:), valueIntegralH, ABSERR, NEVAL
 
               ! Evaluate HDens Integral
               CALL DQAGS(fHDensInt,chiMirror(L,2),chiMirror(L,1),EPSABS,EPSREL,valueIntegralHDens, &
                          ABSERR,NEVAL,IERR,LIMIT,LENW,LAST,IWORK,WORK)
+if (IERR.ne.0) write(*,*) 'HDens', bfMirror(L), chiMirror(L,:), valueIntegralHDens, ABSERR, NEVAL
 
               ! Populate SCB arrays
               I_value(j,k,L) = (length/(pi_d*r0(j,k))) * valueIntegralI/SQRT(Bfmirror(L)) ! Don't understand where the length and pi come from -ME
@@ -650,6 +653,7 @@ FUNCTION fHInt(chi_local)
      STOP
   END IF
 
+  if (bf_local.eq.bfMirror(L)) bf_local = bfMirror(L) + 1E-3_dp
   fHInt = SQRT(MAX(1._dp/(bfMirror(L) - bf_local), 0._dp)) ! For function h(mu0)
 
   RETURN
@@ -673,6 +677,7 @@ FUNCTION fHIntSub(chi_local)
      STOP
   END IF
 
+  if (bf_local.eq.bfMirror(L)) bf_local = bfMirror(L) + 1E-3_dp
   fHIntSub = SQRT(MAX(1._dp/(bfMirror(L) - bf_local), 0._dp)) ! For function h(mu0)
 
   RETURN
@@ -695,6 +700,7 @@ FUNCTION fHDensInt(chi_local)
   CALL DPCHFE (nthe,chiVal(:),bf(:,j,k),dBdTheta(:),INCFD,SKIP,1,chi_local,bf_local,IERR)
   radius = splint(chiVal(:), distance(:), dyDummyDens(:), chi_local)
 
+  if (bf_local.eq.bfMirror(L)) bf_local = bfMirror(L) + 1E-3_dp
   fHDensInt = hdens_rairden(radius) * SQRT(MAX(1._dp/(bfMirror(L) - bf_local), 0._dp)) 
 
   RETURN
@@ -716,6 +722,7 @@ FUNCTION fHDensIntSub(chi_local)
   CALL DPCHFE(LOUT,cVal(1:LOUT),btemp(1:LOUT),dBdC(1:LOUT),INCFD,SKIP,1,chi_local,bf_local,IERR)
   radius = splint(cVal(1:LOUT), dTemp(1:LOUT), dyDummyDensTemp(1:LOUT), chi_local)
 
+  if (bf_local.eq.bfMirror(L)) bf_local = bfMirror(L) + 1E-3_dp
   fHDensIntSub = hdens_rairden(radius) * SQRT(MAX(1._dp/(bfMirror(L) - bf_local), 0._dp))
 
   RETURN

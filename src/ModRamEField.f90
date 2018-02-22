@@ -31,6 +31,7 @@ subroutine get_electric_field
   ! Set "new" values of indices and E-field to "old" values. 
   VTOL = VTN
   print*,'RAM: updating E field at time ', TimeRamElapsed/3600.
+
   ! Generate name of next electric field file:
   TimeNext = TimeRamNow
   if (electric.ne.'IESC') then
@@ -40,10 +41,13 @@ subroutine get_electric_field
   end if
   call time_real_to_int(TimeNext)
   call ram_gen_efilename(TimeNext, NameEfile)
+
   ! Open this file and save contents.
   if(electric .ne. 'VOLS') call ram_get_electric(NameEfile, vtn)
+
   ! No interpolation for IESC case.
   if(electric .eq. 'IESC') vtol=vtn
+
   ! Set time of "old" file for interpolation:
   TOLV=TimeRamElapsed
   if (IsComponent .OR. electric=='WESC' .or. electric=='W5SC') then
@@ -268,7 +272,7 @@ end subroutine ram_get_electric
 SUBROUTINE ionospheric_potential
   !!!! Module Variables
   use ModRamMain,      ONLY: PathSwmfOut
-  use ModRamTiming,    ONLY: TimeRamNow
+  use ModRamTiming,    ONLY: TimeRamNow, TimeRamElapsed
   use ModRamParams,    ONLY: IsComponent, electric, UseSWMFFile
   use ModRamCouple,    ONLY: SwmfIonoPot_II, nIePhi, nIeTheta
   use ModRamIndices,   ONLY: NameOmniFile
@@ -279,6 +283,9 @@ SUBROUTINE ionospheric_potential
   !!!! Module Subroutine/Functions
   use ModScbSpline, ONLY: Spline_2D_derivs, Spline_2D_periodic
   use ModScbIO,     ONLY: Write_Ionospheric_Potential
+  !!! SCE Modules
+!  use ModIESize, ONLY: Iono_nTheta, Iono_nPsi
+!  use ModIonosphere, ONLY: Iono_North_Phi
   !!!! Share Modules
   use ModTimeConvert, ONLY: n_day_of_year
   use ModIOUnit, ONLY: UNITTMP_
@@ -334,7 +341,7 @@ SUBROUTINE ionospheric_potential
 
   SELECT CASE (electric)
 
-  CASE('SWMF') ! interpolate SWMF iono potentials on 3Dcode ionospheric grid
+  CASE('IESC') ! interpolate SWMF iono potentials on 3Dcode ionospheric grid
      if(IsComponent) then
         ! If coupled to SWMF, we don't need to open any files and crap.
         ! Initialize arrays and fill with correct values.
@@ -359,34 +366,24 @@ SUBROUTINE ionospheric_potential
 
      else
         ! We now return you to your regularly scheduled 3DEQ code.
-        IF (.NOT. ALLOCATED(PhiIonoRaw)) &
-             ALLOCATE(PhiIonoRaw(mlat_range,mlon_range), STAT = ierralloc)
-        IF (.NOT. ALLOCATED(colat) .AND. .NOT. ALLOCATED(lon)) &
-             ALLOCATE(colat(mlat_range), lon(mlon_range), STAT = ierralloc)
-
-        ! Use current time to build IE file name.
-        write(StringDateTime, '(i4.4, 2i2.2, "_",3i2.2)') &
-             TimeRamNow%iYear, TimeRamNow%iMonth,  TimeRamNow%iDay, &
-             TimeRamNow%iHour, TimeRamNow%iMinute, TimeRamNow%iSecond
-        ! Open IE file for reading.
-        write(*,*)'Reading iono data at ', &
-             trim(PathSwmfOut)//'/'//'IE_'//StringDateTime//'_SCB.in'
-        OPEN(UNITTMP_, file = trim(PathSwmfOut)//'/'//'IE_'//StringDateTime//'_SCB.in', &
-             action = 'READ', status='OLD')
-
-        DO i = 1, 9
-           READ(UNITTMP_, '(A)') HEADER
-        END DO
-        DO j = 1, mlon_range
-           DO i = 1, mlat_range
-              READ(UNITTMP_,*) lineData
-              colat(i) = lineData(1)*pi_d/180._dp
-              lon(j) = lineData(2)*pi_d/180._dp
-              PhiIonoRaw(i,j) = lineData(3)
-           END DO
-        END DO
-        CLOSE(UNITTMP_)
-
+        ! Potential from self-consistent electric field calculated in the ionosphere
+        ! Yu. 2016 August
+!        if(.not. allocated(PhiIonoRaw)) &
+!             allocate(PhiIonoRaw(IONO_nTheta, IONO_nPsi))
+!        if(.not. allocated(colat) .and. .not. allocated(lon)) then
+!           allocate(colat(IONO_nTheta), lon(IONO_nPsi))
+!           colat = 0.0
+!           lon   = 0.0
+!           do i=2, IONO_nPsi ! Longitude goes from 0 to 360.
+!              lon(i) = lon(i-1) + 2.0_dp*pi_d/real(IONO_nPsi-1)
+!           end do
+!           do i=2, IONO_nTheta ! Colat goes from 0 to 90.
+!              colat(i) = colat(i-1) +  0.5*pi_d/real(IONO_nTheta-1)
+!           end do
+!        end if
+!        ! Plug self-consisent/IE potential into PhiIonoRaw (only northern)
+!        CALL IE_Run(TimeRamElapsed, TimeRamNow%Time)
+!        PhiIonoRaw = Iono_North_Phi
      end if
 
      ! Now there should be no difference between what 
@@ -447,8 +444,6 @@ SUBROUTINE ionospheric_potential
                          bzimf_l, Vk_l, Nk_l, pdyn_l, AL_l, SymH_l
               EXIT Read_OMNI_file
            END IF
-        ! ACHTUNG this assumes the same starting file in omni file, and same
-        ! cadence of E-field update as the B-field update in RAM-SCB !!! 
         END DO Read_OMNI_file
      endif
      CLOSE(UNITTMP_)
@@ -470,18 +465,8 @@ SUBROUTINE ionospheric_potential
 
      Weimer_potential_loop: DO k = 2, nzeta
         DO j = 1, npsi
-           !IF (ABS(pdyn_l-99.99_dp) < 1E-3_dp) THEN
-           !   PRINT*, 'IP: not calling Weimer model, bad SW data'
-           !   PRINT*, ' '
-           !   EXIT Weimer_potential_loop ! Bad SW data, do not call Weimer
-           !   model
-           !END IF
            PhiIono(j,k) = 1.E3 * EpotVal(latGrid(j,k), lonGrid(j,k)) !!! Achtung RAM needs it in volts !!!
            bndylat = BoundaryLat(lonGrid(j,k))
-    !C       PRINT*, 'j, k, lat, mlt, bndylat, Phi_Weimer(j,k) = ', j, k,
-    !REAL(latGrid(j,k),sp), &
-    !C           REAL(lonGrid(j,k),sp), real(bndylat),
-    !1.E-3*REAL(PhiIono(j,k),sp)
            ! Add corotation potential - only if RAM takes all E-field info from
            ! the equilibrium code 
            ! PhiIono(j,k) = PhiIono(j,k) - 2._dp*pi_d*0.31_dp*6.4**2 *
@@ -530,8 +515,6 @@ SUBROUTINE ionospheric_potential
                          bzimf_l, Vk_l, Nk_l, pdyn_l, AL_l, SymH_l
               EXIT Read_OMNI_file_05
            END IF
-        ! ACHTUNG this assumes the same starting file in omni file, and same
-        ! cadence of E-field update as the B-field update in RAM-SCB !!! 
         END DO Read_OMNI_file_05
      endif
      CLOSE(UNITTMP_)
