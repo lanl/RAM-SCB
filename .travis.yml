@@ -5,6 +5,7 @@ env:
   global:
     - COMMIT=${TRAVIS_COMMIT::8}
     - REPO=shields/ram_scb
+
 before_install:
   - docker build -t $REPO:$COMMIT -t $REPO:latest . 
 
