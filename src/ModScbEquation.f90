@@ -12,18 +12,19 @@ contains
 !================ LHS EQUATIONS =====================!
 !====================================================!
 !==============================================================================
-SUBROUTINE metrica(vecd,vec1,vec2,vec3,vec4,vec6,vec7,vec8,vec9)
+SUBROUTINE metrica
 
   USE ModScbMain,      ONLY: DP
   USE ModScbGrids,     ONLY: nthe, nthem, npsi, npsim, nzeta, nzetap, ny, rdr, &
                              rdt, rdp, rdt4, rdp4, rdr2, rdp2, rdt2, rdpsq, &
-                             rdtsq, rdpdt4, rdr4
-  use ModScbVariables, ONLY: f, fzet, x, y, z, sumb, sumdb, bf, bsq, jacobian
+                             rdtsq, rdpdt4, rdr4, rdrsq
+  use ModScbVariables, ONLY: f, fzet, x, y, z, sumb, sumdb, bf, bsq, jacobian, &
+                             thetaVal, rhoVal, zetaVal, vecd, vec1, vec2, vec3, &
+                             vec4, vec6, vec7, vec8, vec9
+  use ModScbSpline,    ONLY: Spline_Coord_Derivs
 
   IMPLICIT NONE
 
-  REAL(DP), DIMENSION(:, :, :), INTENT(OUT) :: vecd, vec1, vec2, vec3, &
-       vec4, vec6, vec7, vec8, vec9
   REAL(DP), DIMENSION(nthe) :: xa, xb, xc, xd, xe, xta, xtb, xtc, xtd, xte, &
        xpa, xpb, xpc, xpd, xpe, xra, xrb, xrc, xrd, xre, yta, ytb, ytc, ytd, yte, &
        ypa, ypb, ypc, ypd, ype, yra, yrb, yrc, yrd, yre, zta, ztb, ztc, ztd, zte, &
@@ -36,11 +37,74 @@ SUBROUTINE metrica(vecd,vec1,vec2,vec3,vec4,vec6,vec7,vec8,vec9)
        gpgte, gtgra, gtgrb, gtgrc, gtgrd, gtgre, v1a, v1b, v1c, v2a, v2b, v2c, v2d, v3a, v3b, v3c, &
        v3d, bsqa, bsqb, bsqc, bsqd
 
+  REAL(DP), DIMENSION(nthe,npsi,nzeta) :: dXdTheta, dXdRho, dXdZeta, dYdTheta, &
+       dYdRho, dYdZeta, dZdTheta, dZdRho, dZdZeta, GThetaX, GThetaY, GThetaZ,  &
+       GRhoX, GRhoY, GRhoZ, GZetaX, GZetaY, GZetaZ, GThetaSq, GRhoSq, GZetaSq, &
+       GThetaGZeta, GRhoGTheta, GRhoGZeta, A, B, C, dAdT, dAdR, dAdZ, dBdT,    &
+       dBdR, dBdZ, dCdT, dCdR, dCdZ
+
   INTEGER :: i, j, k, ierr
 
+!  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, x(1:nthe, 1:npsi, 1:nzeta), &
+!                           dXdTheta, dXdRho, dXdZeta)
+!  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, y(1:nthe, 1:npsi, 1:nzeta), &
+!                           dYdTheta, dYdRho, dYdZeta)
+!  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, z(1:nthe, 1:npsi, 1:nzeta), &
+!                           dZdTheta, dZdRho, dZdZeta)
+!  ! Now I have all the point derivatives
+!
+!  ! Time to build the Jacobian
+!  jacobian = dXdRho   * (dYdZeta  * dZdTheta - dYdTheta * dZdZeta) &
+!           + dXdZeta  * (dYdTheta * dZdRho   - dYdRho   * dZdTheta) &
+!           + dXdTheta * (dYdRho   * dZdZeta  - dYdZeta  * dZdRho)
+!
+!  GRhoX = (dYdZeta * dZdTheta - dYdTheta * dZdZeta) / jacobian
+!  GRhoY = (dZdZeta * dXdTheta - dZdTheta * dXdZeta) / jacobian
+!  GRhoZ = (dXdZeta * dYdTheta - dXdTheta * dYdZeta) / jacobian
+!
+!  GZetaX = (dYdTheta * dZdRho - dYdRho * dZdTheta) / jacobian
+!  GZetaY = (dZdTheta * dXdRho - dZdRho * dXdTheta) / jacobian
+!  GZetaZ = (dXdTheta * dYdRho - dXdRho * dYdTheta) / jacobian
+!
+!  GThetaX = (dYdRho * dZdZeta - dYdZeta * dZdRho) / jacobian
+!  GThetaY = (dZdRho * dXdZeta - dZdZeta * dXdRho) / jacobian
+!  GThetaZ = (dXdRho * dYdZeta - dXdZeta * dYdRho) / jacobian
+!
+!  GRhoSq = GRhoX**2 + GRhoY**2 + GRhoZ**2
+!  GRhoGZeta = GRhoX * GZetaX + GRhoY * GZetaY + GRhoZ * GZetaZ
+!  GRhoGTheta = GRhoX * GThetaX + GRhoY * GThetaY + GRhoZ * GThetaZ
+!
+!  GThetaSq = GThetaX**2 + GThetaY**2 + GThetaZ**2
+!  GThetaGZeta = GThetaX * GZetaX + GThetaY * GZetaY + GThetaZ * GZetaZ
+!
+!  GZetaSq = GZetaX**2 + GZetaY**2 + GZetaZ**2
+!
+!  A = (GRhoSq*GThetaSq-GRhoGTheta**2)*jacobian
+!  B = (GRhoSq*GThetaGZeta-GRhoGZeta*GRhoGTheta)*jacobian
+!  C = (GRhoSq*GZetaSq-GRhoGZeta**2)*jacobian
+!
+!  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, A(1:nthe, 1:npsi, 1:nzeta), &
+!                           dAdT, dAdR, dAdZ)
+!  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, B(1:nthe, 1:npsi, 1:nzeta), &
+!                           dBdT, dBdR, dBdZ)
+!  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, C(1:nthe, 1:npsi, 1:nzeta), &
+!                           dCdT, dCdR, dCdZ)
+!
   DO  j=2,npsim
      DO  k=2,nzeta
         DO  i=2,nthem
+!            ! Keeping the old variable vec names                              ! Translation to letters in Sorin's Thesis
+!            vecd(i,j,k) = 2*(A(i,j,k)*rdtsq + C(i,j,k)*rdpsq)                 ! a
+!            vec1(i,j,k) = B(i,j,k)*rdt*rdp2                                   ! b
+!            vec2(i,j,k) = C(i,j,k)*rdpsq - (dBdT(i,j,k) + dCdZ(i,j,k))*rdp2   ! h
+!            vec3(i,j,k) = -B(i,j,k)*rdt*rdp2                                  ! c
+!            vec4(i,j,k) = A(i,j,k)*rdtsq - (dAdT(i,j,k) + dBdZ(i,j,k))*rdt2   ! d
+!            !vec5(i,j,k) There is no vec5
+!            vec6(i,j,k) = A(i,j,k)*rdtsq + (dAdT(i,j,k) + dBdZ(i,j,k))*rdt2   ! f
+!            vec7(i,j,k) = -B(i,j,k)*rdt*rdp2                                  ! e
+!            vec8(i,j,k) = C(i,j,k)*rdpsq + (dBdT(i,j,k) + dCdZ(i,j,k))*rdp2   ! k
+!            vec9(i,j,k) = B(i,j,k)*rdt*rdp2                                   ! g
+
            xa(i) = .5*(x(i,j,k)+x(i+1,j,k))
            xb(i) = .5*(x(i,j,k)+x(i,j,k+1))
            xc(i) = .5*(x(i,j,k)+x(i-1,j,k))
@@ -210,6 +274,25 @@ SUBROUTINE metrica(vecd,vec1,vec2,vec3,vec4,vec6,vec7,vec8,vec9)
            v3b(i)=(grsb(i)*gpsb(i)-grgpb(i)**2)*ajb(i)*rdpsq
            v3c(i)=(grsc(i)*gpsc(i)-grgpc(i)**2)*ajc(i)*rdpsq
            v3d(i)=(grsd(i)*gpsd(i)-grgpd(i)**2)*ajd(i)*rdpsq
+           !write(*,*) '0 ', vecd(i,j,k), (v1a(i)+v1c(i)) + (v3b(i)+v3d(i)), &
+           !      (vecd(i,j,k)-((v1a(i)+v1c(i))+(v3b(i)+v3d(i))))/((v1a(i)+v1c(i))+(v3b(i)+v3d(i)))
+           !write(*,*) '1 ', vec1(i,j,k), (v2c(i)+v2d(i)), &
+           !      (vec1(i,j,k)-(v2c(i)+v2d(i)))/(v2c(i)+v2d(i))
+           !write(*,*) '2 ', vec2(i,j,k), (v2c(i)-v2a(i)) + v3d(i), &
+           !      (vec2(i,j,k)-((v2c(i)-v2a(i)) + v3d(i)))/((v2c(i)-v2a(i)) + v3d(i))
+           !write(*,*) '3 ', vec3(i,j,k), -(v2a(i)+v2d(i)), &
+           !      (vec3(i,j,k) + (v2a(i)+v2d(i)))/(v2a(i)+v2d(i))
+           !write(*,*) '4 ', vec4(i,j,k), v1c(i) + (v2d(i)-v2b(i)), &
+           !      (vec4(i,j,k)-(v1c(i)+(v2d(i)-v2b(i))))/(v1c(i)+(v2d(i)-v2b(i)))
+           !write(*,*) '6 ', vec6(i,j,k), v1a(i) + (v2b(i)-v2d(i)), &
+           !      (vec6(i,j,k)-(v1a(i) + (v2b(i)-v2d(i))))/(v1a(i) + (v2b(i)-v2d(i)))
+           !write(*,*) '7 ', vec7(i,j,k), -(v2c(i)+v2b(i)), &
+           !      (vec7(i,j,k)+(v2c(i)+v2b(i)))/(v2c(i)+v2b(i))
+           !write(*,*) '8 ', vec8(i,j,k), v3b(i) + (v2a(i)-v2c(i)), &
+           !      (vec8(i,j,k)-(v3b(i) + (v2a(i)-v2c(i))))/(v3b(i) + (v2a(i)-v2c(i)))
+           !write(*,*) '9 ', vec9(i,j,k), (v2a(i) + v2b(i)), &
+           !      (vec9(i,j,k)-(v2a(i) + v2b(i)))/(v2a(i) + v2b(i))
+           !write(*,*) 'J ', jacobian(i,j,k), aje(i), (jacobian(i,j,k)-aje(i))/aje(i)
            vecd(i,j,k) = (v1a(i)+v1c(i)) + (v3b(i)+v3d(i))
            vec1(i,j,k) = (v2c(i)+v2d(i))
            vec2(i,j,k) = (v2c(i)-v2a(i)) + v3d(i)
@@ -220,51 +303,52 @@ SUBROUTINE metrica(vecd,vec1,vec2,vec3,vec4,vec6,vec7,vec8,vec9)
            vec8(i,j,k) = v3b(i) + (v2a(i)-v2c(i))
            vec9(i,j,k) = (v2a(i) + v2b(i))
 
-           bsqa(i)=(grsa(i)*gpsa(i)-grgpa(i)**2)*(f(j)*fzet(k))**2
-           bsqb(i)=(grsb(i)*gpsb(i)-grgpb(i)**2)*(f(j)*fzet(k))**2
-           bsqc(i)=(grsc(i)*gpsc(i)-grgpc(i)**2)*(f(j)*fzet(k))**2
-           bsqd(i)=(grsd(i)*gpsd(i)-grgpd(i)**2)*(f(j)*fzet(k))**2
-           bsq(i,j,k)=(grse(i)*gpse(i)-grgpe(i)**2)*(f(j)*fzet(k))**2
-           bf(i,j,k) = SQRT(bsq(i,j,k))
+           !bsqa(i)=(grsa(i)*gpsa(i)-grgpa(i)**2)*(f(j)*fzet(k))**2
+           !bsqb(i)=(grsb(i)*gpsb(i)-grgpb(i)**2)*(f(j)*fzet(k))**2
+           !bsqc(i)=(grsc(i)*gpsc(i)-grgpc(i)**2)*(f(j)*fzet(k))**2
+           !bsqd(i)=(grsd(i)*gpsd(i)-grgpd(i)**2)*(f(j)*fzet(k))**2
+           !bsq(i,j,k)=(grse(i)*gpse(i)-grgpe(i)**2)*(f(j)*fzet(k))**2
+           !bf(i,j,k) = SQRT(bsq(i,j,k))
         END DO
      END DO
   END DO
 
-  bf(:,:,1) = bf(:,:,nzeta)
+!  bf(:,:,1) = bf(:,:,nzeta)
+!
+!  DO  k=1, nzetap
+!     DO  j=2,npsim
+!        CALL extap(bf(4,j,k),bf(3,j,k),bf(2,j,k),bf(1,j,k))
+!        CALL extap(bf(nthe-3,j,k),bf(nthe-2,j,k),bf(nthe-1,j,k) ,bf(nthe,j,k))
+!     END DO
+!
+!     DO  i=1,nthe
+!        CALL extap(bf(i,4,k),bf(i,3,k),bf(i,2,k),bf(i,1,k))
+!        CALL extap(bf(i,npsi-3,k),bf(i,npsi-2,k),bf(i,npsi-1,k) ,bf(i,npsi,k))
+!     END DO
+!
+!  END DO
 
-  DO  k=1, nzetap
-     DO  j=2,npsim
-        CALL extap(bf(4,j,k),bf(3,j,k),bf(2,j,k),bf(1,j,k))
-        CALL extap(bf(nthe-3,j,k),bf(nthe-2,j,k),bf(nthe-1,j,k) ,bf(nthe,j,k))
-     END DO
-
-     DO  i=1,nthe
-        CALL extap(bf(i,4,k),bf(i,3,k),bf(i,2,k),bf(i,1,k))
-        CALL extap(bf(i,npsi-3,k),bf(i,npsi-2,k),bf(i,npsi-1,k) ,bf(i,npsi,k))
-     END DO
-
-  END DO
-
-  bsq = bf*bf
+!  bsq = bf*bf
 
   RETURN
 
 END SUBROUTINE metrica
 
 !------------------------------------------------------------------------------
-SUBROUTINE metric(vecd,vec1,vec2,vec3,vec4,vec6,vec7,vec8,vec9)
+SUBROUTINE metric
 
   USE ModScbMain,      ONLY: DP
   USE ModScbGrids,     ONLY: nthe, nthem, npsi, npsim, nzeta, nzetap, ny, rdr, &
                              rdt, rdp, rdt4, rdp4, rdr2, rdr4, rdp2, rdt2, rdpsq, &
                              rdtsq, rdpdt4, rdrsq, rdtdr4
-  use ModScbVariables, ONLY: f, fzet, x, y, z, sumb, sumdb, bf, bsq, jacobian
+  use ModScbVariables, ONLY: f, fzet, x, y, z, sumb, sumdb, bf, bsq, jacobian, &
+                             thetaVal, rhoVal, zetaVal, vecd, vec1, vec2, vec3, &
+                             vec4, vec6, vec7, vec8, vec9
+  use ModScbSpline,    ONLY: Spline_coord_Derivs
 
   IMPLICIT NONE
 
   INTEGER :: i, j, k
-  REAL(DP), DIMENSION(:,:,:), INTENT(OUT) :: vecd, vec1, vec2, vec3, &
-       vec4, vec6, vec7, vec8, vec9
   REAL(DP), DIMENSION(nthe) :: xa, xb, xc, xd, xe, xta, xtb, xtc, xtd, xte, &
        xpa, xpb, xpc, xpd, xpe, xra, xrb, xrc, xrd, xre, yta, ytb, ytc, ytd, yte, &
        ypa, ypb, ypc, ypd, ype, yra, yrb, yrc, yrd, yre, zta, ztb, ztc, ztd, zte, &
@@ -277,6 +361,12 @@ SUBROUTINE metric(vecd,vec1,vec2,vec3,vec4,vec6,vec7,vec8,vec9)
        gpgte, gtgra, gtgrb, gtgrc, gtgrd, gtgre, v1a, v1b, v1c, v2a, v2b, v2c, v2d, v3a, v3b, v3c, &
        v3d, bsqa, bsqb, bsqc, bsqd
 
+  REAL(DP), DIMENSION(nthe,npsi,nzeta) :: dXdTheta, dXdRho, dXdZeta, dYdTheta, &
+       dYdRho, dYdZeta, dZdTheta, dZdRho, dZdZeta, GThetaX, GThetaY, GThetaZ,  &
+       GRhoX, GRhoY, GRhoZ, GZetaX, GZetaY, GZetaZ, GThetaSq, GRhoSq, GZetaSq, &
+       GThetaGZeta, GRhoGTheta, GRhoGZeta, A, B, C, dAdT, dAdR, dAdZ, dBdT,    &
+       dBdR, dBdZ, dCdT, dCdR, dCdZ
+
   jacobian = 0.
   vecd = 0.
   vec1 = 0.
@@ -288,9 +378,65 @@ SUBROUTINE metric(vecd,vec1,vec2,vec3,vec4,vec6,vec7,vec8,vec9)
   vec8 = 0.
   vec9 = 0.
 
-  DO  k=2,nzeta
-     DO  j=2,npsim
+!  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, x(1:nthe, 1:npsi, 1:nzeta), &
+!                           dXdTheta, dXdRho, dXdZeta)
+!  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, y(1:nthe, 1:npsi, 1:nzeta), &
+!                           dYdTheta, dYdRho, dYdZeta)
+!  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, z(1:nthe, 1:npsi, 1:nzeta), &
+!                           dZdTheta, dZdRho, dZdZeta)
+!  ! Now I have all the point derivatives
+!
+!  ! Time to build the Jacobian
+!  jacobian = dXdRho   * (dYdZeta  * dZdTheta - dYdTheta * dZdZeta) &
+!           + dXdZeta  * (dYdTheta * dZdRho   - dYdRho   * dZdTheta) &
+!           + dXdTheta * (dYdRho   * dZdZeta  - dYdZeta  * dZdRho)
+!
+!  GRhoX = (dYdZeta * dZdTheta - dYdTheta * dZdZeta) / jacobian
+!  GRhoY = (dZdZeta * dXdTheta - dZdTheta * dXdZeta) / jacobian
+!  GRhoZ = (dXdZeta * dYdTheta - dXdTheta * dYdZeta) / jacobian
+!
+!  GZetaX = (dYdTheta * dZdRho - dYdRho * dZdTheta) / jacobian
+!  GZetaY = (dZdTheta * dXdRho - dZdRho * dXdTheta) / jacobian
+!  GZetaZ = (dXdTheta * dYdRho - dXdRho * dYdTheta) / jacobian
+!
+!  GThetaX = (dYdRho * dZdZeta - dYdZeta * dZdRho) / jacobian
+!  GThetaY = (dZdRho * dXdZeta - dZdZeta * dXdRho) / jacobian
+!  GThetaZ = (dXdRho * dYdZeta - dXdZeta * dYdRho) / jacobian
+!
+!  GRhoSq = GRhoX**2 + GRhoY**2 + GRhoZ**2
+!  GRhoGZeta = GRhoX * GZetaX + GRhoY * GZetaY + GRhoZ * GZetaZ
+!  GRhoGTheta = GRhoX * GThetaX + GRhoY * GThetaY + GRhoZ * GThetaZ
+!
+!  GThetaSq = GThetaX**2 + GThetaY**2 + GThetaZ**2
+!  GThetaGZeta = GThetaX * GZetaX + GThetaY * GZetaY + GThetaZ * GZetaZ
+!
+!  GZetaSq = GZetaX**2 + GZetaY**2 + GZetaZ**2
+!
+!  A = (GThetaGZeta**2-GZetaSq*GThetaSq)*jacobian
+!  B = (GRhoGZeta*GThetaGZeta-GZetaSq*GRhoGTheta)*jacobian
+!  C = (GRhoGZeta**2-GRhoSq*GZetaSq)*jacobian
+!
+!  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, A(1:nthe, 1:npsi, 1:nzeta), &
+!                           dAdT, dAdR, dAdZ)
+!  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, B(1:nthe, 1:npsi, 1:nzeta), &
+!                           dBdT, dBdR, dBdZ)
+!  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, C(1:nthe, 1:npsi, 1:nzeta), &
+!                           dCdT, dCdR, dCdZ)
+!
+  DO  j=2,npsim
+     DO  k=2,nzeta
         DO  i=2,nthem
+!            ! Keeping the old variable vec names                              ! Translation to letters in Sorin's Thesis
+!            vecd(i,j,k) = 2*(A(i,j,k)*rdtsq + C(i,j,k)*rdrsq)                 ! a
+!            vec1(i,j,k) = B(i,j,k)*rdt*rdr2                                   ! b
+!            vec2(i,j,k) = C(i,j,k)*rdrsq - (dCdR(i,j,k) + dBdT(i,j,k))*rdr2   ! h
+!            vec3(i,j,k) = -B(i,j,k)*rdt*rdr2                                  ! c
+!            vec4(i,j,k) = A(i,j,k)*rdtsq - (dAdT(i,j,k) + dBdR(i,j,k))*rdt2   ! d
+!            !vec5(i,j,k) There is no vec5
+!            vec6(i,j,k) = A(i,j,k)*rdtsq + (dAdT(i,j,k) + dBdR(i,j,k))*rdt2   ! f
+!            vec7(i,j,k) = -B(i,j,k)*rdt*rdr2                                  ! e
+!            vec8(i,j,k) = C(i,j,k)*rdrsq + (dCdR(i,j,k) + dBdT(i,j,k))*rdr2   ! k
+!            vec9(i,j,k) = B(i,j,k)*rdt*rdr2                                   ! g
 
            xa(i) = .5*(x(i,j,k)+x(i+1,j,k))
            xb(i) = .5*(x(i,j,k)+x(i,j+1,k))
@@ -462,7 +608,26 @@ SUBROUTINE metric(vecd,vec1,vec2,vec3,vec4,vec6,vec7,vec8,vec9)
            v3b(i)=(grgpb(i)**2-grsb(i)*gpsb(i))*ajb(i)*rdrsq
            v3c(i)=(grgpc(i)**2-grsc(i)*gpsc(i))*ajc(i)*rdrsq
            v3d(i)=(grgpd(i)**2-grsd(i)*gpsd(i))*ajd(i)*rdrsq
-
+           !write(*,*) i, j, k
+           !write(*,*) '0 ', vecd(i,j,k), (v1a(i)+v1c(i)) + (v3b(i)+v3d(i)), &
+           !      (vecd(i,j,k)-((v1a(i)+v1c(i))+(v3b(i)+v3d(i))))/((v1a(i)+v1c(i))+(v3b(i)+v3d(i)))
+           !write(*,*) '1 ', vec1(i,j,k), (v2c(i)+v2d(i)), &
+           !      (vec1(i,j,k)-(v2c(i)+v2d(i)))/(v2c(i)+v2d(i))
+           !write(*,*) '2 ', vec2(i,j,k), (v2c(i)-v2a(i)) + v3d(i), &
+           !      (vec2(i,j,k)-((v2c(i)-v2a(i)) + v3d(i)))/((v2c(i)-v2a(i)) + v3d(i))
+           !write(*,*) '3 ', vec3(i,j,k), -(v2a(i)+v2d(i)), &
+           !      (vec3(i,j,k) + (v2a(i)+v2d(i)))/(v2a(i)+v2d(i))
+           !write(*,*) '4 ', vec4(i,j,k), v1c(i) + (v2d(i)-v2b(i)), &
+           !      (vec4(i,j,k)-(v1c(i)+(v2d(i)-v2b(i))))/(v1c(i)+(v2d(i)-v2b(i)))
+           !write(*,*) '6 ', vec6(i,j,k), v1a(i) + (v2b(i)-v2d(i)), &
+           !      (vec6(i,j,k)-(v1a(i) + (v2b(i)-v2d(i))))/(v1a(i) + (v2b(i)-v2d(i)))
+           !write(*,*) '7 ', vec7(i,j,k), -(v2c(i)+v2b(i)), &
+           !      (vec7(i,j,k)+(v2c(i)+v2b(i)))/(v2c(i)+v2b(i))
+           !write(*,*) '8 ', vec8(i,j,k), v3b(i) + (v2a(i)-v2c(i)), &
+           !      (vec8(i,j,k)-(v3b(i) + (v2a(i)-v2c(i))))/(v3b(i) + (v2a(i)-v2c(i)))
+           !write(*,*) '9 ', vec9(i,j,k), (v2a(i) + v2b(i)), &
+           !      (vec9(i,j,k)-(v2a(i) + v2b(i)))/(v2a(i) + v2b(i))
+           !write(*,*) 'J ', jacobian(i,j,k), aje(i), (jacobian(i,j,k)-aje(i))/aje(i)
            vecd(i,j,k) = (v1a(i)+v1c(i)+v3b(i)+v3d(i))
            vec1(i,j,k) = (v2c(i)+v2d(i))
            vec2(i,j,k) = ((v2c(i)-v2a(i))+v3d(i))
@@ -473,30 +638,30 @@ SUBROUTINE metric(vecd,vec1,vec2,vec3,vec4,vec6,vec7,vec8,vec9)
            vec8(i,j,k) = (v3b(i)+(v2a(i)-v2c(i)))
            vec9(i,j,k) = (v2b(i)+v2a(i))
 
-           bsqa(i)=(grsa(i)*gpsa(i)-grgpa(i)**2)*(f(j)*fzet(k))**2
-           bsqb(i)=(grsb(i)*gpsb(i)-grgpb(i)**2) *(.5*(f(j)+f(j+1))*fzet(k))**2
-           bsqc(i)=(grsc(i)*gpsc(i)-grgpc(i)**2)*(f(j)*fzet(k))**2
-           bsqd(i)=(grsd(i)*gpsd(i)-grgpd(i)**2) *(.5*(f(j)+f(j-1))*fzet(k))**2
-           bsq(i,j,k)=(grse(i)*gpse(i)-grgpe(i)**2)*(f(j)*fzet(k))**2
-           bf(i,j,k) = SQRT(bsq(i,j,k))
+           !bsqa(i)=(grsa(i)*gpsa(i)-grgpa(i)**2)*(f(j)*fzet(k))**2
+           !bsqb(i)=(grsb(i)*gpsb(i)-grgpb(i)**2) *(.5*(f(j)+f(j+1))*fzet(k))**2
+           !bsqc(i)=(grsc(i)*gpsc(i)-grgpc(i)**2)*(f(j)*fzet(k))**2
+           !bsqd(i)=(grsd(i)*gpsd(i)-grgpd(i)**2) *(.5*(f(j)+f(j-1))*fzet(k))**2
+           !bsq(i,j,k)=(grse(i)*gpse(i)-grgpe(i)**2)*(f(j)*fzet(k))**2
+           !bf(i,j,k) = SQRT(bsq(i,j,k))
 
         END DO
      END DO
   END DO
 
-  bf(:,:,1) = bf(:,:,nzeta)
-  DO  k=1, nzetap
-     DO  j=2,npsim
-        CALL extap(bf(4,j,k),bf(3,j,k),bf(2,j,k),bf(1,j,k))
-        CALL extap(bf(nthe-3,j,k),bf(nthe-2,j,k),bf(nthem,j,k) ,bf(nthe,j,k))
-     END DO
-
-     DO  i=1,nthe
-        CALL extap(bf(i,4,k),bf(i,3,k),bf(i,2,k),bf(i,1,k))
-        CALL extap(bf(i,npsi-3,k),bf(i,npsi-2,k),bf(i,npsi-1,k) ,bf(i,npsi,k))
-     END DO
-  END DO
-  bsq = bf*bf
+!  bf(:,:,1) = bf(:,:,nzeta)
+!  DO  k=1, nzetap
+!     DO  j=2,npsim
+!        CALL extap(bf(4,j,k),bf(3,j,k),bf(2,j,k),bf(1,j,k))
+!        CALL extap(bf(nthe-3,j,k),bf(nthe-2,j,k),bf(nthem,j,k) ,bf(nthe,j,k))
+!     END DO
+!
+!     DO  i=1,nthe
+!        CALL extap(bf(i,4,k),bf(i,3,k),bf(i,2,k),bf(i,1,k))
+!        CALL extap(bf(i,npsi-3,k),bf(i,npsi-2,k),bf(i,npsi-1,k) ,bf(i,npsi,k))
+!     END DO
+!  END DO
+!  bsq = bf*bf
 
   RETURN
 
@@ -506,33 +671,34 @@ END SUBROUTINE metric
 !================ RHS EQUATIONS =====================!
 !====================================================!
 !==============================================================================
-SUBROUTINE newk(vec_x, vec_dk)
+SUBROUTINE newk
   !     define right hand side of alpha equation  
 
-  USE ModScbMain,      ONLY: DP, isotropy, iOuterMethod
+  USE ModScbMain,      ONLY: DP
+  use ModScbParams,    ONLY: iOuterMethod, isotropy
   USE ModScbGrids,     ONLY: nthe, npsi, nzeta
   use ModScbVariables, ONLY: jacobian, bsq, f, fzet, alphaVal, GradRhoGradTheta, &
                              GradRhoGradZeta, GradThetaGradZeta, GradRhoSq, &
                              GradZetaSq, GradThetaSq, dPdPsi, dSqPdAlphaSq, &
                              dPPerdAlpha, dBsqdAlpha, dBsqdTheta, dPPerdTheta, &
-                             dBBdAlpha, dPdAlpha, sigma
+                             dBBdAlpha, dPdAlpha, sigma, dBsqdRho, dPPerdRho, &
+                             GradRhoSq, dPPerdZeta, dBsqdZeta, vecx, vecd
 
   IMPLICIT NONE
 
   INTEGER         :: i, j, k
-  REAL(DP), DIMENSION(:, :, :), INTENT(OUT) :: vec_x
-  REAL(DP), DIMENSION(:, :, :), INTENT(IN OUT) ::  vec_dk
+  REAL(DP) :: xp, c1, c2, t1, t2
 
   IF (isotropy == 1) THEN      ! Isotropic case
      DO j = 2, npsi-1
         IF (iOuterMethod == 2) THEN   ! Newton method
            DO k = 2, nzeta
-              vec_x(1:nthe, j, k) = -jacobian(1:nthe,j,k)/f(j)**2 * (dpdAlpha(1:nthe,j,k) - dSqpdAlphaSq(1:nthe,j,k) * &
+              vecx(1:nthe, j, k) = -jacobian(1:nthe,j,k)/f(j)**2 * (dpdAlpha(1:nthe,j,k) - dSqpdAlphaSq(1:nthe,j,k) * &
                                      alphaVal(k))
-              vec_dk(1:nthe, j, k) = vec_dk(1:nthe, j, k) - jacobian(1:nthe,j,k)/f(j)**2 * dSqpdAlphaSq(1:nthe,j,k)
+              vecd(1:nthe, j, k) = vecd(1:nthe, j, k) - jacobian(1:nthe,j,k)/f(j)**2 * dSqpdAlphaSq(1:nthe,j,k)
            END DO
         ELSE                          ! Picard method
-           vec_x(1:nthe, j, 1:nzeta) = - dpdAlpha(1:nthe, j, 1:nzeta) * jacobian(1:nthe, j, 1:nzeta) * 1._dp / f(j)**2
+           vecx(1:nthe, j, 1:nzeta) = - dpdAlpha(1:nthe, j, 1:nzeta) * jacobian(1:nthe, j, 1:nzeta) / f(j)**2
         END IF
      END DO
 
@@ -541,19 +707,30 @@ SUBROUTINE newk(vec_x, vec_dk)
         DO j = 2, npsi-1
            DO k = 2, nzeta
               IF (iOuterMethod == 1) THEN ! Picard method
-                 vec_x(i,j,k) = jacobian(i,j,k) / f(j)**2 * (-1./sigma(i,j,k) * dPperdAlpha(i,j,k) &
-                      - 1./(sigma(i,j,k)*bsq(i,j,k)) * f(j)**2 * fzet(k) * (gradRhoSq(i,j,k)* &
-                      gradThetaGradZeta(i,j,k) - gradRhoGradTheta(i,j,k)*gradRhoGradZeta(i,j,k)) * &
-                      (dPperdTheta(i,j,k) + (1.-sigma(i,j,k))*0.5*dBsqdTheta(i,j,k)) - &
-                      (1. - sigma(i,j,k)) / sigma(i,j,k) * 0.5 * dBsqdAlpha(i,j,k))
+!                 xp = (GradRhoSq(i,j,k)*GradThetaGradZeta(i,j,k) &
+!                     - GradRhoGradZeta(i,j,k)*GradRhoGradTheta(i,j,k))
+!                 c1 = 1./fzet(k)/sigma(i,j,k)/bsq(i,j,k)
+!                 t1 = bsq(i,j,k)*dPPerdZeta(i,j,k) + xp*dPPerdTheta(i,j,k)
+!                 c2 = (1.-sigma(i,j,k))/fzet(k)/sigma(i,j,k)/bsq(i,j,k)/2.0
+!                 t2 = bsq(i,j,k)*dBsqdZeta(i,j,k) + xp*dBsqdTheta(i,j,k)
+!                 vec_x(i,j,k) = -jacobian(i,j,k)*(c1*t1 +c2*t2)
+
+                 vecx(i,j,k) = jacobian(i,j,k) / f(j)**2 &
+                             * (-1./sigma(i,j,k) * dPperdAlpha(i,j,k) &
+                             - 1./(sigma(i,j,k)*bsq(i,j,k)) * f(j)**2 * fzet(k) &
+                             !* (gradRhoSq(i,j,k)*gradThetaGradZeta(i,j,k) - gradRhoGradTheta(i,j,k)*gradRhoGradZeta(i,j,k)) &
+                             !- 1./(sigma(i,j,k)*bsq(i,j,k)) * f(j) * fzet(k)**2 &
+                             * (GradThetaGradZeta(i,j,k)*GradRhoGradZeta(i,j,k) - GradZetaSq(i,j,k)*GradRhoGradTheta(i,j,k)) &
+                             * (dPperdTheta(i,j,k) + (1.-sigma(i,j,k))*0.5*dBsqdTheta(i,j,k)) &
+                             - (1. - sigma(i,j,k)) / sigma(i,j,k) * 0.5 * dBsqdAlpha(i,j,k))
               ELSE ! Newton method
-                 vec_x(i,j,k) = jacobian(i,j,k) / f(j)**2 * (-1./sigma(i,j,k) * dPperdAlpha(i,j,k) &
-                      - 1./(sigma(i,j,k)*bsq(i,j,k)) * f(j)**2 * fzet(k) * (gradRhoSq(i,j,k)* &
-                      gradThetaGradZeta(i,j,k) - gradRhoGradTheta(i,j,k)*gradRhoGradZeta(i,j,k)) * &
-                      (dPperdTheta(i,j,k) + (1.-sigma(i,j,k))*0.5*dBsqdTheta(i,j,k)) - &
-                      (1. - sigma(i,j,k)) / sigma(i,j,k) * 0.5 * dBsqdAlpha(i,j,k))
-                 vec_x(i,j,k) = vec_x(i,j,k) - jacobian(i,j,k)/((f(j))**2) * dBBdAlpha(i,j,k) * alphaVal(k)
-                 vec_dk(i,j,k) = vec_dk(i,j,k) + jacobian(i,j,k)/(f(j)**2) * dBBdAlpha(i,j,k)
+!                 vecx(i,j,k) = jacobian(i,j,k) / f(j)**2 * (-1./sigma(i,j,k) * dPperdAlpha(i,j,k) &
+!                      - 1./(sigma(i,j,k)*bsq(i,j,k)) * f(j)**2 * fzet(k) * (gradRhoSq(i,j,k)* &
+!                      gradThetaGradZeta(i,j,k) - gradRhoGradTheta(i,j,k)*gradRhoGradZeta(i,j,k)) * &
+!                      (dPperdTheta(i,j,k) + (1.-sigma(i,j,k))*0.5*dBsqdTheta(i,j,k)) - &
+!                      (1. - sigma(i,j,k)) / sigma(i,j,k) * 0.5 * dBsqdAlpha(i,j,k))
+!                 vecx(i,j,k) = vecx(i,j,k) - jacobian(i,j,k)/((f(j))**2) * dBBdAlpha(i,j,k) * alphaVal(k)
+!                 vecd(i,j,k) = vecd(i,j,k) + jacobian(i,j,k)/(f(j)**2) * dBBdAlpha(i,j,k)
               END IF
            END DO
         END DO
@@ -564,33 +741,33 @@ SUBROUTINE newk(vec_x, vec_dk)
 END SUBROUTINE newk
 
 !------------------------------------------------------------------------------
-SUBROUTINE newj(vec_r, vec_dj)
+SUBROUTINE newj
   !     define right hand side of J dot grad(alfa) equilibrium equation
 
-  USE ModScbMain,      ONLY: DP, isotropy, iOuterMethod
+  USE ModScbMain,      ONLY: DP
+  use ModScbParams,    ONLY: iOuterMethod, isotropy
   USE ModScbGrids,     ONLY: nthe, npsi, nzeta
   use ModScbVariables, ONLY: f, fzet, jacobian, bsq, psiVal, GradRhoGradTheta, &
-                             GradRhoGradZeta, GradThetaGradZeta, GradZetaSq, &
+                             GradRhoGradZeta, GradThetaGradZeta, GradRhoSq, &
                              dPdPsi, dSqPdPsiSq, dPPerdPsi, dBsqdPsi, dBsqdTheta, &
-                             dPPerdTheta, dBBdPsi, sigma
+                             dPPerdTheta, dBBdPsi, sigma, dPPerdZeta, dBsqdZeta, &
+                             dPPerdRho, dBsqdRho, GradZetaSq, vecr, vecd
 
   IMPLICIT NONE
 
   INTEGER         :: i, j, k
-  REAL(DP), DIMENSION(:,:,:), INTENT(OUT) :: vec_r
-  REAL(DP), DIMENSION(:,:,:), INTENT(IN OUT) :: vec_dj
-
+  REAL(DP) :: xp, c1, c2, t1, t2
 
   Isotropic_case: IF (isotropy == 1) THEN
      DO k = 1, nzeta
         Newton_method:   IF (iOuterMethod == 2) THEN
            DO j = 1, npsi
-              vec_r(1:nthe, j, k) = jacobian(1:nthe, j, k)/fzet(k)**2 * (dpdPsi(1:nthe, j, k) - &
+              vecr(1:nthe, j, k) = jacobian(1:nthe, j, k)/fzet(k)**2 * (dpdPsi(1:nthe, j, k) - &
                                     dSqPdPsiSq(1:nthe,j,k)*psival(j))
-              vec_dj(1:nthe, j, k) = vec_dj(1:nthe, j, k) + jacobian(1:nthe,j,k)/fzet(k)**2 *dSqPdPsiSq(1:nthe,j,k)
+              vecd(1:nthe, j, k) = vecd(1:nthe, j, k) + jacobian(1:nthe,j,k)/fzet(k)**2 *dSqPdPsiSq(1:nthe,j,k)
            END DO
         ELSE            ! Picard method
-           vec_r(1:nthe, 1:npsi, k) = jacobian(1:nthe, 1:npsi, k) * dpdPsi(1:nthe, 1:npsi, k) / fzet(k)**2
+           vecr(1:nthe, 1:npsi, k) = jacobian(1:nthe, 1:npsi, k) * dpdPsi(1:nthe, 1:npsi, k) / fzet(k)**2
         END IF Newton_method
      END DO
   ELSE       ! Anisotropic case
@@ -598,19 +775,30 @@ SUBROUTINE newj(vec_r, vec_dj)
         DO j = 1, npsi
            DO i = 1, nthe
               IF (iOuterMethod == 1) THEN ! Picard method
-                 vec_r(i,j,k) = jacobian(i,j,k) / fzet(k)**2 * (1./sigma(i,j,k) * dPperdPsi(i,j,k) &
-                      - 1./(sigma(i,j,k)*bsq(i,j,k)) * f(j) * fzet(k)**2 * (gradRhoGradZeta(i,j,k)* &
-                      gradThetaGradZeta(i,j,k) - gradRhoGradTheta(i,j,k)*gradZetaSq(i,j,k)) * &
-                      (dPperdTheta(i,j,k) + (1.-sigma(i,j,k)) * 0.5_dp * dBsqdTheta(i,j,k)) + &
-                      (1.-sigma(i,j,k)) / sigma(i,j,k) * 0.5_dp * dBsqdPsi(i,j,k))
+!                 xp = (GradRhoGradZeta(i,j,k) * GradThetaGradZeta(i,j,k) &
+!                     - GradZetaSq(i,j,k)*GradRhoGradTheta(i,j,k))
+!                 c1 = f(j)/sigma(i,j,k)/bsq(i,j,k)
+!                 t1 = bsq(i,j,k)*dPPerdRho(i,j,k) + xp*dPPerdTheta(i,j,k)
+!                 c2 = (1-sigma(i,j,k))*f(j)/sigma(i,j,k)/bsq(i,j,k)/2.0
+!                 t2 = bsq(i,j,k)*dBsqdRho(i,j,k) + xp*dBsqdTheta(i,j,k)
+!                 vec_r(i,j,k) = -jacobian(i,j,k)*(c1*t1 +c2*t2)
+
+                 vecr(i,j,k) = jacobian(i,j,k) / fzet(k)**2 &
+                             * (1./sigma(i,j,k) * dPperdPsi(i,j,k) &
+                             - 1./(sigma(i,j,k)*bsq(i,j,k)) * f(j) * fzet(k)**2 & 
+                             * (gradRhoGradZeta(i,j,k)*gradThetaGradZeta(i,j,k) - gradRhoGradTheta(i,j,k)*gradZetaSq(i,j,k)) &
+                             !- 1./(sigma(i,j,k)*bsq(i,j,k)) * f(j)**2 * fzet(k) & 
+                             !* (GradRhoSq(i,j,k)*GradThetaGradZeta(i,j,k) - GradRhoGradZeta(i,j,k)*GradRhoGradTheta(i,j,k)) &
+                             * (dPperdTheta(i,j,k) + (1.-sigma(i,j,k)) * 0.5_dp * dBsqdTheta(i,j,k)) &
+                             + (1.-sigma(i,j,k)) / sigma(i,j,k) * 0.5_dp * dBsqdPsi(i,j,k))
               ELSE ! Newton method
-                 vec_r(i,j,k) = jacobian(i,j,k) / fzet(k)**2 * (1./sigma(i,j,k) * dPperdPsi(i,j,k) &
-                      - 1./(sigma(i,j,k)*bsq(i,j,k)) * f(j) * fzet(k)**2 * (gradRhoGradZeta(i,j,k)* &
-                      gradThetaGradZeta(i,j,k) - gradRhoGradTheta(i,j,k)*gradZetaSq(i,j,k)) * &
-                      (dPperdTheta(i,j,k) + (1.-sigma(i,j,k)) * 0.5_dp * dBsqdTheta(i,j,k)) + &
-                      (1.-sigma(i,j,k)) / sigma(i,j,k) * 0.5_dp * dBsqdPsi(i,j,k))
-                 vec_r(i,j,k) = vec_r(i,j,k) - jacobian(i,j,k)/(fzet(k)**2) * dBBdPsi(i,j,k)*psival(j)
-                 vec_dj(i,j,k) = vec_dj(i,j,k) + jacobian(i,j,k)/(fzet(k)**2) * dBBdPsi(i,j,k)
+!                 vecr(i,j,k) = jacobian(i,j,k) / fzet(k)**2 * (1./sigma(i,j,k) * dPperdPsi(i,j,k) &
+!                      - 1./(sigma(i,j,k)*bsq(i,j,k)) * f(j) * fzet(k)**2 * (gradRhoGradZeta(i,j,k)* &
+!                      gradThetaGradZeta(i,j,k) - gradRhoGradTheta(i,j,k)*gradZetaSq(i,j,k)) * &
+!                      (dPperdTheta(i,j,k) + (1.-sigma(i,j,k)) * 0.5_dp * dBsqdTheta(i,j,k)) + &
+!                      (1.-sigma(i,j,k)) / sigma(i,j,k) * 0.5_dp * dBsqdPsi(i,j,k))
+!                 vecr(i,j,k) = vecr(i,j,k) - jacobian(i,j,k)/(fzet(k)**2) * dBBdPsi(i,j,k)*psival(j)
+!                 vecd(i,j,k) = vecd(i,j,k) + jacobian(i,j,k)/(fzet(k)**2) * dBBdPsi(i,j,k)
               END IF
            END DO
         END DO

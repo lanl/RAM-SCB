@@ -96,7 +96,6 @@ SUBROUTINE computehI
   INTEGER :: I, IC, iCount, ierr, IP1, j1, k1, NWK, ncdfId, iFix, iDomain
   INTEGER, DIMENSION(3) :: dimlens 
   INTEGER, PARAMETER :: LIMIT = 10000, INF = 1
-  REAL(DP) :: CONE(NRAD+4)
   REAL(DP) :: MUEQ
   REAL(DP), DIMENSION(2*nthe) :: WK
   REAL(DP) :: switch, start_time, end_time, yLowerLimit, chiHalf, bfHalf
@@ -166,16 +165,6 @@ SUBROUTINE computehI
   DO k1 = 1, nT
      azimRaw(k1) = 24._dp * REAL(k1-1,DP)/REAL(nT-1,DP)
   END DO
-
-  !.......CONE - pitch angle loss cone in degree
-  DO I = 1,NRAD
-     CLC = (RE+HMIN)/RLZ(I)
-     CONE(I) = 180._dp/pi_d*ASIN(SQRT(CLC**3/SQRT(4.-3.*CLC)))
-  END DO
-  CONE(NRAD+1)=2.5_dp          ! to calculate PA grid near 0 deg
-  CONE(NRAD+2)=1.5_dp
-  CONE(NRAD+3)=1._dp
-  CONE(NRAD+4)=0._dp
 
   INCFD = 1
   NWK = 2*(nthe-nThetaEquator+1)
@@ -452,24 +441,12 @@ SUBROUTINE computehI
         !   STOP
      END IF
 
-     IF (electric=='IESC'.OR.electric=='WESC'.OR.electric=='W5SC') THEN ! Need potential mapping along SC B-field lines
-        CALL Interpolation_natgrid_2D(radRaw(1:nR), azimRaw, h_value(1:npsi,2:nzeta,1:NPA), &
-                I_value(1:npsi,2:nzeta,1:NPA), &
-                bZ(nThetaEquator,1:npsi,2:nzeta)*bnormal-beqdip(1:npsi,2:nzeta), &
-                fluxVolume(1:npsi,2:nzeta)/bnormal, hdens_value(1:npsi,2:nzeta,1:NPA), &
-                h_Cart(1:nR,1:nT,1:NPA), I_Cart(1:nR,1:nT,1:NPA), &
-                bZEqDiff_Cart(1:nR,1:nT), flux_vol_Cart(1:nR,1:nT), &
-                hdens_Cart(1:nR,1:nT,1:NPA), PhiIono(1:npsi,2:nzeta), &
-                Epot_Cart(1:nR,1:nT))
-        Epot_Cart(0,:) = Epot_Cart(1,:) ! 3Dcode domain only extends to 2 RE; at 1.75 RE the potential is very small anyway
-     ELSE
-        CALL Interpolation_natgrid_2D(radRaw(1:nR), azimRaw, h_value(1:npsi,2:nzeta,1:NPA), &
+     CALL Interpolation_natgrid_2D(radRaw(1:nR), azimRaw, h_value(1:npsi,2:nzeta,1:NPA), &
                 I_value(1:npsi,2:nzeta,1:NPA), bZ(nThetaEquator,1:npsi,2:nzeta)*bnormal-beqdip(1:npsi,2:nzeta), &
                 fluxVolume(1:npsi,2:nzeta)/bnormal, hdens_value(1:npsi,2:nzeta,1:NPA), &
                 h_Cart(1:nR,1:nT,1:NPA), I_Cart(1:nR,1:nT,1:NPA), &
                 bZEqDiff_Cart(1:nR,1:nT), flux_vol_Cart(1:nR,1:nT), &
                 hdens_Cart(1:nR,1:nT,1:NPA))
-     END IF
 
      ! Add Bdip 
      beqdip_Cart(1:nR) = b0dip/radRaw(1:nR)**3
@@ -481,7 +458,6 @@ SUBROUTINE computehI
         I_Cart(nR,:,:) = I_Cart(nR-1,:,:)
         bZEqDiff_Cart(nR,:) = bZEqDiff_Cart(nR-1,:)
         hdens_Cart(nR,:,:) = hdens_Cart(nR-1,:,:)
-        IF (iElectric == 1) Epot_Cart(nR,:) = Epot_Cart(nR-1,:)
      END IF
 
      ! Add dipole field
@@ -564,40 +540,10 @@ SUBROUTINE computehI
      ENDDO
      TOld = TimeRamElapsed
 
-     SWMF_electric_potential:  IF (electric=='IESC') THEN
-           NameFileOut=trim(prefixOut)//trim(RamFileName('IE_SCB','in',TimeRamNow))
-           PRINT*, 'Writing to file ', NameFileOut
-           OPEN(UNITTMP_, file = NameFileOut, &
-                action = 'write', status = 'unknown')
-           ! Write header to file.  
-           WRITE(UNITTMP_, '(A, i4.4)') ' DOM   UT      Kp   F107   Ap   Rs  PHIOFS, Year ', TimeRamNow%iYear
-           WRITE(UNITTMP_, '(f5.0, 2x, f6.3, 2x, f4.2, 2x, f5.1, 2x, 2(f4.1,2x), f3.1)') &
-                REAL(TimeRamNow%iDay), REAL(TimeRamNow%iHour) + &
-                REAL(TimeRamNow%iMinute)/60.0, kp, f107, 0.0, 0.0, 0.0
-           WRITE(UNITTMP_, '(A)') 'SWMF ionospheric potential mapped along SCB lines'
-           WRITE(UNITTMP_, '(A)') 'L     PHI       Epot(kV)'
-           DO i = 0, nR
-              DO j = 1, nT
-                 WRITE(UNITTMP_, 22) radRaw(i), azimRaw(j)*2.*pi_d/24., Epot_Cart(i,j)
-              END DO
-           END DO
-           CLOSE(UNITTMP_)
-
-           ! Save traced potential to ModRamCouple::SwmfPot_II
-           IF(IsComponent) SwmfPot_II(1:nR+1,1:nT) = &
-                Epot_Cart(0:nR,  1:nT)
-     END IF SWMF_electric_potential
-
-     Weimer_electric_potential_along_SCB: IF (electric=='WESC' .or. electric=='W5SC') THEN
-           SwmfPot_II(1:nR+1,1:nT) = Epot_Cart(0:nR, 1:nT)
-           print*, 'computehI: SwmfPot_II here SwmfPot_II mm', maxval(swmfpot_II), minval(swmfpot_ii)
-     END IF Weimer_electric_potential_along_SCB
-        
 !     END IF Master_rank
 
 15   FORMAT(A, F6.1)
 21   FORMAT(F8.2, F10.1, 3X, I2, 5X, 8(3X, E12.4))
-22   FORMAT(F4.2, 2X, F8.6, 2X, E11.4)
 
   END SELECT Operational_or_research
 

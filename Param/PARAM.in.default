@@ -13,9 +13,20 @@ A description of your run can go here
 0                       iSecond
 0.0                     FracSecond
 
+! Note that the STOP funcionality has been changed. For normal runs there is no difference, but for runs with RESTART the amount of simulation time in tSimulationMax will be added on to instead of kept static.
 #STOP
 -1                      MaxIteration		! Once RAM has completed this many iterations the code will stop, -1 turns this off. (Note, because RAM time steps are variable by default the amount of time this will run is variable)
-900                     tSimulationMax		! Total amount of simulation time to run RAM for, -1 turns this off. You must have one of these set to a non-negative value.
+900                     tSimulationMax		! Total amount of simulation time to run RAM for, -1 turns this off. You must have one of these set to a non-negative value, or use the STOPTIME command
+
+#STOPTIME
+2013                    iYear                   ! Sets the year, month, day, hour, and minute for run stop
+3                       iMonth
+18                      iDay
+00                      iHour
+00                      iMinute
+0                       iSecond
+0.0                     FracSecond
+
 ***********************************************
 
 *************** TIMING BLOCK ******************
@@ -62,16 +73,22 @@ F			UseEfInd		! Whether or not to use an inductive electric field
 F			DoUseWPI		! Whether to use wave particle interactions or not (Note, wave particle interactions are not currently working)
 F			DoUseBASDiff		! Whether to use BAS diffusion coefficients for wave particle interactions
 F			doUseKpDiff		! Whether to use KP based diffusion coefficients for wave particle interactions
+***********************************************
 
+***************** RAM BLOCK *******************
 #MULTISPECIESBCS
-F			DoMultiSpeciesBcs	! Whether to use boundary flux files that are split into multiple species (H+, He, O)
-T			DoElectrons		! Whether to run electrons
+F                       DoMultiSpeciesBcs       ! Whether to use boundary flux files that are split into multiple species (H+, He, O)
+T                       DoElectrons             ! Whether to run electrons
 
 #RAMLIMITER
-1.5			LimiterBeta		! When running, RAM will limit beta to this value
+1.5                     LimiterBeta             ! When running, RAM will limit beta to this value
 
+***********************************************
+
+***************** SCB BLOCK *******************
+! The following set of parameters are all used in determining SCB's Euler Potential convergence
 #SCBSCHEME
-0.5                     decreaseConvAlphaMin	! The following set of parameters are all used in determining SCB's Euler Potential convergence
+0.5                     decreaseConvAlphaMin
 0.5                     decreaseConvAlphaMax
 0.5                     decreaseConvPsiMin
 0.5                     decreaseConvPsiMax
@@ -79,6 +96,26 @@ T			DoElectrons		! Whether to run electrons
 0.2                     blendPsiInit
 0.01                    blendMin
 0.5                     blendMax
+
+#SCBSETTINGS
+1			MinSCBIterations	! Minimum number of outer SOR Iterations performed by SCB
+2                       SCBMethod		! Which inner SCB method to use (1 = Direct Matrix Inversion, 2 = SOR Iterations, 3 = No SCB)
+1			OuterMethod		! Which outer SCB method to use (1 = Picard Iteration, 2 = Newton Method)
+1E-10                   InnerConvergenceAlpha   ! Convergence criteria for the Alpha residual
+1E-8                    InnerConvergencePsi	! Convergence Criteria for the Psi residual
+
+#SCBFLAGS
+F			Isotropic		! Whether to use isotropic pressure mappings in SCB (does not effect RAM)
+F			ReduceAnisotropy	! Whether to change the anisotropy to a marginally mirror-stable
+T			BetaExtrapolation	! Whether to extrapolate Beta Euler potential values to the outside boundary or use the previous point
+T			AzimuthalOffset		! Whether to set equidistance at most problematic time (if T) or keep it at midnight (if F)
+F			EmptyLossCone		! Whether to use a filled loss cone (if F) or a more realistic empty loss cone using M. Liemohn's 2004
+T			AdaptiveMesh		! Whether to use Mesh refinement in magnetic flux, so that one has equidistant magnetic flux surfaces
+
+#SCBDETAILS
+F			SORDetail		! Whether to compute extra Sucessive Over Relaxation information
+T			EnergyDetail		! Whether to compute DPS Dst and other energy information
+F			ForceBalanceDetail	! Whether to compute global force balance before and after SCB runs, this will cause additional output
 ***********************************************
 
 ***************** INPUT BLOCK *****************

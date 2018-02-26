@@ -11,13 +11,13 @@ module ModRamTiming
   implicit none
   save
 
-  type(TimeType) :: TimeRamNow, TimeRamStart, TimeRamStop, TimeRamRealStart
+  type(TimeType) :: TimeRamNow, TimeRamStart, TimeRamStop, TimeRamRealStart, TimeRamFinish
 
   real(kind=Real8_) :: TimeRestart    = 0.0, &
                        TimeRamElapsed = 0.0, &
                        TOld           = 0.0
 
-  integer :: TimeMax, &  ! Simulation max in seconds.
+  integer :: TimeMax = 0, &  ! Simulation max in seconds.
              MaxIter     ! Simulation max iterations
 
   !!!!! TEMPORAL GRIDS
@@ -59,9 +59,12 @@ contains
     integer :: iError
 
     character(len=*), parameter :: NameSub = NameMod // '::init_timing'
+    integer :: t1, clock_rate = 100, clock_max = 100000
     !-------------------------------------------------------------------------
     !Set system time for beginning of simulation.
-    call cpu_time(SysTimeStart)
+    !call cpu_time(SysTimeStart)
+    call system_clock(t1,clock_rate,clock_max)
+    SysTimeStart = t1/clock_rate
 
     ! Initialize efficiency file.
     write(NameFile, '(a,a,i8.8,a)') &
@@ -87,9 +90,13 @@ contains
 !    use ModRamIO,  ONLY: write_prefix
 
     real(kind=Real8_) :: CpuTimeNow
+    integer :: t1, clock_rate = 100, clock_max = 100000
     !-------------------------------------------------------------------------
     ! Update system time.
-    call cpu_time(CpuTimeNow)
+!    call cpu_time(CpuTimeNow)
+!    CpuTimeNow = omp_get_wtime()
+    call system_clock(t1,clock_rate,clock_max)
+    CpuTimeNow = t1/clock_rate
     SysTimeNow = CpuTimeNow - SysTimeStart
 
     ! Update timing metrics (only efficiency so far...)

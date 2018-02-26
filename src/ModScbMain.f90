@@ -15,8 +15,7 @@ MODULE ModScbMain
   character(len=200) :: prefixRAMOut = trim(PathRamOut) // '/'
 
 !!! Intilization
-  integer  :: method               = 2,     &
-              iCountPressureCall   = 0,     &
+  integer  :: iCountPressureCall   = 0,     &
               iElectric            = 0
               
   REAL(SP) :: rHour
@@ -31,25 +30,13 @@ MODULE ModScbMain
 
   integer  :: tsygcorrect = 0
 
-  integer  :: isotropy = 0 ! Anisotropic pressure case 
- !integer  :: isotropy = 1 ! Isotropic pressure case
-
   integer  :: iInducedE = 0 ! No calculation/writing of induced E-fields
 
   integer  :: iConvE = 1 ! No calculation/writing of convective E-fields (if zero)
 
   ! For runs with RAM pressures, only the following choices should be used
 
-  integer  :: iReduceAnisotropy = 0 ! No change in anisotropy 
- !integer  :: iReduceAnisotropy = 1 ! Change anisotropy to marginally mirror-stable
-
-  integer  :: iOuterMethod = 1 ! DO NOT CHANGE FOR RAM-SCB ! Picard iteration  ! Newton has not been benchmarked for anisotropic pressure
- !integer  :: iOuterMethod = 2 ! Newton iteration  
-
   integer  :: iInterpMethod = 1 ! DO NOT CHANGE FOR RAM-SCB ! PSPLINE interpolation
-
- !integer  :: iWantAlphaExtrapolation = 1 ! Extrapolate alpha (beta) on the first/last flux surface
-  integer  :: iWantAlphaExtrapolation = 0 ! Do not extrapolat alpha (beta) on the first/last flux surface
 
   integer  :: numit = 200 ! DO NOT CHANGE FOR RAM-SCB Max. # of iterations; the actual number is much lower (code exits on convergence) and depends on convergence speed 
 
@@ -68,7 +55,7 @@ MODULE ModScbMain
 
   real(dp) :: relax = 1.1
 
-  integer  :: nrelax = 50 ! Try to increase blending factor after nrelax iterations
+  integer  :: nrelax = 5 ! Try to increase blending factor after nrelax iterations
 
   integer  :: iSm  = 0 ! Even smoother grid respacing, for difficult equilibria
 
@@ -76,20 +63,36 @@ MODULE ModScbMain
 
   integer  :: nimax = 5001  ! DO NOT CHANGE FOR RAM-SCB ! # of inner iterations in SOR technique; usually 2000 is more than enough for SOR convergence
 
-  integer  :: iAMR = 0 ! Mesh refinement in magnetic flux, so that one has equidistant magnetic flux surfaces; improves convergence a lot
+!!! The following settings have been moved to the PARAM file
+ !integer :: method = 2
 
-  integer  :: iAzimOffset = 2 ! Equidistance sought for most problematic local time
+ !integer  :: isotropy = 0 ! Anisotropic pressure case 
+ !integer  :: isotropy = 1 ! Isotropic pressure case
+
+ !integer  :: iReduceAnisotropy = 0 ! No change in anisotropy 
+ !integer  :: iReduceAnisotropy = 1 ! Change anisotropy to marginally mirror-stable
+
+ !integer  :: iOuterMethod = 1 ! DO NOT CHANGE FOR RAM-SCB ! Picard iteration  ! Newton has not been benchmarked for anisotropic pressure
+ !integer  :: iOuterMethod = 2 ! Newton iteration  
+
+ !integer  :: iWantAlphaExtrapolation = 1 ! Extrapolate alpha (beta) on the first/last flux surface
+ !integer  :: iWantAlphaExtrapolation = 0 ! Do not extrapolat alpha (beta) on the first/last flux surface
+
+ !integer  :: iAMR = 1 ! Mesh refinement in magnetic flux, so that one has equidistant magnetic flux surfaces; improves convergence a lot
+
+ !integer  :: iAzimOffset = 2 ! Equidistance sought for most problematic local time
  !integer  :: iAzimOffset = 1 ! Equidistance maintained at midnight
 
-  integer  :: isSORDetailNeeded = 0 ! No details for the inner SOR iterations 
+ !integer  :: isSORDetailNeeded = 0 ! No details for the inner SOR iterations 
  !integer  :: isSORDetailNeeded = 1 ! Details about inner SOR iterations
 
-  integer  :: isEnergDetailNeeded = 1 ! Dst computation (DPS formula with thermal energy inside domain)
+ !integer  :: isEnergDetailNeeded = 1 ! Dst computation (DPS formula with thermal energy inside domain)
  !integer  :: isEnergDetailNeeded = 0
 
-  integer  :: isFBDetailNeeded = 0 ! Computes global force imbalance
+ !integer  :: isFBDetailNeeded = 0 ! Does not compute global force imbalance
+ !integer  :: isFBDetailNeeded = 1 ! Computes global force imbalance after SCB calculation
 
-  integer  :: iLossCone = 1 ! Filled loss cone
+ !integer  :: iLossCone = 1 ! Filled loss cone
  !integer  :: iLossCone = 2 ! More realistic, empty loss cone for RAM computations (M. Liemohn's formalism, Liemohn, 2004)
 
 END MODULE ModScbMain

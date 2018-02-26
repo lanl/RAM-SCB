@@ -8,7 +8,8 @@ SUBROUTINE metrics
   !****************************************************************************
   !!!! Module Variables
   use ModRamParams,    ONLY: boundary
-  use ModScbMain,      ONLY: iConvE, iInducedE, isotropy
+  use ModScbMain,      ONLY: iConvE, iInducedE
+  use ModScbParams,    ONLY: isotropy
   use ModScbGrids,     ONLY: nzeta, npsi, nthe, nzetap, npsim, dt, dr, dpPrime
   use ModScbVariables, ONLY: x, y, z, xx, yy, alfa, bX, bY, bZ, f, fzet, dela, &
                              jacobian, GradRhoGradZeta, GradZetaSq, EXInd, EYInd, &

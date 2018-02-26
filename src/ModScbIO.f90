@@ -6,6 +6,10 @@ MODULE ModScbIO
   save
   
   contains
+
+!=============================================================================!
+!============================= INPUT ROUTINES ================================!
+!=============================================================================!
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !  Takes magnetic boundary conditions and initial guess for X, Y, Z 
 !  from file obtained by (empirical or MHD) magnetic field model tracing
@@ -277,5 +281,463 @@ MODULE ModScbIO
   
     RETURN
   END SUBROUTINE Computational_domain
-  
+
+!=============================================================================!
+!============================= OUTPUT ROUTINES ===============================!
+!=============================================================================!
+SUBROUTINE Write_ionospheric_potential
+
+  use ModRamTiming, ONLY: TimeRamElapsed
+
+  use ModScbMain,      ONLY: prefixOut
+  use ModScbGrids,     ONLY: npsi, nzeta
+  use ModScbVariables, ONLY: x, y, z, PhiIono, dPhiIonodAlpha, dPhiIonodBeta, &
+                             alphaVal, psiVal, nThetaEquator, bnormal
+
+  USE nrtype
+  USE netcdf
+
+  IMPLICIT NONE
+
+  CHARACTER*500 :: filename
+
+  INTEGER :: alphaid, betaid, timeid, alphavarid, betavarid, &
+       xeqid, yeqid, xionoid, yionoid, phiionoid, dphiionodalphaid, &
+       dphiionodbetaid, timevarid, ncid
+
+  integer :: START(1), COUNT(1)
+  integer :: START1D(2), COUNT1D(2)
+  INTEGER :: START2D(3), COUNT2D(3) ! For 2-D arrays (+ time)
+
+  INTEGER, SAVE :: iCALLIP = 0
+
+  REAL :: time(1)
+
+  time(1) = TimeRamElapsed
+
+  START = (/iCALLIP+1/)
+  COUNT = (/1/)
+
+  START1D = (/1,iCALLIP+1/)
+  START2D = (/1,1,iCALLIP+1/)
+
+
+  fileName = TRIM(ADJUSTL(prefixOut))//'ionospheric_potential.nc'
+
+  First_time_call : IF(iCALLIP == 0) THEN
+     CALL check (nf90_create(filename, nf90_clobber, ncid))
+
+     ! Define dimensions
+     CALL check(nf90_def_dim(ncid, 'alpha', npsi, alphaid))
+     CALL check(nf90_def_dim(ncid, 'beta', nzeta, betaid))
+     CALL check(nf90_def_dim(ncid, 'time', nf90_unlimited, timeid))
+
+     ! Define variables
+     CALL check(nf90_def_var(ncid, 'alpha', nf90_float,(/alphaid,timeid/),alphavarid))
+     CALL check(nf90_put_att(ncid,alphavarid,'title','Magnetic flux-like Euler potential'))
+
+     CALL check(nf90_def_var(ncid, 'beta', nf90_float,(/betaid,timeid/),betavarid))
+     CALL check(nf90_put_att(ncid,betavarid,'title','Azimuthal angle-like Euler potential'))
+
+     CALL check(nf90_def_var(ncid, 'time', nf90_float,timeid,timevarid))
+     CALL check(nf90_put_att(ncid,timevarid,'title','Time'))
+
+     CALL check(nf90_def_var(ncid, 'xEq', nf90_float, (/alphaid,betaid,timeid/),xeqid))
+     CALL check(nf90_put_att(ncid,xeqid,'title','2D array of xEq locations '))
+
+     CALL check(nf90_def_var(ncid, 'yEq', nf90_float, (/alphaid,betaid,timeid/),yeqid))
+     CALL check(nf90_put_att(ncid,yeqid,'title','2D array of yEq locations '))
+
+     CALL check(nf90_def_var(ncid, 'xIono', nf90_float, (/alphaid,betaid,timeid/),xionoid))
+     CALL check(nf90_put_att(ncid,xionoid,'title','2D array of xIono locations '))
+
+     CALL check(nf90_def_var(ncid, 'yIono', nf90_float, (/alphaid,betaid,timeid/),yionoid))
+     CALL check(nf90_put_att(ncid,yionoid,'title','2D array of yIono locations '))
+
+     CALL check(nf90_def_var(ncid, 'PhiIono', nf90_float, (/alphaid,betaid,timeid/),phiionoid))
+     CALL check(nf90_put_att(ncid,phiionoid,'title','2D array of phiIono values'))
+
+     CALL check(nf90_def_var(ncid, 'dPhiIonodAlpha', nf90_float, (/alphaid,betaid,timeid/),dphiionodalphaid))
+     CALL check(nf90_put_att(ncid,dphiionodalphaid,'title','2D array of dPhi/dAlpha values'))
+
+     CALL check(nf90_def_var(ncid, 'dPhiIonodBeta', nf90_float, (/alphaid,betaid,timeid/),dphiionodbetaid))
+     CALL check(nf90_put_att(ncid,dphiionodbetaid,'title','2D array of dPhi/dBeta values'))
+
+    ! End define mode
+     CALL check(nf90_enddef(ncid))
+
+  ELSE ! Open existing NetCDF file
+     CALL check(nf90_open(filename, nf90_write, ncid))
+
+     CALL check( nf90_inq_dimid(ncid, 'alpha', alphaid))
+     CALL check( nf90_inq_dimid(ncid, 'beta', betaid))
+     CALL check( nf90_inq_dimid(ncid, 'time', timeid))
+
+     CALL CHECK ( NF90_INQ_VARID (NCID, 'alpha',alphavarid))
+     CALL CHECK ( NF90_INQ_VARID (NCID, 'beta', betavarid))
+     CALL CHECK ( NF90_INQ_VARID (NCID, 'time',timevarid))
+
+     CALL CHECK ( NF90_INQ_VARID (NCID, 'xEq', xeqid))
+     CALL CHECK ( NF90_INQ_VARID (NCID, 'yEq', yeqid))
+     CALL CHECK ( NF90_INQ_VARID (NCID, 'xIono', xionoid))
+     CALL CHECK ( NF90_INQ_VARID (NCID, 'yIono', yionoid))
+     CALL CHECK ( NF90_INQ_VARID (NCID, 'PhiIono', phiionoid))
+     CALL CHECK ( NF90_INQ_VARID (NCID, 'dPhiIonodAlpha', dphiionodalphaid))
+     CALL CHECK ( NF90_INQ_VARID (NCID, 'dPhiIonodBeta', dphiionodbetaid))
+
+  END IF First_time_call
+
+ ! Write mode - write at all times
+  CALL check(nf90_put_var(ncid, alphavarid, REAL(psiVal(1:npsi)*bnormal), START1D))
+  CALL check(nf90_put_var(ncid, betavarid, REAL(alphaVal(1:nzeta)), START1D))
+  CALL check(nf90_put_var(ncid, xeqid, REAL(x(nThetaEquator,1:npsi,1:nzeta)),START2D))
+  CALL check(nf90_put_var(ncid, yeqid, REAL(y(nThetaEquator,1:npsi,1:nzeta)),START2D))
+  CALL check(nf90_put_var(ncid, xionoid, REAL(x(1,1:npsi,1:nzeta)),START2D))
+  CALL check(nf90_put_var(ncid, yionoid, REAL(y(1,1:npsi,1:nzeta)),START2D))
+  CALL check(nf90_put_var(ncid, phiionoid, REAL(PhiIono(1:npsi,1:nzeta)),START2D))
+  CALL check(nf90_put_var(ncid, dphiionodalphaid, REAL(dPhiIonodAlpha(1:npsi,1:nzeta)),START2D))
+  CALL check(nf90_put_var(ncid, dphiionodbetaid, REAL(dPhiIonodBeta(1:npsi,1:nzeta)),START2D))
+
+  CALL check(nf90_put_var(ncid, timevarid, time, START, COUNT))
+
+  CALL check(nf90_close(ncid))
+
+  iCALLIP = iCALLIP+1
+
+  RETURN
+
+CONTAINS
+  SUBROUTINE check(status)
+    INTEGER, INTENT ( in) :: status
+
+    IF(status /= nf90_noerr) THEN
+       PRINT*, 'STATUS = ', status
+       PRINT *, TRIM(nf90_strerror(status))
+       STOP 2
+    END IF
+  END SUBROUTINE check
+
+END SUBROUTINE Write_ionospheric_potential
+
+!==============================================================================
+  ! Previously test_Convergence_anisotropic
+  SUBROUTINE Write_convergence_anisotropic
+  !!!! Module Variables
+  use ModRamTiming,    ONLY: TimeRamNow
+  use ModScbMain,      ONLY: prefixOut
+  use ModScbParams,    ONLY: isotropy
+  USE ModScbGrids,     ONLY: nthe, npsi, nzeta, dt, dr, dpPrime
+  USE ModScbVariables, ONLY: thetaVal, rhoVal, zetaVal, x, y, z, &
+                             jacobian, normDiff, normGradP, GradZetaSq, &
+                             GradThetaGradZeta, GradRhoGradTheta, GradRhoSq, &
+                             GradRhoGradZeta, ppar, pper, nThetaEquator, &
+                             normJxB, f, fzet, nZetaMidnight, pnormal, &
+                             dPPerdRho, dPPerdZeta, dPPerdTheta, bnormal, &
+                             pjconst, dPdAlpha, dPdPsi, vecd, vec1, vec2, &
+                             vec3, vec4, vec6, vec7, vec8, vec9, vecr, vecx, &
+                             alfa, psi, fp, alphaVal, psiVal
+  !!!! Module Subroutine/Function
+  use ModRamFunctions, ONLY: RamFileName
+  use ModScbEquation,  ONLY: metric, metrica, newk, newj
+  use ModScbSpline,    ONLY: Spline_coord_derivs
+  !!!! Share Modules
+  USE ModIoUnit, ONLY: UNITTMP_
+  !!!! NR Modules
+  use nrtype,    ONLY: DP
+
+  IMPLICIT NONE
+
+  INTEGER :: i, j, k, id, ierr, idealerr
+  CHARACTER(len=200) :: FileName
+
+  REAL(DP) :: normDiffRel, volume, bf(nthe,npsi,nzeta+1), bsq(nthe,npsi,nzeta+1), &
+              distance(nthe,npsi,nzeta+1)
+  REAL(DP), DIMENSION(nthe,npsi,nzeta) :: derivXTheta, derivXRho, derivXZeta, &
+       derivYTheta, derivYRho, derivYZeta, derivZTheta, derivZRho, derivZZeta, &
+       gradRhoX, gradRhoY, gradRhoZ, gradZetaX, gradZetaY, gradZetaZ, gradThetaX, &
+       gradThetaY, gradThetaZ, gradThetaSq, derivBsqTheta, derivBsqRho, derivBsqZeta, &
+       derivNU1, derivNU2
+  ! gradRhoSq, gradRhoGradZeta are global
+
+  REAL(DP), DIMENSION(nthe,npsi,nzeta) :: jGradRhoPartialTheta, derivjGradRhoPartialTheta, &
+       jGradRhoPartialZeta, derivjGradRhoPartialZeta, jGradRho, jGradRhoFactor, jGradZetaPartialRho, &
+       derivjGradZetaPartialRho, jGradZetaPartialTheta, derivjGradZetaPartialTheta, jGradZeta, &
+       jGradZetaFactor, jGradThetaPartialRho, derivjGradThetaPartialRho, jGradThetaPartialZeta, &
+       derivjGradThetaPartialZeta, jGradTheta, jGradThetaFactor, phiToroid, derivPhiRho, derivPhiZeta, &
+       derivPhiTheta, derivDiffPTheta
+
+  REAL(DP), DIMENSION(nthe,npsi,nzeta) :: jCrossBUpRho, jCrossBUpZeta, jCrossBUpTheta, &
+       derivjCrossBUpRho, derivjCrossBUpZeta, derivjCrossBUpTheta, jCrossBMinusGradPSq, &
+       jCrossBMinusGradPMod, jCrossBSq, jCrossB, gradPSq, gradP
+
+  REAL(DP), DIMENSION(nthe,npsi,nzeta) :: jrrInt, jrr, jzzInt, jzz, jrtInt, jrt, jztInt, jzt, &
+       rhoCompSq, zetaCompSq, thetaCompSq, curlJCrossBSq, curlJCrossB
+
+  REAL(DP), DIMENSION(npsi) :: rtemp, xtemp
+!  LOGICAL, EXTERNAL :: isnand ! Intrinsic for Portland Group Fortran
+
+  !**********************************************************************************************************!
+
+  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, x(1:nthe, 1:npsi, 1:nzeta), &
+                           derivXTheta, derivXRho, derivXZeta)
+  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, y(1:nthe, 1:npsi, 1:nzeta), &
+                           derivYTheta, derivYRho, derivYZeta)
+  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, z(1:nthe, 1:npsi, 1:nzeta), &
+                           derivZTheta, derivZRho, derivZZeta)
+  ! Now I have all the point derivatives
+
+  ! Time to build the Jacobian
+  jacobian = derivXRho * (derivYZeta * derivZTheta - derivYTheta * derivZZeta) &
+           + derivXZeta * (derivYTheta * derivZRho - derivYRho * derivZTheta) &
+           + derivXTheta * (derivYRho * derivZZeta - derivYZeta * derivZRho)
+
+  gradRhoX = (derivYZeta * derivZTheta - derivYTheta * derivZZeta) / jacobian
+  gradRhoY = (derivZZeta * derivXTheta - derivZTheta * derivXZeta) / jacobian
+  gradRhoZ = (derivXZeta * derivYTheta - derivXTheta * derivYZeta) / jacobian
+
+  gradZetaX = (derivYTheta * derivZRho - derivYRho * derivZTheta) / jacobian
+  gradZetaY = (derivZTheta * derivXRho - derivZRho * derivXTheta) / jacobian
+  gradZetaZ = (derivXTheta * derivYRho - derivXRho * derivYTheta) / jacobian
+
+  gradThetaX = (derivYRho * derivZZeta - derivYZeta * derivZRho) / jacobian
+  gradThetaY = (derivZRho * derivXZeta - derivZZeta * derivXRho) / jacobian
+  gradThetaZ = (derivXRho * derivYZeta - derivXZeta * derivYRho) / jacobian
+
+  gradRhoSq = gradRhoX**2 + gradRhoY**2 + gradRhoZ**2
+  gradRhoGradZeta = gradRhoX * gradZetaX + gradRhoY * gradZetaY + gradRhoZ * gradZetaZ
+  gradRhoGradTheta = gradRhoX * gradThetaX + gradRhoY * gradThetaY + gradRhoZ * gradThetaZ
+
+  gradThetaSq = gradThetaX**2 + gradThetaY**2 + gradThetaZ**2
+  gradThetaGradZeta = gradThetaX * gradZetaX + gradThetaY * gradZetaY + gradThetaZ * gradZetaZ
+
+  gradZetaSq = gradZetaX**2 + gradZetaY**2 + gradZetaZ**2
+
+  ! B field squared is obtained now, then the B field bf; in the following, i, j, k can be 
+  ! taken over the full domain because we have all the required quantities everywhere;
+  ! thus, extrapolation for Bfield is not necessary anymore
+
+  DO  k = 1,nzeta
+     DO  j = 1,npsi
+        DO  i = 1,nthe
+           bsq(i,j,k) = (gradRhoSq(i,j,k) * gradZetaSq(i,j,k) - gradRhoGradZeta(i,j,k) **2) &
+                      * (f(j) * fzet(k)) **2
+           bf(i,j,k) = SQRT(bsq(i,j,k))
+        END DO
+     END DO
+  END DO
+
+  ! j dot gradRho
+  DO j = 1, npsi
+     DO k = 1, nzeta
+        jGradRhoPartialTheta(:,j,k) = jacobian(:,j,k) * f(j) * fzet(k) * &
+             (gradRhoSq(:,j,k) * gradThetaGradZeta(:,j,k) - gradRhoGradTheta(:,j,k) * &
+             gradRhoGradZeta(:,j,k))
+        jGradRhoPartialZeta(:,j,k) = jacobian(:,j,k) * f(j) * fzet(k) * &
+             (gradRhoSq(:,j,k) * gradZetaSq(:,j,k) - gradRhoGradZeta(:,j,k) **2)
+     END DO
+  END DO
+
+  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, jGradRhoPartialTheta, &
+       & derivjGradRhoPartialTheta, derivNU1, derivNU2)
+  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, jGradRhoPartialZeta, &
+       & derivNU1, derivNU2, derivjGradRhoPartialZeta)
+
+  jGradRho = (derivjGradRhoPartialTheta + derivjGradRhoPartialZeta)/jacobian
+
+  ! j dot gradZeta
+  DO j = 1, npsi
+     DO k = 1, nzeta
+        jGradZetaPartialRho(:,j,k) = jacobian(:,j,k) * f(j) * fzet(k) * &
+             (gradRhoGradZeta(:,j,k) **2 - gradRhoSq(:,j,k) * &
+             gradZetaSq(:,j,k))
+        jGradZetaPartialTheta(:,j,k) = jacobian(:,j,k) * f(j) * fzet(k) * &
+             (gradRhoGradZeta(:,j,k) * gradThetaGradZeta(:,j,k) - gradRhoGradTheta(:,j,k) * &
+             & gradZetaSq(:,j,k))
+     END DO
+  END DO
+
+  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, jGradZetaPartialRho, &
+       & derivNU1, derivjGradZetaPartialRho, derivNU2)
+  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, jGradZetaPartialTheta, &
+       & derivjGradZetaPartialTheta, derivNU1, derivNU2)
+
+  jGradZeta = (derivjGradZetaPartialRho + derivjGradZetaPartialTheta)/jacobian
+
+  ! j dot gradTheta
+  DO j = 1,npsi
+     DO k = 1,nzeta
+        jGradThetaPartialRho(:,j,k) = jacobian(:,j,k) * f(j) * fzet(k) * &
+             (gradRhogradTheta(:,j,k) * gradRhogradZeta(:,j,k) - gradThetagradZeta(:,j,k) * gradRhoSq(:,j,k))
+        jGradThetaPartialZeta(:,j,k) = jacobian(:,j,k) * f(j) * fzet(k) * &
+             (gradRhogradTheta(:,j,k) * gradZetaSq(:,j,k) - gradRhogradZeta(:,j,k) * gradThetagradZeta(:,j,k))
+     ENDDO
+  ENDDO
+
+  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, jGradThetaPartialRho, &
+       & derivNU1, derivjGradThetaPartialRho, derivNU2)
+  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, jGradThetaPartialZeta, &
+       & derivNU1, derivNU2, derivjGradThetaPartialZeta)
+
+  jGradTheta = (derivjGradThetaPartialRho + derivjGradThetaPartialZeta)/jacobian
+
+  ! The one below is for calculating \partial Pper/\partial \theta and
+  ! \partial(J(Pper-Ppar))/\partial \theta for the anisotropic case  
+  CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, jacobian(1:nthe,1:npsi,1:nzeta) * &
+       (pper(1:nthe,1:npsi,1:nzeta)-ppar(1:nthe,1:npsi,1:nzeta)), derivDiffPTheta, derivNU1, derivNU2)
+
+
+  !***************************************************************************************************
+  ! Now we have jGradRho, jGradZeta
+  ! Time to compute |j x B - div dot P|
+  DO k = 1, nzeta
+     DO j = 1, npsi
+        jCrossBSq(:,j,k) = f(j)**2 * fzet(k)**2 &
+                         * (gradRhoSq(:,j,k) * jGradZeta(:,j,k)**2 &
+                         + gradZetaSq(:,j,k) * jGradRho(:,j,k)**2 &
+                         - 2._dp * jGradZeta(:,j,k) * jGradRho(:,j,k) * gradRhoGradZeta(:,j,k))
+
+        if (isotropy.eq.0) then
+           gradPSq(:,j,k) = gradRhoSq(:,j,k)*dPperdRho(:,j,k)**2 &
+                          + gradZetaSq(:,j,k)*dPperdZeta(:,j,k)**2 &
+                          + gradThetaSq(:,j,k)*dPperdTheta(:,j,k)**2 &
+                          + 2.*dPperdRho(:,j,k)*dPperdZeta(:,j,k)*gradRhoGradZeta(:,j,k) &
+                          + 2.*dPperdRho(:,j,k)*dPperdTheta(:,j,k)*gradRhoGradTheta(:,j,k) &
+                          + 2.*dPperdZeta(:,j,k)*dPperdTheta(:,j,k)*gradThetaGradzeta(:,j,k) &
+                          + (derivDiffPTheta(:,j,k)/jacobian(:,j,k))**2 &
+                          - 2.*dPperdTheta(:,j,k) * derivDiffPTheta(:,j,k)/jacobian(:,j,k)
+
+           jCrossBMinusGradPSq(:,j,k) = gradRhoSq(:,j,k)*(f(j)*fzet(k)*jGradZeta(:,j,k)-dPperdRho(:,j,k))**2 + &
+                gradZetaSq(:,j,k)*(f(j)*fzet(k)*jGradRho(:,j,k)+dPperdZeta(:,j,k))**2 + gradThetaSq(:,j,k)*dPperdTheta(:,j,k)**2 + &
+                (derivDiffPTheta(:,j,k)/jacobian(:,j,k))**2 - &
+                2.*gradRhoGradZeta(:,j,k)*(f(j)*fzet(k)*jGradZeta(:,j,k)-dPperdRho(:,j,k)) * &
+                (f(j)*fzet(k)*jGradRho(:,j,k)+dPperdZeta(:,j,k)) - &
+                2.*gradRhoGradTheta(:,j,k)*(f(j)*fzet(k)*jGradZeta(:,j,k)-dPperdRho(:,j,k))*dPperdTheta(:,j,k) + &
+                2.*gradThetaGradzeta(:,j,k)*(f(j)*fzet(k)*jGradRho(:,j,k)+dPperdZeta(:,j,k))*dPperdTheta(:,j,k) - &
+                2.*dPperdTheta(:,j,k)*derivDiffPTheta(:,j,k)/jacobian(:,j,k)
+        else
+           gradPSq(:,j,k) = (fzet(k)**2 * dpdAlpha(1:nthe,j,k)**2 * gradZetaSq(:,j,k) + f(j)**2 * &
+                dpdPsi(1:nthe,j,k)**2 * gradRhoSq(:,j,k) + 2._dp*dpdAlpha(1:nthe,j,k)*dpdPsi(1:nthe,j,k) * &
+                f(j) * fzet(k) * gradRhoGradZeta(:,j,k))
+
+           jCrossBMinusGradPSq(:,j,k) = f(j)**2 * fzet(k)**2 * (gradRhoSq(:,j,k) * (jGradZeta(:,j,k) - &
+                1. / fzet(k) * dpdPsi(1:nthe,j,k))**2 + &
+                gradZetaSq(:,j,k) * (jGradRho(:,j,k) + 1./f(j) * dpdAlpha(1:nthe,j,k))**2 - 2._dp * &
+                (jGradZeta(:,j,k) - 1./fzet(k) * dpdPsi(1:nthe,j,k)) * (jGradRho(:,j,k) + 1./f(j)* &
+                dpdAlpha(1:nthe,j,k)) * gradRhoGradZeta(:,j,k))
+        endif
+
+     END DO
+  END DO
+
+  distance = sqrt(x**2+y**2+z**2)
+  jCrossB = SQRT(jCrossBSq)*(bnormal*pjconst/6.4)*distance(:,:,1:nzeta)
+  gradP = SQRT(ABS(gradPSq))*(pnormal*2.0)/distance(:,:,1:nzeta)
+  jCrossBMinusGradPMod = SQRT(ABS(jCrossBMinusGradPSq))
+
+  ! Force balance quantities
+  FileName = trim(prefixOut)//'Force_balance_equatorial'
+  OPEN(UNITTMP_, file = RamFileName(FileName,'dat',TimeRamNow), status='replace')
+  WRITE(UNITTMP_, *) npsi, nzeta
+  DO j = 1, npsi
+     DO k = 1, nzeta
+        WRITE(UNITTMP_, *) x(nThetaEquator, j, k), y(nThetaEquator, j, k), bf(nThetaEquator, j, k)*bnormal, &
+             jCrossB(nThetaEquator,j,k), jCrossBMinusGradPMod(nThetaEquator,j,k), &
+             gradP(nThetaEquator,j,k), jCrossB(nThetaEquator,j,k)/gradP(nThetaEquator,j,k)
+     END DO
+  END DO
+  CLOSE(UNITTMP_)
+
+  FileName = trim(prefixOut)//'Force_balance_midnight'
+  OPEN(UNITTMP_, file = RamFileName(FileName,'dat',TimeRamNow), status='replace')
+  WRITE(UNITTMP_, *) npsi, nthe
+  DO j = 1, npsi
+     DO i = 1, nthe
+        WRITE(UNITTMP_, *) x(i,j,nZetaMidnight), z(i,j,nZetaMidnight), &
+             bf(i,j,nZetaMidnight)*bnormal, jCrossB(i,j,nZetaMidnight), &
+             jCrossBMinusGradPMod(i,j,nZetaMidnight), gradP(i,j,nZetaMidnight), &
+             jCrossBMinusGradPMod(i,j,nZetaMidnight)/jCrossB(i,j,nZetaMidnight)
+     END DO
+  END DO
+  CLOSE(UNITTMP_)
+
+  call metric
+  call newj
+  DO j = 2, npsi-1
+     i = nThetaEquator
+     k = nZetaMidnight
+     rtemp(j) = - vecd(i,j,k)*psi(i,j,k) &
+                + vec1(i,j,k)*psi(i-1,j-1,k) &
+                + vec2(i,j,k)*psi(i,j-1,k) &
+                + vec3(i,j,k)*psi(i+1,j-1,k) &
+                + vec4(i,j,k)*psi(i-1,j,k) &
+                + vec6(i,j,k)*psi(i+1,j,k) &
+                + vec7(i,j,k)*psi(i-1,j+1,k) &
+                + vec8(i,j,k)*psi(i,j+1,k) &
+                + vec9(i,j,k)*psi(i+1,j+1,k) &
+                - vecr(i,j,k)
+  ENDDO
+  rtemp(1) = 0.
+  rtemp(npsi) = 0.
+
+  call metrica
+  call newk
+  DO j = 1, npsi
+     i = nThetaEquator
+     k = nZetaMidnight
+     xtemp(j) = - vecd(i,j,k)*alfa(i,j,k)  &
+                + vec1(i,j,k)*alfa(i-1,j,k-1) &
+                + vec2(i,j,k)*alfa(i,j,k-1) &
+                + vec3(i,j,k)*alfa(i+1,j,k-1) &
+                + vec4(i,j,k)*alfa(i-1,j,k)  &
+                + vec6(i,j,k)*alfa(i+1,j,k)  &
+                + vec7(i,j,k)*alfa(i-1,j,k+1) &
+                + vec8(i,j,k)*alfa(i,j,k+1) &
+                + vec9(i,j,k)*alfa(i+1,j,k+1) &
+               - vecx(i,j,k)
+  ENDDO
+
+  FileName = trim(prefixOut)//'Force_balance_line'
+  OPEN(UNITTMP_, file = RamFileName(FileName,'dat',TimeRamNow), status='replace') 
+  WRITE(UNITTMP_, *) npsi
+  DO j = 1, npsi
+     WRITE(UNITTMP_, *) x(nThetaEquator,j,nZetaMidnight), y(nThetaEquator,j,nZetaMidnight), &
+          jCrossB(nThetaEquator,j,nZetaMidnight), gradP(nThetaEquator,j,nZetaMidnight), &
+          jCrossBMinusGradPMod(nThetaEquator,j,nZetaMidnight), rtemp(j), xtemp(j), &
+          jacobian(nThetaEquator,j,nZetaMidnight), f(j), fzet(nZetaMidnight)
+  END DO
+  CLOSE(UNITTMP_)
+
+  normDiff = 0.0_dp
+  normDiffRel = 0.0_dp
+  normJxB  = 0.0_dp
+  normGradP = 0.0_dp
+  volume   = 0.0_dp
+  DO i = 2, nthe-1
+     DO j = 2, npsi-1
+        DO k = 2, nzeta
+           !IF (2.*pper(i,j,k) > 1.E-1_dp*bsq(i,j,k)) THEN
+              ! Only in regions with beta > 1E-2 
+              ! (in regions of low plasma beta, the pressure does not change the magnetic field)
+              normDiff = normDiff + jacobian(i,j,k) * dr * dpPrime * dt * jCrossBMinusGradPMod(i,j,k)
+              normDiffRel = normDiffRel + jacobian(i,j,k) * dr * dpPrime * dt * jCrossBMinusGradPMod(i,j,k) / jCrossB(i,j,k)
+              normJxB = normJxB + jacobian(i,j,k) * dr * dpPrime * dt * jCrossB(i,j,k)
+              normGradP = normGradP + jacobian(i,j,k) * dr * dpPrime * dt * gradP(i,j,k)
+              volume = volume + jacobian(i,j,k) * dr * dpPrime * dt
+           !END IF
+        END DO
+     END DO
+  END DO
+
+  ! Normalize to total computational volume
+  normDiff = normDiff/volume
+  normJxB = normJxB/volume
+  normGradP = normGradP/volume
+
+  !  Norms of |jxB-grad P|,      |jxB|,      |gradP| 
+  WRITE(*, *) normDiff, normJxB, normGradP
+
+  RETURN
+
+  END SUBROUTINE Write_convergence_anisotropic
+
 END MODULE ModScbIO
