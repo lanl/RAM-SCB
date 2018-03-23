@@ -23,7 +23,7 @@ contains
     
     DEALLOCATE(VR, P1, P2, EDOT, MUDOT, CDriftR, CDriftP, CDriftE, CDriftMu)
 
-  ENDSUBROUTINE DRIFTEND
+  END SUBROUTINE DRIFTEND
 
 !**************************************************************************
 !                               OTHERPARA
@@ -176,7 +176,7 @@ contains
     END DO
 
     RETURN
-  END
+  END SUBROUTINE
 
 !************************************************************************
 !                            DRIFTP
@@ -250,7 +250,7 @@ contains
     END DO
 
     RETURN
-  END
+  END SUBROUTINE DriftP
 
 !**************************************************************************
 !                       DRIFTE
@@ -345,7 +345,7 @@ contains
     END DO
 
     RETURN
-  END
+  END SUBROUTINE DriftE
 
 !**************************************************************************
 !                       DRIFTMU
@@ -442,7 +442,7 @@ contains
     END DO
 
     RETURN
-  END
+  END SUBROUTINE DriftMu
 
 !==============================================================================
 END MODULE ModRamDrift

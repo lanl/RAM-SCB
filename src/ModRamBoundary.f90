@@ -29,7 +29,7 @@ subroutine get_boundary_flux
      CALL GEOSB
   end do
 
-end subroutine
+end subroutine get_boundary_flux
 
 !==============================================================================
 subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
@@ -353,6 +353,6 @@ end subroutine get_geomlt_flux
     call write_dsbnd
 
     RETURN
-  END
+  END SUBROUTINE GEOSB
 
 END MODULE ModRamBoundary

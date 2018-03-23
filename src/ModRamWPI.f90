@@ -121,7 +121,7 @@ MODULE ModRamWPI
     ENDDO
 
     RETURN
-  END
+  END SUBROUTINE WAVEPARA1
 
 !**************************************************************************
 !                              WAVEPARA2
@@ -171,7 +171,7 @@ MODULE ModRamWPI
     ENDDO
 
     RETURN
-  END
+  END SUBROUTINE WAVEPARA2
 
 !*************************************************************************
 !                              WAPARA_HISS
@@ -220,7 +220,7 @@ MODULE ModRamWPI
 27  FORMAT(80(1PE12.3))
 
     RETURN
-  END
+  END SUBROUTINE WAPARA_HISS
 
 !*************************************************************************
 !                              WAPARA_CHORUS
@@ -291,7 +291,7 @@ MODULE ModRamWPI
 27  FORMAT(80(1PE12.3))
 
     RETURN
-  END
+  END SUBROUTINE WAPARA_CHORUS
 
 ! *************************************************************************
 !                              WAPARA_Kp
@@ -400,7 +400,7 @@ MODULE ModRamWPI
     write(*,*) "Finished WAPARA_BAS"
 
     RETURN
-  END
+  END SUBROUTINE WAPARA_BAS
 
 !************************************************************************
 !                       WAVELO
@@ -457,7 +457,7 @@ MODULE ModRamWPI
     ENDDO
 
     RETURN
-  END
+  END SUBROUTINE WAVELO
 
 !*************************************************************************
 !                               WPADIF
@@ -521,6 +521,6 @@ MODULE ModRamWPI
     ENDDO
 
     RETURN
-  END
+  END SUBROUTINE WPADIF
 
 END MODULE ModRamWPI
