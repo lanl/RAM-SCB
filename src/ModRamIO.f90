@@ -820,7 +820,7 @@ end subroutine read_geomlt_file
 96  FORMAT(2HT=,F6.2,4H Kp=,F5.2,4H AP=,F7.2,4H Rs=,F7.2,7H Date= ,A23,'Plasmasphere e- density [cm-3]')
 
     RETURN
-  END
+  END SUBROUTINE ram_hour_write
 
 
 !===========================================================================
