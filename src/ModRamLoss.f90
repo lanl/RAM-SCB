@@ -98,7 +98,7 @@ MODULE ModRamLoss
     ENDDO
 
     RETURN
-  END
+  END SUBROUTINE CEPARA
 
 !************************************************************************
 !                       CHAREXCHANGE 
@@ -125,7 +125,7 @@ MODULE ModRamLoss
     ENDDO
 
     RETURN
-  END
+  END SUBROUTINE CHAREXCHANGE
 
 
 !************************************************************************
@@ -153,7 +153,7 @@ MODULE ModRamLoss
     ENDDO
 
     RETURN
-  END
+  END SUBROUTINE ATMOL
 
 !==============================================================================
 END MODULE ModRamLoss

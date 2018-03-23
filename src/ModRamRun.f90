@@ -147,7 +147,7 @@ MODULE ModRamRun
     PPerH  = PPerT(2,:,:); PParH  = PParT(2,:,:)
 
     RETURN
-  END
+  END SUBROUTINE ram_run
 
 !************************************************************************
 !                       SUMRC     
@@ -184,7 +184,7 @@ MODULE ModRamRun
     ELORC(S)=ENOLD-SETRC(S)
 
     RETURN
-  END
+  END SUBROUTINE SUMRC
 
 !*************************************************************************
 !                               ANISCH
