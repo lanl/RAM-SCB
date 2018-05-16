@@ -34,7 +34,7 @@ subroutine get_boundary_flux
      CALL GEOSB
   end do
 
-end subroutine
+end subroutine get_boundary_flux
 
 !==============================================================================
 subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)

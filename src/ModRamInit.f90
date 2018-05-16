@@ -102,7 +102,7 @@ subroutine ram_deallocate
 end subroutine ram_deallocate
 
 !==============================================================================
-subroutine ram_init
+SUBROUTINE ram_init
   !!!! Module Variables
   use ModRamParams,    ONLY: DoUseWPI, DoUseBASDiff
   use ModRamMain,      ONLY: Real8_, S
@@ -424,7 +424,7 @@ END SUBROUTINE ram_init
   END SUBROUTINE ARRAYS
 
 !==============================================================================
-subroutine init_input
+SUBROUTINE init_input
   !!!! Module Variables
   use ModRamMain,      ONLY: Real8_, S, PathRamIn
   use ModRamParams,    ONLY: IsRestart, IsStarttimeSet, electric, IsComponent, &
@@ -555,6 +555,10 @@ subroutine init_input
 
  return
 
+<<<<<<< HEAD
 end subroutine init_input
+=======
+END SUBROUTINE init_input
+>>>>>>> 4be5585bdc3f493106a927ed4376d86f04126511
 
 END MODULE ModRamInit
