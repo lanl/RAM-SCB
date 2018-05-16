@@ -165,7 +165,7 @@ C
       COMMON /TAIL/ DXSHIFT1,DXSHIFT2,D,DELTADY  ! THE COMMON BLOCKS FORWARD NONLINEAR PARAMETERS
       COMMON /BIRKPAR/ XKAPPA1,XKAPPA2
       COMMON /RCPAR/ SC_SY,SC_AS,PHI
-      COMMON /G/ G
+      COMMON /G_04/ G
       COMMON /RH0_tsyg04/ RH0
 C
 C
@@ -806,7 +806,7 @@ C                                  IOPT=2 - MODE 2 ONLY
 C
       IMPLICIT REAL*8 (A-H,O-Z)
 C
-      COMMON /G/ G
+      COMMON /G_04/ G
       DGDX=0.D0
       XL=20.D0
       DXLDX=0.D0
@@ -1909,6 +1909,9 @@ C
            FSX=0.D0
            FSY=0.D0
            FSZ=0.D0
+           HXSRC=0.D0
+           HYSRC=0.D0
+           HZSRC=0.D0
         ENDIF
 
         X_SC=SC_PR-1.D0
@@ -1918,6 +1921,9 @@ C
            FPX=0.D0
            FPY=0.D0
            FPZ=0.D0
+           HXPRC=0.D0
+           HYPRC=0.D0
+           HZPRC=0.D0
         ENDIF
 
         BXSRC=HXSRC+FSX

@@ -1,3 +1,8 @@
+!============================================================================
+!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    All rights reserved.
+!============================================================================
+
 MODULE ModRamLoss
 ! Contains subroutines for calculating particle loss and loss rates
 ! currently contains charge exchange and atmospheric loss
@@ -98,7 +103,7 @@ MODULE ModRamLoss
     ENDDO
 
     RETURN
-  END
+  END SUBROUTINE CEPARA
 
 !************************************************************************
 !                       CHAREXCHANGE 
@@ -125,7 +130,7 @@ MODULE ModRamLoss
     ENDDO
 
     RETURN
-  END
+  END SUBROUTINE CHAREXCHANGE
 
 
 !************************************************************************
@@ -153,7 +158,7 @@ MODULE ModRamLoss
     ENDDO
 
     RETURN
-  END
+  END SUBROUTINE ATMOL
 
 !==============================================================================
 END MODULE ModRamLoss

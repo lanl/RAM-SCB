@@ -1,10 +1,9 @@
-!==============================================================================
-module ModRamParams
-!    This module replaces the common blocks in RAM.
-!    DTW, EDIT: 2009-04-21: updated for latest version of RAM.
+!============================================================================
 !    Copyright (c) 2016, Los Alamos National Security, LLC
 !    All rights reserved.
-!==============================================================================
+!============================================================================
+
+module ModRamParams
 
   use ModRamMain, ONLY: Real8_
   implicit none
@@ -12,6 +11,8 @@ module ModRamParams
 
 !!!! PARAM Variables
  logical :: Optim = .false.
+ logical :: verbose = .false.
+ logical :: Reset = .true.
 
  ! Standalone or Component (default = standalone)  logical :: IsComponent = .false.
  logical :: IsComponent = .false.
@@ -22,6 +23,7 @@ module ModRamParams
  ! RESTART variables.
  ! Is this run a restart of a previous simulation?
  logical :: IsRestart = .false., DoSaveFinalRestart=.true.
+ logical :: HardRestart = .false. ! Whether to recompute SCB outer boundary
 
  ! Use plasmasphere density from Rasmussen model, coupled to MSIS and IRI
  ! For plane_scb options, see ModRamPl_Ne.f90
@@ -79,6 +81,7 @@ module ModRamParams
  logical :: IsStarttimeSet=.false.  ! True if #STARTTIME used in standalone.
 
  character(len=4) :: NameBoundMag
+ character(len=6) :: InnerMag, OuterMag
 
  character(len=6) :: event = 'de_flt'
  character(len=4) :: boundary, electric, NameDistrib

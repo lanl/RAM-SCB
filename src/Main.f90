@@ -11,15 +11,18 @@ program ram_scb
 !============================================================================
 !!!! Module Variables
 use ModRamMain,      ONLY: Real8_, S, iCal, nIter
-use ModRamParams,    ONLY: DoSaveFinalRestart, DoVarDt, IsComponent
+use ModRamParams,    ONLY: DoSaveFinalRestart, DoVarDt, IsComponent, NameBoundMag, &
+                           verbose, reset
 use ModRamTiming,    ONLY: DtsFramework, DtsMax, DtsMin, DtsNext, Dts, Dt_hI, &
                            TimeRamStart, TimeRamNow, TimeMax, TimeRamElapsed, &
                            TimeRamStop, T, UTs, Dt_bc, DtEfi
 use ModRamVariables, ONLY: Kp, F107, DTDriftR, DTDriftP, DTDriftE, DTDriftMu, &
                            PParT, PPerT, FGEOS
 use ModScbGrids,     ONLY: npsi, nzeta, nthe
-use ModScbVariables, ONLY: alfa, psi, x, y, z
+use ModScbVariables, ONLY: alfa, psi, x, y, z, hICalc, SORFail
+
 !!!! Module Subroutines and Functions
+use ModRamGSL,       ONLY: GSL_Initialize
 use ModRamInjection, ONLY: injection
 use ModRamCouple,    ONLY: RAMCouple_Allocate, RAMCouple_Deallocate
 use ModRamFunctions, ONLY: ram_sum_pressure, RamFileName
@@ -33,7 +36,9 @@ use ModRamBoundary,  ONLY: get_boundary_flux
 use ModRamEField,    ONLY: get_electric_field
 use ModScbInit,      ONLY: scb_allocate, scb_init, scb_deallocate
 use ModScbRun,       ONLY: scb_run
+use ModScbIO,        ONLY: computational_domain
 use ModRamScb,       ONLY: ramscb_allocate, computehI, ramscb_deallocate
+
 !!!! External Modules (share/Library/src)
 use ModReadParam
 use CON_planet,      ONLY: set_planet_defaults
@@ -41,6 +46,7 @@ use CON_axes,        ONLY: init_axes, test_axes
 use ModPlanetConst,  ONLY: init_planet_const
 use ModTimeConvert,  ONLY: time_real_to_int
 use ModIOUnit,       ONLY: UNITTMP_
+
 !!!! MPI Modules
 use ModMpi
 use ModRamMpi
@@ -50,7 +56,6 @@ implicit none
 integer :: i,j,k
 character(len=200) :: FileName
 real(kind=Real8_) :: DtOutputMax, DtEndMax, DtTemp
-real(kind=Real8_), DIMENSION(4,20,25) :: ParTemp, PerTemp
 !----------------------------------------------------------------------------
 ! Ensure code is set to StandAlone mode.
 IsComponent = .false.
@@ -79,6 +84,7 @@ call ramscb_allocate
 ! Initialize RAM_SCB
 call ram_init
 call scb_init
+call GSL_Initialize
 
 ! Initialize planet and axes if in stand-alone mode.
 ! In component mode, the framework takes care of this.
@@ -109,7 +115,7 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
          DtEndMax   = (TimeMax-TimeRamElapsed)/2.0
          DtOutputMax = max_output_timestep(TimeRamElapsed)
          DTs = min(DTsNext,DTsmax,DtOutputMax,DtEndMax,DTsFramework)
-!         if (Kp.gt.6.0 .AND. DTs.gt.5.0) DTs = 5.0
+         if (Kp.gt.6.0 .AND. DTs.gt.5.0) DTs = 5.0
       else if(mod(UTs, Dt_hI) .eq. 0) then
          DTs = 5.0
          if(Kp .ge. 5.0) DTs = min(DTsMin,DTs)
@@ -120,33 +126,6 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
 
 !!!!!!!!!! UPDATES AS NEEDED
       call get_indices(TimeRamNow%Time, Kp, f107)
-
-      ! Call SCB if Dt_hI has passed
-      if (((mod(TimeRamElapsed, Dt_hI).eq.0).or.(Dt_hI.eq.1))) then
-         call write_prefix
-         write(*,*) 'Running SCB model to update B-field...'
-
-         call ram_sum_pressure
-         call scb_run
-
-         FileName = RamFileName('MAGxyz2','dat',TimeRamNow)
-         open(UNITTMP_, File=FileName)
-         write(UNITTMP_,*) nthe, npsi, nzeta
-         do i=1,nthe
-            do j=1,npsi
-               do k=1,nzeta
-                  write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
-               enddo
-            enddo
-         enddo
-         Close(UNITTMP_)
-
-         ! Couple SCB -> RAM
-         call computehI
-
-         call write_prefix
-         write(*,*) 'Finished 3D Equilibrium code.'
-      end if
 
       ! Update Boundary Flux if Dt_bc has passed
       if (mod(TimeRamElapsed, Dt_bc).eq.0) then
@@ -165,6 +144,7 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
       write(*,*) 'Calling ram_run for UTs, DTs,Kp = ', UTs, Dts, Kp
       ! Call RAM for each species.
       call ram_run
+      FLUSH(6)
 
       ! Increment and update time
       TimeRamElapsed = TimeRamElapsed + 2.0 * DTs
@@ -172,11 +152,53 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
       call time_real_to_int(TimeRamNow)
 !!!!!!!!!
 
+!!!!!!!!! RUN SCB
+      ! Call SCB if Dt_hI has passed
+      if (((mod(TimeRamElapsed, Dt_hI).eq.0).or.(Dt_hI.eq.1))) then
+         call write_prefix
+         write(*,*) 'Running SCB model to update B-field...'
+
+         call ram_sum_pressure
+         call scb_run(nIter)
+         FLUSH(6)
+         if ((SORFail).and.(Reset)) then
+            if (verbose) print*, 'Error in SCB calculation, attempting a full reset'
+            call computational_domain
+            call scb_run(0)
+         endif
+         FLUSH(6)
+
+         if (NameBoundMag.ne.'DIPL') then
+            FileName = RamFileName('MAGxyz','dat',TimeRamNow)
+            open(UNITTMP_, File=FileName)
+            write(UNITTMP_,*) nthe, npsi, nzeta
+            do i=1,nthe
+               do j=1,npsi
+                  do k=1,nzeta
+                     write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
+                  enddo
+               enddo
+            enddo
+            Close(UNITTMP_)
+         endif
+
+         ! Couple SCB -> RAM
+         !if (hICalc) call computehI(nIter)
+         call computehI(nIter)
+         FLUSH(6)
+
+         call write_prefix
+         write(*,*) 'Finished 3D Equilibrium code.'
+         DtsNext = DtsMin ! This is so we don't accidently take to big of a step after an SCB call
+      end if
+!!!!!!!!!
+
 !!!!!!!!! CREATE OUTPUTS
       ! Do timing.
       call do_timing
       ! Check and write output, as necessary.
       call handle_output(TimeRamElapsed)
+      FLUSH(6)
 !!!!!!!!!
 
 !!!!!!!!! FINISH TIME STEP

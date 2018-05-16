@@ -1,3 +1,8 @@
+!============================================================================
+!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    All rights reserved.
+!============================================================================
+
 MODULE ModRamInit
 ! Contains subroutines for initialization of RAM
 
@@ -207,9 +212,8 @@ subroutine ram_init
         end if
      ENDIF
   end do
-!!!!!!!!!!!!
 
-END
+END SUBROUTINE ram_init
 
 !**************************************************************************
 !                               ARRAYS
@@ -221,6 +225,7 @@ END
     use ModRamConst, ONLY: RE, PI, M1, MP, CS, Q, HMIN
     use ModRamGrids, ONLY: RadiusMax, RadiusMin, NR, NPA, Slen, NT, NE, &
                            NS, NLT, EnergyMin
+    use ModRamParams, ONLY: DoUsePlane_SCB
     !!!! Module Subroutines/Functions
     use ModRamFunctions, ONLY: ACOSD, ASIND, COSD, SIND
 
@@ -238,10 +243,11 @@ END
 
     ! Grid size of L shell
     DL1 = (RadiusMax - RadiusMin)/(nR - 1)
-    !IF (MOD(DL1,0.25_8).NE.0) THEN
-    !  WRITE(6,*) 'RAM: Error : DL is not a multiple of 0.25 '
-    !  STOP
-    !END IF
+    IF ((MOD(DL1,0.25_8).NE.0).and.(DoUsePlane_SCB)) THEN
+      write(*,*) MOD(DL1,0.25_8)
+      WRITE(6,*) 'RAM: Error : DL is not a multiple of 0.25 '
+      STOP
+    END IF
 
     degrad=pi/180.
     amla(1)=0. ! Magnetic latitude grid in degrees
@@ -349,7 +355,11 @@ END
       IF(L.EQ.49) THEN
         PA(50)=16.
       ELSE
-        IC=IC+1
+        if (IC.lt.nR) then
+           IC=IC+(nR-1)/19
+        else
+           IC=IC+1
+        endif
       ENDIF
       MU(L+1)=COSD(PA(L+1))
       DMU(L)=(MU(L+1)-MU(L))       ! Grid size in cos pitch angle
@@ -411,32 +421,49 @@ END
 
     RFACTOR=3.4027E10*MDR*DPHI
     RETURN
-  END
+  END SUBROUTINE ARRAYS
 
 !==============================================================================
 subroutine init_input
   !!!! Module Variables
   use ModRamMain,      ONLY: Real8_, S, PathRamIn
-  use ModRamParams,    ONLY: IsRestart, IsStarttimeSet, electric, IsComponent
-  use ModRamGrids,     ONLY: NR, NT, NE, NPA
+  use ModRamParams,    ONLY: IsRestart, IsStarttimeSet, electric, IsComponent, &
+                             DoUsePlane_SCB, HardRestart
+  use ModRamGrids,     ONLY: NR, NT, NE, NPA, NL, NLT
   use ModRamTiming,    ONLY: DtEfi, T, TimeRamNow, TimeRamElapsed, TOld
-  use ModRamVariables,  ONLY: F2, XNN, XND, ENERD, ENERN, FNHS, Kp, F107, TOLV
+  use ModRamVariables, ONLY: F2, XNN, XND, ENERD, ENERN, FNHS, Kp, F107, TOLV, &
+                             NECR
+  use ModScbGrids,     ONLY: nthe, npsi, nzeta
+  use ModScbVariables, ONLY: xpsiin, xpsiout, psiVal, alphaVal, f, fp, fzet, &
+                             fzetp, xzero3, constZ, psiin, psiout, psitot
+  use ModScbParams,    ONLY: method
   !!!! Module Subroutines/Functions
   use ModRamRun,       ONLY: ANISCH
+  use ModRamBoundary,  ONLY: get_boundary_flux
   use ModRamRestart,   ONLY: read_restart
   use ModRamIndices,   ONLY: get_indices
-  use ModRamFunctions, ONLY: FUNT
   use ModRamIO,        ONLY: read_initial
+  use ModRamFunctions, ONLY: ram_sum_pressure
+  use ModRamScb,       ONLY: computehI
+  use ModScbRun,       ONLY: scb_run, pressure
+  use ModScbEuler,     ONLY: psiges, alfges
+  use ModScbIO,        ONLY: computational_domain
+  use ModScbCompute,   ONLY: computeBandJacob_Initial, compute_convergence
   !!!! Share Modules
   use ModIOUnit,      ONLY: UNITTMP_
   use ModTimeConvert, ONLY: TimeType
+  !!!!
+  use nrtype, ONLY: twopi_d
 
   implicit none
 
-  integer :: iS, i, j, k, l, ik, N
+  integer :: iS, i, j, k, l, ik, N, methodTemp
   integer :: iR, iT, iE, iPA
   real(kind=Real8_) :: F2r(NR,NT,36,NPA)
+  real(kind=Real8_) :: xpsitot, psis, xpl, phi, dphi
+
   character(len=2), dimension(4) :: ST2 = (/'_e','_h','he','_o'/)
+  character(len=100) :: HEADER
   character(len=200) :: fileName
 
   character(len=*), parameter :: NameSub='init_input'
@@ -449,41 +476,85 @@ subroutine init_input
 
      !!!!!! RESTART DATA !!!!!!!
      call read_restart
-
-     call get_indices(TimeRamNow%Time, Kp, f107)
-     TOLV = FLOOR(TimeRamElapsed/DtEfi)*DtEfi
-  else
-     !!!!!! INITIALIZE DATA !!!!!
-     call read_initial
-
-     ! Initial indices
-     call get_indices(TimeRamNow%Time, Kp, f107)
-     TOLV = 0.0
-  end if
-!!!!!!!!
-
-  ! Set initial flux
-  DO iS = 1,4
-     CALL ANISCH(iS)
-     DO I = 2, NR
-        DO K = 2, NE
-           DO L = 2, NPA
-              DO J = 1, NT-1
-                 FLUX(iS,I,J,K,L) = F2(iS,I,J,K,L)/FFACTOR(iS,I,K,L)/FNHS(I,J,L)
+     DO iS = 1,4
+        DO I = 2, NR
+           DO K = 2, NE
+              DO L = 2, NPA
+                 DO J = 1, NT-1
+                    FLUX(iS,I,J,K,L) = F2(iS,I,J,K,L)/FFACTOR(iS,I,K,L)/FNHS(I,J,L)
+                 ENDDO
               ENDDO
            ENDDO
         ENDDO
      ENDDO
-  ENDDO
 
-  ! Update species pressures
-  PPerO  = PPerT(4,:,:); PParO  = PParT(4,:,:)
-  PPerHe = PPerT(3,:,:); PParHe = PParT(3,:,:)
-  PPerE  = PPerT(1,:,:); PParE  = PParT(1,:,:)
-  PPerH  = PPerT(2,:,:); PParH  = PParT(2,:,:)
+     call psiges
+     call alfges
+
+     call get_indices(TimeRamNow%Time, Kp, f107)
+     TOLV = FLOOR(TimeRamElapsed/DtEfi)*DtEfi
+
+     ! Compute information not stored in restart files
+     if (HardRestart) then
+        call computational_domain
+        call ram_sum_pressure
+        call scb_run(0)
+        call computehI(0)
+     else
+        methodTemp = method
+        method = 3
+        call scb_run(0)
+        method = methodTemp
+        call computehI(-1) ! Flux3D and IndexPA only
+     endif
+
+     call get_boundary_flux ! FGEOS
+  else
+     !!!!!! INITIALIZE DATA !!!!!
+     call read_initial
+     DO iS = 1,4
+        DO I = 2, NR
+           DO K = 2, NE
+              DO L = 2, NPA
+                 DO J = 1, NT-1
+                    FLUX(iS,I,J,K,L) = F2(iS,I,J,K,L)/FFACTOR(iS,I,K,L)/FNHS(I,J,L)
+                 ENDDO
+              ENDDO
+           ENDDO
+        ENDDO
+     ENDDO
+
+     ! Initial indices
+     call get_indices(TimeRamNow%Time, Kp, f107)
+     TOLV = 0.0
+
+     ! Compute the SCB computational domain
+     call write_prefix
+     write(*,*) 'Running SCB model to initialize B-field...'
+
+     call computational_domain
+
+     call ram_sum_pressure
+     call scb_run(0)
+
+     ! Couple SCB -> RAM
+     call computehI(0)
+
+     call write_prefix
+     write(*,*) 'Finished 3D Equilibrium code.'
+
+     if (DoUsePlane_SCB) then
+        write(*,*) "Reading in initial plasmasphere density model"
+        OPEN(UNITTMP_,FILE='ne_full.dat',STATUS='OLD') ! Kp=1-2 (quiet)
+        READ(UNITTMP_,'(A)') HEADER
+        READ(UNITTMP_,*) ((NECR(I,J),I=1,NL),J=0,NLT)  ! L= 1.5 to 10
+        CLOSE(UNITTMP_)
+     endif
+  end if
+!!!!!!!!
 
  return
 
-end
+end subroutine init_input
 
 END MODULE ModRamInit

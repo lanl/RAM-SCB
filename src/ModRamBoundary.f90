@@ -1,3 +1,8 @@
+!============================================================================
+!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    All rights reserved.
+!============================================================================
+
 MODULE ModRamBoundary
 ! Contains subroutines responsible for calculating the boundary flux for RAM
 
@@ -11,6 +16,7 @@ MODULE ModRamBoundary
 !==============================================================================
 subroutine get_boundary_flux
 
+!!!! Module Variables
   use ModRamMain,   ONLY: S
   use ModRamTiming, ONLY: TimeRamElapsed
   use ModRamParams, ONLY: BoundaryFiles
@@ -18,7 +24,7 @@ subroutine get_boundary_flux
   implicit none
  
   integer :: iS
-  character(len=4) :: ST7no
+
   ! Update boundary conditions and wave diffusion matrix
   do iS=1,4
      S = iS
@@ -33,6 +39,7 @@ end subroutine
 !==============================================================================
 subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
 
+!!!! Module Variables
   use ModRamMain,      ONLY: Real8_, S
   use ModRamTiming,    ONLY: TimeRamNow, TimeRamElapsed, TimeRamStart, Dt_bc
   use ModRamParams,    ONLY: electrons
@@ -41,22 +48,22 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
                              flux_SIII, fluxLast_SII, eGrid_SI, avgSats_SI, &
                              lGrid_SI, tGrid_SI
 
-  use ModRamIO, ONLY: read_geomlt_file
-
-  use nrmod,    ONLY: polint
+!!!! Module Subroutines and Functions
+  use ModRamGSL, ONLY: GSL_Interpolation_1D
+  use ModRamIO,  ONLY: read_geomlt_file
 
   implicit none
 
+  integer :: GSLerr
   character(len=4), intent(in) :: NameParticleIn
   real(kind=Real8_),intent(out):: fluxOut_II(nT, nE)
 
   character(len=8) :: StringDate
-  integer :: iError, iTime1, iTime2, iSpec=1, NEL_
+  integer :: iTime1, iTime2, iSpec, NEL_
   integer :: i, j, k
   integer :: lE, rE, pE
   real(kind=Real8_) :: y, my_var
   real(kind=Real8_), allocatable :: flux_II(:,:),logFlux_II(:,:),logELan(:),logERam(:),intFlux(:,:)
-  real(kind=Real8_) :: dyError
 
   ! Usual debug variables.
   logical :: DoTest, DoTestMe, IsInitialized=.true.
@@ -139,8 +146,8 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   else
      do j=1,NTL-1
         do k=1,NEL_
-           call lintp(tGrid_SI(iSpec,:), flux_SIII(iSpec,:,j,k), &
-                      NBD, TimeRamElapsed, flux_II(j,k+lE), iError)
+           CALL GSL_Interpolation_1D('Steffen',tGrid_SI(iSpec,:),flux_SIII(iSpec,:,j,k), &
+                                     TimeRamElapsed,flux_II(j,k+lE),GSLerr)
         enddo
      enddo
   endif
@@ -148,7 +155,7 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   ! If needed, extrapolate (for now just set to 10^8 and 0.1 for testing)
   if (lE.eq.1) then
      do j=1,NTL-1
-        flux_II(j,1) = 10.**7
+        flux_II(j,1) = 10.**8
      enddo
   endif
 
@@ -170,7 +177,7 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   ! Interpolate in LT-space, get log for E-interpolation...
   do j=1,nT
      do k=1,NEL_+pE
-        call lintp(lGrid_SI(iSpec,:), flux_II(:,k), 26, MLT(j), y, iError)
+        call GSL_Interpolation_1D('Steffen',lGrid_SI(iSpec,:),flux_II(:,k), MLT(j), y, GSLerr)
         logFlux_II(j,k)=log10(y)
      end do
   end do
@@ -189,10 +196,10 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   ! Interpolate/Extrapolate in energy space; return to normal units.
   do j=1,nT
      do k=1,nE
-        call lintp(logELan, logFlux_II(j,:), NEL_+pE, logERam(k), y, iError)
-        if (y.gt.10)  then
-           y=10
-           write(*,*) ' in ModRamBoundary: limit flux to 1e10'
+        CALL GSL_Interpolation_1D('Steffen',logELan, logFlux_II(j,:), logERam(k), y, GSLerr)
+        if (y.gt.6)  then
+           y=6
+           !write(*,*) ' in ModRamBoundary: limit flux to 1e8'
         end if
         fluxOut_II(j,k)=10.**y
      end do
@@ -218,6 +225,7 @@ end subroutine get_geomlt_flux
 !**************************************************************************
   SUBROUTINE GEOSB
 
+!!!! Module Variables
     use ModRamMain,      ONLY: Real8_, S, PathSwmfOut, PathRamOut
     use ModRamParams,    ONLY: DoAnisoPressureGMCoupling, IsComponent, boundary, &
                                DoMultiBcsFile, BoundaryFiles
@@ -227,8 +235,10 @@ end subroutine get_geomlt_flux
     use ModRamCouple,    ONLY: FluxBats_IIS, generate_flux, TypeMHD, MhdDensPres_VII, &
                                FluxBats_anis
 
+!!!! Module Subroutines and Functions
     use ModRamIO, ONLY: write_dsbnd
 
+!!!! External Modules (share/Library)
     use ModIoUnit, ONLY: UNITTMP_
     USE ModConst,  ONLY: cProtonMass
 
@@ -271,28 +281,16 @@ end subroutine get_geomlt_flux
       else
         call get_geomlt_flux('prot', FluxLanl)
       end if
-      ! fix corrupted bc, NAN check doesn't work? limit ion flux:
-      if (S.gt.1) then
-        do ij=2,nT
-          do ik=1,nE
-            if (FluxLanl(iJ,iK).gt.1e7) FluxLanl(iJ,iK)=FluxLanl(iJ-1,iK)
-            if (FluxLanl(iJ,iK).gt.1e7) then
-              FluxLanl(iJ,iK)=1e7
-              write(*,*) ' in GEOSB: limit ion flux to 1e7'
-            endif
-          end do
-        end do
-        do ik=1,nE
-          FluxLanl(1,iK)=FluxLanl(nT,iK)
-        end do
-      end if
-      ! corrupted bc, end of fix
+      do ik=1,nE
+        FluxLanl(1,iK)=FluxLanl(nT,iK)
+      end do
       ! Adjust flux for composition
       FluxLanl=FluxLanl*fracComposition
       do ik=1,NE
         do ij=1,nT
           do L=2,upa(NR)-1
             FGEOS(s,iJ,iK,L)=FluxLanl(iJ,iK) * FFACTOR(S,NR,IK,L)
+            !if (FGEOS(s,iJ,iK,L).gt.1e8) FGEOS(s,iJ,iK,L) = 1e8
           end do
         end do
       end do
@@ -353,6 +351,6 @@ end subroutine get_geomlt_flux
     call write_dsbnd
 
     RETURN
-  END
+  END SUBROUTINE GEOSB
 
 END MODULE ModRamBoundary

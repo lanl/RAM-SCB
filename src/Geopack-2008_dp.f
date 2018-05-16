@@ -827,12 +827,12 @@ C      NEAREST LIMITING VALUE AND PRINTS A WARNING:
 C
       IF(IY.LT.1965) THEN
        IY=1965
-       WRITE (*,10) IYEAR,IY
+       !WRITE (*,10) IYEAR,IY
       ENDIF
 
       IF(IY.GT.2010) THEN
        IY=2010
-       WRITE (*,10) IYEAR,IY
+       !WRITE (*,10) IYEAR,IY
       ENDIF
 
 C

@@ -41,7 +41,6 @@ LIB:
 clean:
 	@touch ${INSTALLFILES}
 	@cd ${srcDir};          make clean
-	@cd srcSlatec;    make clean
 	@cd srcInterface; make clean
 	@(if [ -d util ];  then cd util;  make clean; fi);
 	@(if [ -d share ]; then cd share; make clean; fi);
@@ -55,7 +54,6 @@ allclean:
 	@(if [ -d srcPspline ]; then rm -rf srcPspline; fi);
 	@cd ${srcDir}; make distclean
 	@cd srcInterface; make distclean
-	@cd srcSlatec; make distclean
 	rm -f *~
 
 rundir: 
@@ -66,6 +64,7 @@ rundir:
 	cp input/newtau.dat ${RUNDIR}/
 	cp input/ne_full.dat ${RUNDIR}/
 	cp input/initialization.nc ${RUNDIR}/IM/
+	cp input/QinDenton_20130317_1min.txt ${RUNDIR}/IM/
 #	cp input/dgrf*.dat ${RUNDIR}/
 #	cp input/igrf*.dat ${RUNDIR}/
 #	cp input/ccir*.asc ${RUNDIR}/
@@ -85,7 +84,8 @@ rundir:
 		mv Input_git/hI_output_0000.dat input_scb/;         \
 		mv Input_git/hI_dipole.dat input_scb/;	          \
 		mv Input_git/dipole_config.cdf Input_git/t89*.cdf input_scb/; \
-                mv initialization.nc input_ram/;
+                mv initialization.nc input_ram/;                              \
+		mv QinDenton_20130317_1min.txt input_scb/;
 	@(if [ "$(STANDALONE)" != "NO" ]; then \
 		cd ${RUNDIR} ; \
 		cp ${IMDIR}/Param/PARAM.in.default ./PARAM.in; \
@@ -110,6 +110,10 @@ test:
 	@(make test2)
 	@(make test3)
 	@(make test4)
+
+testTravis:
+	@(make test1)
+	@(make test3)
 
 test_help:
 	@echo "Preceed all commands with 'make'..."
@@ -212,7 +216,7 @@ test2_check:
 		${IMDIR}/output/test1/pressure.ref                    \
 		> test2.diff
 	ncrcat ${TESTDIR2}/output_ram/sat1_d20130317_t000000.nc       \
-	       ${TESTDIR2}/output_ram/sat1_d20130317_t000800.nc       \
+	       ${TESTDIR2}/output_ram/sat1_d20130317_t001000.nc       \
 	       ${TESTDIR2}/output_ram/sat1.nc
 	ncdump -v "FluxH+","B_xyz" ${TESTDIR2}/output_ram/sat1.nc     \
                | sed -e '1,/data:/d' >                                \
@@ -222,7 +226,7 @@ test2_check:
                 ${IMDIR}/output/test1/sat1.ref                        \
                 >> test2.diff
 	ncrcat ${TESTDIR2}/output_ram/sat2_d20130317_t000000.nc       \
-               ${TESTDIR2}/output_ram/sat2_d20130317_t000800.nc       \
+               ${TESTDIR2}/output_ram/sat2_d20130317_t001000.nc       \
                ${TESTDIR2}/output_ram/sat2.nc
 	ncdump -v "FluxH+","B_xyz" ${TESTDIR2}/output_ram/sat2.nc     \
                | sed -e '1,/data:/d' > \
@@ -324,7 +328,7 @@ test4_check:
                 ${IMDIR}/output/test3/hI.ref                           \
                 >> test4.diff
 	ncrcat ${TESTDIR4}/output_ram/sat1_d20130317_t000000.nc       \
-               ${TESTDIR4}/output_ram/sat1_d20130317_t000800.nc       \
+               ${TESTDIR4}/output_ram/sat1_d20130317_t001000.nc       \
                ${TESTDIR4}/output_ram/sat1.nc
 	ncdump -v "FluxH+","B_xyz" ${TESTDIR4}/output_ram/sat1.nc     \
                | sed -e '1,/data:/d' >                                \
@@ -334,7 +338,7 @@ test4_check:
                 ${IMDIR}/output/test3/sat1.ref                        \
                 >> test4.diff
 	ncrcat ${TESTDIR4}/output_ram/sat2_d20130317_t000000.nc       \
-               ${TESTDIR4}/output_ram/sat2_d20130317_t000800.nc       \
+               ${TESTDIR4}/output_ram/sat2_d20130317_t001000.nc       \
                ${TESTDIR4}/output_ram/sat2.nc
 	ncdump -v "FluxH+","B_xyz" ${TESTDIR4}/output_ram/sat2.nc     \
                | sed -e '1,/data:/d' >                                \

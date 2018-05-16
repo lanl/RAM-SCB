@@ -1,3 +1,8 @@
+!============================================================================
+!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    All rights reserved.
+!============================================================================
+
 module ModScbParams
 
   use ModScbMain, ONLY: DP
@@ -5,7 +10,14 @@ module ModScbParams
   implicit none
   save
 
-  character(len=3) :: PressMode = 'ROE'
+  character(len=200) :: QinDentonPath = 'IM/input_scb/'
+
+  integer :: iSm2 = 0
+  integer :: SavGolIters = 3
+
+  logical :: Symmetric = .false., DoScbCalc = .true.
+
+  character(len=3) :: PressMode = 'SKD'
   character(len=3) :: Isotropic = 'RAM'
 
   integer :: psiChange = 1

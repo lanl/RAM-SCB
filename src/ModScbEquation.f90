@@ -1,3 +1,8 @@
+!============================================================================
+!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    All rights reserved.
+!============================================================================
+
 MODULE ModScbEquation
 ! Contains subroutines for calculating the left hand side and
 ! right hand side of the force balance equation
@@ -12,6 +17,7 @@ contains
 !==============================================================================
 SUBROUTINE metrica
 
+  USE ModRamParams,    ONLY: verbose
   USE ModScbMain,      ONLY: DP
   USE ModScbGrids,     ONLY: nthe, nthem, npsi, npsim, nzeta, nzetap, ny, rdr, &
                              rdt, rdp, rdt4, rdp4, rdr2, rdp2, rdt2, rdpsq, &
@@ -20,7 +26,11 @@ SUBROUTINE metrica
                              thetaVal, rhoVal, zetaVal, vecd, vec1, vec2, vec3, &
                              vec4, vec6, vec7, vec8, vec9, left, right
 
+  use ModRamGSL, ONLY: GSL_Derivs
+
   IMPLICIT NONE
+
+  INTEGER :: i, j, k, GSLerr, nl0
 
   REAL(DP), DIMENSION(nthe) :: xa, xb, xc, xd, xe, xta, xtb, xtc, xtd, xte, &
        xpa, xpb, xpc, xpd, xpe, xra, xrb, xrc, xrd, xre, yta, ytb, ytc, ytd, yte, &
@@ -40,11 +50,81 @@ SUBROUTINE metrica
        GThetaGZeta, GRhoGTheta, GRhoGZeta, A, B, C, dAdT, dAdR, dAdZ, dBdT,    &
        dBdR, dBdZ, dCdT, dCdR, dCdZ
 
-  INTEGER :: i, j, k, ierr
+  jacobian = 0._dp
+  vecd = 0._dp
+  vec1 = 0._dp
+  vec2 = 0._dp
+  vec3 = 0._dp
+  vec4 = 0._dp
+  vec6 = 0._dp
+  vec7 = 0._dp
+  vec8 = 0._dp
+  vec9 = 0._dp
+  nl0 = 0
+!  CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, x(1:nthe,1:npsi,1:nzeta), &
+!                  dXdTheta, dXdRho, dXdZeta, GSLerr)
+!if (GSLerr.gt.0) write(*,*) 'x problem'
+!  CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, y(1:nthe,1:npsi,1:nzeta), &
+!                  dYdTheta, dYdRho, dYdZeta, GSLerr)
+!if (GSLerr.gt.0) write(*,*) 'y problem'
+!  CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, z(1:nthe,1:npsi,1:nzeta), &
+!                  dZdTheta, dZdRho, dZdZeta, GSLerr)
+!if (GSLerr.gt.0) write(*,*) 'z problem'
+!
+!  jacobian = dXdRho   * (dYdZeta  * dZdTheta - dYdTheta * dZdZeta) &
+!           + dXdZeta  * (dYdTheta * dZdRho   - dYdRho   * dZdTheta) &
+!           + dXdTheta * (dYdRho   * dZdZeta  - dYdZeta  * dZdRho)
+!
+!  GRhoX = (dYdZeta * dZdTheta - dYdTheta * dZdZeta) / jacobian
+!  GRhoY = (dZdZeta * dXdTheta - dZdTheta * dXdZeta) / jacobian
+!  GRhoZ = (dXdZeta * dYdTheta - dXdTheta * dYdZeta) / jacobian
+!
+!  GZetaX = (dYdTheta * dZdRho - dYdRho * dZdTheta) / jacobian
+!  GZetaY = (dZdTheta * dXdRho - dZdRho * dXdTheta) / jacobian
+!  GZetaZ = (dXdTheta * dYdRho - dXdRho * dYdTheta) / jacobian
+!
+!  GThetaX = (dYdRho * dZdZeta - dYdZeta * dZdRho) / jacobian
+!  GThetaY = (dZdRho * dXdZeta - dZdZeta * dXdRho) / jacobian
+!  GThetaZ = (dXdRho * dYdZeta - dXdZeta * dYdRho) / jacobian
+!
+!  GRhoSq = GRhoX**2 + GRhoY**2 + GRhoZ**2
+!  GRhoGZeta = GRhoX * GZetaX + GRhoY * GZetaY + GRhoZ * GZetaZ
+!  GRhoGTheta = GRhoX * GThetaX + GRhoY * GThetaY + GRhoZ * GThetaZ
+!
+!  GThetaSq = GThetaX**2 + GThetaY**2 + GThetaZ**2
+!  GThetaGZeta = GThetaX * GZetaX + GThetaY * GZetaY + GThetaZ * GZetaZ
+!
+!  GZetaSq = GZetaX**2 + GZetaY**2 + GZetaZ**2
+!
+!  A = (GRhoSq*GThetaSq-GRhoGTheta**2)*jacobian
+!  B = (GRhoSq*GThetaGZeta-GRhoGZeta*GRhoGTheta)*jacobian
+!  C = (GRhoSq*GZetaSq-GRhoGZeta**2)*jacobian
+!
+!  CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, A(1:nthe,1:npsi,1:nzeta), &
+!                  dAdT, dAdR, dAdZ, GSLerr)
+!if (GSLerr.gt.0) write(*,*) 'A problem'
+!  CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, B(1:nthe,1:npsi,1:nzeta), &
+!                  dBdT, dBdR, dBdZ, GSLerr)
+!if (GSLerr.gt.0) write(*,*) 'B problem'
+!  CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, C(1:nthe,1:npsi,1:nzeta), &
+!                  dCdT, dCdR, dCdZ, GSLerr)
+!if (GSLerr.gt.0) write(*,*) 'C problem'
 
   DO j=left+1,right-1
      DO k=2,nzeta
         DO i=2,nthem
+           !! Keeping the old variable vec names                              ! Translation to letters in Sorin's Thesis
+           !vecd(i,j,k) = 2*(A(i,j,k)*rdtsq + C(i,j,k)*rdpsq)                 ! a
+           !vec1(i,j,k) = B(i,j,k)*rdt*rdp2                                   ! b
+           !vec2(i,j,k) = C(i,j,k)*rdpsq - (dBdT(i,j,k) + dCdZ(i,j,k))*rdp2   ! h
+           !vec3(i,j,k) = -B(i,j,k)*rdt*rdp2                                  ! c
+           !vec4(i,j,k) = A(i,j,k)*rdtsq - (dAdT(i,j,k) + dBdZ(i,j,k))*rdt2   ! d
+           !!vec5(i,j,k) There is no vec5
+           !vec6(i,j,k) = A(i,j,k)*rdtsq + (dAdT(i,j,k) + dBdZ(i,j,k))*rdt2   ! f
+           !vec7(i,j,k) = -B(i,j,k)*rdt*rdp2                                  ! e
+           !vec8(i,j,k) = C(i,j,k)*rdpsq + (dBdT(i,j,k) + dCdZ(i,j,k))*rdp2   ! k
+           !vec9(i,j,k) = B(i,j,k)*rdt*rdp2                                   ! g
+
            xa(i) = .5*(x(i,j,k)+x(i+1,j,k))
            xb(i) = .5*(x(i,j,k)+x(i,j,k+1))
            xc(i) = .5*(x(i,j,k)+x(i-1,j,k))
@@ -123,7 +203,9 @@ SUBROUTINE metrica
            jacobian(i,j,k) = aje(i)
 
            IF (jacobian(i,j,k) < 0._dp) THEN
-              PRINT*, 'metrica: i, j, k, jacobian(i,j,k) = ', i, j, k, jacobian(i,j,k)
+              if (verbose) PRINT*, 'metrica: J < 0; i, j, k = ', i, j, k
+              if (verbose) write(*,*) jacobian(i,j,k), x(46,j,k), y(46,j,k), z(46,j,k)
+              return
            END IF
 
            grxa(i) = (ypa(i)*zta(i)-yta(i)*zpa(i))/aja(i)
@@ -219,7 +301,28 @@ SUBROUTINE metrica
            v3b(i)=(grsb(i)*gpsb(i)-grgpb(i)**2)*ajb(i)*rdpsq
            v3c(i)=(grsc(i)*gpsc(i)-grgpc(i)**2)*ajc(i)*rdpsq
            v3d(i)=(grsd(i)*gpsd(i)-grgpd(i)**2)*ajd(i)*rdpsq
-           
+
+           !write(*,*) 'metrica', i, j, k 
+           !write(*,*) '0 ', vecd(i,j,k), (v1a(i)+v1c(i)) + (v3b(i)+v3d(i)), &
+           !      (vecd(i,j,k))/((v1a(i)+v1c(i))+(v3b(i)+v3d(i)))
+           !write(*,*) '1 ', vec1(i,j,k), (v2c(i)+v2d(i)), &
+           !      (vec1(i,j,k))/(v2c(i)+v2d(i))
+           !write(*,*) '2 ', vec2(i,j,k), (v2c(i)-v2a(i)) + v3d(i), &
+           !      (vec2(i,j,k))/((v2c(i)-v2a(i)) + v3d(i))
+           !write(*,*) '3 ', vec3(i,j,k), -(v2a(i)+v2d(i)), &
+           !      -(vec3(i,j,k))/(v2a(i)+v2d(i))
+           !write(*,*) '4 ', vec4(i,j,k), v1c(i) + (v2d(i)-v2b(i)), &
+           !      (vec4(i,j,k))/(v1c(i)+(v2d(i)-v2b(i)))
+           !write(*,*) '6 ', vec6(i,j,k), v1a(i) + (v2b(i)-v2d(i)), &
+           !      (vec6(i,j,k))/(v1a(i) + (v2b(i)-v2d(i)))
+           !write(*,*) '7 ', vec7(i,j,k), -(v2c(i)+v2b(i)), &
+           !      -(vec7(i,j,k))/(v2c(i)+v2b(i))
+           !write(*,*) '8 ', vec8(i,j,k), v3b(i) + (v2a(i)-v2c(i)), &
+           !      (vec8(i,j,k))/(v3b(i) + (v2a(i)-v2c(i)))
+           !write(*,*) '9 ', vec9(i,j,k), (v2a(i) + v2b(i)), &
+           !      (vec9(i,j,k))/(v2a(i) + v2b(i))
+           !write(*,*) 'J ', jacobian(i,j,k), aje(i), (jacobian(i,j,k))/aje(i)          
+
            vecd(i,j,k) = (v1a(i)+v1c(i)) + (v3b(i)+v3d(i))
            vec1(i,j,k) = (v2c(i)+v2d(i))
            vec2(i,j,k) = (v2c(i)-v2a(i)) + v3d(i)
@@ -241,6 +344,7 @@ END SUBROUTINE metrica
 !------------------------------------------------------------------------------
 SUBROUTINE metric
 
+  USE ModRamParams,    ONLY: verbose
   USE ModScbMain,      ONLY: DP
   USE ModScbGrids,     ONLY: nthe, nthem, npsi, npsim, nzeta, nzetap, ny, rdr, &
                              rdt, rdp, rdt4, rdp4, rdr2, rdr4, rdp2, rdt2, rdpsq, &
@@ -249,9 +353,11 @@ SUBROUTINE metric
                              thetaVal, rhoVal, zetaVal, vecd, vec1, vec2, vec3, &
                              vec4, vec6, vec7, vec8, vec9, left, right
 
+  use ModRamGSL, ONLY: GSL_Derivs
   IMPLICIT NONE
 
-  INTEGER :: i, j, k
+  INTEGER :: i, j, k, GSLerr, nl0
+
   REAL(DP), DIMENSION(nthe) :: xa, xb, xc, xd, xe, xta, xtb, xtc, xtd, xte, &
        xpa, xpb, xpc, xpd, xpe, xra, xrb, xrc, xrd, xre, yta, ytb, ytc, ytd, yte, &
        ypa, ypb, ypc, ypd, ype, yra, yrb, yrc, yrd, yre, zta, ztb, ztc, ztd, zte, &
@@ -270,9 +376,76 @@ SUBROUTINE metric
        GThetaGZeta, GRhoGTheta, GRhoGZeta, A, B, C, dAdT, dAdR, dAdZ, dBdT,    &
        dBdR, dBdZ, dCdT, dCdR, dCdZ
 
+  jacobian = 0._dp
+  vecd = 0._dp
+  vec1 = 0._dp
+  vec2 = 0._dp
+  vec3 = 0._dp
+  vec4 = 0._dp
+  vec6 = 0._dp
+  vec7 = 0._dp
+  vec8 = 0._dp
+  vec9 = 0._dp
+  nl0 = 0
+
+  !CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, x(1:nthe,1:npsi,1:nzeta), &
+  !                dXdTheta, dXdRho, dXdZeta, GSLerr)
+  !CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, y(1:nthe,1:npsi,1:nzeta), &
+  !                dYdTheta, dYdRho, dYdZeta, GSLerr)
+  !CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, z(1:nthe,1:npsi,1:nzeta), &
+  !                dZdTheta, dZdRho, dZdZeta, GSLerr)
+
+  !jacobian = dXdRho   * (dYdZeta  * dZdTheta - dYdTheta * dZdZeta) &
+  !         + dXdZeta  * (dYdTheta * dZdRho   - dYdRho   * dZdTheta) &
+  !         + dXdTheta * (dYdRho   * dZdZeta  - dYdZeta  * dZdRho)
+
+  !GRhoX = (dYdZeta * dZdTheta - dYdTheta * dZdZeta) / jacobian
+  !GRhoY = (dZdZeta * dXdTheta - dZdTheta * dXdZeta) / jacobian
+  !GRhoZ = (dXdZeta * dYdTheta - dXdTheta * dYdZeta) / jacobian
+
+  !GZetaX = (dYdTheta * dZdRho - dYdRho * dZdTheta) / jacobian
+  !GZetaY = (dZdTheta * dXdRho - dZdRho * dXdTheta) / jacobian
+  !GZetaZ = (dXdTheta * dYdRho - dXdRho * dYdTheta) / jacobian
+
+  !GThetaX = (dYdRho * dZdZeta - dYdZeta * dZdRho) / jacobian
+  !GThetaY = (dZdRho * dXdZeta - dZdZeta * dXdRho) / jacobian
+  !GThetaZ = (dXdRho * dYdZeta - dXdZeta * dYdRho) / jacobian
+
+  !GRhoSq = GRhoX**2 + GRhoY**2 + GRhoZ**2
+  !GRhoGZeta = GRhoX * GZetaX + GRhoY * GZetaY + GRhoZ * GZetaZ
+  !GRhoGTheta = GRhoX * GThetaX + GRhoY * GThetaY + GRhoZ * GThetaZ
+
+  !GThetaSq = GThetaX**2 + GThetaY**2 + GThetaZ**2
+  !GThetaGZeta = GThetaX * GZetaX + GThetaY * GZetaY + GThetaZ * GZetaZ
+
+  !GZetaSq = GZetaX**2 + GZetaY**2 + GZetaZ**2
+
+  !A = (GThetaGZeta**2-GZetaSq*GThetaSq)*jacobian
+  !B = (GRhoGZeta*GThetaGZeta-GZetaSq*GRhoGTheta)*jacobian
+  !C = (GRhoGZeta**2-GRhoSq*GZetaSq)*jacobian
+
+  !CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, A(1:nthe,1:npsi,1:nzeta), &
+  !                dAdT, dAdR, dAdZ, GSLerr)
+  !CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, B(1:nthe,1:npsi,1:nzeta), &
+  !                dBdT, dBdR, dBdZ, GSLerr)
+  !CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, C(1:nthe,1:npsi,1:nzeta), &
+  !                dCdT, dCdR, dCdZ, GSLerr)
+
   DO j=left+1,right-1
      DO k=2,nzeta
         DO i=2,nthem
+           !! Keeping the old variable vec names                              ! Translation to letters in Sorin's Thesis
+           !vecd(i,j,k) = 2*(A(i,j,k)*rdtsq + C(i,j,k)*rdrsq)                 ! a
+           !vec1(i,j,k) = B(i,j,k)*rdt*rdr2                                   ! b
+           !vec2(i,j,k) = C(i,j,k)*rdrsq - (dCdR(i,j,k) + dBdT(i,j,k))*rdr2   ! h
+           !vec3(i,j,k) = -B(i,j,k)*rdt*rdr2                                  ! c
+           !vec4(i,j,k) = A(i,j,k)*rdtsq - (dAdT(i,j,k) + dBdR(i,j,k))*rdt2   ! d
+           !!vec5(i,j,k) There is no vec5
+           !vec6(i,j,k) = A(i,j,k)*rdtsq + (dAdT(i,j,k) + dBdR(i,j,k))*rdt2   ! f
+           !vec7(i,j,k) = -B(i,j,k)*rdt*rdr2                                  ! e
+           !vec8(i,j,k) = C(i,j,k)*rdrsq + (dCdR(i,j,k) + dBdT(i,j,k))*rdr2   ! k
+           !vec9(i,j,k) = B(i,j,k)*rdt*rdr2                                   ! g
+
            xa(i) = .5*(x(i,j,k)+x(i+1,j,k))
            xb(i) = .5*(x(i,j,k)+x(i,j+1,k))
            xc(i) = .5*(x(i,j,k)+x(i-1,j,k))
@@ -346,7 +519,8 @@ SUBROUTINE metric
            jacobian(i,j,k) = aje(i)
 
            IF (jacobian(i,j,k) < 0._dp) THEN
-              PRINT*, 'metric: i, j, k, jacobian(i,j,k) = ', i, j, k, jacobian(i,j,k)
+              if (verbose) PRINT*, 'metric: J < 0; i, j, k = ', i, j, k
+              return
            END IF
 
            grxa(i) = (ypa(i)*zta(i)-yta(i)*zpa(i))/aja(i)
@@ -441,7 +615,28 @@ SUBROUTINE metric
            v3b(i)=(grgpb(i)**2-grsb(i)*gpsb(i))*ajb(i)*rdrsq
            v3c(i)=(grgpc(i)**2-grsc(i)*gpsc(i))*ajc(i)*rdrsq
            v3d(i)=(grgpd(i)**2-grsd(i)*gpsd(i))*ajd(i)*rdrsq
-           
+
+          ! write(*,*) 'metric',i, j, k
+          ! write(*,*) '0 ', vecd(i,j,k), (v1a(i)+v1c(i)) + (v3b(i)+v3d(i)), &
+          !       (vecd(i,j,k))/((v1a(i)+v1c(i))+(v3b(i)+v3d(i)))
+          ! write(*,*) '1 ', vec1(i,j,k), (v2c(i)+v2d(i)), &
+          !       (vec1(i,j,k))/(v2c(i)+v2d(i))
+          ! write(*,*) '2 ', vec2(i,j,k), (v2c(i)-v2a(i)) + v3d(i), &
+          !       (vec2(i,j,k))/((v2c(i)-v2a(i)) + v3d(i))
+          ! write(*,*) '3 ', vec3(i,j,k), -(v2a(i)+v2d(i)), &
+          !       -(vec3(i,j,k))/(v2a(i)+v2d(i))
+          ! write(*,*) '4 ', vec4(i,j,k), v1c(i) + (v2d(i)-v2b(i)), &
+          !       (vec4(i,j,k))/(v1c(i)+(v2d(i)-v2b(i)))
+          ! write(*,*) '6 ', vec6(i,j,k), v1a(i) + (v2b(i)-v2d(i)), &
+          !       (vec6(i,j,k))/(v1a(i) + (v2b(i)-v2d(i)))
+          ! write(*,*) '7 ', vec7(i,j,k), -(v2c(i)+v2b(i)), &
+          !       -(vec7(i,j,k))/(v2c(i)+v2b(i))
+          ! write(*,*) '8 ', vec8(i,j,k), v3b(i) + (v2a(i)-v2c(i)), &
+          !       (vec8(i,j,k))/(v3b(i) + (v2a(i)-v2c(i)))
+          ! write(*,*) '9 ', vec9(i,j,k), (v2a(i) + v2b(i)), &
+          !       (vec9(i,j,k))/(v2a(i) + v2b(i))
+          ! write(*,*) 'J ', jacobian(i,j,k), aje(i), (jacobian(i,j,k))/aje(i)
+
            vecd(i,j,k) = (v1a(i)+v1c(i)+v3b(i)+v3d(i))
            vec1(i,j,k) = (v2c(i)+v2d(i))
            vec2(i,j,k) = ((v2c(i)-v2a(i))+v3d(i))

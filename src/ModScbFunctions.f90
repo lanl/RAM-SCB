@@ -1,13 +1,16 @@
+!============================================================================
+!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    All rights reserved.
+!============================================================================
+
 MODULE ModScbFunctions
-  ! Contains various functions and subroutines for performing calculations
-  ! in SCB
+  ! Contains various functions and subroutines for performing calculations in SCB
   
   implicit none
   
   contains
 !==============================================================================
-  SUBROUTINE extap(x1,x2,x3,x4)
-  
+  SUBROUTINE extap(x1,x2,x3,x4)  
     USE nrtype
     IMPLICIT NONE
     REAL(DP), INTENT(IN)     :: x1, x2, x3
@@ -26,6 +29,37 @@ MODULE ModScbFunctions
     x4 = x3 + ddx
     RETURN
   END SUBROUTINE extap
+
+!==============================================================================
+FUNCTION locate(xx,x)
+  USE nrtype
+  IMPLICIT NONE
+  REAL(DP), DIMENSION(:), INTENT(IN) :: xx
+  REAL(DP), INTENT(IN) :: x
+  INTEGER :: locate
+  INTEGER :: n,jl,jm,ju
+  LOGICAL :: ascnd
+  n=SIZE(xx)
+  ascnd = (xx(n) >= xx(1))
+  jl=0
+  ju=n+1
+  DO
+     IF (ju-jl <= 1) EXIT
+     jm=(ju+jl)/2
+     IF (ascnd .EQV. (x >= xx(jm))) THEN
+        jl=jm
+     ELSE
+        ju=jm
+     END IF
+  END DO
+  IF (x == xx(1)) THEN
+     locate=1
+  ELSE IF (x == xx(n)) THEN
+     locate=n-1
+  ELSE
+     locate=jl
+  END IF
+END FUNCTION locate
   
 !==============================================================================
   REAL FUNCTION radFunc(x)
@@ -59,7 +93,7 @@ MODULE ModScbFunctions
     ! Savitzky-Golay smoothing (1-D passes in both directions) using quadratic polynomial and 7 pts
   
     USE ModScbMain, ONLY : DP
-  
+    use ModScbParams, ONLY: SavGolIters 
     IMPLICIT NONE
   
     REAL(DP), INTENT(IN) :: pres(:,:)
@@ -73,7 +107,7 @@ MODULE ModScbFunctions
   
     pres0 = pres
   
-  DO iPass = 1, 3 ! Single or multiple pass
+  DO iPass = 1, SavGolIters ! Single or multiple pass
   
   BSav = RESHAPE((/32, 5, 1, -2, -2, -1, 5, &
          15, 4, 3, 3, 1, 0, -3, &
@@ -90,11 +124,14 @@ MODULE ModScbFunctions
           IF (j > 3 .AND. j < nrad-2) THEN
              pres1(j,k) = DOT_PRODUCT(BSav(4,:)/21., pres0(j-3:j+3,k))
           ELSE IF (j == 1) THEN
-             pres1(j,k) = DOT_PRODUCT(BSav(1,:)/42., pres0(1:7,k))
+             pres1(j,k) = pres0(j,k)
+             !pres1(j,k) = DOT_PRODUCT(BSav(1,:)/42., pres0(1:7,k))
           ELSE IF (j == 2) THEN
-             pres1(j,k) = DOT_PRODUCT(BSav(2,:)/14., pres0(1:7,k))
+             pres1(j,k) = pres0(j,k)
+             !pres1(j,k) = DOT_PRODUCT(BSav(2,:)/14., pres0(1:7,k))
           ELSE IF (j == 3) THEN
-             pres1(j,k) = DOT_PRODUCT(BSav(3,:)/14., pres0(1:7,k))
+             pres1(j,k) = pres0(j,k)
+             !pres1(j,k) = DOT_PRODUCT(BSav(3,:)/14., pres0(1:7,k))
           ELSE IF (j == nrad-2) THEN
              pres1(j,k) = DOT_PRODUCT(BSav(5,:)/14., pres0(nrad-6:nrad,k))
           ELSE IF (j == nrad-1) THEN

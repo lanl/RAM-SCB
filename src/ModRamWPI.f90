@@ -1,3 +1,8 @@
+!============================================================================
+!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    All rights reserved.
+!============================================================================
+
 MODULE ModRamWPI
 ! Contains subroutines related to wave particle interactions
 ! and electron lifetimes
@@ -121,7 +126,7 @@ MODULE ModRamWPI
     ENDDO
 
     RETURN
-  END
+  END SUBROUTINE WAVEPARA1
 
 !**************************************************************************
 !                              WAVEPARA2
@@ -171,7 +176,7 @@ MODULE ModRamWPI
     ENDDO
 
     RETURN
-  END
+  END SUBROUTINE WAVEPARA2
 
 !*************************************************************************
 !                              WAPARA_HISS
@@ -220,7 +225,7 @@ MODULE ModRamWPI
 27  FORMAT(80(1PE12.3))
 
     RETURN
-  END
+  END SUBROUTINE WAPARA_HISS
 
 !*************************************************************************
 !                              WAPARA_CHORUS
@@ -291,7 +296,7 @@ MODULE ModRamWPI
 27  FORMAT(80(1PE12.3))
 
     RETURN
-  END
+  END SUBROUTINE WAPARA_CHORUS
 
 ! *************************************************************************
 !                              WAPARA_Kp
@@ -400,7 +405,7 @@ MODULE ModRamWPI
     write(*,*) "Finished WAPARA_BAS"
 
     RETURN
-  END
+  END SUBROUTINE WAPARA_BAS
 
 !************************************************************************
 !                       WAVELO
@@ -409,9 +414,10 @@ MODULE ModRamWPI
   SUBROUTINE WAVELO(S)
 
     use ModRamMain,      ONLY: Real8_
+    use ModRamParams,    ONLY: DoUsePlane_SCB
     use ModRamGrids,     ONLY: NE, NR, NT, NPA
     use ModRamTiming,    ONLY: Dts
-    use ModRamVariables, ONLY: F2, KP, LZ, IP1, IR1, EKEV
+    use ModRamVariables, ONLY: F2, KP, LZ, IP1, IR1, EKEV, NECR
 
     implicit none
 
@@ -427,6 +433,7 @@ MODULE ModRamWPI
       RLpp(J)=5.39-0.382*KPmax  ! PP from Moldwin et al. [2002]
       DO I=2,NR
         I1=(I-2)*IR1+3
+        IF (DoUsePlane_SCB.and.NECR(I1,J1).gt.50.) RLpp(J)=LZ(I)
       ENDDO
     ENDDO
 
@@ -457,7 +464,7 @@ MODULE ModRamWPI
     ENDDO
 
     RETURN
-  END
+  END SUBROUTINE WAVELO
 
 !*************************************************************************
 !                               WPADIF
@@ -521,6 +528,6 @@ MODULE ModRamWPI
     ENDDO
 
     RETURN
-  END
+  END SUBROUTINE WPADIF
 
 END MODULE ModRamWPI

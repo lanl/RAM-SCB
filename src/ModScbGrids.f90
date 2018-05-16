@@ -1,10 +1,9 @@
-!==============================================================================
-Module ModScbGrids
-!    This module replaces the common blocks in RAM.
-!    DTW, EDIT: 2009-04-21: updated for latest version of RAM.
+!============================================================================
 !    Copyright (c) 2016, Los Alamos National Security, LLC
 !    All rights reserved.
-!==============================================================================
+!============================================================================
+
+Module ModScbGrids
 
 use nrtype, ONLY: DP, pi_d
 
@@ -13,9 +12,9 @@ save
 
 !!! SCB Grids
 ! Must match the computational boundary input file (*.cdf)
-integer :: nthe   = 51, &  !  nthe is the number of theta grid points
-           npsi   = 35, &  !  npsi is the number of psi surfaces
-           nzeta  = 61     !  nzeta is the number of zeta surfaces 
+integer :: nthe   = 71, &  !  nthe is the number of theta grid points
+           npsi   = 45, &  !  npsi is the number of psi surfaces
+           nzeta  = 73     !  nzeta is the number of zeta surfaces 
 
 integer :: nthem, nthep, npsim, npsip, nzetam, nzetap, nq, ny, na, nm, nyp2
 

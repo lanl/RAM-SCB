@@ -1,7 +1,10 @@
-module ModRamTiming
-!    A module for tracking code efficiency and other timing metrics.
+!============================================================================
 !    Copyright (c) 2016, Los Alamos National Security, LLC
 !    All rights reserved.
+!============================================================================
+
+module ModRamTiming
+!    A module for tracking code efficiency and other timing metrics.
 
   use ModRamMain, ONLY: Real8_, niter, PathRamOut
   use ModRamParams, ONLY: DoSaveRamSats

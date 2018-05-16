@@ -1,3 +1,8 @@
+!============================================================================
+!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    All rights reserved.
+!============================================================================
+
 MODULE ModRamEField
 ! Contains subroutines related to getting the electric field for RAM
 
@@ -131,16 +136,15 @@ subroutine ram_get_electric(NextEfile, EOut_II)
 
   use ModRamMain,      ONLY: Real8_, PathRamIn, PathScbOut
   Use ModRamTiming,    ONLY: TimeRamElapsed, TimeRamNow
-  use ModRamParams,    ONLY: electric, IsComponent
+  use ModRamParams,    ONLY: electric, IsComponent, IsRestart
   use ModRamGrids,     ONLY: NR, NT, RadiusMax
   use ModRamVariables, ONLY: PHIOFS, Kp, F107
   use ModRamCouple,    ONLY: SwmfPot_II
   use ModRamFunctions, ONLY: RamFileName
-
+  use ModRamGSL,       ONLY: GSL_Interpolation_2D
   use ModScbMain,      ONLY: prefixOut
   use ModScbGrids,     ONLY: npsi, nzeta
-  use ModScbVariables, ONLY: PhiIono, radRaw, azimRaw
-  use ModScbInterp,    ONLY: Interpolation_natgrid_2D_EField
+  use ModScbVariables, ONLY: PhiIono, radRaw, azimRaw, x, y, nThetaEquator
 
   use ModTimeConvert, ONLY: TimeType
   use ModIOUnit,      ONLY: UNITTMP_
@@ -149,6 +153,7 @@ subroutine ram_get_electric(NextEfile, EOut_II)
 
   implicit none
 
+  integer :: GSLerr
   ! Arguments
   character(len=200),intent(in)  :: NextEfile
   real(kind=Real8_), intent(out) :: EOut_II(NR+1, NT)
@@ -162,13 +167,16 @@ subroutine ram_get_electric(NextEfile, EOut_II)
   REAL(kind=Real8_) :: Epot_Cart(0:nR,nT)
   real(kind=Real8_) :: day, tth, ap, rsun, RRL, PH, wep(49)
   REAL(kind=Real8_) :: radOut = RadiusMax+0.25
-
+  REAL(kind=Real8_) :: xo(nR,nT), yo(nR,nT)
   character(len=*), parameter :: NameSub = 'ram_get_electric'
   !--------------------------------------------------------------------------
   ! Initialize efield to zero.
   ! NOTE THAT ON RESTART, WE MUST CHANGE THIS.
-  EOut_II  = 0.0
-  
+  if (.not.IsRestart) THEN
+     EOut_II  = 0.0
+     Epot_Cart = 0.0
+  endif
+
   IF ((electric.EQ.'WESC').or.(electric.eq.'IESC').or.(electric.eq.'W5SC')) THEN
      DO j = 0,nR
         radRaw(j) = 1.75 + (radOut-1.75) * REAL(j,DP)/REAL(nR,DP)
@@ -180,8 +188,14 @@ subroutine ram_get_electric(NextEfile, EOut_II)
      ! print*, 'Reading electric potentials from SCB directly'
      CALL ionospheric_potential
      PRINT*, '3DEQ: mapping iono. potentials along B-field lines'
-     CALL Interpolation_natgrid_2D_EField(radRaw(1:nR), azimRaw, &
-                PhiIono(1:npsi,2:nzeta), Epot_Cart(1:nR,1:nT))
+     DO i = 1,nR
+        DO j = 1,nT
+           xo(i,j) = radRaw(i) * COS(azimRaw(j)*2._dp*pi_d/24._dp - pi_d)
+           yo(i,j) = radRaw(i) * SIN(azimRaw(j)*2._dp*pi_d/24._dp - pi_d)
+        ENDDO
+     ENDDO
+     CALL GSL_Interpolation_2D(x(nThetaEquator,:,2:nzeta),y(nThetaEquator,:,2:nzeta), &
+                               PhiIono(:,2:nzeta), xo(:,:), yo(:,:), Epot_Cart(:,:), GSLerr)
      Epot_Cart(0,:) = Epot_Cart(1,:) ! 3Dcode domain only extends to 2 RE; at 1.75 RE the potential is very small anyway
 
      SWMF_electric_potential:  IF (electric=='IESC') THEN
@@ -209,7 +223,9 @@ subroutine ram_get_electric(NextEfile, EOut_II)
 22   FORMAT(F4.2, 2X, F8.6, 2X, E11.4)
 
      Weimer_electric_potential_along_SCB: IF (electric=='WESC' .or. electric=='W5SC') THEN
-           SwmfPot_II(1:nR+1,1:nT) = Epot_Cart(0:nR, 1:nT)
+           if ((maxval(Epot_Cart).lt.300000).and.(minval(Epot_Cart).gt.-300000)) then
+              SwmfPot_II(1:nR+1,1:nT) = Epot_Cart(0:nR, 1:nT)
+           endif
            print*, 'SwmfPot_II here SwmfPot_II mm', maxval(swmfpot_II), minval(swmfpot_ii)
      END IF Weimer_electric_potential_along_SCB
 
@@ -281,11 +297,8 @@ SUBROUTINE ionospheric_potential
   use ModScbVariables, ONLY: phiiono, x, y, z, r0Start, dPhiIonodAlpha, &
                              dPhiIonodBeta, f, fzet, zetaVal, rhoVal, tilt
   !!!! Module Subroutine/Functions
-  use ModScbSpline, ONLY: Spline_2D_derivs, Spline_2D_periodic
+  use ModRamGSL,    ONLY: GSL_Interpolation_2D, GSL_Derivs
   use ModScbIO,     ONLY: Write_Ionospheric_Potential
-  !!! SCE Modules
-!  use ModIESize, ONLY: Iono_nTheta, Iono_nPsi
-!  use ModIonosphere, ONLY: Iono_North_Phi
   !!!! Share Modules
   use ModTimeConvert, ONLY: n_day_of_year
   use ModIOUnit, ONLY: UNITTMP_
@@ -296,7 +309,7 @@ SUBROUTINE ionospheric_potential
 
   IMPLICIT NONE
 
-  integer :: doy
+  integer :: doy, GSLerr
   INTEGER :: i, ierralloc, j, j1, k1, k, ierr, ierrDom, idealerr
   REAL(DP) :: dPhiIonodRho(npsi, nzeta+1), dPhiIonodZeta(npsi, nzeta+1), &
        colatGrid(npsi,nzeta+1), lonGrid(npsi,nzeta+1), latGrid(npsi,nzeta+1)
@@ -392,13 +405,8 @@ SUBROUTINE ionospheric_potential
      !   lon(mlon_range) = 2._dp*pi_d + lon(1)
      !   phiIonoRaw(:,mlon_range) = phiIonoRaw(:,1)
 
-     CALL Spline_2D_periodic(colat, lon, PhiIonoRaw, colatGrid(1:npsi,2:nzetap), lonGrid(1:npsi,2:nzetap), &
-          PhiIono(1:npsi,2:nzetap), iDomain)
-
-     IF (iDomain > 0) THEN
-        PRINT*, 'Stop; problem with PhiIono domain; iDomain = ', iDomain
-        STOP
-     END IF
+     CALL GSL_Interpolation_2D(colat, lon, PhiIonoRaw, colatGrid(1:npsi,2:nzetap), &
+                               lonGrid(1:npsi,2:nzetap), PhiIono(1:npsi,2:nzetap), GSLerr)
 
   CASE('WESC') ! Potential by calling Weimer function 
      !C OPEN(UNITTMP_, FILE='./omni_5min_Sep2005.txt', status = 'UNKNOWN',
@@ -467,8 +475,7 @@ SUBROUTINE ionospheric_potential
         DO j = 1, npsi
            PhiIono(j,k) = 1.E3 * EpotVal(latGrid(j,k), lonGrid(j,k)) !!! Achtung RAM needs it in volts !!!
            bndylat = BoundaryLat(lonGrid(j,k))
-           ! Add corotation potential - only if RAM takes all E-field info from
-           ! the equilibrium code 
+           ! Add corotation potential - only if RAM takes all E-field info from the equilibrium code 
            ! PhiIono(j,k) = PhiIono(j,k) - 2._dp*pi_d*0.31_dp*6.4**2 *
            ! 1.E3_dp/(24._dp*36._dp*SQRT(x(nThetaEquator,j,k)**2+y(nThetaEquator,j,k)**2))
         END DO
@@ -564,7 +571,8 @@ SUBROUTINE ionospheric_potential
 
   IF (iConvE /= 1) RETURN
 
-  CALL Spline_2D_derivs(rhoVal, zetaVal(1:nzeta), PhiIono(:,1:nzeta), dPhiIonodRho(:,1:nzeta), dPhiIonodZeta(:,1:nzeta))
+  CALL GSL_Derivs(rhoVal, zetaVal(2:nzeta), PhiIono(:,2:nzeta), &
+                  dPhiIonodRho(:,2:nzeta), dPhiIonodZeta(:,2:nzeta), GSLerr)
 
   dPhiIonodRho(:,nzetap) = dPhiIonodRho(:,2)
   dPhiIonodRho(:,1) = dPhiIonodRho(:,nzeta)

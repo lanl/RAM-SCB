@@ -1,14 +1,12 @@
+!============================================================================
+!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    All rights reserved.
+!============================================================================
+
 MODULE ModScbInit
   ! Contains subroutines for initializattion of SCB component
   
-  use ModScbVariables!, ONLY: f, fp, rhoVal, chiVal, thetaVal, zetaVal, fzet, &
-                     !        fzetp, xzero, xzero3, dphi, bnormal, pnormal, &
-                     !        enormal, pjconst, psiin, psiout, psitot, bzero, &
-                     !        constZ, constTheta, pressurequot, re1, xpsiin, &
-                     !        xpsiout, r0Start, byimfglobal, bzimfglobal, &
-                     !        pdynglobal, blendGlobal, blendGlobalInitial, &
-                     !        p_dyn, by_imf, bz_imf, dst_global, wTsyg, tilt, &
-                     !        nZetaMidnight, nThetaEquator, nMaximum
+  use ModScbVariables
   
   implicit none
   
@@ -150,13 +148,18 @@ MODULE ModScbInit
 !==============================================================================
   SUBROUTINE scb_init
  
-    use ModRamParams,    ONLY: IsRestart 
+    use ModRamParams,    ONLY: IsRestart
+    use ModRamTiming,    ONLY: Dts, DtsMin
     use ModScbParams,    ONLY: blendAlphaInit, blendPsiInit
     USE ModScbGrids,     ONLY: nthe, npsi, nzeta
     use ModScbVariables, ONLY: blendAlpha, blendPsi, alphaVal, alphaValInitial, &
-                               psiVal, xpsiout, xpsiin
+                               psiVal, xpsiout, xpsiin, r0Start
 
-    use ModScbEuler, ONLY: psiges, alfges
+    use ModRamFunctions, ONLY: ram_sum_pressure
+    use ModRamScb,       ONLY: computehI
+    use ModScbRun,       ONLY: scb_run
+    use ModScbEuler,     ONLY: psiges, alfges
+    use ModScbIO,        ONLY: computational_domain
 
     use nrtype, ONLY: DP, pi_d, twopi_d
 
@@ -167,6 +170,8 @@ MODULE ModScbInit
     REAL(DP) :: xpsitot, psis, xpl, phi, aa, dphi
   
     REAL(DP), PARAMETER :: pow = 1.0_dp, TINY = 1.E-15_dp
+
+    r0Start = 1.0
 
     ! Additional parameters
     nZetaMidnight = (nzeta+1)/2 + 1
@@ -233,81 +238,4 @@ MODULE ModScbInit
   
   END SUBROUTINE
 
-!==============================================================================
-  SUBROUTINE computeBandJacob_initial
-    !!!! Module Variables
-    USE ModScbGrids,     ONLY: nthe, npsi, nzeta
-    use ModScbVariables, ONLY: x, y, z, bf, bsq, jacobian, f, fzet, rhoVal, &
-                               thetaVal, zetaVal, GradRhoSq, GradThetaSq, &
-                               GradZetaSq, GradRhoGradTheta, GradRhoGradZeta, &
-                               GradThetaGradZeta
-    !!!! Module Subroutines/Functions
-    USE ModScbSpline, ONLY: spline_coord_derivs
-    !!!! NR Modules
-    use nrtype, ONLY: DP
-
-    IMPLICIT NONE
-
-    INTEGER :: i, j, k, ierr, idealerr
-    REAL(DP) :: yyp, phi, deltaPhi
-    REAL(DP), DIMENSION(nthe,npsi,nzeta) :: derivXTheta, derivXRho, derivXZeta, &
-         derivYTheta, derivYRho, derivYZeta, derivZTheta, derivZRho, derivZZeta, &
-         gradRhoX, gradRhoY, gradRhoZ, gradZetaX, gradZetaY, gradZetaZ, gradThetaX, &
-         gradThetaY, gradThetaZ
-
-    CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, x(1:nthe, 1:npsi, 1:nzeta), &
-                             derivXTheta, derivXRho, derivXZeta)
-    CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, y(1:nthe, 1:npsi, 1:nzeta), &
-                             derivYTheta, derivYRho, derivYZeta)
-    CALL Spline_coord_derivs(thetaVal, rhoVal, zetaVal, z(1:nthe, 1:npsi, 1:nzeta), &
-                             derivZTheta, derivZRho, derivZZeta)
-    ! Now I have all the point derivatives
-
-
-    jacobian = derivXRho   * (derivYZeta  * derivZTheta - derivYTheta * derivZZeta)  &
-             + derivXZeta  * (derivYTheta * derivZRho   - derivYRho   * derivZTheta) &
-             + derivXTheta * (derivYRho   * derivZZeta  - derivYZeta  * derivZRho)
-
-    gradRhoX = (derivYZeta * derivZTheta - derivYTheta * derivZZeta) / jacobian
-    gradRhoY = (derivZZeta * derivXTheta - derivZTheta * derivXZeta) / jacobian
-    gradRhoZ = (derivXZeta * derivYTheta - derivXTheta * derivYZeta) / jacobian
-
-    gradZetaX = (derivYTheta * derivZRho - derivYRho * derivZTheta) / jacobian
-    gradZetaY = (derivZTheta * derivXRho - derivZRho * derivXTheta) / jacobian
-    gradZetaZ = (derivXTheta * derivYRho - derivXRho * derivYTheta) / jacobian
-
-    gradThetaX = (derivYRho * derivZZeta - derivYZeta * derivZRho) / jacobian
-    gradThetaY = (derivZRho * derivXZeta - derivZZeta * derivXRho) / jacobian
-    gradThetaZ = (derivXRho * derivYZeta - derivXZeta * derivYRho) / jacobian
-
-    gradRhoSq = gradRhoX**2 + gradRhoY**2 + gradRhoZ**2
-    gradRhoGradZeta = gradRhoX * gradZetaX + gradRhoY * gradZetaY + gradRhoZ * gradZetaZ
-    gradRhoGradTheta = gradRhoX * gradThetaX + gradRhoY * gradThetaY + gradRhoZ * gradThetaZ
-
-    gradThetaSq = gradThetaX**2 + gradThetaY**2 + gradThetaZ**2
-    gradThetaGradZeta = gradThetaX * gradZetaX + gradThetaY * gradZetaY + gradThetaZ * gradZetaZ
-
-    gradZetaSq = gradZetaX**2 + gradZetaY**2 + gradZetaZ**2
-
-    ! Compute magnetic field
-    DO  k = 1,nzeta
-       DO  j = 1,npsi
-          DO  i = 1,nthe
-             bsq(i,j,k) = (gradRhoSq(i,j,k)*gradZetaSq(i,j,k)-gradRhoGradZeta(i,j,k)**2) &
-                          * (f(j) * fzet(k)) **2
-             bfInitial(i,j,k) = SQRT(bsq(i,j,k))
-             bf(i,j,k) = bfInitial(i,j,k)
-             IF (ABS(bsq(i,j,k)) < 1e-30_dp) THEN
-                PRINT*, i, j, k, bsq(i,j,k)
-                STOP 'Problem with Bsq in computeBandJacob.'
-             END IF
-          END DO
-       END DO
-    END DO
-
-    RETURN
-
-  END SUBROUTINE computeBandJacob_initial
-
-  
-  END MODULE ModScbInit
+END MODULE ModScbInit

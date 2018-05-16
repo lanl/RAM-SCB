@@ -66,76 +66,76 @@ module ModRamFunctions
   end subroutine get_ramdst
 
 !=============================================================================
-  function erff(x)
-
-    use ModRamMain, ONLY: Real8_
-
-    implicit none
-
-    integer :: ier = 0
-    real(kind=Real8_)            :: erff
-    real(kind=Real8_), intent(in):: x
-    real(kind=Real8_), parameter :: cHalf = 0.5
-    !-----------------------------------------------------------------------
-    if(x.lt.0.)then
-       ERFF=-GAMMP(cHalf,X**2,ier)
-       if (ier.ne.0) return
-    else
-       ERFF=GAMMP(cHalf,X**2,ier)
-       if (ier.ne.0) return
-    endif
-    return
-  end function erff
-
-!=============================================================================
-  function gammp(A,X,IER)
-    
-    use ModRamMain, ONLY: Real8_
-
-    implicit none
-
-    real(kind=Real8_) :: gammp
-    real(kind=Real8_) :: GLN, GAMMCF
-    integer, intent(inout) :: ier
-    real(kind=Real8_), intent(in)       :: A, X
-    !-----------------------------------------------------------------------
-    IER = 0
-    IF(X.LT.0..OR.A.LE.0.) & !PAUSE -- pause is antiquated.
-         write(*,*)'WARNING! X and/or A arguments to GAMMP < 0!!!'
-    
-    ! use series representation
-    IF(X.LT.A+1.)THEN
-       CALL GSER(GAMMP,A,X,GLN,IER)
-       IER = IER * 20
-       IF (IER.EQ.20) return
-       
-    ! continued fraction representation
-    ELSE
-       CALL GCF(GAMMCF,A,X,GLN,IER)
-       GAMMP=1.-GAMMCF
-       IER = 10 * IER
-       IF (IER.EQ.10) RETURN
-    ENDIF
-
-    RETURN
-  end function gammp
+!  function erff(x)
+!
+!    use ModRamMain, ONLY: Real8_
+!
+!    implicit none
+!
+!    integer :: ier = 0
+!    real(kind=Real8_)            :: erff
+!    real(kind=Real8_), intent(in):: x
+!    real(kind=Real8_), parameter :: cHalf = 0.5
+!    !-----------------------------------------------------------------------
+!    if(x.lt.0.)then
+!       ERFF=-GAMMP(cHalf,X**2,ier)
+!       if (ier.ne.0) return
+!    else
+!       ERFF=GAMMP(cHalf,X**2,ier)
+!       if (ier.ne.0) return
+!    endif
+!    return
+!  end function erff
 
 !=============================================================================
-  function G(x)
-    
-    use ModRamMain, ONLY: Real8_
-    use ModRamConst, ONLY: PI 
-    implicit none
+!  function gammp(A,X,IER)
+!    
+!    use ModRamMain, ONLY: Real8_
+!
+!    implicit none
+!
+!    real(kind=Real8_) :: gammp
+!    real(kind=Real8_) :: GLN, GAMMCF
+!    integer, intent(inout) :: ier
+!    real(kind=Real8_), intent(in)       :: A, X
+!    !-----------------------------------------------------------------------
+!    IER = 0
+!    IF(X.LT.0..OR.A.LE.0.) & !PAUSE -- pause is antiquated.
+!         write(*,*)'WARNING! X and/or A arguments to GAMMP < 0!!!'
+!    
+!    ! use series representation
+!    IF(X.LT.A+1.)THEN
+!       CALL GSER(GAMMP,A,X,GLN,IER)
+!       IER = IER * 20
+!       IF (IER.EQ.20) return
+!       
+!    ! continued fraction representation
+!    ELSE
+!       CALL GCF(GAMMCF,A,X,GLN,IER)
+!       GAMMP=1.-GAMMCF
+!       IER = 10 * IER
+!       IF (IER.EQ.10) RETURN
+!    ENDIF
+!
+!    RETURN
+!  end function gammp
 
-    real(kind=Real8_), intent(in) :: x
-    real(kind=Real8_) :: G1
-    real(kind=Real8_) :: G
-    !-----------------------------------------------------------------------
-
-    G1=ERFF(X)-2.*X/sqrt(PI)*exp(-X*X)
-    G=G1/2./X/X
-    return
-  end function g
+!=============================================================================
+!  function G(x)
+!    
+!    use ModRamMain, ONLY: Real8_
+!    use ModRamConst, ONLY: PI 
+!    implicit none
+!
+!    real(kind=Real8_), intent(in) :: x
+!    real(kind=Real8_) :: G1
+!    real(kind=Real8_) :: G
+!    !-----------------------------------------------------------------------
+!
+!    G1=ERFF(X)-2.*X/sqrt(PI)*exp(-X*X)
+!    G=G1/2./X/X
+!    return
+!  end function g
 
 !=============================================================================
   function funt(x)

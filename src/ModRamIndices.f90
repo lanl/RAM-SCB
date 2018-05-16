@@ -1,9 +1,9 @@
 !============================================================================
-module ModRamIndices
 !    Copyright (c) 2016, Los Alamos National Security, LLC
 !    All rights reserved.
 !============================================================================
-  
+
+module ModRamIndices
   ! A set of tools for handling the indices used in RAM-SCB.  Combined with
   ! the PARAM interface, allows the user to select source of indices, gather
   ! and interpolate the values to the current simulation time.

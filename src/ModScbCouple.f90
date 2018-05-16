@@ -1,3 +1,8 @@
+!============================================================================
+!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    All rights reserved.
+!============================================================================
+
 Module ModScbCouple
 
   use ModScbMain,   ONLY: DP
@@ -36,16 +41,15 @@ subroutine build_scb_init
 
   use ModScbGrids, ONLY: npsi, nzeta
 
-  use ModScbSpline, ONLY: spline, Spline_1D_Periodic
-  use ModScbInterp, ONLY: Interpolation_natgrid_ShellBuild
+  use ModRamGSL, ONLY: GSL_Interpolation_1D, GSL_Interpolation_2D
 
   use nrtype, ONLY: DP, SP, pi_d
-  use ezcdf
 
   IMPLICIT NONE
 
   ! Choices for the "bunching" of points near a certain local 
   ! time (cZ) and equatorial plane (cTheta)
+  INTEGER :: GSLerr
   REAL(DP), PARAMETER   :: constZ = 0.0_dp, constTheta = 0.25_dp  ! For domains for inner mag. modeling
   INTEGER, PARAMETER :: noHrs = 24*30-1 ! Number of hours (snapshots) ! For Nov. 2002 run
   CHARACTER(LEN = 10) :: statusBound ! "open  " or "closed"
@@ -54,7 +58,7 @@ subroutine build_scb_init
   CHARACTER(LEN = 4) :: time_char
   REAL(DP)           :: step, r00, tilt, alat, alon, rtilt, x0, y0, z0, &
        xstop, ystop, zstop, dd, stepMinim, stepMaxim
-  REAL(DP), ALLOCATABLE :: alatMod(:,:)
+  REAL(DP), ALLOCATABLE :: alatMod(:,:), aLonVal(:,:)
   INTEGER :: nlat, nlon, halfLon, i, j, k, netcdfId, nMid
   REAL(DP) :: start_time, end_time
   REAL(DP) :: tailMin, tailMax, tailMpause, aMajor, eccent, radius
@@ -210,7 +214,7 @@ subroutine build_scb_init
   END DO
   
   PRINT*, 'minLat, maxLat = ', minLat, maxLat
-  ! Now use spline interpolation to get (smaller grid) funcModBeta values
+  ! Now use interpolation to get (smaller grid) funcModBeta values
   ! For proper interpolation, need to have the whole range [0, 360] covered by rlonval2Iono(k)
   ! If not, add points using periodicity 
   ! CHANGED: For files where first and last Lon are equal (DTW)
@@ -237,20 +241,12 @@ subroutine build_scb_init
      END DO
   END IF
   
-  !C CALL spline(rlonval2Iono(1:nlonLarge+5),funcModBetaLarge(1:nlonLarge+5), &
-  !C      1.E31_DP, 1.E31_DP, distance2derivs(1:nlonLarge+5))
-  !C DO i = 1, nlon
-  !C    funcModBeta(i) = splint(rlonval2Iono(1:nlonLarge+5),funcModBetaLarge(1:nlonLarge+5), &
-  !C         distance2derivs(1:nlonLarge+5), rlonval(i))
-  !C IF (iDebug /= 0) PRINT*, 'i, lon(i), funcModBeta(i) = ', i, REAL(rlonval(i),sp), REAL(funcModBeta(i),sp)
-  !C END DO 
-  
   ! These 2 lines below are really problematic if rlonval2Iono and rlonval do not span the same domain !!! 
   ! (which is very possible with azimuthal field curvature present)
   ! funcModBeta(1) = funcModBetaLarge(1)
   ! funcModBeta(nlon+1) = funcModBetaLarge(nlonLarge+1)
-  CALL Spline_1D_periodic(lontwice(1:2*nLonLarge-1), betatwice(1:2*nLonLarge-1), &
-       rlonval(1:nlon), funcModBeta(1:nlon), ierr)
+  CALL GSL_Interpolation_1D('Cubic',lontwice(1:2*nLonLarge-1), betatwice(1:2*nLonLarge-1), &
+                            rlonval(1:nlon), funcModBeta(1:nlon), GSLerr)
   IF (iDebug /= 0) THEN
      PRINT*, ('i, lon(i), funcModBeta(i) = ', i, REAL(rlonval(i),sp), REAL(funcModBeta(i),sp), i = 1, nlon)
   END IF
@@ -261,67 +257,15 @@ subroutine build_scb_init
   IF (.NOT. ALLOCATED(xTsyg)) ALLOCATE(xTsyg(nthe,npsi,nzeta+1))
   IF (.NOT. ALLOCATED(yTsyg)) ALLOCATE(yTsyg(nthe,npsi,nzeta+1))
   IF (.NOT. ALLOCATED(zTsyg)) ALLOCATE(zTsyg(nthe,npsi,nzeta+1))
-  xTsyg = 99.
-  yTsyg = 99.
-  zTsyg = 99.
-  
-  WRITE(xpsiin_char, '(SP, F6.2)') xpsiin
-  WRITE(xpsiout_char, '(SP, F6.2)') xpsiout
-  WRITE(r00_char, '(SP, F8.4)') r00
-  WRITE(constz_char, '(SP, F6.2)') constZ
-  WRITE(consttheta_char, '(SP, F6.2)') constTheta
-  
-  CALL cdf_open(netcdfId, 'SWMF_config_test.cdf', 'w')
-  
-  dimlens(1) = LEN(statusBound)
-  CALL  cdf_define (netcdfId, 'statusBC', dimlens, 'char')
-  dimlens(1) = LEN(pdyn_char)
-  CALL  cdf_define (netcdfId, 'pdyn', dimlens, 'char')
-  dimlens(1) = LEN(byimf_char)
-  CALL  cdf_define (netcdfId, 'byimf', dimlens, 'char')
-  dimlens(1) = LEN(bzimf_char)
-  CALL  cdf_define (netcdfId, 'bzimf', dimlens, 'char')
-  dimlens(1) = LEN(dst_char)
-  CALL  cdf_define (netcdfId, 'DST', dimlens, 'char')
-  dimlens(1) = LEN(xpsiin_char)
-  CALL  cdf_define (netcdfId, 'xpsi_in', dimlens, 'char')
-  dimlens(1) = LEN(xpsiout_char)
-  CALL  cdf_define (netcdfId, 'xpsi_out', dimlens, 'char')
-  dimlens(1) = LEN(r00_char)
-  CALL  cdf_define (netcdfId, 'rStart', dimlens, 'char')
-  dimlens(1) = LEN(constz_char)
-  CALL  cdf_define (netcdfId, 'Constz', dimlens, 'char')
-  dimlens(1) = LEN(consttheta_char)
-  CALL  cdf_define (netcdfId, 'Consttheta', dimlens, 'char')
-  dimlens(1) = LEN(nthe_char)
-  CALL  cdf_define (netcdfId, 'ntheta', dimlens, 'char')
-  dimlens(1) = LEN(npsi_char)
-  CALL  cdf_define (netcdfId, 'npsi', dimlens, 'char')
-  dimlens(1) = LEN(nzeta_char)
-  CALL  cdf_define (netcdfId, 'nzeta', dimlens, 'char')
-  CALL cdfSetatt(netcdfId, 'n_zeta', 'Number of zeta points')
   
   xTsyg = 0._dp
   yTsyg = 0._dp
   zTsyg = 0._dp
   
-  dimlens2(1) = 1
-  dimlens2(2) = 1
-  dimlens2(3) = 1
-  CALL cdf_define(netcdfId, 'tilt', dimlens2, 'R4')
-  CALL cdfSetatt(netcdfId, 'tilt', 'Tilt of the magnetic axis (degrees)')
-  
-  dimlens2(1) = 6
-  dimlens2(2) = 1
-  dimlens2(3) = 1
-  CALL cdf_define(netcdfId, 'wTsyg', dimlens2, 'R4')
-  
-  CALL CPU_TIME(start_time)    ! start timer, measured in seconds
-  
   IF (.NOT. ALLOCATED(alatMod)) ALLOCATE(alatMod(nlat, nlon), STAT = ierr)
+  IF (.NOT. ALLOCATED(aLonVal)) ALLOCATE(aLonVal(nlat, nlon), STAT = ierr)
   
   Latitudes_loop: do  ilat = 1, nlat
-     
      alat = rlatVal(ilat) ! Magnetic latitude of the nMid line
      
      !c  longitude grid do loop
@@ -395,17 +339,18 @@ subroutine build_scb_init
         xTsyg(1,j,k) = COSD(alatMod(j,k-1)) * COSD(rlonval(k-1))
         yTsyg(1,j,k) = COSD(alatMod(j,k-1)) * SIND(rlonval(k-1))
         zTsyg(1,j,k) = - SIND(alatMod(j,k-1))
+        aLonVal(j,k-1) = rLonVal(k-1)
      END DO
   END DO
-  ! Do NATGRID interpolation (scattered) to find x, y, z for each such surface
+  ! Do NN interpolation (scattered) to find x, y, z for each such surface
   DO iPoint = 2, nPoints
      !PRINT*, 'cf: iPoint = ', iPoint
-     CALL Interpolation_natgrid_ShellBuild(REAL(xSWMF(iPoint,:,:), DP), alatMod(:,:), rlonval(1:nlon), iPoint, nlat, nlon, &
-          xTsyg(iPoint,1:nlat,2:nlon+1))
-     CALL Interpolation_natgrid_ShellBuild(REAL(ySWMF(iPoint,:,:), DP), alatMod(:,:), rlonval(1:nlon), iPoint, nlat, nlon, &
-          yTsyg(iPoint,1:nlat,2:nlon+1))
-     CALL Interpolation_natgrid_ShellBuild(REAL(zSWMF(iPoint,:,:), DP), alatMod(:,:), rlonval(1:nlon), iPoint, nlat, nlon, &
-          zTsyg(iPoint,1:nlat,2:nlon+1))
+     CALL GSL_Interpolation_2D(LatSWMF(:,:),LonSWMF(:,:),REAL(xSWMF(iPoint,:,:),DP), &
+                               aLatMod(:,:), aLonVal(:,:), xTsyg(iPoint,:,2:nLon+1), GSLerr)
+     CALL GSL_Interpolation_2D(LatSWMF(:,:),LonSWMF(:,:),REAL(ySWMF(iPoint,:,:),DP), &
+                               aLatMod(:,:), aLonVal(:,:), yTsyg(iPoint,:,2:nLon+1), GSLerr)
+     CALL GSL_Interpolation_2D(LatSWMF(:,:),LonSWMF(:,:),REAL(zSWMF(iPoint,:,:),DP), &
+                               aLatMod(:,:), aLonVal(:,:), zTsyg(iPoint,:,2:nLon+1), GSLerr)
   END DO
   !PRINT*, 'cf: Interpolation finished.'
   
@@ -450,90 +395,6 @@ subroutine build_scb_init
   yTsygNew(:,:,nzeta+1) = yTsygNew(:,:,2)
   zTsygNew(:,:,nzeta+1) = zTsygNew(:,:,2)
   
-  IF (iDebug /= 0) THEN
-     dimlens2(1) = nRadSWMF
-     dimlens2(2) = nLonSWMF-1
-     dimlens2(3) = 1
-     CALL  cdf_define (netcdfId, 'xEqSWMF', dimlens2, 'R4')
-     CALL  cdf_define (netcdfId, 'yEqSWMF', dimlens2, 'R4')
-     CALL  cdf_define (netcdfId, 'nEqSWMF', dimlens2, 'R4')
-     CALL  cdf_define (netcdfId, 'pEqSWMF', dimlens2, 'R4')
-     CALL  cdf_define (netcdfId, 'LonIonSWMF', dimlens2, 'R4')
-     CALL  cdf_define (netcdfId, 'LatIonSWMF', dimlens2, 'R4')
-     dimlens2(1) = nlat
-     dimlens2(2) = nlon
-     dimlens2(3) = 1
-     CALL  cdf_define (netcdfId, 'LatGrid', dimlens2, 'R4')
-     dimlens2(1) = nlon
-     dimlens2(2) = 1
-     dimlens2(3) = 1
-     CALL  cdf_define (netcdfId, 'LonGrid', dimlens2, 'R4')
-     dimlens2(1) = ntheOld
-     dimlens2(2) = npsi
-     dimlens2(3) = nzeta + 1
-     CALL  cdf_define (netcdfId, 'xTsygOld', dimlens2, 'R4')
-     CALL  cdf_define (netcdfId, 'yTsygOld', dimlens2, 'R4')
-     CALL  cdf_define (netcdfId, 'zTsygOld', dimlens2, 'R4')    
-     dimlens2(1) = ntheOld
-     dimlens2(2) = nRadSWMF
-     dimlens2(3) = nLonSWMF-1
-     CALL  cdf_define (netcdfId, 'xSWMF', dimlens2, 'R4')
-     CALL  cdf_define (netcdfId, 'ySWMF', dimlens2, 'R4')
-     CALL  cdf_define (netcdfId, 'zSWMF', dimlens2, 'R4')
-     write(*,*)'x, y to file=', xSWMF(1:nPoints, 5,nLonSWMF-1), ySWMF(1:nPoints, 5,nLonSWMF-1)
-  END IF
-  
-  dimlens2(1) = nthe
-  dimlens2(2) = npsi
-  dimlens2(3) = nzeta + 1
-  CALL  cdf_define (netcdfId, 'xTsyg', dimlens2, 'R4')
-  CALL  cdf_define (netcdfId, 'yTsyg', dimlens2, 'R4')
-  CALL  cdf_define (netcdfId, 'zTsyg', dimlens2, 'R4')  
-  
-  ! Writing block - do not define further netcdf quantities
-  IF (iDebug /= 0) THEN
-     CALL  cdf_write (netcdfId, 'xEqSWMF', REAL(xEqSWMF,sp))
-     CALL  cdf_write (netcdfId, 'yEqSWMF', REAL(yEqSWMF,sp))
-     CALL  cdf_write (netcdfId, 'pEqSWMF', REAL(pEqSWMF,sp))
-     CALL  cdf_write (netcdfId, 'nEqSWMF', REAL(nEqSWMF,sp))
-     CALL  cdf_write (netcdfId, 'LonIonSWMF', REAL(LonSWMF-1,sp))
-     CALL  cdf_write (netcdfId, 'LatIonSWMF', REAL(LatSWMF,sp))
-     CALL  cdf_write (netcdfId, 'LatGrid', REAL(alatMod,sp))
-     CALL  cdf_write (netcdfId, 'LonGrid', REAL(rlonval(1:nlon),sp))
-  END IF
-  
-  !    CALL  cdf_write (netcdfId, 'statusBC', statusBound) 
-  !    CALL  cdf_write (netcdfId, 'pdyn', pdyn_char)
-  !    CALL  cdf_write (netcdfId, 'byimf', byimf_char)
-  !    CALL  cdf_write (netcdfId, 'bzimf', bzimf_char)
-  !    CALL  cdf_write (netcdfId, 'DST', dst_char)
-  CALL  cdf_write (netcdfId, 'xpsi_in', xpsiin_char)
-  CALL  cdf_write (netcdfId, 'xpsi_out', xpsiout_char)
-  CALL  cdf_write (netcdfId, 'rStart', r00_char)
-  CALL  cdf_write (netcdfId, 'Constz', constz_char)
-  CALL  cdf_write (netcdfId, 'Consttheta', consttheta_char)
-  CALL  cdf_write (netcdfId, 'ntheta', nthe_char)
-  CALL  cdf_write (netcdfId, 'npsi', npsi_char)
-  CALL  cdf_write (netcdfId, 'nzeta', nzeta_char)
-  CALL  cdf_write (netcdfId, 'tilt', REAL(0.0,dp))
-  
-  CALL  cdf_write (netcdfId, 'xTsyg', REAL(xTsygNew(:,1:npsi,:),sp))
-  CALL  cdf_write (netcdfId, 'yTsyg', REAL(yTsygNew(:,1:npsi,:),sp))
-  CALL  cdf_write (netcdfId, 'zTsyg', REAL(zTsygNew(:,1:npsi,:),sp))
-  
-  IF (iDebug /= 0) THEN
-     CALL  cdf_write (netcdfId, 'xTsygOld', REAL(xTsyg,sp))
-     CALL  cdf_write (netcdfId, 'yTsygOld', REAL(yTsyg,sp))
-     CALL  cdf_write (netcdfId, 'zTsygOld', REAL(zTsyg,sp))
-     
-     CALL  cdf_write (netcdfId, 'xSWMF', REAL(xSWMF,sp))
-     CALL  cdf_write (netcdfId, 'ySWMF', REAL(ySWMF,sp))
-     CALL  cdf_write (netcdfId, 'zSWMF', REAL(zSWMF,sp))
-  END IF
-  
-  ! close the cdf file 
-  CALL cdf_close(netcdfId)
-  
   WRITE(*, '(A, I3, 2X, F8.2)') 'hour, max(R) = ', iTime, SQRT(MAXVAL(xTsyg**2 + yTsyg**2));
   
   IF(ALLOCATED(xTsyg) .AND. ALLOCATED(yTsyg) .AND. ALLOCATED(zTsyg)) &
@@ -543,8 +404,6 @@ subroutine build_scb_init
   IF(ALLOCATED(xSWMF) .AND. ALLOCATED(ySWMF) .AND. ALLOCATED(zSWMF))  &
        DEALLOCATE(xSWMF, ySWMF, zSWMF)
   
-  !CALL CPU_TIME(end_time)          ! stop timer
-
 END subroutine build_scb_init
 
 !==============================================================================
@@ -650,12 +509,13 @@ END SUBROUTINE latitudes
 SUBROUTINE mapthe1d(const_theta)
 
   use ModRamFunctions, ONLY: ASIND, ATAN2D, COSD
-  USE ModScbSpline, ONLY: spline, splint
+  USE ModRamGSL,       ONLY: GSL_Interpolation_1D
 
   use nrtype, ONLY: DP, pi_d
 
   IMPLICIT NONE
 
+  INTEGER :: GSLerr
   REAL(DP), INTENT(IN)   :: const_theta
   REAL(DP), DIMENSION(:), ALLOCATABLE :: distance, xOld, yOld, zOld, distance2derivsX, &
                                          distance2derivsY, distance2derivsZ
@@ -725,22 +585,9 @@ SUBROUTINE mapthe1d(const_theta)
         thetaVal = theval * pi_d / distance(nthe)
         chiVal = (thetaVal + const_theta * SIN(2.*thetaVal)) * distance(nthe)/pi_d
 
-        ! define chival here
-
-        !C        PRINT*, 'mapthe1d: j, k, x(1), y(1), z(1) : ', j, k,
-        !xSWMF(1,j,k), ySWMF(1,j,k), zSWMF(1,j,k)
-
-        ! "Natural" splines
-        CALL spline(distance(1:nthe), xOld(1:nthe), 1.E31_DP, 1.E31_DP, distance2derivsX(1:nthe))
-        CALL spline(distance(1:nthe), yOld(1:nthe), 1.E31_DP, 1.E31_DP, distance2derivsY(1:nthe))
-        CALL spline(distance(1:nthe), zOld(1:nthe), 1.E31_DP, 1.E31_DP, distance2derivsZ(1:nthe))
-
-        DO i = 2, nthe-1
-           xSWMF(i,j,k) = splint(distance(1:nthe), xOld(1:nthe), distance2derivsX(1:nthe), chiVal(i))
-           ySWMF(i,j,k) = splint(distance(1:nthe), yOld(1:nthe), distance2derivsY(1:nthe), chiVal(i))
-           zSWMF(i,j,k) = splint(distance(1:nthe), zOld(1:nthe), distance2derivsZ(1:nthe), chiVal(i))
-        END DO
-
+        CALL GSL_Interpolation_1D('Cubic',distance(:),xOld(:),chiVal(2:nthe-1),xSWMF(2:nthe-1,j,k),GSLerr)
+        CALL GSL_Interpolation_1D('Cubic',distance(:),yOld(:),chiVal(2:nthe-1),ySWMF(2:nthe-1,j,k),GSLerr)
+        CALL GSL_Interpolation_1D('Cubic',distance(:),zOld(:),chiVal(2:nthe-1),zSWMF(2:nthe-1,j,k),GSLerr)
 
      END DO
      !C if (k == 4) print*, 'mapthe1d: xEq(:,k) = ', xSWMF(nPoints,:,k)
@@ -756,13 +603,14 @@ END SUBROUTINE mapthe1d
 !==============================================================================
 SUBROUTINE mapthe1d_down(const_theta)
 
+  use ModRamGSL,   ONLY: GSL_Interpolation_1D
   use ModScbGrids, ONLY: nzeta, npsi, nthe
 
-  USE ModScbSpline, ONLY: splint, spline
-
   use nrtype, ONLY: DP, pi_d
+
   IMPLICIT NONE
 
+  INTEGER :: GSLerr
   REAL(DP), INTENT(IN)   :: const_theta
   REAL(DP), ALLOCATABLE, DIMENSION(:) :: distance, xOld, yOld, zOld, distance2derivsX, &
                                          distance2derivsY, distance2derivsZ
@@ -804,16 +652,12 @@ SUBROUTINE mapthe1d_down(const_theta)
         thetaVal = theval * pi_d / distance(ntheOld)
         chiVal = (thetaVal + const_theta * SIN(2.*thetaVal)) * distance(ntheOld)/pi_d ! dimensions of distance
 
-        ! "Natural" splines
-        CALL spline(distance(1:ntheOld), xOld(1:ntheOld), 1.E31_DP, 1.E31_DP, distance2derivsX(1:ntheOld))
-        CALL spline(distance(1:ntheOld), yOld(1:ntheOld), 1.E31_DP, 1.E31_DP, distance2derivsY(1:ntheOld))
-        CALL spline(distance(1:ntheOld), zOld(1:ntheOld), 1.E31_DP, 1.E31_DP, distance2derivsZ(1:ntheOld))
-
-        DO i = 2, nthe-1
-           xTsygNew(i,j,k) = splint(distance(1:ntheOld), xOld(1:ntheOld), distance2derivsX(1:ntheOld), chiVal(i))
-           yTsygNew(i,j,k) = splint(distance(1:ntheOld), yOld(1:ntheOld), distance2derivsY(1:ntheOld), chiVal(i))
-           zTsygNew(i,j,k) = splint(distance(1:ntheOld), zOld(1:ntheOld), distance2derivsZ(1:ntheOld), chiVal(i))
-        END DO
+        CALL GSL_Interpolation_1D('Cubic',distance(1:ntheOld),xOld(1:ntheOld), &
+                                  chiVal(2:nthe-1),xTsygNew(2:nthe-1,j,k),GSLerr)
+        CALL GSL_Interpolation_1D('Cubic',distance(1:ntheOld),yOld(1:ntheOld), &
+                                  chiVal(2:nthe-1),yTsygNew(2:nthe-1,j,k),GSLerr)
+        CALL GSL_Interpolation_1D('Cubic',distance(1:ntheOld),zOld(1:ntheOld), &
+                                  chiVal(2:nthe-1),zTsygNew(2:nthe-1,j,k),GSLerr)
 
         xTsygNew(1,j,k) = xTsyg(1,j,k)
         xTsygNew(nthe,j,k) = xTsyg(ntheOld,j,k)
@@ -821,7 +665,6 @@ SUBROUTINE mapthe1d_down(const_theta)
         yTsygNew(nthe,j,k) = yTsyg(ntheOld,j,k)
         zTsygNew(1,j,k) = zTsyg(1,j,k)
         zTsygNew(nthe,j,k) = zTsyg(ntheOld,j,k)
-
      END DO
   END DO
 

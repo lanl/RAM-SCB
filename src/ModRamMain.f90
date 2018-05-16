@@ -1,10 +1,9 @@
-!==============================================================================
-module ModRamMain
-!    This module replaces the common blocks in RAM.
-!    DTW, EDIT: 2009-04-21: updated for latest version of RAM.
+!============================================================================
 !    Copyright (c) 2016, Los Alamos National Security, LLC
 !    All rights reserved.
-!==============================================================================
+!============================================================================
+
+module ModRamMain
 
   use ModTimeConvert, ONLY: TimeType
   use nrtype,         ONLY: DP, SP
@@ -14,7 +13,7 @@ module ModRamMain
   save
 
 ! RAM version.
-  real, parameter :: CodeVersion = 3.0
+  real, parameter :: CodeVersion = 2.2
 
 ! Kind for double precision, set here for portability.
   integer, parameter :: Real8_ = DP

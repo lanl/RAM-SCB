@@ -1,3 +1,8 @@
+!============================================================================
+!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    All rights reserved.
+!============================================================================
+
 Module ModRamVariables
 
   use nrtype, ONLY: DP
@@ -8,6 +13,8 @@ Module ModRamVariables
 ! UNKNOWN VARIABLES
   real(DP), ALLOCATABLE :: XNE(:,:)
 !
+
+  real :: IG(3), RZ(3), rsn, IAPO(7)   ! Ap-index, Rs-index
 
 ! Main RAM Variables (Pressures, Fluxes, and hI variables)
   real(DP), ALLOCATABLE :: F2(:,:,:,:,:), FLUX(:,:,:,:,:), PPerH(:,:), PParH(:,:), &

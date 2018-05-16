@@ -3,6 +3,9 @@ Example PARAM file with all options listed (the listed options are the program d
 #DESCRIPTION
 A description of your run can go here
 
+#EVENT
+The name of your event can go here
+
 ************** REQUIRED BLOCK ***************** ! These are the only required pieces that must be included in every RAM-SCB run (if restarting a run, replace STARTTIME with RESTART)
 #STARTTIME
 2013                    iYear			! Sets the year, month, day, hour, and minute for run start
@@ -37,18 +40,19 @@ A description of your run can go here
 1.0			MinHalfStep		! The minimum half time step (in seconds) that RAM will take, regardless of other factors
 
 #VARIABLEDT
-T			DoVarDt			! If set to T RAM will adjust its time step based on the current fluxes
+T			DoVarDt			! If set to T RAM will adjust its time step based on the current fluxes using the Courant condition
 
 #COMPONENT_TIMESTEPS
 300.0			SCBTimeStep		! Amount of time (in seconds) between calls to SCB. If set to 1.0 it will call SCB on every RAM time step
 300.0			BCTimeStep		! Amount of time (in seconds) between reading boundary flux files (or from SWMF). If set to 1.0 will update on every RAM time step
 300.0			EFTimeStep		! Amount of time (in seconds) between updating electric fields. If set to 1.0 it will update every RAM time step
+
 ***********************************************
 
 *************** COMPONENT BLOCK ***************
 #OUTERBOUNDARY
 LANL			NameBoundPlasma		! Determines the boundary flux source (LANL, PTM, QDMKP, QDMVBZ, or SWMF)
-DIPL 			NameBoundMag		! Determines the magnetic field source (DIPL, DIPS, T89D, T96D, T02D, T04D, or SWMF)
+DIPL 			NameBoundMag		! Determines the magnetic field source (DIPL, DIPS, T89D, T96D, T02D, T04D, T89I, T96I, T02I, T04I, or SWMF)
 MAXW			NameDistribution	! Determines the distribution of the flux (MAXW)
 
 #EFIELD
@@ -71,9 +75,13 @@ T                       DoElectrons             ! Whether to run electrons
 
 #RAMGRID
 20                      nR                      ! Number of radial grid points used in RAM
-25                      nT                      ! Number of toroidal grid points used in RAM
+49                      nT                      ! Number of toroidal grid points used in RAM
 35                      nE                      ! Number of energy bins used in RAM
 72                      nPa                     ! Number of pitch angle bins used in RAM
+
+#USEPLANE
+F			DoUsePlane_SCB		! Whether to include the plasmasphere
+
 ***********************************************
 
 ***************** SCB BLOCK *******************
@@ -97,8 +105,8 @@ T                       DoElectrons             ! Whether to run electrons
 
 #SCBGRID
 71                      nTheta                  ! Number of theta grid points used in SCB
-95                      nPsi                    ! Number of psi (radial) surfaces used in SCB
-121                     nZeta                   ! Number of zeta (azamuthal) surfaces used in SCB 
+45                      nPsi                    ! Number of psi (radial) surfaces used in SCB
+73                      nZeta                   ! Number of zeta (azimuthal) surfaces used in SCB 
 
 #SCBFLAGS
 F			Isotropic		! Whether to use isotropic pressure mappings in SCB (does not effect RAM)
@@ -106,24 +114,43 @@ F			ReduceAnisotropy	! Whether to change the anisotropy to a marginally mirror-s
 T			BetaExtrapolation	! Whether to extrapolate Beta Euler potential values to the outside boundary or use the previous point
 F			AzimuthalOffset		! Whether to set equidistance at most problematic time (if T) or keep it at midnight (if F)
 F			EmptyLossCone		! Whether to use a filled loss cone (if F) or a more realistic empty loss cone using M. Liemohn's 2004
-F			AdaptiveMesh		! Whether to use Mesh refinement in magnetic flux, so that one has equidistant magnetic flux surfaces
+T			AdaptiveMesh		! Whether to use Mesh refinement in magnetic flux, so that one has equidistant magnetic flux surfaces
 
 #SCBDETAILS
 F			SORDetail		! Whether to compute extra Sucessive Over Relaxation information
 T			EnergyDetail		! Whether to compute DPS Dst and other energy information
 F			ForceBalanceDetail	! Whether to compute global force balance before and after SCB runs, this will cause additional output
 F			PressureDetail          ! Whether to compute the full 3D pressure profile before an SCB run, this will cause additional output
+
+#SCBSMOOTING
+1			PressureSmoothing	! What type of smoothing to perform on the RAM pressure when SCB reads it in (0 = None, 1 = Savitzky-Golay, 2 = B-Spline)
+3			SavitzyGolayIterations  ! Number of passes of the Savitzy-Golay filter to use
+
+#SCBBOUNDARY
+F                       FixedRadialBoundary     ! Whether to use a fixed radial boundary (outer and inner shell)
+T			FixedPolarBoundary	! Whether to use a fixed polar boundary (field line end points)
+
 ***********************************************
 
 ***************** INPUT BLOCK *****************
 #OMNIFILE
 omni.txt		NameOmniFile		! Name of the omni input file (used for certain configurations)
 
+#OMNIFILESOURCE
+F			UseSWMFFormat		! Whether the omni file is in the SMWF format or the older RAM format
+
 #INDICES_FILE
 RamIndices.txt		NameIndicesFile		! Name of the KP and F10.7 indices file needed for RAM
 
 #BOUNDARY_FILE_PATH
 IM/input_ram/		BoundaryPath		! Location where the boundary files can be found
+
+#QINDENTON_FILE_PATH
+IM/input_scb/		QinDentonPath		! Location where the QinDenton files can be found (Used for the T##X magnetic field models)
+
+#INITIALIZATION_FILE_PATH
+IM/input_ram/		InitializationPath	! Location where the RAM Initialization.nc file can be found
+
 ***********************************************
 
 ***************** OUTPUT BLOCK ****************
@@ -151,4 +178,5 @@ F			DoDump3DFlux		! Whether SCB 3D flux files should be written or not (currentl
 sat1.dat		NameTrajectoryFile	! The names of all of the satellite trajectory input files, should be a single line for each of the nSatellite
 sat2.dat		NameTrajectoryFile
 F			DoUseVAPini		! Whether to initialize based on VAP data (currently disabled)
+
 ***********************************************

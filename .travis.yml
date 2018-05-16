@@ -10,7 +10,7 @@ before_install:
   - docker build -t $REPO:$COMMIT -t $REPO:latest . 
 
 script:
-  - docker run -it $REPO:$COMMIT /bin/bash -c "set -e && cd SHIELDS && make test"
+  - docker run -it $REPO:$COMMIT /bin/bash -c "set -e && cd SHIELDS && make testTravis"
 
 after_script:
   - docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
