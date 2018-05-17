@@ -555,10 +555,6 @@ SUBROUTINE init_input
 
  return
 
-<<<<<<< HEAD
 end subroutine init_input
-=======
-END SUBROUTINE init_input
->>>>>>> 4be5585bdc3f493106a927ed4376d86f04126511
 
 END MODULE ModRamInit
