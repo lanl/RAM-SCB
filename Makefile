@@ -151,7 +151,7 @@ test1_rundir:
 	cp input/sat*.dat ${TESTDIR1}/
 
 test1_run:
-	cd ${TESTDIR1}; ${MPIRUN} ./ram_scb.exe > runlog
+	cd ${TESTDIR1}; ${MPIRUN} ./ram_scb.exe | tee runlog
 
 test1_check:
 	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9 			        \
@@ -204,11 +204,11 @@ test2_rundir:
 test2_run:
 	cd ${TESTDIR2};                                 \
 	rm PARAM.in; ln -s PARAM.in.test2.1st PARAM.in; \
-	${MPIRUN} ./ram_scb.exe > runlog1;              \
+	${MPIRUN} ./ram_scb.exe | tee runlog1;              \
 	rm PARAM.in; ln -s PARAM.in.test2.2nd PARAM.in; \
 	mv restartOUT/*.nc restartIN/restart.nc; \
 	mv restartOUT/*.txt restartIN/restart_info.txt; \
-	${MPIRUN} ./ram_scb.exe > runlog2;	
+	${MPIRUN} ./ram_scb.exe | tee runlog2;	
 
 test2_check:
 	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9	                      \
@@ -259,7 +259,7 @@ test3_rundir:
 	cp input/sat*.dat ${TESTDIR3}/
 
 test3_run:
-	cd ${TESTDIR3}; ${MPIRUN} ./ram_scb.exe > runlog;
+	cd ${TESTDIR3}; ${MPIRUN} ./ram_scb.exe | tee runlog;
 
 test3_check:
 	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                             \
@@ -312,11 +312,11 @@ test4_rundir:
 test4_run:
 	cd ${TESTDIR4};                                  \
 	rm PARAM.in; ln -s PARAM.in.test4.1st PARAM.in;  \
-	${MPIRUN} ./ram_scb.exe > runlog1;               \
+	${MPIRUN} ./ram_scb.exe | tee runlog1;               \
 	rm PARAM.in; ln -s PARAM.in.test4.2nd PARAM.in;  \
 	mv restartOUT/*.nc restartIN/restart.nc; \
 	mv restartOUT/*.txt restartIN/restart_info.txt; \
-	${MPIRUN} ./ram_scb.exe > runlog2;      
+	${MPIRUN} ./ram_scb.exe | tee runlog2;      
 
 test4_check:
 	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                            \
