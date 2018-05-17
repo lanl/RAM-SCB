@@ -105,7 +105,7 @@ sub set_libs
 	    if($libs{$_}){
 	        $lib_cmd=$lib_cmd . "\\\n\t-L$libs{$_}/lib -l$_ ";
     	        $lib_cmd=$lib_cmd . '-lnetcdff ' if($_ eq 'netcdf');
-                $lib_cmd=$lib_cmd . '-lgslblas -lm ' if($_ eq 'gsl');
+                $lib_cmd=$lib_cmd . '-lgslcblas -lm ' if($_ eq 'gsl');
     	        print FILE "$_  $libs{$_}\n";
     	    }else{
     	        $lib_cmd=$lib_cmd . "\\\n\t-l$_ ";
