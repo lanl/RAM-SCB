@@ -616,15 +616,15 @@ MODULE ModScbEuler
                    if (verbose) write(*,*) 'NaN encountered in ModScbEuler iterateAlpha'
                    alfa(iz,jz,k) = alfaprev(iz,jz,k)
                    resid(iz,jz,k) = 0._dp
-                   !SORFail = .true.
-                   !EXIT Iterations
+                   SORFail = .true.
+                   EXIT Iterations
                 elseif (alfa(iz,jz,k)+1.0.eq.alfa(iz,jz,k)) then
                    if (verbose) write(*,*) iz,jz,k,alfa(iz,jz,k), resid(iz,jz,k), vecd(iz,jz,k)
                    if (verbose) write(*,*) 'Large number encountered in ModScbEuler iterateAlpha'
                    alfa(iz,jz,k) = alfaprev(iz,jz,k)
                    resid(iz,jz,k) = 0._dp
-                   !SORFail = .true.
-                   !EXIT Iterations
+                   SORFail = .true.
+                   EXIT Iterations
                 endif
              END DO thetaloop
           END DO zetaloop
@@ -1205,15 +1205,15 @@ MODULE ModScbEuler
                    if (verbose) write(*,*) 'NaN encountered in ModScbEuler iteratePsi'
                    psi(iz,jz,k) = psiprev(iz,jz,k)
                    resid(iz,jz,k) = 0._dp
-                   !SORFail = .true.
-                   !EXIT Iterations
+                   SORFail = .true.
+                   EXIT Iterations
                 elseif (psi(iz,jz,k)+1.0.eq.psi(iz,jz,k)) then
                    if (verbose) write(*,*) iz,jz,k,psi(iz,jz,k), resid(iz,jz,k), vecd(iz,jz,k)
                    if (verbose) write(*,*) 'Large number encountered in ModScbEuler iteratePsi'
                    psi(iz,jz,k) = psiprev(iz,jz,k)
                    resid(iz,jz,k) = 0._dp
-                   !SORFail = .true.
-                   !EXIT Iterations
+                   SORFail = .true.
+                   EXIT Iterations
                 endif
              END DO iLoop
           END DO jLoop

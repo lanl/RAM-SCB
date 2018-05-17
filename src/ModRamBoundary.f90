@@ -141,16 +141,16 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   ! If at end of full day of flux, set fluxLast.
   if (iTime1==NBD) fluxLast_SII(iSpec,:,:)=flux_SIII(iSpec,NBD,:,:)
 
-  if (iTime1.eq.iTime2) then
+  !if (iTime1.eq.iTime2) then
      flux_II(1:24,1+lE:NEL_+le) = flux_SIII(iSpec,iTime1,:,1:NEL_)
-  else
-     do j=1,NTL-1
-        do k=1,NEL_
-           CALL GSL_Interpolation_1D('Steffen',tGrid_SI(iSpec,:),flux_SIII(iSpec,:,j,k), &
-                                     TimeRamElapsed,flux_II(j,k+lE),GSLerr)
-        enddo
-     enddo
-  endif
+  !else
+  !   do j=1,NTL-1
+  !      do k=1,NEL_
+  !         CALL GSL_Interpolation_1D('Steffen',tGrid_SI(iSpec,:),flux_SIII(iSpec,:,j,k), &
+  !                                   TimeRamElapsed,flux_II(j,k+lE),GSLerr)
+  !      enddo
+  !   enddo
+  !endif
 
   ! If needed, extrapolate (for now just set to 10^8 and 0.1 for testing)
   if (lE.eq.1) then
@@ -197,8 +197,8 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   do j=1,nT
      do k=1,nE
         CALL GSL_Interpolation_1D('Steffen',logELan, logFlux_II(j,:), logERam(k), y, GSLerr)
-        if (y.gt.6)  then
-           y=6
+        if (y.gt.8)  then
+           y=8
            !write(*,*) ' in ModRamBoundary: limit flux to 1e8'
         end if
         fluxOut_II(j,k)=10.**y

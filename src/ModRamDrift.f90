@@ -104,7 +104,7 @@ contains
     save
 
     integer, intent(in) :: S
-    integer :: UR, i, j, j0, j1, k, l, n, sgn
+    integer :: UR, i, j, j0, j1, k, l, n, sgn(nR,nT)
     real(kind=Real8_) :: p4, x, fup, r, corr, cgr1, cgr2, cgr3, ctemp
     real(kind=Real8_) :: CGR,CR(NR,NT),LIMITER, DtTemp
     real(kind=Real8_) :: F(NR+2),FBND(NR)
@@ -141,10 +141,10 @@ contains
                 CDriftR(I,J,K,L)=CR(I,J)+CGR
                 ctemp = max(abs(CDriftR(I,J,K,L)),1E-10)
                 DTDriftR(S) = min( DTDriftR(S), FracCFL*DTs/ctemp)
+                sgn(i,j) = 1
+                IF (CDriftR(i,J,K,L).NE.ABS(CDriftR(i,J,K,L))) sgn(i,j)=-1
              END DO
-             sgn = 1
-             IF (CDriftR(nR,J,K,L).NE.ABS(CDriftR(nR,J,K,L))) sgn=-1
-             IF (sgn.EQ.1) THEN
+             IF (sgn(nR,j).EQ.1) THEN
                 FBND(1)=0.
                 FBND(NR)=F(NR)
                 UR=NR-1
@@ -156,15 +156,15 @@ contains
              END IF
              DO I=2,UR
                 X=F(I+1)-F(I)
-                FUP=0.5*(F(I)+F(I+1)-sgn*X)
+                FUP=0.5*(F(I)+F(I+1)-sgn(i,j)*X)
                 IF (ABS(X).LE.1.E-27) FBND(I)=FUP
                 IF (ABS(X).GT.1.E-27) THEN
-                   N=I+1-sgn
+                   N=I+1-sgn(i,j)
                    R=(F(N)-F(N-1))/X
                    IF (R.LE.0) FBND(I)=FUP
                    IF (R.GT.0) THEN
                       LIMITER=MAX(MIN(BetaLim*R,1.),MIN(R,BetaLim))
-                      CORR=-0.5*(CDriftR(I,J,K,L)-sgn)*X
+                      CORR=-0.5*(CDriftR(I,J,K,L)-sgn(i,j))*X
                       FBND(I)=FUP+LIMITER*CORR
                    END IF
                 END IF

@@ -165,6 +165,7 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
             if (verbose) print*, 'Error in SCB calculation, attempting a full reset'
             call computational_domain
             call scb_run(0)
+            if (SORFail) hICalc = .false.
          endif
          FLUSH(6)
 
@@ -183,8 +184,8 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
          endif
 
          ! Couple SCB -> RAM
-         !if (hICalc) call computehI(nIter)
-         call computehI(nIter)
+         if (hICalc) call computehI(nIter)
+         !call computehI(nIter)
          FLUSH(6)
 
          call write_prefix
