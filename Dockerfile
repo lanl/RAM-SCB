@@ -1,4 +1,5 @@
 FROM ubuntu:17.10
+ENV PERL5LIB=.
 COPY . /SHIELDS
 
 RUN apt-get update
