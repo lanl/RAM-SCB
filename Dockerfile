@@ -1,4 +1,4 @@
-FROM ubuntu:17.04
+FROM ubuntu:17.10
 COPY . /SHIELDS
 
 RUN apt-get update
