@@ -79,6 +79,7 @@ SCB_OBJECTS=                  \
 	T96.o		      \
 	T02.o		      \
 	TS04.o		      \
+	TS07.o                \
 	w2k_r8.o	      \
 	w05.o
 

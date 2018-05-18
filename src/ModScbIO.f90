@@ -56,10 +56,10 @@ MODULE ModScbIO
                                    distance2derivsY, distance2derivsZ, xxGSW, &
                                    yyGSW, zzGSW, bx, by, bz
     INTEGER :: LMAX = 2000
-    INTEGER :: LOUT, iYear, iMonth, iDay, iHour, iMin, iSec
+    INTEGER :: LOUT, iYear, iMonth, iDay, iHour, iMin, iSec, ifail
     REAL(DP) :: ER, DSMAX, RLIM, xf, yf, zf, xf2, yf2, zf2, DIR
     REAL(DP) :: x0, y0, z0, XGSW, YGSW, ZGSW, xfGSW, yfGSW, zfGSW, RIN
-    REAL(DP) :: AA, SPS, CPS, PS, AB, tVal(nthe), cVal(nthe)
+    REAL(DP) :: AA, SPS, CPS, PS, AB, tVal(nthe), cVal(nthe), dut
     COMMON /GEOPACK1/ AA(10),SPS,CPS,AB(3),PS
 
     integer :: time1, clock_rate = 1000, clock_max = 100000
@@ -165,6 +165,11 @@ MODULE ModScbIO
           PARMOD(8) = W(4)
           PARMOD(9) = W(5)
           PARMOD(10) = W(6)
+       ELSEIF ((NameBoundMag.eq.'T07I').or.(NameBoundMag.eq.'T07D')) THEN
+          IOPT = 0
+          dut = iSec+iMin*60+iHour*3600
+          call INIT_TS07D_COEFFS(iYear,n_day_of_year(iYear,iMonth,iDay),dut,ifail)
+          call INIT_TS07D_TLPR
        ELSEIF (NameBoundMag.eq.'IGRF') THEN
           ! Don't need to do anything, just want it to not fail
        ELSE
@@ -356,11 +361,11 @@ MODULE ModScbIO
 
     ! Variables for tracing
     REAL(DP) :: Pdyn, Dst, ByIMF, BzIMF, G(3), W(6)
-    REAL(DP) :: x0, y0, z0, xf, yf, zf, r0, rt, tt, zt
+    REAL(DP) :: x0, y0, z0, xf, yf, zf, r0, rt, tt, zt, dut
     REAL(DP), DIMENSION(1000) :: xx, yy, zz, bx, by, bz, distance
     REAL(DP), DIMENSION(nthe) :: tVal, cVal
     INTEGER :: LMAX = 1000, LOUT, scanLeft, scanRight
-    INTEGER :: iYear, iMonth, iDay, iHour, iMin, iSec
+    INTEGER :: iYear, iMonth, iDay, iHour, iMin, iSec, ifail
     REAL(DP) :: ER, DSMAX, RLIM, DIR
     REAL(DP) :: AA, SPS, CPS, PS, AB
     COMMON /GEOPACK1/ AA(10),SPS,CPS,AB(3),PS
@@ -417,6 +422,11 @@ MODULE ModScbIO
        PARMOD(8) = W(4)
        PARMOD(9) = W(5)
        PARMOD(10) = W(6)
+    ELSEIF ((NameBoundMag.eq.'T07I').or.(NameBoundMag.eq.'T07D')) THEN
+       IOPT = 0
+       dut = iSec+iMin*60+iHour*3600
+       call INIT_TS07D_COEFFS(iYear,n_day_of_year(iYear,iMonth,iDay),dut,ifail)
+       call INIT_TS07D_TLPR
     ELSEIF (NameBoundMag.eq.'IGRF') THEN
        ! Don't need to do anything, just want it to not fail
     ELSE
@@ -664,6 +674,7 @@ MODULE ModScbIO
     implicit none
 
     EXTERNAL :: DIP_08, IGRF_GSW_08, SMGSW_08, T89C, T96_01, T01_01, T04_s
+    EXTERNAL :: TS07D_JULY_2017
     integer, intent(in)   :: IOPT,LMAX
     REAL(DP), intent(in)  :: x0, y0, z0, ER, DSMAX, RLIM, PARMOD(10), DIR, RIN
     integer, intent(out)  :: LOUT
@@ -710,6 +721,14 @@ MODULE ModScbIO
     ELSEIF (NameBoundMag.eq.'T04I') THEN
        call TRACE_08(XGSW,YGSW,ZGSW,DIR,DSMAX,ER,RLIM,R0,IOPT,PARMOD, &
                      T04_s,IGRF_GSW_08,xfGSW,yfGSW,zfGSW,xxGSW(:),yyGSW(:),zzGSW(:), &
+                     LOUT,LMAX,BXGSW,BYGSW,BZGSW)
+    ELSEIF (NameBoundMag.eq.'T07D') THEN
+       call TRACE_08(XGSW,YGSW,ZGSW,DIR,DSMAX,ER,RLIM,R0,IOPT,PARMOD, &
+                     TS07D_JULY_2017,DIP_08,xfGSW,yfGSW,zfGSW,xxGSW(:),yyGSW(:),zzGSW(:), &
+                     LOUT,LMAX,BXGSW,BYGSW,BZGSW)
+    ELSEIF (NameBoundMag.eq.'T07I') THEN
+       call TRACE_08(XGSW,YGSW,ZGSW,DIR,DSMAX,ER,RLIM,R0,IOPT,PARMOD, &
+                     TS07D_JULY_2017,IGRF_GSW_08,xfGSW,yfGSW,zfGSW,xxGSW(:),yyGSW(:),zzGSW(:), &
                      LOUT,LMAX,BXGSW,BYGSW,BZGSW)
     ELSEIF (NameBoundMag.eq.'IGRF') THEN
        call TRACE_08(XGSW,YGSW,ZGSW,DIR,DSMAX,ER,RLIM,R0,IOPT,PARMOD, &
