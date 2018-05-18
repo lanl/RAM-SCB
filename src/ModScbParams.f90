@@ -11,6 +11,7 @@ module ModScbParams
   save
 
   character(len=200) :: QinDentonPath = 'IM/input_scb/'
+  character(len=200) :: TS07Path = 'NONE'
 
   integer :: iSm2 = 0
   integer :: SavGolIters = 3

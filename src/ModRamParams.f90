@@ -12,7 +12,7 @@ module ModRamParams
 !!!! PARAM Variables
  logical :: Optim = .false.
  logical :: verbose = .false.
- logical :: Reset = .true.
+ logical :: Reset = .false.
 
  ! Standalone or Component (default = standalone)  logical :: IsComponent = .false.
  logical :: IsComponent = .false.

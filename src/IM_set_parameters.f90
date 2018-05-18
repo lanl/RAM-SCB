@@ -104,6 +104,9 @@ subroutine IM_set_parameters
         call read_var('nPa', NPA)
 
 !!!!!! SCB Parameters
+     case('#RESET')
+        reset=.true.
+
      case('#SCBSMOOTHING')
         call read_var('PressureSmoothing', iSm2)
         call read_var('SavitzkyGolayIterations', SavGolIters)
@@ -201,6 +204,9 @@ subroutine IM_set_parameters
         call read_var('BlendMax'            , blendMax)
 
 !!!!!! Input Parameters
+     case('#TS07_DIRECTORY')
+        call read_var('TS07Directory', TS07Path)
+
      case('#QINDENTON_FILE_PATH')
         call read_var('QinDentonPath', QinDentonPath)
 
@@ -440,6 +446,19 @@ subroutine IM_set_parameters
         InnerMag  = 'DIPOLE'
         OuterMag  = 'TS05'
         NameBoundMag = 'T04D'
+     case('T07I')
+        DoScbCalc = .true.
+        InnerMag  = 'IGRF'
+        OuterMag  = 'TS07'
+     case('T07D')
+        DoScbCalc = .true.
+        InnerMag  = 'DIPOLE'
+        OuterMag  = 'TS07'
+     case('T07L')
+        DoScbCalc = .false.
+        InnerMag  = 'DIPOLE'
+        OuterMag  = 'TS07'
+        NameBoundMag = 'T07D'
      case('IGRF')
         DoScbCalc = .true.
         InnerMag  = 'IGRF'
