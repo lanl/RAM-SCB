@@ -49,7 +49,7 @@ contains
     integer, intent(in) :: S
     real(kind=Real8_) :: MUBOUN!, RA(NS)
     integer :: i, j, k, l
-    !$OMP THREADPRIVATE(MUBOUN)
+    !$OMP THREADPRIVATE(MUBOUN, I, J, K, L)
 
     ALLOCATE(VR(nR), P1(nR), P2(nR,nE), EDOT(nR,nE), MUDOT(nR,nPA))
     ALLOCATE(CDriftR(nR,nT,nE,nPa), CDriftP(nR,nT,nE,nPa), &
@@ -109,7 +109,7 @@ contains
     real(kind=Real8_) :: CGR,CR(NR,NT),LIMITER, DtTemp
     real(kind=Real8_) :: F(NR+2),FBND(NR)
     !$OMP THREADPRIVATE(UR, J0, J1, P4, X, FUP, R, CORR, CGR1, CGR2, CGR3, CTEMP)
-    !$OMP THREADPRIVATE(CGR, CR, LIMITER, F, FBND, sgn)
+    !$OMP THREADPRIVATE(CGR, CR, LIMITER, F, FBND, sgn, I, J, K, L)
 
     DTDriftR(S) = 100000.0
     DO I=1,NR
@@ -204,6 +204,7 @@ contains
     real(kind=Real8_) :: GPA1,GPA2
     real(kind=Real8_) :: FBND(NT),F(NT),LIMITER
     !$OMP THREADPRIVATE(SGN, J1, X, FUP, R, CORR, OME, CTEMP, GPA1, GPA2, FBND, F, LIMITER)
+    !$OMP THREADPRIVATE(I,J,K,L,N)
 
     DtDriftP(S) = 100000.0
     OME=7.3E-5 ! Earth's angular velocity [rad/s]
@@ -282,7 +283,7 @@ contains
     real(kind=Real8_) :: FBND(NE),F(0:NE+2),LIMITER
     !$OMP THREADPRIVATE(SGN, J0, J2, GPA, GPR1, GPR2, GPR3, GPP1, GPP2, EDT1, DRDT)
     !$OMP THREADPRIVATE(DPDT, DBDT1, DIDT1, X, FUP, R, CORR, DRD1, DPD1, DRD2, DPD2)
-    !$OMP THREADPRIVATE(CTEMP, FBND, F, LIMITER)
+    !$OMP THREADPRIVATE(CTEMP, FBND, F, LIMITER, I, J, K, L, N)
 
     DtDriftE(S)=10000.0
     QS=1.
@@ -378,7 +379,7 @@ contains
     integer :: ISGM
     !$OMP THREADPRIVATE(J0, J1, GMR1, GMR2, GMR3, GMP1, GMP2, DRDM, DPDM, DBDT2, DIBNDT2)
     !$OMP THREADPRIVATE(X, FUP, R, CORR, CMUDOT, EDT, DRM2, DPM2, DRM1, DPM1, CTEMP)
-    !$OMP THREADPRIVATE(FBND, F, LIMITER, ISGM)
+    !$OMP THREADPRIVATE(FBND, F, LIMITER, ISGM, I, J, K, L, N)
 
     DtDriftMu(S) = 10000.0
     QS=1.

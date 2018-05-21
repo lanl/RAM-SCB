@@ -122,7 +122,7 @@ SUBROUTINE computehI(iter)
   REAL(DP) :: x0, y0, z0, xe, ye, ze, xf, yf, zf, RIN
   REAL(DP) :: ER, DSMAX, RLIM, DIR, PS, ScaleAt(nT)
   REAL(DP), DIMENSION(200) :: xtemp, ytemp, ztemp, bxtemp, bytemp, bztemp, dtemp
-  !$OMP THREADPRIVATE(i, k)
+  !$OMP THREADPRIVATE(i, k, L)
 
   h_Cart = 0._dp
   I_Cart = 0._dp

@@ -46,7 +46,7 @@ subroutine ram_allocate
            NDAAJ(NR,ENG,NPA,NCF), ENOR(ENG), ECHOR(ENG), BDAAR(NR,NT,ENG,NPA), &
            CDAAR(NR,NT,NE,NPA))
 ! ModRamLoss Variables
-!  ALLOCATE(ATLOS(NR,NE), ACHAR(NR,NT,NE,NPA))
+  ALLOCATE(ATLOS(nS,NR,NE), CHARGE(nS,NR,NT,NE,NPA))
 ! ModRamEField Variables
   ALLOCATE(VT(NR+1,NT), EIR(NR+1,NT), EIP(NR+1,NT), VTOL(NR+1,NT), VTN(NR+1,NT))
 ! ModRamBoundary Variables

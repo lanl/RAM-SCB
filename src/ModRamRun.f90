@@ -37,7 +37,7 @@ MODULE ModRamRun
     !!!! Module Subroutines/Functions
     use ModRamDrift, ONLY: DRIFTPARA, DRIFTR, DRIFTP, DRIFTE, DRIFTMU, DRIFTEND, &
                            CDriftR, CDriftP, CDriftE, CDriftMu
-    use ModRamLoss,  ONLY: CEPARA, CHAREXCHANGE, ATMOL, LOSSEND
+    use ModRamLoss,  ONLY: CEPARA, CHAREXCHANGE, ATMOL
     use ModRamWPI,   ONLY: WAPARA_KP, WPADIF, WAVELO
     !!!! Share Modules
     use ModTimeConvert, ONLY: TimeType
@@ -139,7 +139,6 @@ MODULE ModRamRun
 
        ! Routines needed to clear allocated variables for use with OpenMP
        CALL DRIFTEND
-       CALL LOSSEND
     end do
 !$OMP END PARALLEL DO
 
@@ -186,7 +185,7 @@ MODULE ModRamRun
     integer :: i, j, k, l
     real(kind=Real8_):: enold
     real(kind=Real8_):: WEIGHT
-    !$OMP THREADPRIVATE(ENOLD, WEIGHT)
+    !$OMP THREADPRIVATE(ENOLD, WEIGHT, I, J, K, L)
 
     ELORC(S)=0.
     ENOLD=SETRC(S)

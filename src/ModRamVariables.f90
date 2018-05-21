@@ -48,7 +48,7 @@ Module ModRamVariables
               PACHOR_Dxx(NPA_Dxx)
 
 ! ModRamLoss variables
-!  real(DP), ALLOCATABLE :: ATLOS(:,:), ACHAR(:,:,:,:)
+  real(DP), ALLOCATABLE :: ATLOS(:,:,:), CHARGE(:,:,:,:,:)
 
 ! ModRamIndices variables
   character(len=4)   :: NameIndexSource = 'file'
