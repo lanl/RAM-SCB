@@ -12,7 +12,7 @@ program ram_scb
 !!!! Module Variables
 use ModRamMain,      ONLY: Real8_, S, iCal, nIter
 use ModRamParams,    ONLY: DoSaveFinalRestart, DoVarDt, IsComponent, NameBoundMag, &
-                           verbose, reset
+                           verbose, reset, DoUseRam, SCBonRAMTime, RAMTie
 use ModRamTiming,    ONLY: DtsFramework, DtsMax, DtsMin, DtsNext, Dts, Dt_hI, &
                            TimeRamStart, TimeRamNow, TimeMax, TimeRamElapsed, &
                            TimeRamStop, T, UTs, Dt_bc, DtEfi
@@ -20,6 +20,7 @@ use ModRamVariables, ONLY: Kp, F107, DTDriftR, DTDriftP, DTDriftE, DTDriftMu, &
                            PParT, PPerT, FGEOS
 use ModScbGrids,     ONLY: npsi, nzeta, nthe
 use ModScbVariables, ONLY: alfa, psi, x, y, z, hICalc, SORFail
+use ModScbParams,    ONLY: method
 
 !!!! Module Subroutines and Functions
 use ModRamGSL,       ONLY: GSL_Initialize
@@ -54,6 +55,7 @@ use ModRamMpi
 implicit none
 
 integer :: i,j,k
+logical :: triggerSCB
 character(len=200) :: FileName
 real(kind=Real8_) :: DtOutputMax, DtEndMax, DtTemp
 !----------------------------------------------------------------------------
@@ -143,7 +145,7 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
       call write_prefix
       write(*,*) 'Calling ram_run for UTs, DTs,Kp = ', UTs, Dts, Kp
       ! Call RAM for each species.
-      call ram_run
+      if (DoUseRAM) call ram_run
       FLUSH(6)
 
       ! Increment and update time
@@ -153,8 +155,14 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
 !!!!!!!!!
 
 !!!!!!!!! RUN SCB
-      ! Call SCB if Dt_hI has passed
-      if (((mod(TimeRamElapsed, Dt_hI).eq.0).or.(Dt_hI.eq.1))) then
+      ! Call SCB if conditions are met
+      triggerSCB = .false.
+      if (SCBonRAMTime) then
+         if ((mod(nIter,RAMTie).eq.0).and.(nIter.gt.1)) triggerSCB = .true.
+      else
+         if (((mod(TimeRamElapsed, Dt_hI).eq.0).or.(Dt_hI.eq.1))) triggerSCB = .true.
+      endif
+      if (triggerSCB) then
          call write_prefix
          write(*,*) 'Running SCB model to update B-field...'
 
@@ -169,22 +177,8 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
          endif
          FLUSH(6)
 
-         if (NameBoundMag.ne.'DIPL') then
-            FileName = RamFileName('MAGxyz','dat',TimeRamNow)
-            open(UNITTMP_, File=FileName)
-            write(UNITTMP_,*) nthe, npsi, nzeta
-            do i=1,nthe
-               do j=1,npsi
-                  do k=1,nzeta
-                     write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
-                  enddo
-               enddo
-            enddo
-            Close(UNITTMP_)
-         endif
-
          ! Couple SCB -> RAM
-         if (hICalc) call computehI(nIter)
+         if ((hICalc).and.(method.ne.3)) call computehI(nIter)
          !call computehI(nIter)
          FLUSH(6)
 

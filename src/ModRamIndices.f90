@@ -177,6 +177,7 @@ module ModRamIndices
     do while( (iTime < nRawKp) .and. (timeKp(iTime) < timeNow))
        iTime=iTime+1
     end do
+    if (iTime.eq.1) iTime=2
 
     ! Interpolate Kp to current time.
     dTime = (timeNow - timeKp(iTime-1))/(timeKp(iTime) - timeKp(iTime-1))

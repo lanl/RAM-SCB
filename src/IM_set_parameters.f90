@@ -10,7 +10,8 @@ subroutine IM_set_parameters
   use ModRamTiming,  ONLY: TimeRamElapsed, TimeRamStart, TimeRamRealStart, &
                            TimeRamNow, DtLogFile, DtRestart, DtsMax, TimeMax, &
                            TimeRestart, MaxIter, Dt_hI, Dt_bc, DtEfi, DtW_hI, &
-                           DtW_Pressure, DtW_EField, DtsMin, TOld, TimeRamFinish
+                           DtW_Pressure, DtW_EField, DtsMin, TOld, TimeRamFinish, &
+                           DtW_MAGxyz
   use ModScbGrids, ONLY: nthe, npsi, nzeta
   use ModRamParams
   use ModScbParams
@@ -61,6 +62,9 @@ subroutine IM_set_parameters
         call read_var('BCTimeStep',  Dt_bc)
         call read_var('EFTimeStep',  DtEfi)
 
+     case('#TIE_SCB_TO_RAM')
+        SCBonRAMTime = .true.
+
      case('#MAXTIMESTEP')
         call read_var('MaxHalfStep', DtsMax)
 
@@ -71,6 +75,9 @@ subroutine IM_set_parameters
         call read_var('DoVariableDt', DoVarDt)
 
 !!!!!! RAM Parameters
+     case('#USERAM')
+        call read_var('DoUseRAM', DoUseRAM)
+
      case('#USEPLANE')
         call read_var('DoUsePlane_SCB', DoUsePlane_SCB)
 
@@ -233,6 +240,8 @@ subroutine IM_set_parameters
         if (DtW_hI.lt.1.0) DtW_hI = 9999999999.9
         call read_var('DtEFieldFileWrite',   DtW_EField)
         if (DtW_EField.lt.1.0) DtW_EField = 9999999999.9
+        call read_var('DtMAGxyzWrite', DtW_MAGxyz)
+        if (DtW_MAGxyz.lt.1.0) DtW_MAGxyz = 9999999999.9
 
      case('#SATELLITE')
         call read_sat_params()
@@ -261,6 +270,8 @@ subroutine IM_set_parameters
      case('#SAVERESTART')
         call read_var('DtSaveRestart', DtRestart)
         call read_var('DoSaveFinalRestart', DoSaveFinalRestart)
+     case('#TIMEDRESTART')
+        call read_var('TimedRestartFiles', TimedRestarts)
      case('#HARDRESTART')
         IsRestart=.true.
         HardRestart = .true.
@@ -342,6 +353,11 @@ subroutine IM_set_parameters
 
      end select
   end do
+
+  if (SCBonRAMTime) then
+     RAMTie = floor(Dt_hI)
+     Dt_hI = 9999999999.9
+  endif
 
   ! Check for SHIELDSRC mode.  If True, set SHIELDSRC params.
   if (IsSHIELDS)then

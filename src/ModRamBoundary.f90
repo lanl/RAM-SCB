@@ -244,13 +244,14 @@ end subroutine get_geomlt_flux
 
     implicit none
     save
-    integer             :: ij, ik, j, jw, k, l, nLines
+    integer             :: ij, ik, j, jw, k, l, nLines,u
     real(kind=Real8_)   :: bexp, ahe0, ahe1, gexp, doy, azir, &
                            fracComposition, T
     character(len=200)  :: NameFluxFile
     character(len=90)   :: HEADER
-    real(kind=Real8_)   :: RELAN(NTL,NEL),FLAN(NT,NEL),FluxLanl(nT,nE)
+    real(kind=Real8_), ALLOCATABLE :: RELAN(:,:),FLAN(:,:),FluxLanl(:,:)
 
+    ALLOCATE(RELAN(NTL,NEL),FLAN(NT,NEL),FluxLanl(nT,nE))
     T = TimeRamElapsed
 
     ! Create Young et al. composition ratios.
@@ -288,7 +289,8 @@ end subroutine get_geomlt_flux
       FluxLanl=FluxLanl*fracComposition
       do ik=1,NE
         do ij=1,nT
-          do L=2,upa(NR)-1
+          u = upa(nR)-1
+          do L=2,u
             FGEOS(s,iJ,iK,L)=FluxLanl(iJ,iK) * FFACTOR(S,NR,IK,L)
             !if (FGEOS(s,iJ,iK,L).gt.1e8) FGEOS(s,iJ,iK,L) = 1e8
           end do
@@ -300,7 +302,8 @@ end subroutine get_geomlt_flux
         write(*,*) 'RAM_SCB: Getting flux from BATS-R-US'
         do iK=1, nE
           do iJ=1,nT
-            do L=2,UPA(NR)-1
+            u = UPA(NR)-1
+            do L=2,u
               if (.not.DoAnisoPressureGMCoupling) then
                 FGEOS(s,iJ,iK,L)=FluxBats_IIS(iK,iJ,s)*FFACTOR(S,NR,IK,L)
               else
@@ -350,6 +353,7 @@ end subroutine get_geomlt_flux
     ! Write interpolated dfluxes to file.
     call write_dsbnd
 
+    DEALLOCATE(RELAN,FLAN,FluxLanl)
     RETURN
   END SUBROUTINE GEOSB
 

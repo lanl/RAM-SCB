@@ -7,20 +7,20 @@
     subroutine plane(yearIn, dayIn, secIn, Kp, ap, R, f10p7, dt, n, wpot)
 
         use ModPlane
-	implicit none
+        implicit none
 
         integer, intent(in) :: yearIn, dayIn
-        real(kind=Real4_), intent(in) :: ap, R
+        real(kind=Real8_), intent(in) :: ap, R
         real(kind=Real8_), intent(in) :: secIn, KP, f10p7, dt
         real(kind=Real8_), intent(in) :: wpot(NR+1,NT)
         real(kind=Real8_), intent(inout) :: n(NL,0:*)
 
-        real(kind=Real4_) :: dtH , time, gLong, gLat, mLong0, mLat, update
+        real(kind=Real8_) :: dtH , time, gLong, gLat, mLong0, mLat, update
 !        character*1 ans
         logical :: first = .true.
         integer :: IOcount = 0
         integer :: Tcount = 0
-	save
+        save
 
         if (first) then
            year = yearIn
@@ -28,26 +28,26 @@
            sec = secIn
            time = sec/3600.
            update = time
-	   month = .5 + day/30.
-	   gLat = 45.                       ! get mLong at 0 mlt and
-	   gLong = 270.                     ! at initial time (American sector)
-	   call ggmxx(0, gLong, gLat, mLong0, mLat)
+           month = .5 + day/30.
+           gLat = 45.                       ! get mLong at 0 mlt and
+           gLong = 270.                     ! at initial time (American sector)
+           call ggmxx(0, gLong, gLat, mLong0, mLat)
 !
 !  initialize grid
 !
-	   call initGrid()
+           call initGrid()
 
-	   call ngride1(L(1), NL, L(NL+1), L(0), CARTESIAN)
-	   call ogride1(NL)
-	   call ngride1(L(1), NL, L(NL+1), L(0), CARTESIAN)
-	   call ngridp1(mlt, NLT+1)
-	   call ogridp1(NLT+1)
-	   call ngridp1(mlt, NLT+1)
+           call ngride1(L(1), NL, L(NL+1), L(0), CARTESIAN)
+           call ogride1(NL)
+           call ngride1(L(1), NL, L(NL+1), L(0), CARTESIAN)
+           call ngridp1(mlt, NLT+1)
+           call ogridp1(NLT+1)
+           call ngridp1(mlt, NLT+1)
 !
 !  initial data
 !
            call initContent(R)
-	   call volume()
+           call volume()
            call TauFill(R, ap, f10p7, mLong0, mLat, Kp) ! get time scales
            update = time + 3.                  ! change fluxes every () hours
            first = .false.
@@ -61,19 +61,19 @@
         dtH = dt/2./3600.                             ! also convert to hr.
         call velocity(Kp, wpot)
 
-	call advLtime(time, dtH, n)
-	call nTOnsw(n)
-	call advTtime(time, dtH)
+        call advLtime(time, dtH, n)
+        call nTOnsw(n)
+        call advTtime(time, dtH)
 
-	time = time + dtH
+        time = time + dtH
 
-	call advTtime(time, dtH)
-	call nswTOn(n)
-	call advLtime(time, dtH, n)
+        call advTtime(time, dtH)
+        call nswTOn(n)
+        call advLtime(time, dtH, n)
 
-	time = time + dtH
+        time = time + dtH
 
-	return
+        return
     end subroutine plane
 
 !============================================================================
@@ -83,35 +83,35 @@
 
     subroutine advLtime(time, dt, n)
         use ModPlane, ONLY: L, tau0, n0, uL, NL, NLT, Real8_
-	implicit none
+        implicit none
 
-	real, intent(in) :: time, dt
+        real, intent(in) :: time, dt
         real(kind=Real8_), intent(inout) :: n(NL,0:*)
         real :: S(NL,0:NLT), null(1), sum(NL), bcB, bcE
-	integer i, j
-	save
+        integer i, j
+        save
 
-	call IonSource(n, S)
-	bcB = n0(0)/n0(1)
-	do j = 0, NLT
-	    call veloce1(uL(1,j), NL, uL(NL+1,j), uL(0,j), dt)
-	    call sourcq1(NL, dt, 3, null, S(1,j), 0.0, 0.0)
-	    do i = 1, NL
-	        sum(i) = -4.*n(i,j)*uL(i,j)/L(i)
-	    end do
-	    call sourcq1(NL, dt, 3, null, sum, 0.0, 0.0)
-	    call sourcq1(NL, dt, 2, n(1,j), uL(1,j), uL(NL+1,j), uL(0,j))
-	    if (uL(NL+1,j) .ge. 0.0) then
-	        bcE = n0(NL+1)/n0(NL)
-		call etbFCT1(n(1,j), n(1,j), NL, bcE, bcB)
-	    else
-	        bcE = 0.
-		call etbFCT1(n(1,j), n(1,j), NL, bcE, bcB)
-		n(NL,j) = 0.
-	    end if
-	end do
-	 
-	return
+        call IonSource(n, S)
+        bcB = n0(0)/n0(1)
+        do j = 0, NLT
+            call veloce1(uL(1,j), NL, uL(NL+1,j), uL(0,j), dt)
+            call sourcq1(NL, dt, 3, null, S(1,j), 0.0, 0.0)
+            do i = 1, NL
+                sum(i) = -4.*n(i,j)*uL(i,j)/L(i)
+            end do
+            call sourcq1(NL, dt, 3, null, sum, 0.0, 0.0)
+            call sourcq1(NL, dt, 2, n(1,j), uL(1,j), uL(NL+1,j), uL(0,j))
+            if (uL(NL+1,j) .ge. 0.0) then
+                bcE = n0(NL+1)/n0(NL)
+                call etbFCT1(n(1,j), n(1,j), NL, bcE, bcB)
+            else
+                bcE = 0.
+                call etbFCT1(n(1,j), n(1,j), NL, bcE, bcB)
+                n(NL,j) = 0.
+            end if
+        end do
+         
+        return
     end subroutine advLtime
 
 !============================================================================
@@ -121,19 +121,19 @@
 
     subroutine advTtime(time, dt)
         use ModPlane, ONLY: mlt, nsw, ut, NL, NLT
-	implicit none
+        implicit none
 
-	real, intent(in) :: time, dt
-	integer i
-	save
+        real, intent(in) :: time, dt
+        integer i
+        save
 
-	do i = 1, NL
-	    call velocp1(ut(0,i), NLT+1, dt)
-	    call sourcp1(NLT+1, dt, 2, nsw(0,i), ut(0,i))
-	    call prbfct1(nsw(0,i), nsw(0,i), NLT+1)
-	end do
+        do i = 1, NL
+            call velocp1(ut(0,i), NLT+1, dt)
+            call sourcp1(NLT+1, dt, 2, nsw(0,i), ut(0,i))
+            call prbfct1(nsw(0,i), nsw(0,i), NLT+1)
+        end do
 
-	return
+        return
     end subroutine advTtime
 
 !============================================================================
@@ -141,35 +141,35 @@
 !  initContent()  --  initialize tube-content
 !
     subroutine initContent(R)
-	use ModPlane, ONLY: L, n0, NL, PI, day
-	implicit none
+        use ModPlane, ONLY: L, n0, NL, PI, day
+        implicit none
 
         real, intent(in) :: R
 
-	real x, fac, dy, a, Lc, nLc
-	integer i   ! ,j
-	save
+        real x, fac, dy, a, Lc, nLc
+        integer i   ! ,j
+        save
 
 !
 !  calculate saturation levels [from, Carpenter and Anderson, 1992]
 !
-	dy = 2.*PI*(day + 9.)/365.
-	fac = 0.15*(cos(dy) - 0.5*cos(2.*dy)) + 0.00127*R - 0.0635
-	do i = 0, NL+1
-	    x = exp(-(L(i) - 2.)/1.5)
-	    n0(i) = 10**(3.9043 - 0.3145*L(i) + fac*x)
-	end do
+        dy = 2.*PI*(day + 9.)/365.
+        fac = 0.15*(cos(dy) - 0.5*cos(2.*dy)) + 0.00127*R - 0.0635
+        do i = 0, NL+1
+            x = exp(-(L(i) - 2.)/1.5)
+            n0(i) = 10**(3.9043 - 0.3145*L(i) + fac*x)
+        end do
 
-	a = 3.				! change to L^-a dependence
-	Lc = 5.2			! at L = 5.2
-	x = exp(-(Lc - 2.)/1.5)
-	nLc = 10**(3.9043 - 0.3145*Lc + fac*x)
-	fac = nLc * Lc**a
-	do i = 0, NL+1
-	    if (L(i) .gt. Lc) n0(i) = fac * L(i)**(-a)
-	end do
+        a = 3.                                ! change to L^-a dependence
+        Lc = 5.2                        ! at L = 5.2
+        x = exp(-(Lc - 2.)/1.5)
+        nLc = 10**(3.9043 - 0.3145*Lc + fac*x)
+        fac = nLc * Lc**a
+        do i = 0, NL+1
+            if (L(i) .gt. Lc) n0(i) = fac * L(i)**(-a)
+        end do
 !
-	return
+        return
     end subroutine initContent
 
 !============================================================================
@@ -178,20 +178,20 @@
 !
     subroutine volume()
         use ModPlane, ONLY: L, vol, NL, RE_km
-	implicit none
+        implicit none
 
-	real a, x
-	integer i
-	save
+        real a, x
+        integer i
+        save
 
-	a = (1. + 250./RE_km)
-	do i = 1, NL
-	    x = a/L(i)
-	    vol(i) = (32./35.) * L(i)**4 * sqrt(1. - x) &
+        a = (1. + 250./RE_km)
+        do i = 1, NL
+            x = a/L(i)
+            vol(i) = (32./35.) * L(i)**4 * sqrt(1. - x) &
                      * (1. + (1./2.)*x + (3./8.)*x**2 + (5./16.)*x**3)
-	end do
-	
-	return
+        end do
+        
+        return
     end subroutine volume
 
 !============================================================================
@@ -202,21 +202,21 @@
         use ModRamPl_Ne, ONLY: UseSCB_nondipole, useFixedTau, Real8_
         use ModPlane, ONLY: mlt, L, vol, n0, tau0, NL, NLT, RE_cm, day, sec
         use ModIoUnit,      ONLY: UnitTmp_
-	implicit none
+        implicit none
 
-	real, intent(in) :: R, ap, f10p7, mLong, mLat, Kp
+        real, intent(in) :: R, ap, f10p7, mLong, mLat, Kp
         real :: ns(NL,0:NLT)
 
         real(kind=Real8_) :: n(NL,0:*)
         real :: S(NL,0:*)
         real :: flux, mLongt, vol_nd, gLong, gLat
         real, external :: flux10p7, volume_nondipole
-	integer i, j
-	save
+        integer i, j
+        save
 
         if(useFixedTau) then
 
-!	vania addition, Jan 1997
+!        vania addition, Jan 1997
            open(UnitTmp_,file='newtau.dat',status='old')
            do i=1,nl
               read(UnitTmp_,*) (tau0(i,j),j=0,nlt)
@@ -270,19 +270,19 @@
 
         endif
 
- 99	return
+ 99        return
 
       entry IonSource(n, S)
-	
-	do i = 1, NL
-	    do j = 0, NLT
-	        S(i,j) = -(n(i,j) - n0(i)) / tau0(i,j)
-!	        if (S(i,j) .ne. 0.)        ! speed up refilling near saturation
-!     &		    S(i,j) = S(i,j) / sqrt( abs(1. - n(i,j)/n0(i)) )
-	    end do
-	end do
+        
+        do i = 1, NL
+            do j = 0, NLT
+                S(i,j) = -(n(i,j) - n0(i)) / tau0(i,j)
+!                if (S(i,j) .ne. 0.)        ! speed up refilling near saturation
+!     &                    S(i,j) = S(i,j) / sqrt( abs(1. - n(i,j)/n0(i)) )
+            end do
+        end do
 
-	return
+        return
     end subroutine TauFill
 
 !
@@ -291,24 +291,24 @@
 !
     subroutine initGrid()
         use ModPlane, ONLY: L, mlt, NL, NLT, DL, DLT
-	implicit none
+        implicit none
 
-	integer i
-	save
+        integer i
+        save
 
-	L(1) = 1.5
-	L(0) = L(1) - 0.5*DL
-	do i = 2, NL
-	    L(i) = L(i-1) + DL
-	end do
-	L(NL+1) = L(NL) + 0.5*DL
-	
-	mlt(0) = 0.0
-	do i = 1, NLT
-	    mlt(i) = mlt(i-1) + DLT
-	end do
+        L(1) = 1.5
+        L(0) = L(1) - 0.5*DL
+        do i = 2, NL
+            L(i) = L(i-1) + DL
+        end do
+        L(NL+1) = L(NL) + 0.5*DL
+        
+        mlt(0) = 0.0
+        do i = 1, NLT
+            mlt(i) = mlt(i-1) + DLT
+        end do
 
-	return
+        return
     end subroutine initGrid
 
 !============================================================================
@@ -334,7 +334,7 @@
       integer iyd, iMass, jMag
 ! ***Chris Jeffery, 6/13*** use magnetic lat long in iri
       data jMag/1/
-	save
+        save
 ! New variables for IRI
       real, dimension(1:20,1:1000) :: OUTF
       real, dimension(1:100) :: OARR
@@ -375,8 +375,8 @@
       iyd = 1000*(year - 1900) + day
 !                                        altr 50 km less than Richards and Torr
       altr = 450. + (750. - 450.)*(f10p7 - 70.)/(230. - 70.)
-      glt = gLat					! degrees
-      glng = gLong					! degrees
+      glt = gLat                                        ! degrees
+      glng = gLong                                        ! degrees
       sLT = amod(sec/3600. + glng/15., 24.)
 ! Use the sunspot number from the kp file
 !      Rs = Rsun(f10p7)
@@ -530,7 +530,7 @@
                enddo
             enddo
          enddo
-	 close(UnitTmp_)
+         close(UnitTmp_)
 ! bilinear interpolation
   
          if(L<Lsh(1)) then
@@ -699,7 +699,7 @@
 
       INTEGER, intent(in) :: ART
       REAL, intent(inout) :: MLONG,MLAT,LONG,LATI
-	save
+        save
  
       real :: CBG, CBM, CI, CLG, CLM, faktor, SBG, SBM, SI, SLG, SLM, YLG, ZPI
 
@@ -749,19 +749,19 @@
 !
     subroutine nTOnsw(n)
         use ModPlane, ONLY: nsw, NL, NLT, Real8_
-	implicit none
+        implicit none
 
-	real(kind=Real8_), intent(in) :: n(NL,0:*)
-	integer i, j
-	save
+        real(kind=Real8_), intent(in) :: n(NL,0:*)
+        integer i, j
+        save
 
-	do i = 1, NL
-	    do j = 0, NLT
-		nsw(j,i) = n(i,j)
-	    end do
-	end do
+        do i = 1, NL
+            do j = 0, NLT
+                nsw(j,i) = n(i,j)
+            end do
+        end do
 
-	return
+        return
     end subroutine nTOnsw
       
 !
@@ -769,19 +769,19 @@
 !
     subroutine nswTOn(n)
         use ModPlane, ONLY: nsw, NL, NLT, Real8_
-	implicit none
+        implicit none
 
-	real(kind=Real8_), intent(inout) :: n(NL,0:*)
-	integer i, j
-	save
-	
-	do i = 1, NL
-	    do j = 0, NLT
-		n(i,j) = nsw(j,i)
-	    end do
-	end do
+        real(kind=Real8_), intent(inout) :: n(NL,0:*)
+        integer i, j
+        save
+        
+        do i = 1, NL
+            do j = 0, NLT
+                n(i,j) = nsw(j,i)
+            end do
+        end do
 
-	return
+        return
     end subroutine nswTOn
 
 !
@@ -789,71 +789,74 @@
 !
     subroutine velocity(Kp, wpot)
         use ModPlane, ONLY: L, mlt, uL, ut, NR, NT, NL, NLT, DTR, PI, RE, Real8_
-	implicit none
+        implicit none
 
         real, intent(in) :: KP
         real(kind=Real8_), intent(in) :: wpot(NR+1,NT)
 
-	integer i, j, j1, IER
-        real :: A, B, phi, vr, vp, facL, facT, DL1, DPHI, RPHI(NT), Y, &
-             LZ(NR+1), RMLT(NT), CWE(0:NL+1,0:NLT)
+        integer i, j, j1, IER
+        real :: A, B, phi, vr, vp, facL, facT, DL1, DPHI,Y
+        real, ALLOCATABLE :: RPHI(:), LZ(:), RMLT(:), CWE(:,:)
         real, external :: Bfield
         logical corotation
         data corotation/.true./
-	save
+        save
 
-	DL1=(6.5-2.)/(NR-2)
-	do i = 1, NR+1
-	 LZ(i) = 2.+(i-2)*DL1
-	end do
-	DPHI=2.*PI/(NT-1)      ! Grid size for local time [rad]
-	DO J=1,NT
-	  RPHI(J)=(J-1)*DPHI	! Magnetic local time in radian
-	  RMLT(J)=RPHI(J)*12./PI	! Magnetic local time in hour
-	END DO
+        ALLOCATE(LZ(NR+1), RMLT(NT), CWE(0:NL+1,0:NLT),RPHI(NT))
 
-	do i = 0, NL+1
-	 do j = 0, NLT
-	  call ELINTP2(LZ, RMLT, wpot, NR+1, NT, L(i), mlt(j), Y, IER)
-	  CWE(i,j) = Y*1e3	! in Volts
-!	 write (10,15) L(i),mlt(j),CWE(i,j)/1e3
-	 end do
-	end do
+        DL1=(6.5-2.)/(NR-2)
+        do i = 1, NR+1
+         LZ(i) = 2.+(i-2)*DL1
+        end do
+        DPHI=2.*PI/(NT-1)      ! Grid size for local time [rad]
+        DO J=1,NT
+          RPHI(J)=(J-1)*DPHI        ! Magnetic local time in radian
+          RMLT(J)=RPHI(J)*12./PI        ! Magnetic local time in hour
+        END DO
+
+        do i = 0, NL+1
+         do j = 0, NLT
+          call ELINTP2(LZ, RMLT, wpot, NR+1, NT, L(i), mlt(j), Y, IER)
+          CWE(i,j) = Y*1e3        ! in Volts
+!         write (10,15) L(i),mlt(j),CWE(i,j)/1e3
+         end do
+        end do
         close(10)
 15      FORMAT(F5.2,F10.6,E13.4) 
 
-!	A = 7.05e-6 / (1. - 0.159*Kp + 0.0093*Kp*Kp)**3
-	facL = 3600. / RE	                        ! per hour
-	facT = 3600. * (24.0/(2.*PI)) / RE	        ! per hour
+!        A = 7.05e-6 / (1. - 0.159*Kp + 0.0093*Kp*Kp)**3
+        facL = 3600. / RE                                ! per hour
+        facT = 3600. * (24.0/(2.*PI)) / RE                ! per hour
 
-	do i = 0, NL+1
-	   do j = 0, NLT-1
+        do i = 0, NL+1
+           do j = 0, NLT-1
              B = Bfield(L(i),mlt(j))                             ! weber/m^2
              j1=j
              if (j.eq.0) j1=nlt
-!		uL(i,j) = vr*cos(phi)		         ! dL/dt
-!		ut(j,i) = vp*sin(phi)		         ! d(mlt)/dt
+!                uL(i,j) = vr*cos(phi)                         ! dL/dt
+!                ut(j,i) = vp*sin(phi)                         ! d(mlt)/dt
              uL(i,j) = (CWE(i,j1-1)-CWE(i,j+1))/2/RE/L(i)/B/DPHI*facL
-	    end do
+            end do
             uL(i,nlt) = uL(i,0)
-	end do
+        end do
 
-	do j = 0, NLT
-	   do i = 1, NL
+        do j = 0, NLT
+           do i = 1, NL
              B = Bfield(L(i),mlt(j))                             ! weber/m^2
              phi = mlt(j)*15.*DTR
              ut(j,i) = (CWE(i+1,j)-CWE(i-1,j))/2/L(i)/B/DL1/RE*facT
              if (corotation) ut(j,i) = ut(j,i) + 1.
-	    end do
+            end do
              B = Bfield(L(0),mlt(1))                             ! weber/m^2
              ut(j,0) = (CWE(1,j)-CWE(0,j))/L(0)/B/DL1/RE*facT
              if (corotation) ut(j,0) = ut(j,0) + 1.
              B = Bfield(L((NL+1)),mlt(1))                           ! weber/m^2
              ut(j,NL+1) = (CWE(NL+1,j)-CWE(NL,j))/L(NL)/B/DL1/RE*facT
              if (corotation) ut(j,NL+1) = ut(j,NL+1) + 1.
-	end do
+        end do
 
-	return
+        DEALLOCATE(LZ,RMLT,CWE,RPHI)
+        return
     end subroutine velocity
 
 !============================================================================
@@ -867,7 +870,7 @@
       
         real, intent(in) :: KPMAX, R
         real(kind=Real8_), intent(inout) :: NE(NL,0:NLT)
-	integer, intent(in) :: DAY
+        integer, intent(in) :: DAY
 
         real :: L, LPPI, LPPO, XN
         real, external :: FUNC, RTBIS, PS, SPS
@@ -875,10 +878,10 @@
         COMMON /PARAS1/LPPI,X,C1,C2,T1,IDAY,XR
         real :: X, C1, C2, T1, XR
         integer :: IDAY, I, IER, J
-	save
+        save
 
-	IDAY=DAY
-	XR=R
+        IDAY=DAY
+        XR=R
         LPPI=5.6-0.46*KPMAX
         DO 3 J=0,NLT
           T1=24./NLT*J
@@ -945,7 +948,7 @@
        implicit none
 
         real, intent(in) :: L, LPPI, X, R
-	INTEGER DAY
+        INTEGER DAY
 
         real, external :: SPS
         real :: PS
@@ -962,7 +965,7 @@
 
         real :: LPPI, X, C1, C2, T1, R, Y, FUNC
         real, external :: PS
-	integer :: DAY
+        integer :: DAY
         COMMON /PARAS1/LPPI,X,C1,C2,T1,DAY,R
 
         Y=(C1+C2*T1)*L**(-4.5)+1.-EXP((2.-L)/10.)
@@ -993,12 +996,12 @@
       F=FUNC(X1)
       IF(FMID.EQ.0) THEN
         RTBIS=X2
-	RETURN
-      ENDIF	
+        RETURN
+      ENDIF        
       IF(F.EQ.0) THEN
         RTBIS=X1
-	RETURN
-      ENDIF	
+        RETURN
+      ENDIF        
 !
 !    not bracketed
 !
@@ -1072,9 +1075,9 @@
 !
 !    this is J
 !
-      J=JL	! If X.LE.XX(1) then J=1
-!		  If X.GT.X(J).AND.X.LE.X(J+1) then J=J
-!		  If X.GT.X(N) then J=N-1	
+      J=JL        ! If X.LE.XX(1) then J=1
+!                  If X.GT.X(J).AND.X.LE.X(J+1) then J=J
+!                  If X.GT.X(N) then J=N-1        
       D=XX(J+1)-XX(J)
       Y=(YY(J)*(XX(J+1)-X)+YY(J+1)*(X-XX(J)))/D
       RETURN
@@ -1094,8 +1097,10 @@
       integer, intent(inout) :: IER
       save
       
-      real :: YTMP(N),YYTMP(M)
+      real, ALLOCATABLE :: YTMP(:),YYTMP(:)
       integer :: J, K
+
+      ALLOCATE(YTMP(N),YYTMP(M))
 
       IER = 0
 !
@@ -1114,5 +1119,7 @@
 !
       CALL ELINTP(X1A,YYTMP,M,X1,Y,IER)
       IER = IER * 10
+
+      DEALLOCATE(YTMP,YYTMP)
       RETURN
    end subroutine ELINTP2

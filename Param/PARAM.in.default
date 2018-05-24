@@ -122,7 +122,7 @@ T			EnergyDetail		! Whether to compute DPS Dst and other energy information
 F			ForceBalanceDetail	! Whether to compute global force balance before and after SCB runs, this will cause additional output
 F			PressureDetail          ! Whether to compute the full 3D pressure profile before an SCB run, this will cause additional output
 
-#SCBSMOOTING
+#SCBSMOOTHING
 1			PressureSmoothing	! What type of smoothing to perform on the RAM pressure when SCB reads it in (0 = None, 1 = Savitzky-Golay, 2 = B-Spline)
 3			SavitzyGolayIterations  ! Number of passes of the Savitzy-Golay filter to use
 
@@ -165,6 +165,7 @@ T			DoSaveFinalRestart	! Whether a restart file should be written on RAM finishi
 300.0			DtPressureFileWrite	! How often RAM equatorial pressures should be written (in seconds)
 300.0			DthIFileWrite		! How often SCB hI files should be written (in seconds)
 3600.0			DtEFieldFileWrite	! How often electric field files should be written
+300.0			DtMAGxyzFileWrite	! How often x, y, and z from SCB should be written
 
 #SAVEFLUX
 F			DoSaveFlux		! Whether RAM flux files should be written or not (currently outputs flux every hour)

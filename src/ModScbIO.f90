@@ -38,7 +38,8 @@ MODULE ModScbIO
     use ModRamGSL,       ONLY: GSL_Interpolation_1D
     use ModRamFunctions, ONLY: RamFileName
     use ModScbCouple,    ONLY: build_scb_init
-    use ModScbEuler,     ONLY: psiges, alfges
+    use ModScbEuler,     ONLY: psiges, alfges, InterpolatePsiR, mappsi, maptheta, &
+                               psifunctions
     !!!! Share Modules
     use ModTimeConvert, ONLY: n_day_of_year
     USE ModIoUnit, ONLY: UNITTMP_
@@ -300,7 +301,12 @@ MODULE ModScbIO
     END DO
     call alfges
 
-    ! For outputing the magnetic field
+    !CALL InterpolatePsiR
+    !CALL mappsi
+    !CALL psiFunctions
+    !CALL maptheta
+
+    !! For outputing the magnetic field
     open(UNITTMP_,FILE=RamFileName('ComputeDomain','dat',TimeRamNow))
     write(UNITTMP_,*) nthe, npsi, nzeta
     do i = 1,nthe
@@ -370,6 +376,9 @@ MODULE ModScbIO
     REAL(DP) :: AA, SPS, CPS, PS, AB
     COMMON /GEOPACK1/ AA(10),SPS,CPS,AB(3),PS
 
+    INTEGER :: ID
+    REAL(DP) :: Dist, XMGNP, YMGNP, ZMGNP, tempy
+
     Updated = .false.
     if ((NameBoundMag.eq.'DIPL').or.(NameBoundMag.eq.'DIPS')) return
 
@@ -397,25 +406,26 @@ MODULE ModScbIO
 
     ! Get correct model inputs and place them in cooresponding variables
     call get_model_inputs(Pdyn,Dst,ByIMF,BzIMF,G,W)
+
+    open(UNITTMP_,FILE=RamFileName('ShueMGNP','dat',TimeRamNow))
+    do j=1,201
+       tempy = -10.0+0.1*(j-1)
+       call SHUETAL_MGNP_08(PDyn,-1.0_dp,BzIMF,6.0_dp,tempy,0.0_dp,XMGNP,YMGNP,ZMGNP,DIST,ID)
+       write(UNITTMP_,*) XMGNP, YMGNP, ZMGNP
+    enddo
+    close(UNITTMP_)
+
+    PARMOD(1) = Pdyn
+    PARMOD(2) = Dst
+    PARMOD(3) = ByIMF
+    PARMOD(4) = BzIMF
     IF ((NameBoundMag.eq.'T89I').or.(NameBoundMag.eq.'T89D')) THEN
        IOPT = min(floor(Kp+0.5),6)
     ELSEIF ((NameBoundMag.eq.'T96I').or.(NameBoundMag.eq.'T96D')) THEN
-       PARMOD(1) = Pdyn
-       PARMOD(2) = Dst
-       PARMOD(3) = ByIMF
-       PARMOD(4) = BzIMF
     ELSEIF ((NameBoundMag.eq.'T02I').or.(NameBoundMag.eq.'T02D')) THEN
-       PARMOD(1) = Pdyn
-       PARMOD(2) = Dst
-       PARMOD(3) = ByIMF
-       PARMOD(4) = BzIMF
        PARMOD(5) = G(1)
        PARMOD(6) = G(2)
     ELSEIF ((NameBoundMag.eq.'T04I').or.(NameBoundMag.eq.'T04D')) THEN
-       PARMOD(1) = Pdyn
-       PARMOD(2) = Dst
-       PARMOD(3) = ByIMF
-       PARMOD(4) = BzIMF
        PARMOD(5) = W(1)
        PARMOD(6) = W(2)
        PARMOD(7) = W(3)
@@ -467,11 +477,11 @@ MODULE ModScbIO
        fp(j) = 0._dp                      !           and the curvilinear coordinate
     END DO
 
-     DO k = 1, nzeta+1
-        alphaVal(k) = twopi_d*(REAL(k-2, DP)/REAL(nzeta-1, DP))
-        fzet(k)     = 1._dp ! dAlpha/dPhi -- For converting between the euler potential
-        fzetp(k)    = 0._dp !                and the curvilinar coordinate
-     END DO
+    DO k = 1, nzeta+1
+       alphaVal(k) = twopi_d*(REAL(k-2, DP)/REAL(nzeta-1, DP))
+       fzet(k)     = 1._dp ! dAlpha/dPhi -- For converting between the euler potential
+       fzetp(k)    = 0._dp !                and the curvilinar coordinate
+    END DO
 
     ! Trace the outer shell and identify the points that lay outside the new outer boundary
     rtest = 0._dp
@@ -509,36 +519,15 @@ MODULE ModScbIO
           do j = 1,npsi
              outside = .false.
              rold(i,j,k) = x(i,j,k)**2+y(i,j,k)**2+z(i,j,k)**2
-             if (rold(i,j,k) > rout(i,k)) outside = .true.
+             if ((rold(i,j,k) > rout(i,k)).and.(j.gt.15)) outside = .true.
              if ((outside).and.(outer(i,k).eq.1)) then
-                outer(i,k) = j-1
+                outer(i,k) = j-2
              endif
           enddo
-          if (outer(i,k).eq.1) outer(i,k) = npsi-1
+          if (outer(i,k).eq.1) outer(i,k) = npsi-2
        enddo
     enddo
-
-    ! For testing purposes
-    !open(UNITTMP_,FILE=RamFileName('TestDomain','dat',TimeRamNow))
-    !write(UNITTMP_,*) nthe, npsi, nzeta
-    !do i = 1,nthe
-    ! do j = 1,npsi
-    !  do k = 1,nzeta
-    !   if (j.eq.npsi) then
-    !      xi = xout(i,k)
-    !      yi = yout(i,k)
-    !      zi = zout(i,k)
-    !      write(UNITTMP_,*) xi, yi, zi
-    !   elseif (j.gt.outer(nThetaEquator,k)) then
-    !      write(UNITTMP_,*) 0._dp, 0._dp, 0._dp
-    !   else
-    !      write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
-    !   endif
-    !  enddo
-    ! enddo
-    !enddo
-    !close(UNITTMP_)
-
+   
     ! Map all interior points onto the new psi values
     do k = 1,nzeta
        do i = 2,nthe-1
@@ -627,29 +616,11 @@ MODULE ModScbIO
     Updated = .true.
 
     ! For outputing the magnetic field
-    !open(UNITTMP_,FILE=RamFileName('UpdateDomain','dat',TimeRamNow))
-    !write(UNITTMP_,*) nthe, npsi, nzeta
-    !do i = 1,nthe
-    ! do j = 1,npsi
-    !  do k = 1,nzeta
-    !   write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
-    !  enddo
-    ! enddo
-    !enddo
-    !close(UNITTMP_)
+    !call Write_MAGxyz
 
     SORFail = .false.
     call ComputeBandJacob_Initial
     do k = 2,nzeta
-       !rLeft  = x(nThetaEquator,npsi,k-1)**2 + y(nThetaEquator,npsi,k-1)**2
-       !rMidd  = x(nThetaEquator,npsi,k)**2 + y(nThetaEquator,npsi,k)**2
-       !rRight = x(nThetaEquator,npsi,k+1)**2 + y(nThetaEquator,npsi,k+1)**2
-       !if ((abs(1-rLeft/rMidd).gt.0.1).or.(abs(1-rRight/rMidd).gt.0.1)) then
-       !   write(*,*) 'Issue with calculating new magnetic boundary,
-       !   regenerating entire magnetic field'
-       !   call computational_domain
-       !   return
-       !endif
        do j = 1,npsi
           i = nThetaEquator
           if ((sqrt(x(i,j,k)**2+y(i,j,k)**2+z(i,j,k)**2) < 1.7).or.(SORFail)) then
@@ -853,6 +824,7 @@ MODULE ModScbIO
                 BufferA(i,:) = Buffer(i-1,:) + (dsA/dsI)*(Buffer(i,:)-Buffer(i-1,:))
              endif
           endif
+          !DenP = BufferA(i,4)
           Pdyn = BufferA(i,5)
           Dst = BufferA(i,19)
           ByIMF = BufferA(i,1)
@@ -861,6 +833,7 @@ MODULE ModScbIO
           W(:) = BufferA(i,26:31)
           exit Cycle_QDFile
        elseif (i.eq.nIndex) then
+          !DenP = BufferA(i,4)
           Pdyn = Buffer(i,5)
           Dst = Buffer(i,19)
           ByIMF = Buffer(i,1)
@@ -878,6 +851,33 @@ MODULE ModScbIO
   end subroutine get_model_inputs
 !=============================================================================!
 !============================= OUTPUT ROUTINES ===============================!
+!=============================================================================!
+  SUBROUTINE Write_MAGxyz
+    use ModRamTiming,    ONLY: TimeRamNow
+    use ModScbGrids,     ONLY: nthe, npsi, nzeta
+    use ModScbVariables, ONLY: x, y, z
+
+    use ModRamFunctions, ONLY: RamFileName
+
+    use ModIoUnit, ONLY: UNITTMP_
+
+    IMPLICIT NONE
+
+    INTEGER :: i, j, k
+
+    open(UNITTMP_,FILE=RamFileName('MAGxyz','dat',TimeRamNow))
+    write(UNITTMP_,*) nthe, npsi, nzeta
+    do i = 1,nthe
+     do j = 1,npsi
+      do k = 1,nzeta
+       write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
+      enddo
+     enddo
+    enddo
+    close(UNITTMP_)
+
+  END SUBROUTINE Write_MAGxyz
+
 !=============================================================================!
 SUBROUTINE Write_ionospheric_potential
 

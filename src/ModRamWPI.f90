@@ -242,10 +242,12 @@ MODULE ModRamWPI
     implicit none
     save
     integer :: i, j, kn, l, ikp
-    real(kind=Real8_):: RLDAA(ENG,NPA),RUDAA(ENG,NPA)
+    real(kind=Real8_), ALLOCATABLE :: RLDAA(:,:),RUDAA(:,:)
     character(len=1) ST3
     character(len=2) ST2
     character(len=80) HEADER
+
+    ALLOCATE(RLDAA(ENG,NPA),RUDAA(ENG,NPA))
 
     ikp=INT(KP)
     IF (ikp.gt.4) ikp=4
@@ -294,6 +296,8 @@ MODULE ModRamWPI
 17  FORMAT(E13.4)
 20  FORMAT(A80)
 27  FORMAT(80(1PE12.3))
+
+    DEALLOCATE(RLDAA,RUDAA)
 
     RETURN
   END SUBROUTINE WAPARA_CHORUS

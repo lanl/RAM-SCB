@@ -63,16 +63,15 @@ MODULE ModRamRun
     T = UTs
 
     ! Added capability to couple to plasmaspheric density model
-    !IF (DoUsePlane_SCB) THEN
-    !   VT_kV = VT/1e3 ! potential in kV for call to plane
-    !   ! Need total number of days from TimeRamNow
-    !   DAY = TimeRamNow%iMonth*30 + TimeRamNow%iDay
-    !   CALL APFMSIS(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay,TimeRamNow%iHour,IAPO)
-    !   CALL TCON(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay,DAY,RZ,IG,rsn,nmonth)
-    !   CALL PLANE(TimeRamNow%iYear,DAY,T,KP,IAPO(2),RZ(3),F107,2.*DTs,NECR,VT_kV)
-    !END IF
+    IF (DoUsePlane_SCB) THEN
+       VT_kV = VT/1e3 ! potential in kV for call to plane
+       ! Need total number of days from TimeRamNow
+       DAY = TimeRamNow%iMonth*30 + TimeRamNow%iDay
+       CALL APFMSIS(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay,TimeRamNow%iHour,IAPO)
+       CALL TCON(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay,DAY,RZ,IG,rsn,nmonth)
+       CALL PLANE(TimeRamNow%iYear,DAY,T,KP,IAPO(2),RZ(3),F107,2.*DTs,NECR,VT_kV)
+    END IF
 
-!$OMP PARALLEL DO
     do iS=1,4
        !   calls for given species S:
        CALL CEPARA(iS)
@@ -140,7 +139,6 @@ MODULE ModRamRun
        ! Routines needed to clear allocated variables for use with OpenMP
        CALL DRIFTEND
     end do
-!$OMP END PARALLEL DO
 
     DtsNext = min(minval(DtDriftR), minval(DtDriftP), minval(DtDriftE), minval(DtDriftMu))
     DtsNext = max(DtsNext, DtsMin)
@@ -228,18 +226,25 @@ MODULE ModRamRun
     save
 
     integer, intent(in) :: S
-    integer :: i, iwa, j, k, klo, l, iz, ier, kn, i1, j1, GSLerr
+    integer :: i, iwa, j, k, klo, l, iz, ier, kn, i1, j1, GSLerr, u
     real(kind=Real8_) :: cv, rfac, rnhtt, edent, pper, ppar, rnht, Y, &
                          eden,sume,suma,sumn,ernm,epma,epme,anis,epar,taudaa,taudea,taudee, &
                          gausgam,anist,epart,fnorm,xfrl,Bw,esu,omega,er1,dx
-    real(kind=Real8_) :: MUBOUN,DWAVE(NPA),KEVERG,CMRA(SLEN),BWAVE(NR,NT), &
-                         AVDAA(NPA),TAVDAA(NPA),DAA(NE,NPA,Slen),DUMP(ENG,NCF), &
-                         DN(2,25),EPO(2,25),AII(2,25),XFR(NR,NT),XFRe(NCF),ALENOR(ENG), &
-                         DUME(ENG,NCF),DVV(NE,NPA,Slen),AVDVV(NPA),TAVDVV(NPA),WCDT(NR,NT), &
-                         XFRT(NR,NT),PA(NPA),DAMR(NPA,NCO),DAMR1(NPA),GREL_new(Ny),BOUNHS_(Nx)
-    INTEGER :: MINP(NT),MAXP(NT),KHI(5)
+    real(kind=Real8_) :: MUBOUN,KEVERG,DN(2,25),EPO(2,25),AII(2,25)
+    real(kind=Real8_), ALLOCATABLE :: DWAVE(:),CMRA(:),BWAVE(:,:),AVDAA(:),TAVDAA(:),&
+                                      DAA(:,:,:),DUMP(:,:),XFR(:,:),XFRe(:),ALENOR(:),&
+                                      DUME(:,:),DVV(:,:,:),AVDVV(:),TAVDVV(:),WCDT(:,:),&
+                                      XFRT(:,:),PA(:),DAMR(:,:),DAMR1(:),GREL_new(:),BOUNHS_(:)
+    INTEGER :: KHI(5)
+    INTEGER, ALLOCATABLE :: MINP(:), MAXP(:)
     character(len=80) HEADER
     DATA khi/6, 10, 25, 30, 35/ ! ELB=0.1 keV -> 0.4,1,39,129,325 keV 
+
+    ALLOCATE(DWAVE(NPA),CMRA(SLEN),BWAVE(NR,NT),AVDAA(NPA),TAVDAA(NPA), &
+             DAA(NE,NPA,Slen),DUMP(ENG,NCF),XFR(NR,NT),XFRe(NCF),ALENOR(ENG), &
+             DUME(ENG,NCF),DVV(NE,NPA,Slen),AVDVV(NPA),TAVDVV(NPA),WCDT(NR,NT), &
+             XFRT(NR,NT),PA(NPA),DAMR(NPA,NCO),DAMR1(NPA),GREL_new(Ny),BOUNHS_(Nx))
+    ALLOCATE(MINP(nT),MAXP(nT))
 
     cv=CS*100 ! speed of light in [cm/s]
     esu=Q*3E9 ! elementary charge in [esu]
@@ -271,7 +276,8 @@ MODULE ModRamRun
             SUME=0.
             SUMA=0.
             SUMN=0.
-            DO L=1,UPA(I)-1
+            u = UPA(I)-1
+            DO L=1,u
               ERNM=WMU(L)/FFACTOR(S,I,K,L)/FNHS(I,J,L)
               EPMA=ERNM*MU(L)*MU(L)
               EPME=ERNM-EPMA
@@ -393,6 +399,11 @@ MODULE ModRamRun
       ENDDO
     ENDIF ! end diff coeff loop 
 
+    DEALLOCATE(DWAVE,CMRA,BWAVE,AVDAA,TAVDAA, &
+               DAA,DUMP,XFR,XFRe,ALENOR, &
+               DUME,DVV,AVDVV,TAVDVV,WCDT, &
+               XFRT,PA,DAMR,DAMR1,GREL_new,BOUNHS_)
+    DEALLOCATE(MINP,MAXP)
   RETURN
   end subroutine ANISCH
 

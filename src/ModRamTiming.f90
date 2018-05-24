@@ -38,7 +38,8 @@ module ModRamTiming
                        DtWriteSat   = 60.0,   &  ! How often satellite files are written to (configurable in PARAM)
                        DtW_Pressure = 300.0,  &
                        DtW_hI       = 300.0,  &
-                       DtW_EField   = 3600.0
+                       DtW_EField   = 3600.0, &
+                       DtW_MAGxyz   = 300.0
   real(kind=Real8_) :: T, UTs
   real(kind=Real8_) :: Efficiency = 0.0, SysTimeStart, SysTimeNow
   real(kind=Real8_) :: dtPrintTiming = 300.0
@@ -193,7 +194,8 @@ contains
          rt_temp     -mod(TimeIn, rt_temp     ), &
          DtW_Pressure-mod(TimeIn, DtW_Pressure), &
          DtW_EField  -mod(TimeIn, DtW_EField  ), &
-         DtW_hI      -mod(TimeIn, DtW_hI      )) / 2.0
+         DtW_hI      -mod(TimeIn, DtW_hI      ), &
+         DtW_MAGxyz  -mod(TimeIn, DtW_MAGxyz  )) / 2.0
 
     if(DoTestMe)then
        call write_prefix

@@ -555,12 +555,13 @@ MODULE ModScbEuler
     IMPLICIT NONE
     save
  
-    REAL(DP) :: om(ny), anorm, diff, rjac, &
+    REAL(DP) :: anorm, diff, rjac, &
          & anormaverage, dyDummy, anormResid, anormError, anormf
-    REAL(DP), ALLOCATABLE :: alfaPrev(:,:,:), alfaPrevTemp(:,:,:)
+    REAL(DP), ALLOCATABLE :: alfaPrev(:,:,:), alfaPrevTemp(:,:,:), om(:)
     REAL(DP) :: RESULT, omegaOpt
     REAL(DP), ALLOCATABLE :: angle(:,:,:), resid(:,:,:)
-    INTEGER :: j, i, ni(npsi), ict, jz, k, kp, km, iz, im, ip, izmx, jzmx, kmx, ierr, nratio, &
+    INTEGER, ALLOCATABLE :: ni(:)
+    INTEGER :: j, i, ict, jz, k, kp, km, iz, im, ip, izmx, jzmx, kmx, ierr, nratio, &
          myPsiBegin, myPsiEnd, my_array_type2, psiRangeDiff, resultInt, loc(3)
     !$OMP THREADPRIVATE(k,kp,km,iz,im,ip)
   
@@ -568,7 +569,8 @@ MODULE ModScbEuler
     ALLOCATE(alfaprev(nthe,npsi,nzeta+1), STAT = ierr)
     ALLOCATE(alfaPrevTemp(nthe,npsi,nzeta+1), STAT = ierr)
     ALLOCATE(resid(nthe,npsi,nzeta+1), STAT = ierr)
- 
+    ALLOCATE(ni(npsi), om(ny))
+
     DO k = 1, nzeta
        DO j = 1, npsi
           DO i = 1, nthe
@@ -673,6 +675,7 @@ MODULE ModScbEuler
     IF (ALLOCATED(alfaPrev)) DEALLOCATE(alfaPrev)
     IF (ALLOCATED(alfaPrevTemp)) DEALLOCATE(alfaPrevTemp)
     IF (ALLOCATED(resid)) DEALLOCATE(resid)
+    DEALLOCATE(ni,om)
  
     RETURN
   
@@ -1149,11 +1152,10 @@ MODULE ModScbEuler
     IMPLICIT NONE
     save
  
-    REAL(DP) :: om(na)
     REAL(DP) :: omegaOpt
     REAL(DP) :: omc, anorm, anormf, diff, ano, sumbtest, anormResid, anormError
-    REAL(DP), ALLOCATABLE :: psiPrev(:,:,:), psiPrevTemp(:,:,:), resid(:,:,:)
-    INTEGER :: ni(nzeta)
+    REAL(DP), ALLOCATABLE :: psiPrev(:,:,:), psiPrevTemp(:,:,:), resid(:,:,:), om(:)
+    INTEGER, ALLOCATABLE :: ni(:)
     INTEGER :: j, k, i, ierr, ict, jz, jp, jm, iz, im, ip, nratio, myAlphaBegin, &
                myAlphaEnd, my_array_type_psi2, alphaRangeDiff, resultInt, loc(3)
     !$OMP THREADPRIVATE(jz,jp,jm,iz,im,ip)
@@ -1164,6 +1166,7 @@ MODULE ModScbEuler
     ALLOCATE(psiPrevTemp(nthe,npsi,nzeta+1), STAT = ierr)
     ALLOCATE(psiPrev(nthe,npsi,nzeta+1), STAT = ierr)
     ALLOCATE(resid(nthe,npsi,nzeta+1), STAT = ierr)
+    ALLOCATE(ni(nzeta), om(na))
 
     rjac = 1._dp - 2._dp*pi_d*pi_d / (REAL(nthe,dp)*REAL(nthe,dp) + REAL(npsi,dp)*REAL(npsi,dp)) ! Radius of conv. of Jacobi iteration,
     ! could be used to find omega optimal in SOR
@@ -1266,6 +1269,7 @@ MODULE ModScbEuler
     IF (ALLOCATED(psiPrevTemp))  DEALLOCATE(psiPrevTemp)
     IF (ALLOCATED(psiPrev)) DEALLOCATE(psiPrev)
     IF (ALLOCATED(resid)) DEALLOCATE(resid)
+    DEALLOCATE(ni, om)
 
     RETURN
   

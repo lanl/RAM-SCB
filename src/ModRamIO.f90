@@ -102,7 +102,8 @@ contains
     !!!! Module Variables
     use ModRamParams,    ONLY: DoSaveRamSats, NameBoundMag
     use ModRamTiming,    ONLY: Dt_hI, DtRestart, DtWriteSat, TimeRamNow, &
-                               TimeRamElapsed, DtW_Pressure, DtW_hI, DtW_Efield
+                               TimeRamElapsed, DtW_Pressure, DtW_hI, DtW_Efield, &
+                               DtW_MAGxyz
     use ModRamGrids,     ONLY: NR, NT
     use ModRamVariables, ONLY: PParH, PPerH, PParHe, PPerHe, PParE, PPerE, &
                                PParO, PPerO, VT
@@ -111,6 +112,7 @@ contains
     use ModRamSats,      ONLY: fly_sats
     use ModRamFunctions, ONLY: ram_sum_pressure, get_ramdst
     use ModRamRestart,   ONLY: write_restart
+    use ModScbIO,        ONLY: Write_MAGxyz
     ! Share Modules
     use ModIOUnit, ONLY: UNITTMP_
 
@@ -141,7 +143,7 @@ contains
     end if
 
     ! Write SCB Dst file
-    if(mod(TimeIn, Dt_hI)==0.0)then
+    if(mod(TimeIn, DtLogfile)==0.0)then
        open(UNITTMP_, FILE=NameFileDst, POSITION='APPEND')
        write(UNITTMP_, *) TimeIn, TimeRamNow%iYear, TimeRamNow%iMonth, &
                           TimeRamNow%iDay, TimeRamNow%iHour, TimeRamNow%iMinute, &
@@ -157,6 +159,9 @@ contains
        call ram_sum_pressure
        call ram_write_pressure(StrScbIter)
     end if
+
+    ! Write MAGxyz File
+    if ((mod(TimeIn, DtW_MAGxyz)==0.0).and.(NameBoundMag.ne.'DIPL')) call Write_MAGxyz
 
     ! Write hI File
     if ((mod(TimeIn, DtW_hI)==0.0).and.(NameBoundMag.ne.'DIPL')) call ram_write_hI
@@ -670,14 +675,16 @@ end subroutine read_geomlt_file
     implicit none
     save
     integer :: i, j, k, l, jw, iw
-    real(kind=Real8_) :: weight, esum, csum, psum, precfl
-    real(kind=Real8_) :: XNNO(NR),XNDO(NR)
-    real(kind=Real8_) :: F(NR,NT,NE,NPA),NSUM,FZERO(NR,NT,NE),ENO(NR),EDO(NR),AVEFL(NR,NT,NE),BARFL(NE)
+    real(kind=Real8_) :: weight, esum, csum, psum, precfl, NSUM
+    real(kind=Real8_), ALLOCATABLE :: XNNO(:),XNDO(:)
+    real(kind=Real8_), ALLOCATABLE :: F(:,:,:,:),FZERO(:,:,:),ENO(:),EDO(:),AVEFL(:,:,:),BARFL(:)
     character(len=23) :: StringDate
     character(len=2)  :: ST2
     character(len=100) :: ST4, NameFileOut
     character(len=2), dimension(4) :: speciesString = (/'_e','_h','he','_o'/)
 
+    ALLOCATE(F(NR,NT,NE,NPA),FZERO(NR,NT,NE),ENO(NR),EDO(NR),AVEFL(NR,NT,NE),BARFL(NE))
+    ALLOCATE(XNNO(NR),XNDO(NR))
     ST2 = speciesString(S)
     ST4 =trim(PathRamOut)
     write(StringDate,"(i4.4,'-',i2.2,'-',i2.2,'_',i2.2,2(':',i2.2)'.',i3.3)"), TimeRamNow%iYear, &
@@ -782,6 +789,8 @@ end subroutine read_geomlt_file
 70  FORMAT(F5.2,F10.6,E13.4)
 71  FORMAT(2X,3HT =,F8.0,2X,4HKp =,F6.2,2X,'  Total Precip Flux [1/cm2/s]')
 96  FORMAT(2HT=,F6.2,4H Kp=,F5.2,4H AP=,F7.2,4H Rs=,F7.2,7H Date= ,A23,'Plasmasphere e- density [cm-3]')
+
+    DEALLOCATE(F,FZERO,ENO,EDO,AVEFL,BARFL,XNNO,XNDO)
 
     RETURN
   END SUBROUTINE ram_hour_write

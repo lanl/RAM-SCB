@@ -34,7 +34,7 @@ module ModRamRestart
   contains
   !==========================================================================
   subroutine write_restart
-
+    use ModRamParams, ONLY: TimedRestarts
     implicit none
     
     integer :: stat
@@ -63,8 +63,11 @@ module ModRamRestart
          TimeRamElapsed
 
     ! Write ascii portion of restart.
-    NameFile=RamFileName(PathRestartOut//'/restart_info','txt',TimeRamNow)
-    !NameFile=PathRestartOut//'/restart_info.txt'
+    if (TimedRestarts) then
+       NameFile=RamFileName(PathRestartOut//'/restart_info','txt',TimeRamNow)
+    else
+       NameFile=PathRestartOut//'/restart_info.txt'
+    endif
     open(unit=UnitTMP_, file=trim(NameFile), status='replace')
     write(UnitTMP_, *) 'TIMING:'
     write(UnitTMP_, '(a, i4.4, 2i2.2, 1x, 3i2.2)')'Start (YYYYMMDD HHMMSS)= ', &
@@ -77,8 +80,11 @@ module ModRamRestart
     close(unitTMP_)
 
     ! OPEN FILE
-    NameFile = RamFileName(PathRestartOut//'/restart','nc',TimeRamNow)
-    !NameFile = PathRestartOut//'/restart.nc'
+    if (TimedRestarts) then
+       NameFile = RamFileName(PathRestartOut//'/restart','nc',TimeRamNow)
+    else
+       NameFile = PathRestartOut//'/restart.nc'
+    endif
     iStatus = nf90_create(trim(NameFile), nf90_HDF5, iFileID)
     call ncdf_check(iStatus, NameSub)
     call write_ncdf_globatts(iFileID)

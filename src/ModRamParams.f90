@@ -10,9 +10,13 @@ module ModRamParams
   save
 
 !!!! PARAM Variables
+ logical :: DoUseRAM = .true.
+ logical :: TimedRestarts = .true.
  logical :: Optim = .false.
  logical :: verbose = .false.
  logical :: Reset = .false.
+ logical :: SCBonRAMTime = .false.
+ integer :: RAMTie = 300
 
  ! Standalone or Component (default = standalone)  logical :: IsComponent = .false.
  logical :: IsComponent = .false.

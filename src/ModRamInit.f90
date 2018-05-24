@@ -230,16 +230,17 @@ END SUBROUTINE ram_init
     use ModRamFunctions, ONLY: ACOSD, ASIND, COSD, SIND
 
     implicit none
+    save
 
     real(kind=Real8_) :: degrad, camlra, elb, rw, rwu
-    real(kind=Real8_) :: clc, spa
-    real(kind=Real8_) :: CONE(NR+4),RLAMBDA(NPA),MUBOUN
+    real(kind=Real8_) :: clc, spa, MUBOUN
+    real(kind=Real8_), ALLOCATABLE :: CONE(:),RLAMBDA(:)
 
     integer :: i, j, k, l, iml, ic, ip
 
     character(len=80) TITLE
 
-    save
+    ALLOCATE(CONE(NR+4),RLAMBDA(NPA))
 
     ! Grid size of L shell
     DL1 = (RadiusMax - RadiusMin)/(nR - 1)
@@ -273,10 +274,10 @@ END SUBROUTINE ram_init
     END DO
 
     DPHI=2.*PI/(NT-1)      ! Grid size for local time [rad]
-    !IF (MOD(NLT,NT-1).NE.0) THEN
-    !  WRITE(6,*) ' Error : NT-1 is not a factor of NLT '
-    !  STOP
-    !END IF
+    IF (MOD(NLT,NT-1).NE.0) THEN
+      WRITE(6,*) ' Error : NT-1 is not a factor of NLT '
+      STOP
+    END IF
 
     DO J=1,NT
       PHI(J)=(J-1)*DPHI ! Magnetic local time in radian
@@ -420,6 +421,8 @@ END SUBROUTINE ram_init
     CONF2=((LZ(NR)+2.*DL1)/LZ(NR))**2
 
     RFACTOR=3.4027E10*MDR*DPHI
+
+    DEALLOCATE(CONE,RLAMBDA)
     RETURN
   END SUBROUTINE ARRAYS
 

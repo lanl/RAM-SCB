@@ -60,7 +60,7 @@ SUBROUTINE computehI(iter)
 
   use ModRamVariables, ONLY: Kp, F107, FLUX, FNHS, FNIS, BNES, HDNS, dBdt, &
                              dIdt, dIbndt, BOUNHS, BOUNIS, EIR, EIP, DPHI, PHI, &
-                             RLZ, LZ, MU, DMU, WMU, MLT, PAbn, PA
+                             RLZ, LZ, MU, DMU, WMU, MLT, PAbn, PA, DL1
   use ModRamTiming,    ONLY: TimeRamNow, TimeRamStart, DT_hI, TimeRamElapsed, TOld
   use ModRamConst,     ONLY: RE, HMIN, ME, b0dip
   use ModRamParams,    ONLY: electric, IsComponent, NameBoundMag
@@ -99,30 +99,44 @@ SUBROUTINE computehI(iter)
   ! Variables for SCB
   integer  :: statusIntegralI, statusIntegralH, statusIntegralHDens
   REAL(DP) :: DthI
-  REAL(DP), DIMENSION(npsi,nzeta+1)    :: length, r0, BeqDip
-  REAL(DP), DIMENSION(nthe,npsi,nzeta) :: distance
-  REAL(DP), DIMENSION(npsi,nzeta,NPA)  :: H_value, I_value, Hdens_value, &
-                                          yI, yH, yD, bfmirror
+  REAL(DP), ALLOCATABLE :: length(:,:), r0(:,:), BeqDip(:,:)
+  REAL(DP), ALLOCATABLE :: distance(:,:,:), H_value(:,:,:), I_value(:,:,:), &
+                           Hdens_value(:,:,:), yI(:,:,:), yH(:,:,:), yD(:,:,:), &
+                           bfmirror(:,:,:)
 
-  ! Variables for RAM\
+  ! Variables for RAM
   logical  :: Extrap
   integer  :: nEquator
   REAL(DP) :: MUeq, wn, xo, xn, xp, yo, yn, yp, t0, t1, rt, tt, zt
   REAL(DP) :: r0_RAM, length_RAM
-  REAL(DP), DIMENSION(nR)          :: BeqDip_Cart
-  REAL(DP), DIMENSION(nPa)         :: bfMirror_RAM, yI_RAM, yH_RAM, yD_RAM
-  REAL(DP), DIMENSION(nthe)        :: bbx, bby, bbz, bb, dd, cVal, xx, yy, zz
-  REAL(DP), DIMENSION(nR,nT)       :: BzeqDiff_Cart
-  REAL(DP), DIMENSION(nR+1,nT)     :: BNESPrev
-  REAL(DP), DIMENSION(nR+1,nT,nPa) :: FNISPrev, BOUNISPrev
+  REAL(DP), ALLOCATABLE :: BeqDip_Cart(:), bfMirror_RAM(:), yI_RAM(:), yH_RAM(:), &
+                           yD_RAM(:), bbx(:), bby(:), bbz(:), bb(:), dd(:), &
+                           cVal(:), xx(:), yy(:), zz(:), ScaleAt(:)
+  REAL(DP), ALLOCATABLE :: BzeqDiff_Cart(:,:), BNESPrev(:,:)
+  REAL(DP), ALLOCATABLE :: FNISPrev(:,:,:), BOUNISPrev(:,:,:)
   REAL(DP) :: scalingI, scalingH, scalingD, I_Temp, H_Temp, D_Temp
 
   ! Variables for Tracing
   INTEGER :: LMAX = 200, LOUT
+  INTEGER :: ID
   REAL(DP) :: x0, y0, z0, xe, ye, ze, xf, yf, zf, RIN
-  REAL(DP) :: ER, DSMAX, RLIM, DIR, PS, ScaleAt(nT)
+  REAL(DP) :: ER, DSMAX, RLIM, DIR, PS
+  REAL(DP) :: PDyn, BzIMF, DIST, XMGNP, YMGNP, ZMGNP
   REAL(DP), DIMENSION(200) :: xtemp, ytemp, ztemp, bxtemp, bytemp, bztemp, dtemp
   !$OMP THREADPRIVATE(i, k, L)
+
+  ALLOCATE(length(npsi,nzeta+1), r0(npsi,nzeta+1), BeqDip(npsi,nzeta+1))
+  ALLOCATE(distance(nthe,npsi,nzeta))
+  ALLOCATe(H_value(npsi,nzeta,NPA), I_value(npsi,nzeta,NPA), HDens_value(npsi,nzeta,NPA), &
+           yI(npsi,nzeta,NPA), yH(npsi,nzeta,NPA), yD(npsi,nzeta,NPA), bfmirror(npsi,nzeta,NPA))
+  ALLOCATE(BeqDip_Cart(nR))
+  ALLOCATE(ScaleAt(nT))
+  ALLOCATE(bfMirror_RAM(nPa), yI_RAM(nPA), yH_RAM(nPA), yD_RAM(nPA))
+  ALLOCATE(bbx(nthe), bby(nthe), bbz(nthe), bb(nthe), dd(nthe), cVal(nthe), &
+           xx(nthe), yy(nthe), zz(nthe))
+  ALLOCATE(BzeqDiff_Cart(nR,nT))
+  ALLOCATE(BNESPrev(nR+1,nT))
+  ALLOCATE(FNISPrev(nR+1,nT,nPa),BOUNISPrev(nR+1,nT,nPa))
 
   h_Cart = 0._dp
   I_Cart = 0._dp
@@ -217,7 +231,13 @@ SUBROUTINE computehI(iter)
 
   ! Periodicity for indexPA
   indexPA(:,:,1,:) = indexPA(:,:,nzeta,:)
-  if (iter.eq.-1) return ! -1 is only ever called from a restart
+  if (iter.eq.-1) then
+     DEALLOCATE(length,r0,BeqDip,distance,H_value,I_value,HDens_value,yI,yH,yD, &
+                bfmirror,BeqDip_Cart,bfMirror_RAM,yI_RAM,yH_RAM,yD_RAM,bbx,bby, &
+                bbz,bb,dd,cVal,xx,yy,zz,BzeqDiff_Cart,BNESPrev,FNISPrev,ScaleAt,&
+                BOUNISPrev)
+     return ! -1 is only ever called from a restart
+  endif
 
   Operational_or_research: SELECT CASE (NameBoundMag)
 
@@ -343,6 +363,11 @@ SUBROUTINE computehI(iter)
         ENDDO
      ENDDO
 
+     DEALLOCATE(length,r0,BeqDip,distance,H_value,I_value,HDens_value,yI,yH,yD, &
+                bfmirror,BeqDip_Cart,bfMirror_RAM,yI_RAM,yH_RAM,yD_RAM,bbx,bby, &
+                bbz,bb,dd,cVal,xx,yy,zz,BzeqDiff_Cart,BNESPrev,FNISPrev,ScaleAt,&
+                BOUNISPrev)
+
      RETURN 
 
   CASE default  ! Regular calculation of h, I, bounce-averaged charge xchange etc.
@@ -462,16 +487,14 @@ SUBROUTINE computehI(iter)
                                         fluxVolume(:,2:nzeta)/bnormal, xo, yo, flux_vol_Cart(i,j),GSLerr)
               bZEq_Cart(i,j) = bZEqDiff_Cart(i,j) + beqdip_Cart(i)
            else
-              ! Extrapolation vs Tracing
-              Extrap = .false.
-              if (Extrap) then
-                 DO L = 2,NPA
-                    call extap(I_cart(i,j-3,L),I_cart(i,j-2,L),I_cart(i,j-1,L),I_cart(i,j,L))
-                    call extap(H_cart(i,j-3,L),H_cart(i,j-2,L),H_cart(i,j-1,L),H_cart(i,j,L))
-                    call extap(hDens_cart(i,j-3,L),hDens_cart(i,j-2,L),hDens_cart(i,j-1,L),hDens_cart(i,j,L))
-                 ENDDO
-                 call extap(bZEqDiff_cart(i,j-3),bZEqDiff_cart(i,j-2),bZEqDiff_cart(i,j-1),bzEqDiff_cart(i,j))
-                 call extap(flux_vol_cart(i,j-3),flux_vol_cart(i,j-2),flux_vol_cart(i,j-1),flux_vol_cart(i,j))
+              Pdyn = PARMOD(1)
+              BzIMF = PARMOD(4)
+              call SHUETAL_MGNP_08(PDyn,-1.0_dp,BzIMF,xo,yo,0.0_dp,XMGNP,YMGNP,ZMGNP,DIST,ID)
+              if ((ID.lt.0).or.(DIST.lt.DL1)) then
+                 bZEq_Cart(i,j) = -1.0
+                 I_cart(i,j,:) = 1.0
+                 H_cart(i,j,:) = 1.0
+                 HDens_cart(i,j,:) = 1.0
               else
                  ! Calculate h and I at RAM grid point
                  !! Get equatorial point
@@ -570,7 +593,7 @@ SUBROUTINE computehI(iter)
               endif
               !if (scalingD.le.0) write(*,*) j,L,scalingD,HDens_cart(ii,j,L),HDens_cart(ii-1,j,L),HDens_cart(ii-2,j,L)
 
-              do i = ScaleAt(j), nR
+              do i = ii, nR
                  I_cart(i,j,L) = I_cart(i,j,L)*scalingI
                  H_cart(i,j,L) = H_cart(i,j,L)*scalingH
                  HDens_cart(i,j,L) = HDens_cart(i,j,L)*scalingD
@@ -657,37 +680,49 @@ SUBROUTINE computehI(iter)
      DO I=2,NR+1
         DO J=1,NT
            BNESPrev(I,J)=BNES(I,J)
-           DO L=1,NPA
-              FNISPrev(I,J,L)=FNIS(I,J,L)
-              BOUNISPrev(I,J,L)=BOUNIS(I,J,L)
-              ! SCB Variables -> RAM Variables
-              FNHS(I,J,L)   = h_Cart(I-1,J,L)
-              FNIS(I,J,L)   = i_Cart(I-1,J,L)
-              BNES(I,J)     = bZEq_Cart(I-1,J)
-              HDNS(I,J,L)   = hdens_Cart(I-1,J,L)
-              BOUNHS(I,J,L) = h_Cart_interp(I-1,J,L)
-              BOUNIS(I,J,L) = i_Cart_interp(I-1,J,L)
-              !
-              if (DthI.eq.0) then
-                 dIdt(I,J,L)   = 0._dp
-                 dIbndt(I,J,L) = 0._dp
-              else
-                 dIdt(I,J,L)   = (FNIS(I,J,L)-FNISPrev(I,J,L))/DThI
-                 dIbndt(I,J,L) = (BOUNIS(I,J,L)-BOUNISPrev(I,J,L))/DThI
-              endif
-           ENDDO
-           IF (J.LT.8.or.J.GT.18) THEN
-              DO L=15,2,-1
-                 if (FNHS(I,J,L-1).gt.FNHS(I,J,L)) then
-                    FNHS(I,J,L-1)=0.99*FNHS(I,J,L)
+           if (bZEq_Cart(I-1,J).lt.0) then
+              FNIS(I-1,J,:) = -1.0
+              FNHS(I-1,J,:) = -1.0
+              HDNS(I-1,J,:) = -1.0
+              BOUNHS(I-1,J,:) = -1.0
+              BOUNIS(I-1,J,:) = -1.0
+              dIdt(I,J,:) = -1.0
+              dIbndt(I,J,:) = -1.0
+              BNES(I,J) = -1.0
+              dBdt(I,J) = -1.0
+           else
+              DO L=1,NPA
+                 FNISPrev(I,J,L)=FNIS(I,J,L)
+                 BOUNISPrev(I,J,L)=BOUNIS(I,J,L)
+                 ! SCB Variables -> RAM Variables
+                 FNHS(I,J,L)   = h_Cart(I-1,J,L)
+                 FNIS(I,J,L)   = i_Cart(I-1,J,L)
+                 BNES(I,J)     = bZEq_Cart(I-1,J)
+                 HDNS(I,J,L)   = hdens_Cart(I-1,J,L)
+                 BOUNHS(I,J,L) = h_Cart_interp(I-1,J,L)
+                 BOUNIS(I,J,L) = i_Cart_interp(I-1,J,L)
+                 !
+                 if ((DthI.eq.0).or.(FNISPrev(I,J,L).lt.0)) then
+                    dIdt(I,J,L)   = 0._dp
+                    dIbndt(I,J,L) = 0._dp
+                 else
+                    dIdt(I,J,L)   = (FNIS(I,J,L)-FNISPrev(I,J,L))/DThI
+                    dIbndt(I,J,L) = (BOUNIS(I,J,L)-BOUNISPrev(I,J,L))/DThI
                  endif
               ENDDO
-           ENDIF
-           BNES(I,J)=BNES(I,J)/1e9 ! to convert in [T]
-           if (DthI.eq.0) then
-              dBdt(I,J) = 0._dp
-           else
-              dBdt(I,J) = (BNES(I,J)-BNESPrev(I,J))/DThI
+              IF (J.LT.8.or.J.GT.18) THEN
+                 DO L=15,2,-1
+                    if (FNHS(I,J,L-1).gt.FNHS(I,J,L)) then
+                       FNHS(I,J,L-1)=0.99*FNHS(I,J,L)
+                    endif
+                 ENDDO
+              ENDIF
+              BNES(I,J)=BNES(I,J)/1e9 ! to convert in [T]
+              if ((DthI.eq.0).or.(BNESPrev(I,J).lt.0)) then
+                 dBdt(I,J) = 0._dp
+              else
+                 dBdt(I,J) = (BNES(I,J)-BNESPrev(I,J))/DThI
+              endif
            endif
         ENDDO
      ENDDO
@@ -707,6 +742,11 @@ SUBROUTINE computehI(iter)
         ENDDO
      ENDDO
      TOld = TimeRamElapsed
+
+     DEALLOCATE(length,r0,BeqDip,distance,H_value,I_value,HDens_value,yI,yH,yD, &
+                bfmirror,BeqDip_Cart,bfMirror_RAM,yI_RAM,yH_RAM,yD_RAM,bbx,bby, &
+                bbz,bb,dd,cVal,xx,yy,zz,BzeqDiff_Cart,BNESPrev,FNISPrev,ScaleAt,&
+                BOUNISPrev)
 
   END SELECT Operational_or_research
 

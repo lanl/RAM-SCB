@@ -488,6 +488,7 @@ MODULE ModScbCompute
 
      alphaLoop :  DO k = 2, nzeta + 1
         psiLoop :   DO j = 1, npsi
+           i = nthe
            rr2 = xx(i,j,k)**2 + z(i,j,k)**2
            rr1 = SQRT(rr2)
            zangle = yy(i,j,k)
