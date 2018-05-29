@@ -11,8 +11,7 @@ module ModRamIO
   use ModRamNCDF,   ONLY: ncdf_check, write_ncdf_globatts
   use ModRamTiming, ONLY: DtLogFile, DtWriteSat
 
-  implicit none
-  save
+  implicit none; save
 
   logical :: IsFramework = .false. 
 
@@ -24,7 +23,7 @@ module ModRamIO
   ! was initialized (used for output metadata.)
   character(len=21) :: StringRunDate
   
-  character(len=10) :: NameMod = 'ModRamMain'
+  character(len=10), parameter :: NameMod = 'ModRamMain'
   
 contains
 !============================!
@@ -39,7 +38,7 @@ contains
 
     use ModTimeConvert
 
-    implicit none
+    implicit none; save
 
     character(len=200)           :: RamFileName
     type(TimeType),   intent(in) :: TimeIn
@@ -66,6 +65,8 @@ contains
     use ModRamMain,   ONLY: PathRamOut, PathScbOut
 
     use ModIoUnit,    ONLY: UNITTMP_
+
+    implicit none; save
 
     character(len=*), parameter :: NameSub = 'init_output'
     !------------------------------------------------------------------------
@@ -116,7 +117,7 @@ contains
     ! Share Modules
     use ModIOUnit, ONLY: UNITTMP_
 
-    implicit none
+    implicit none; save
 
     real(kind=Real8_), intent(in) :: TimeIn
 
@@ -203,7 +204,7 @@ subroutine read_geomlt_file(NameParticle)
   use ModIOUnit,      ONLY: UNITTMP_
   use ModTimeConvert, ONLY: TimeType, time_int_to_real
 
-  implicit none
+  implicit none; save
 
   character(len=4), intent(in) :: NameParticle
 
@@ -364,7 +365,7 @@ subroutine read_geomlt_file(NameParticle)
   ! Finally, store last entry into fluxLast_SII.
   fluxLast_SII(iSpec,:,:) = flux_SIII(iSpec,NBD,:,:)
 
-  deallocate(TimeBuffer, MLTBuffer, EnergyBuffer, FluxBuffer)
+  deallocate(TimeBuffer, MLTBuffer, EnergyBuffer, FluxBuffer, NSCBuffer)
 
 11 FORMAT(I4,A,I2,A,I2,A,I2,A,I2,A,I2,A,I3,A)
   return
@@ -384,10 +385,9 @@ end subroutine read_geomlt_file
      !!!! Share Modules
      use ModIoUnit,       ONLY: UNITTMP_
 
-     implicit none
-     save
+     implicit none; save
 
-     logical :: THERE=.false.
+     logical :: THERE
      integer :: I, J, K, L
      integer :: IPA, nFive
 
@@ -396,6 +396,7 @@ end subroutine read_geomlt_file
      character(len=100) :: HEADER
      character(len=200) :: hIFile
 
+     THERE = .false.
      IF (NameBoundMag .EQ. 'DIPL') THEN
         hIfile=trim(PathScbIn)//'hI_dipole.dat'
      ELSE
@@ -472,7 +473,7 @@ end subroutine read_geomlt_file
 
     use netcdf
 
-    implicit none
+    implicit none; save
 
     integer :: i, j, k, l, iS, iDomain, GSLerr
     integer :: iRDim, iTDim, iEDim, iPaDim, iR, iT, iE, iPa, iError
@@ -626,7 +627,7 @@ end subroutine read_geomlt_file
 
     use ModIOUnit, ONLY: UNITTMP_
 
-    implicit none
+    implicit none; save
 
     character(len=23)  :: StringDate
     character(len=300) :: NameFileOut
@@ -672,8 +673,8 @@ end subroutine read_geomlt_file
     use ModRamFunctions
 
     use ModIOUnit, ONLY: UNITTMP_, io_unit_new
-    implicit none
-    save
+    implicit none; save
+
     integer :: i, j, k, l, jw, iw
     real(kind=Real8_) :: weight, esum, csum, psum, precfl, NSUM
     real(kind=Real8_), ALLOCATABLE :: XNNO(:),XNDO(:)
@@ -809,7 +810,7 @@ end subroutine read_geomlt_file
     !!!! Share Modules
     use ModIOUnit, ONLY: UNITTMP_
 
-    implicit none
+    implicit none; save
 
     character(len=23)            :: StringTime
     character(len=*), intent(in) :: StringIter
@@ -866,7 +867,7 @@ subroutine ram_write_hI
 
   use ModIOUnit, ONLY: UNITTMP_
 
-  implicit none
+  implicit none; save
 
   integer :: i, j, L
   character(len=200) :: filenamehI
@@ -903,7 +904,7 @@ subroutine write_dsbnd
   !!!! Share Modules
   use ModIoUnit,      ONLY: UNITTMP_
 
-  implicit none
+  implicit none; save
 
   integer :: K, j
   character(len=2), DIMENSION(4) :: ST2 = (/ '_e','_h','he','_o' /)
@@ -947,7 +948,7 @@ end Subroutine write_dsbnd
     !!!! NetCdf Modules
     use netcdf
 
-    implicit none
+    implicit none; save
     
     integer :: stat
     integer :: iFluxEVar, iFluxHVar, iFluxHeVar, iFluxOVar, iPParTVar, &
@@ -963,7 +964,6 @@ end Subroutine write_dsbnd
                nZetaDim, nRPDim, nZetaPDim, iFlux3DVar
     integer, parameter :: iDeflate = 2
 
-    character(len=2), dimension(4):: NameSpecies = (/'e_','h_','he','o_'/)
     character(len=200)            :: NameFile,CWD
 
     character(len=*), parameter :: NameSub='write_fail_file'

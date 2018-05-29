@@ -7,7 +7,7 @@ MODULE ModScbEquation
 ! Contains subroutines for calculating the left hand side and
 ! right hand side of the force balance equation
 
-  implicit none
+  implicit none; save; save
 
 contains
 

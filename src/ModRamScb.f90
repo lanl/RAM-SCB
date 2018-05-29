@@ -8,8 +8,7 @@ Module ModRamScb
 
   use nrtype, ONLY: DP
 
-  implicit none
-  save
+  implicit none; save; save
 
   INTEGER, allocatable :: INDEXPA(:,:,:,:) ! Index that maps the pitch angle on each point of a field line to the equatorial (RAM) one
   REAL(DP), allocatable :: flux3DEQ(:,:,:,:,:)
@@ -22,7 +21,7 @@ subroutine ramscb_allocate
   use ModRamGrids, ONLY: NS, NE, NPA
   use ModScbGrids, ONLY: nthe, npsi, nzeta, nXRaw
 
-  implicit none
+  implicit none; save; save
 
   ALLOCATE(INDEXPA(nthe,npsi,nzeta,NPA), Flux3DEq(NS,npsi,nzeta,NE,NPA))
   
@@ -32,11 +31,145 @@ end subroutine ramscb_allocate
 !==============================================================================
 subroutine ramscb_deallocate
 
-  implicit none
+  implicit none; save; save
 
   DEALLOCATE(INDEXPA, Flux3DEq)
 
 end subroutine ramscb_deallocate
+
+!==============================================================================
+subroutine Compute3DFlux
+
+  use ModRamVariables, ONLY: FLUX, MU, FFACTOR, FNHS, F2
+  use ModRamGrids,     ONLY: nR, nT, nPa, nE, radout
+
+  USE ModScbParams,    ONLY: Symmetric
+  use ModScbGrids,     ONLY: nthe, npsi, nzeta
+  use ModScbVariables, ONLY: bf, radGrid, angleGrid, radRaw, azimRaw, &
+                             nThetaEquator, x, y
+
+  use ModRamGSL,       ONLY: GSL_Interpolation_2D
+  use ModScbFunctions, ONLY: locate
+
+  use nrtype, ONLY: DP, pi_d, twopi_d
+
+  implicit none; save; save
+
+  integer :: i, j, k, L, iS, GSLErr
+  real(DP) :: MuEq, radius, angle
+
+  DO iS = 1,4
+     DO I = 2, NR
+        DO K = 2, NE
+           DO L = 2, NPA
+              DO J = 1, NT-1
+                 FLUX(iS,I,J,K,L) = F2(iS,I,J,K,L)/FFACTOR(iS,I,K,L)/FNHS(I,J,L)
+              ENDDO
+           ENDDO
+        ENDDO
+     ENDDO
+  ENDDO
+
+  DO j = 0, nR
+     radRaw(j) = 1.75_dp + (radOut-1.75_dp) * REAL(j,DP)/REAL(nR,DP)
+  END DO
+  DO k = 1, nT
+     azimRaw(k) = 24._dp * REAL(k-1,DP)/REAL(nT-1,DP)
+  END DO
+
+  DO k = 2, nzeta
+     DO j = 1, npsi
+        radius = SQRT((x(nThetaEquator,j,k))**2 + y(nThetaEquator,j,k)**2)
+        angle = ASIN(y(nThetaEquator,j,k) / radius) + pi_d
+        IF ((x(nThetaEquator,j,k) .LE. 0) .AND. (y(nThetaEquator,j,k) .GE.0)) &
+             angle = twopi_d - ASIN(y(nThetaEquator,j,k) / radius)
+        IF ((x(nThetaEquator,j,k) .LE. 0) .AND. (y(nThetaEquator,j,k) .LE.0)) &
+             angle = - ASIN(y(nThetaEquator,j,k) / radius)
+        radGrid(j,k) = radius
+        angleGrid(j,k) = angle
+     END DO
+  END DO
+
+  ! Always fill this matrix; it's used by RAM outputs
+  ! Interpolate RAM flux on 3DEQ grid, for mapping
+  DO iS = 1, 4 ! ions & electrons
+     DO L = 1, NPA
+        DO K = 1, NE
+           !Cubic GSL interpolation
+           CALL GSL_Interpolation_2D(radRaw(1:nR), azimRaw*pi_d/12.0, &
+                                     FLUX(iS,1:nR,1:nT,K,L), &
+                                     radGrid(1:npsi,2:nzeta), angleGrid(1:npsi,2:nzeta), &
+                                     flux3DEQ(iS,1:npsi,2:nzeta,K,L),GSLerr)
+        END DO
+     END DO
+  END DO
+  ! Periodicity
+  flux3DEQ(:,:,1,:,:) = flux3DEQ(:,:,nzeta,:,:)
+
+  DO k = 2, nzeta
+     DO j = 1, npsi
+        ! If bf(theta) not strictly increasing; to weed out very small
+        ! differences  
+        ! Generally if needed it means have to increase number of theta
+        ! points (or crowd them more near the equatorial plane)
+
+        !! Do nThetaEquator -> nthe
+        Monotonicity_up: DO
+           i = nThetaEquator
+           L = 0
+           fixMonotonicity_up: DO WHILE (i < nthe)
+              IF (bf(i+1,j,k) < bf(i,j,k)) THEN
+                 bf(i+1,j,k) = bf(i,j,k)*(1._dp+1.E-15_dp)
+                 L = 1
+              END IF
+              i = i+1
+           END DO fixMonotonicity_up
+           IF (L == 0) EXIT Monotonicity_up
+           CYCLE Monotonicity_up
+        END DO Monotonicity_up
+
+        !! Do nThetaEquator -> 1
+        Monotonicity_down: DO
+           i = nThetaEquator
+           L = 0
+           fixMonotonicity_down: DO WHILE (i > 1)
+              IF (bf(i-1,j,k) < bf(i,j,k)) THEN
+                 bf(i-1,j,k) = bf(i,j,k)*(1._dp+1.E-15_dp)
+                 L = 1
+              END IF
+              i = i-1
+           END DO fixMonotonicity_down
+           IF (L == 0) EXIT Monotonicity_down
+           CYCLE Monotonicity_down
+        END DO Monotonicity_down
+
+!!!!! Compute IndexPA to go along with Flux3D
+        ! Define indexPA for 90 degree pitch angle (-1 for all distances
+        ! along field line except equatorial plane)
+        indexPA(:,:,:,1) = -1
+        indexPA(nThetaEquator,:,:,1) = 1
+
+        DO L = 2, NPA
+           DO i = nThetaEquator, nthe
+              IF (1. - bf(nThetaEquator,j,k)/bf(i,j,k)*(1.-MU(L)**2) >= 0.) THEN
+                 MUEQ = SQRT(1. - bf(nThetaEquator,j,k)/bf(i,j,k)*(1.-MU(L)**2))
+                 indexPA(i,j,k,L) = locate(MU(1:NPA), MUEQ)
+                 indexPA(nthe+1-i,j,k,L) = indexPA(i,j,k,L) ! Mirror across magnetic equator.
+              ELSE
+                 indexPA(i,j,k,L) = -1
+                 indexPA(nthe+1-i,j,k,L) = -1
+              END IF
+           END DO
+!!!!!
+        END DO
+     END DO
+  END DO
+  
+  ! Periodicity for indexPA
+  indexPA(:,:,1,:) = indexPA(:,:,nzeta,:)
+
+  return
+end subroutine Compute3DFlux
 
 !==============================================================================
 SUBROUTINE computehI(iter)
@@ -87,13 +220,12 @@ SUBROUTINE computehI(iter)
   USE ModIOUnit, ONLY: UNITTMP_
 
   IMPLICIT NONE
-  save
 
   INTEGER, INTENT(IN) :: iter
-  INTEGER :: i, ii, j, k, L, iS, GSLerr
+  INTEGER :: ii, j, iS, GSLerr
   
   ! Variables for timing
-  integer :: time1, clock_rate = 1000, clock_max = 100000
+  integer :: time1, clock_rate, clock_max
   real(dp) :: starttime,stoptime
 
   ! Variables for SCB
@@ -117,13 +249,19 @@ SUBROUTINE computehI(iter)
   REAL(DP) :: scalingI, scalingH, scalingD, I_Temp, H_Temp, D_Temp
 
   ! Variables for Tracing
-  INTEGER :: LMAX = 200, LOUT
+  INTEGER :: LMAX, LOUT
   INTEGER :: ID
   REAL(DP) :: x0, y0, z0, xe, ye, ze, xf, yf, zf, RIN
   REAL(DP) :: ER, DSMAX, RLIM, DIR, PS
   REAL(DP) :: PDyn, BzIMF, DIST, XMGNP, YMGNP, ZMGNP
   REAL(DP), DIMENSION(200) :: xtemp, ytemp, ztemp, bxtemp, bytemp, bztemp, dtemp
+
+  integer, save :: i, k, L
   !$OMP THREADPRIVATE(i, k, L)
+
+  clock_rate = 1000
+  clock_max = 100000
+  LMAX = 200
 
   ALLOCATE(length(npsi,nzeta+1), r0(npsi,nzeta+1), BeqDip(npsi,nzeta+1))
   ALLOCATE(distance(nthe,npsi,nzeta))
@@ -155,92 +293,7 @@ SUBROUTINE computehI(iter)
      azimRaw(k) = 24._dp * REAL(k-1,DP)/REAL(nT-1,DP)
   END DO
 
-  ! Always fill this matrix; it's used by RAM outputs
-  ! Interpolate RAM flux on 3DEQ grid, for mapping
-  DO iS = 1, 4 ! ions & electrons
-     DO L = 1, NPA
-        DO K = 1, NE
-           !Cubic GSL interpolation
-           CALL GSL_Interpolation_2D(radRaw(1:nR), azimRaw*pi_d/12.0, &
-                                     FLUX(iS,1:nR,1:nT,K,L), &   
-                                     radGrid(1:npsi,2:nzeta), angleGrid(1:npsi,2:nzeta), &
-                                     flux3DEQ(iS,1:npsi,2:nzeta,K,L),GSLerr) 
-        END DO
-     END DO
-  END DO
-  ! Periodicity
-  flux3DEQ(:,:,1,:,:) = flux3DEQ(:,:,nzeta,:,:)
-
-  Alpha_loop_parallel_oper:  DO k = 2, nzeta
-     Psi_loop_oper: DO j = 1, npsi
-        ! If bf(theta) not strictly increasing; to weed out very small differences  
-        ! Generally if needed it means have to increase number of theta
-        ! points (or crowd them more near the equatorial plane)
-
-        !! Do nThetaEquator -> nthe
-        Monotonicity_up: DO
-           i = nThetaEquator
-           L = 0
-           fixMonotonicity_up: DO WHILE (i < nthe)
-              IF (bf(i+1,j,k) < bf(i,j,k)) THEN
-                 bf(i+1,j,k) = bf(i,j,k)*(1._dp+1.E-15_dp)
-                 L = 1
-              END IF
-              i = i+1
-           END DO fixMonotonicity_up
-           IF (L == 0) EXIT Monotonicity_up
-           CYCLE Monotonicity_up
-        END DO Monotonicity_up
-
-        !! Do nThetaEquator -> 1
-        Monotonicity_down: DO
-           i = nThetaEquator
-           L = 0
-           fixMonotonicity_down: DO WHILE (i > 1)
-              IF (bf(i-1,j,k) < bf(i,j,k)) THEN
-                 bf(i-1,j,k) = bf(i,j,k)*(1._dp+1.E-15_dp)
-                 L = 1
-              END IF
-              i = i-1
-           END DO fixMonotonicity_down
-           IF (L == 0) EXIT Monotonicity_down
-           CYCLE Monotonicity_down
-        END DO Monotonicity_down
-
-!!!!! Compute IndexPA to go along with Flux3D
-        ! Define indexPA for 90 degree pitch angle (-1 for all distances
-        ! along field line except equatorial plane)
-        indexPA(:,:,:,1) = -1
-        indexPA(nThetaEquator,:,:,1) = 1
-
-        pitchAngleLoop_oper:        DO L = 2, NPA
-           DO i = nThetaEquator, nthe
-              IF (1. - bf(nThetaEquator,j,k)/bf(i,j,k)*(1.-MU(L)**2) >= 0.) THEN
-                 MUEQ = SQRT(1. - bf(nThetaEquator,j,k)/bf(i,j,k)*(1.-MU(L)**2))
-                 indexPA(i,j,k,L) = locate(MU(1:NPA), MUEQ)
-                 indexPA(nthe+1-i,j,k,L) = indexPA(i,j,k,L) ! Mirror across magnetic equator.
-              ELSE
-                 indexPA(i,j,k,L) = -1
-                 indexPA(nthe+1-i,j,k,L) = -1
-              END IF
-           END DO
-!!!!!
-        END DO pitchAngleLoop_oper
-     END DO Psi_loop_oper
-  END DO Alpha_loop_parallel_oper
-
-  ! Periodicity for indexPA
-  indexPA(:,:,1,:) = indexPA(:,:,nzeta,:)
-  if (iter.eq.-1) then
-     DEALLOCATE(length,r0,BeqDip,distance,H_value,I_value,HDens_value,yI,yH,yD, &
-                bfmirror,BeqDip_Cart,bfMirror_RAM,yI_RAM,yH_RAM,yD_RAM,bbx,bby, &
-                bbz,bb,dd,cVal,xx,yy,zz,BzeqDiff_Cart,BNESPrev,FNISPrev,ScaleAt,&
-                BOUNISPrev)
-     return ! -1 is only ever called from a restart
-  endif
-
   Operational_or_research: SELECT CASE (NameBoundMag)
-
   CASE('DIPL') ! Dipole without SCB calculation
      ! If this is the first iteration we need to populate the h and I integrals
      if (iter.ne.0) return

@@ -20,7 +20,7 @@ module ModRamPl_Ne
 !     LZ(NR+1)           ! L shell array
 !     Phi(NT)            ! Magnetic local time in radian
 
-  implicit none
+  implicit none; save
   save
 
 !\

@@ -24,7 +24,7 @@ MODULE ModRamWPI
     use ModRamGrids,     ONLY: NE, NR
     use ModRamVariables, ONLY: EKEV, LZ
 
-    implicit none
+    implicit none; save
 
     integer :: i, ii, j, k
     real(kind=Real8_):: TAU_WAVE,xE,xL,xlife
@@ -141,7 +141,7 @@ MODULE ModRamWPI
     !!!! Module Subroutines/Functions
     use ModRamFunctions, ONLY: asind
 
-    implicit none
+    implicit none; save
 
     integer :: i, k
     real(kind=Real8_):: TAU_WAVE,EMEV,R1,R2,CONE(NR+4),CLC
@@ -190,8 +190,8 @@ MODULE ModRamWPI
     !!!! Share Modules
     use ModIoUnit,   ONLY: UNITTMP_
 
-    implicit none
-    save
+    implicit none; save
+
     integer :: i, ix, kn, l
     character(len=80) HEADER
     character(len=3) ST4
@@ -239,8 +239,8 @@ MODULE ModRamWPI
     !!!! Share Modules
     use ModIoUnit, ONLY: UNITTMP_
 
-    implicit none
-    save
+    implicit none; save
+
     integer :: i, j, kn, l, ikp
     real(kind=Real8_), ALLOCATABLE :: RLDAA(:,:),RUDAA(:,:)
     character(len=1) ST3
@@ -310,7 +310,7 @@ MODULE ModRamWPI
 
     use ModRamVariables, ONLY: KP
 
-    implicit none
+    implicit none; save
 
     integer :: i1,i2
 
@@ -347,7 +347,8 @@ MODULE ModRamWPI
     !!!! Share Modules
     use ModIoUnit, ONLY: UNITTMP_
 
-    implicit none
+    implicit none; save
+
     integer :: i,j,k,l,IER,nkp,nloop
     character(len=32) :: H1,H2,H3,nchar
     character(len=64) :: fname
@@ -423,7 +424,7 @@ MODULE ModRamWPI
     use ModRamTiming,    ONLY: Dts
     use ModRamVariables, ONLY: F2, KP, LZ, IP1, IR1, EKEV, NECR
 
-    implicit none
+    implicit none; save
 
     integer, intent(in) :: S
     integer :: i, j, k, l, j1, i1
@@ -484,7 +485,7 @@ MODULE ModRamWPI
     !!!! Share Modules
     use ModIoUnit, ONLY: UNITTMP_
 
-    implicit none
+    implicit none; save
 
     integer, intent(in) :: S
     integer :: i, j, k, l

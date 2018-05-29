@@ -9,7 +9,7 @@ module ModRamMpi
   !    Copyright (c) 2016, Los Alamos National Security, LLC
   !    All rights reserved.
 
-  implicit none
+  implicit none; save
   integer::iProc,nProc,iComm,iGroup,iError
 
 

@@ -6,7 +6,7 @@
 MODULE ModScbCompute
   ! Contains subroutines for computing various SCB parameters
   
-  implicit none
+  implicit none; save; save
 
   contains
 !==============================================================================
@@ -38,9 +38,8 @@ MODULE ModScbCompute
 
     INTEGER :: GSLerr
     INTEGER :: i, j, k, nzd1, nzd2, nzd3, nzd4, nthe0, nthe1, id, ierr, idealerr, ncdfId
-    INTEGER, DIMENSION(3) :: dimlens = (/1, 1, 1/)
     REAL(DP) :: yyp, bju, bjd, normDivJCrossB, normCurlJCrossB, volume, region1FAC, region2FAC, &
-         totalCROSS, dstComputed=0.0, EAlpha, EBeta, gradPhiIonoGradAlpha, gradPhiIonoGradBeta
+         totalCROSS, dstComputed, EAlpha, EBeta, gradPhiIonoGradAlpha, gradPhiIonoGradBeta
     REAL(DP) :: metricDif(nthe, nzeta), metricDif2(nthe, npsi)
     REAL(DP), DIMENSION(nthe,npsi,nzeta) :: alphaTerm, psiTerm, derivNU1, derivNU2
     REAL(DP), DIMENSION(nthe,npsi,nzeta) :: derivXTheta, derivXRho, derivXZeta, &
@@ -473,6 +472,7 @@ MODULE ModScbCompute
      ! Multiply by 1.3 to take into account currents induced inside Earth
      dstBiot = 1.3 * dstBiot
      dstBiotInsideGeo = 1.3 * dstBiotInsideGeo
+     dstComputed = 0.0
 
      DO i = 2, nthe
         DO j = 2, npsi-1
@@ -567,7 +567,7 @@ MODULE ModScbCompute
     use ModScbVariables, ONLY: x, y, z, bf, bsq, jacobian, f, fzet, rhoVal, &
                                thetaVal, zetaVal, GradRhoSq, GradThetaSq, &
                                GradZetaSq, GradRhoGradTheta, GradRhoGradZeta, &
-                               GradThetaGradZeta, bfInitial, SORFail
+                               GradThetaGradZeta, bfInitial, SORFail, Bx, By, Bz
     !!!! Module Subroutines/Functions
     USE ModRamGSL, ONLY: GSL_Derivs
     !!!! NR Modules
@@ -617,9 +617,12 @@ MODULE ModScbCompute
     gradZetaSq = gradZetaX**2 + gradZetaY**2 + gradZetaZ**2
 
     ! Compute magnetic field
-    DO  k = 1,nzeta
-       DO  j = 1,npsi
-          DO  i = 1,nthe
+    DO k = 1,nzeta
+       DO j = 1,npsi
+          DO i = 1,nthe
+             Bx(:,j,k) = (f(j)*fzet(k)*derivXTheta(:,j,k)/jacobian(:,j,k))
+             By(:,j,k) = (f(j)*fzet(k)*derivYTheta(:,j,k)/jacobian(:,j,k))
+             Bz(:,j,k) = (f(j)*fzet(k)*derivZTheta(:,j,k)/jacobian(:,j,k))
              bsq(i,j,k) = (gradRhoSq(i,j,k)*gradZetaSq(i,j,k)-gradRhoGradZeta(i,j,k)**2) &
                           * (f(j) * fzet(k)) **2
              bfInitial(i,j,k) = SQRT(bsq(i,j,k))

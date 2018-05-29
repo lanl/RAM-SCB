@@ -8,6 +8,9 @@ MODULE ModRamConst
   use ModRamMain,  ONLY: Real8_
   use ModNumConst, ONLY: cPi
 
+  implicit none; save
+  save
+
   real(kind=Real8_) :: ME    = 7.9E15,    &   ! Magnetic moment of the earth [T*m3]
                        RE    = 6.371E6,   &   ! Earth's radius [m]
                        HMIN  = 2E5,       &   ! Altitude of dense atmosphere [m]

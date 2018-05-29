@@ -6,14 +6,9 @@
 MODULE ModRamInit
 ! Contains subroutines for initialization of RAM
 
-  use ModRamVariables!, ONLY: RMAS, V, VBND, GREL, GRBND, FACGR, EPP, ERNH, &
-                     !        UPA, WE, DE, EKEV, EBND, PHI, LT, MLT, MU, DMU, &
-                     !        WMU, PAbn, LZ, RLZ, AMLA, BE, ZRPabn, FFACTOR, &
-                     !        PHIOFS, IR1, DL1, MDR, dPhi, IP1, CONF1, CONF2, &
-                     !        RFACTOR, GridExtend
+  use ModRamVariables
 
-  implicit none
-  save
+  implicit none; save
 
   contains
 !==============================================================================
@@ -22,7 +17,7 @@ subroutine ram_allocate
   use ModRamGrids,     ONLY: RadiusMax, RadiusMin, nR, nRExtend, nT, nE, nPa, &
                              Slen, ENG, NCF, NL, nS, nX
 
-  implicit none
+  implicit none; save
 
   nRExtend = NR + 3
   nX = NPA
@@ -69,7 +64,7 @@ end subroutine ram_allocate
 !==============================================================================
 subroutine ram_deallocate
 
-  implicit none
+  implicit none; save
 
 !!!!!!!! Deallocate Arrays
 ! Main RAM Variables
@@ -118,7 +113,7 @@ SUBROUTINE ram_init
   use ModTimeConvert, ONLY: TimeType, time_real_to_int
   use ModNumConst,    ONLY: cTwoPi
 
-  implicit none
+  implicit none; save
 
   character(len=8)   :: StringSysDate
   character(len=10)  :: StringSysTime
@@ -229,8 +224,7 @@ END SUBROUTINE ram_init
     !!!! Module Subroutines/Functions
     use ModRamFunctions, ONLY: ACOSD, ASIND, COSD, SIND
 
-    implicit none
-    save
+    implicit none; save
 
     real(kind=Real8_) :: degrad, camlra, elb, rw, rwu
     real(kind=Real8_) :: clc, spa, MUBOUN
@@ -429,7 +423,7 @@ END SUBROUTINE ram_init
 !==============================================================================
 SUBROUTINE init_input
   !!!! Module Variables
-  use ModRamMain,      ONLY: Real8_, S, PathRamIn
+  use ModRamMain,      ONLY: Real8_, S, PathRamIn, nIter
   use ModRamParams,    ONLY: IsRestart, IsStarttimeSet, electric, IsComponent, &
                              DoUsePlane_SCB, HardRestart
   use ModRamGrids,     ONLY: NR, NT, NE, NPA, NL, NLT
@@ -447,7 +441,7 @@ SUBROUTINE init_input
   use ModRamIndices,   ONLY: get_indices
   use ModRamIO,        ONLY: read_initial
   use ModRamFunctions, ONLY: ram_sum_pressure
-  use ModRamScb,       ONLY: computehI
+  use ModRamScb,       ONLY: computehI, compute3DFlux
   use ModScbRun,       ONLY: scb_run, pressure
   use ModScbEuler,     ONLY: psiges, alfges
   use ModScbIO,        ONLY: computational_domain
@@ -458,18 +452,18 @@ SUBROUTINE init_input
   !!!!
   use nrtype, ONLY: twopi_d
 
-  implicit none
+  implicit none; save
 
   integer :: iS, i, j, k, l, ik, N, methodTemp
   integer :: iR, iT, iE, iPA
   real(kind=Real8_) :: F2r(NR,NT,36,NPA)
   real(kind=Real8_) :: xpsitot, psis, xpl, phi, dphi
 
-  character(len=2), dimension(4) :: ST2 = (/'_e','_h','he','_o'/)
   character(len=100) :: HEADER
   character(len=200) :: fileName
 
   character(len=*), parameter :: NameSub='init_input'
+
 
   !!!!!!!!!! Restart vs Initial Run
   if(IsRestart) then
@@ -479,17 +473,6 @@ SUBROUTINE init_input
 
      !!!!!! RESTART DATA !!!!!!!
      call read_restart
-     DO iS = 1,4
-        DO I = 2, NR
-           DO K = 2, NE
-              DO L = 2, NPA
-                 DO J = 1, NT-1
-                    FLUX(iS,I,J,K,L) = F2(iS,I,J,K,L)/FFACTOR(iS,I,K,L)/FNHS(I,J,L)
-                 ENDDO
-              ENDDO
-           ENDDO
-        ENDDO
-     ENDDO
 
      call psiges
      call alfges
@@ -503,29 +486,18 @@ SUBROUTINE init_input
         call ram_sum_pressure
         call scb_run(0)
         call computehI(0)
+        call compute3DFlux
      else
         methodTemp = method
-        method = 3
-        call scb_run(0)
-        method = methodTemp
-        call computehI(-1) ! Flux3D and IndexPA only
+        call ComputeBandJacob_Initial
+        call compute3DFlux
      endif
 
      call get_boundary_flux ! FGEOS
   else
+     nIter = 1
      !!!!!! INITIALIZE DATA !!!!!
      call read_initial
-     DO iS = 1,4
-        DO I = 2, NR
-           DO K = 2, NE
-              DO L = 2, NPA
-                 DO J = 1, NT-1
-                    FLUX(iS,I,J,K,L) = F2(iS,I,J,K,L)/FFACTOR(iS,I,K,L)/FNHS(I,J,L)
-                 ENDDO
-              ENDDO
-           ENDDO
-        ENDDO
-     ENDDO
 
      ! Initial indices
      call get_indices(TimeRamNow%Time, Kp, f107)
@@ -542,6 +514,8 @@ SUBROUTINE init_input
 
      ! Couple SCB -> RAM
      call computehI(0)
+
+     call compute3DFlux
 
      call write_prefix
      write(*,*) 'Finished 3D Equilibrium code.'

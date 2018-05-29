@@ -9,7 +9,7 @@ module ModRamMain
   use nrtype,         ONLY: DP, SP
   use ModRamGrids,    ONLY: NS, NR, NT, NE, NPA
 
-  implicit none
+  implicit none; save
   save
 
 ! RAM version.
@@ -35,14 +35,11 @@ module ModRamMain
 !!!!!
 
 !!!!! ITERATIONS
-  integer :: iCal     ! Tracks iteration number, kind of.
-  integer :: nIter=0  ! Tracks iteration, including restart.
+  integer :: iCal  ! Tracks iteration number, excluding restart
+  integer :: nIter ! Tracks iteration, including restart.
 !!!!!
 
-!\
-! PARAMS Block.
-!/
-integer :: S
+  integer :: S
 
 end Module ModRamMain
 !==============================================================================

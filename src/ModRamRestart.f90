@@ -28,14 +28,13 @@ module ModRamRestart
     !!!! NetCdf Modules
     use netcdf
 
-  implicit none
-  save
+  implicit none; save
   
   contains
   !==========================================================================
   subroutine write_restart
     use ModRamParams, ONLY: TimedRestarts
-    implicit none
+    implicit none; save
     
     integer :: stat
     integer :: iFluxEVar, iFluxHVar, iFluxHeVar, iFluxOVar, iPParTVar, &
@@ -51,7 +50,6 @@ module ModRamRestart
                nZetaDim, nRPDim, nZetaPDim, iFlux3DVar
     integer, parameter :: iDeflate = 2, yDeflate = 1
 
-    character(len=2), dimension(4):: NameSpecies = (/'e_','h_','he','o_'/)
     character(len=200)            :: NameFile,CWD
 
     character(len=*), parameter :: NameSub='write_restart'
@@ -414,7 +412,7 @@ module ModRamRestart
   !==========================================================================
   subroutine read_restart
 
-    implicit none
+    implicit none; save
     
     integer :: nrIn, ntIn, neIn, npaIn
     integer :: iFluxEVar, iFluxHVar, iFluxHeVar, iFluxOVar, iPParTVar, &

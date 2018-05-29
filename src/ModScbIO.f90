@@ -7,8 +7,7 @@ MODULE ModScbIO
   
   use nrtype, ONLY: DP
 
-  implicit none
-  save
+  implicit none; save; save
  
   REAL(DP) :: PARMOD(10)
   INTEGER  :: IOPT
@@ -63,8 +62,10 @@ MODULE ModScbIO
     REAL(DP) :: AA, SPS, CPS, PS, AB, tVal(nthe), cVal(nthe), dut
     COMMON /GEOPACK1/ AA(10),SPS,CPS,AB(3),PS
 
-    integer :: time1, clock_rate = 1000, clock_max = 100000
+    integer :: time1, clock_rate, clock_max
     real(dp) :: starttime,stoptime
+    clock_rate = 1000
+    clock_max = 100000
 
     left = 1
     right = npsi
@@ -141,13 +142,14 @@ MODULE ModScbIO
 
        ! Get correct model inputs and place them in cooresponding variables
        call get_model_inputs(Pdyn,Dst,ByIMF,BzIMF,G,W)
+       PARMOD(1) = Pdyn
+       PARMOD(2) = Dst
+       PARMOD(3) = ByIMF
+       PARMOD(4) = BzIMF
        IF ((NameBoundMag.eq.'T89I').or.(NameBoundMag.eq.'T89D')) THEN
-          IOPT = min(floor(Kp+0.5),6)
+          IOPT = min(floor(Kp+0.5),6)+1
        ELSEIF ((NameBoundMag.eq.'T96I').or.(NameBoundMag.eq.'T96D')) THEN
-          PARMOD(1) = Pdyn
-          PARMOD(2) = Dst
-          PARMOD(3) = ByIMF
-          PARMOD(4) = BzIMF
+          ! No extra parameters
        ELSEIF ((NameBoundMag.eq.'T02I').or.(NameBoundMag.eq.'T02D')) THEN
           PARMOD(1) = Pdyn
           PARMOD(2) = Dst
@@ -301,22 +303,17 @@ MODULE ModScbIO
     END DO
     call alfges
 
-    !CALL InterpolatePsiR
-    !CALL mappsi
-    !CALL psiFunctions
-    !CALL maptheta
-
     !! For outputing the magnetic field
-    open(UNITTMP_,FILE=RamFileName('ComputeDomain','dat',TimeRamNow))
-    write(UNITTMP_,*) nthe, npsi, nzeta
-    do i = 1,nthe
-     do j = 1,npsi
-      do k = 1,nzeta
-       write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
-      enddo
-     enddo
-    enddo
-    close(UNITTMP_)
+    !open(UNITTMP_,FILE=RamFileName('ComputeDomain','dat',TimeRamNow))
+    !write(UNITTMP_,*) nthe, npsi, nzeta
+    !do i = 1,nthe
+    ! do j = 1,npsi
+    !  do k = 1,nzeta
+    !   write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
+    !  enddo
+    ! enddo
+    !enddo
+    !close(UNITTMP_)
 
     return
 
@@ -348,7 +345,7 @@ MODULE ModScbIO
     !!! NR Modules
     use nrtype, ONLY: DP, pi_d, twopi_d
 
-    implicit none
+    implicit none; save; save
 
     LOGICAL, INTENT(OUT) :: updated
     LOGICAL :: outside
@@ -380,10 +377,19 @@ MODULE ModScbIO
     REAL(DP) :: Dist, XMGNP, YMGNP, ZMGNP, tempy
 
     Updated = .false.
+
+    ! No need to do anything when using a dipole
     if ((NameBoundMag.eq.'DIPL').or.(NameBoundMag.eq.'DIPS')) return
 
     call write_prefix
     write(*,*) "Updating SCB Boundary Conditions"
+
+    ! Since T89 tracing is so quick, just retrace everything
+    ! this is helpful because T89 jumps are very large
+    IF ((NameBoundMag.eq.'T89I').or.(NameBoundMag.eq.'T89D')) THEN
+       call Computational_Domain
+       return
+    ENDIF
 
     DIR = -1.0
     DSMAX = 0.1
@@ -419,10 +425,7 @@ MODULE ModScbIO
     PARMOD(2) = Dst
     PARMOD(3) = ByIMF
     PARMOD(4) = BzIMF
-    IF ((NameBoundMag.eq.'T89I').or.(NameBoundMag.eq.'T89D')) THEN
-       IOPT = min(floor(Kp+0.5),6)
-    ELSEIF ((NameBoundMag.eq.'T96I').or.(NameBoundMag.eq.'T96D')) THEN
-    ELSEIF ((NameBoundMag.eq.'T02I').or.(NameBoundMag.eq.'T02D')) THEN
+    IF ((NameBoundMag.eq.'T02I').or.(NameBoundMag.eq.'T02D')) THEN
        PARMOD(5) = G(1)
        PARMOD(6) = G(2)
     ELSEIF ((NameBoundMag.eq.'T04I').or.(NameBoundMag.eq.'T04D')) THEN
@@ -437,10 +440,6 @@ MODULE ModScbIO
        dut = iSec+iMin*60+iHour*3600
        call INIT_TS07D_COEFFS(iYear,n_day_of_year(iYear,iMonth,iDay),dut,ifail)
        call INIT_TS07D_TLPR
-    ELSEIF (NameBoundMag.eq.'IGRF') THEN
-       ! Don't need to do anything, just want it to not fail
-    ELSE
-       CALL CON_STOP('Unrecognized magnetic boundary')
     ENDIF
 
     xpsitemp = xpsiout
@@ -642,7 +641,7 @@ MODULE ModScbIO
     use ModRamParams, ONLY: NameBoundMag
 
     use nrtype, ONLY: DP
-    implicit none
+    implicit none; save; save
 
     EXTERNAL :: DIP_08, IGRF_GSW_08, SMGSW_08, T89C, T96_01, T01_01, T04_s
     EXTERNAL :: TS07D_JULY_2017
@@ -725,7 +724,7 @@ MODULE ModScbIO
   subroutine DUMMY(IOPT,PARMOD,PSI,X,Y,Z,BXGSW,BYGSW,BZGSW)
     use nrtype, ONLY: DP
     
-    implicit none
+    implicit none; save; save
 
     integer :: iopt
     real(DP) :: parmod(10), x, y, z, bxgsw, bygsw, bzgsw, psi
@@ -745,7 +744,7 @@ MODULE ModScbIO
     USE ModIoUnit, ONLY: UNITTMP_
 
     use nrtype, ONLY: DP
-    implicit none
+    implicit none; save; save
 
     real(DP), intent(out) :: Pdyn, Dst, ByIMF, BzIMF, G(3), W(6)
 
@@ -1166,7 +1165,7 @@ END SUBROUTINE Write_ionospheric_potential
     !!!! Share Modules
     USE ModIoUnit, ONLY: UNITTMP_
 
-    implicit none
+    implicit none; save; save
 
     integer :: i, j, k
     character(len=200) :: FileName

@@ -11,8 +11,7 @@ module ModRamTiming
 
   use ModTimeConvert, ONLY: TimeType
 
-  implicit none
-  save
+  implicit none; save
 
   type(TimeType) :: TimeRamNow, TimeRamStart, TimeRamStop, TimeRamRealStart, TimeRamFinish
 
@@ -59,6 +58,8 @@ contains
 
     use ModIoUnit,  ONLY: io_unit_new
 
+    implicit none; save
+
     character(len=100) :: NameFile
     integer :: iError
 
@@ -90,15 +91,15 @@ contains
   !===========================================================================
   subroutine do_timing()
 
-!    use ModRamMpi, ONLY: iProc
-!    use ModRamIO,  ONLY: write_prefix
+    implicit none; save
 
     real(kind=Real8_) :: CpuTimeNow
-    integer :: t1, clock_rate = 100, clock_max = 100000
+    integer :: t1, clock_rate, clock_max
     !-------------------------------------------------------------------------
+    clock_rate = 1000
+    clock_max = 100000
+
     ! Update system time.
-!    call cpu_time(CpuTimeNow)
-!    CpuTimeNow = omp_get_wtime()
     call system_clock(t1,clock_rate,clock_max)
     CpuTimeNow = t1/clock_rate
     SysTimeNow = CpuTimeNow - SysTimeStart
@@ -123,12 +124,14 @@ contains
   !===========================================================================
   subroutine finalize_timing()
     
-!    use ModRamIO, ONLY: write_prefix
+    implicit none; save
 
     real(kind=Real8_) :: CpuTimeNow
-    integer :: t1, clock_rate = 100, clock_max = 100000
-
+    integer :: t1, clock_rate, clock_max
     !-------------------------------------------------------------------------
+    clock_rate = 1000
+    clock_max = 100000
+
     close(iUnitEffFile)
 
     ! Update system time.
@@ -158,11 +161,13 @@ contains
     ! Because RAM uses a time-splitting approach, the answer is divided by
     ! two (because each step moves forward in time by Dt twice.)
 
+    implicit none; save
+
     ! Arguments:
     real(kind=Real8_) :: max_output_timestep
     real(kind=Real8_), intent(in) :: TimeIn
 
-    real(kind=Real8_) :: DtSatTemp=999999.9
+    real(kind=Real8_) :: DtSatTemp
     real(kind=Real8_) :: hI_temp, bc_temp, ef_temp, rt_temp
 
     logical :: DoTest, DoTestMe
@@ -180,6 +185,7 @@ contains
     if (DtRestart.le.1.0) rt_temp = 9999999.9
 
     ! Only include sats if we are writing them.
+    DtSatTemp=999999.9
     if(DoSaveRamSats) DtSatTemp=DtWriteSat
 
     ! Biggest timestep we can take is the smallest difference of the amount

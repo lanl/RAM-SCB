@@ -11,20 +11,18 @@ MODULE ModRamDrift
   use ModRamGrids,     ONLY: nR, nE, nPA
   use ModRamVariables, ONLY: FracCFL, DtDriftR, DtDriftP, DtDriftE, DtDriftMu
 
-  implicit none
-  save
+  implicit none; save
 
   integer :: QS
   real(kind=Real8_), ALLOCATABLE :: VR(:), P1(:), P2(:,:), MUDOT(:,:), EDOT(:,:), &
                                     CDriftR(:,:,:,:), CDriftP(:,:,:,:), CDriftE(:,:,:,:), &
                                     CDriftMu(:,:,:,:)
-  !$OMP THREADPRIVATE(QS, VR, P1, P2, MUDOT, EDOT, CDriftR, CDriftP, CDriftE, CDriftMu)
 
 contains
 !==============================================================================
   SUBROUTINE DRIFTEND
 
-    implicit none
+    implicit none; save
     
     DEALLOCATE(VR, P1, P2, EDOT, MUDOT, CDriftR, CDriftP, CDriftE, CDriftMu)
 
@@ -43,13 +41,11 @@ contains
     use ModRamVariables, ONLY: RLZ, MDR, DPHI, EKEV, GREL, WMU, EBND, GRBND, &
                                PHIOFS, MU
 
-    implicit none
-    save
+    implicit none; save
 
     integer, intent(in) :: S
     real(kind=Real8_) :: MUBOUN!, RA(NS)
     integer :: i, j, k, l
-    !$OMP THREADPRIVATE(MUBOUN, I, J, K, L)
 
     ALLOCATE(VR(nR), P1(nR), P2(nR,nE), EDOT(nR,nE), MUDOT(nR,nPA))
     ALLOCATE(CDriftR(nR,nT,nE,nPa), CDriftP(nR,nT,nE,nPa), &
@@ -100,8 +96,7 @@ contains
     use ModRamParams,    ONLY: BetaLim
     use ModRamVariables, ONLY: F2, BNES, FNIS, FNHS, MDR, EKEV, GREL, DPHI, &
                                RLZ, CONF1, CONF2, FGEOS, VT, EIP
-    implicit none
-    save
+    implicit none; save
 
     integer, intent(in) :: S
     integer :: UR, i, j, j0, j1, k, l, n
@@ -109,10 +104,9 @@ contains
     real(kind=Real8_) :: p4, x, fup, r, corr, cgr1, cgr2, cgr3, ctemp
     real(kind=Real8_) :: CGR,LIMITER, DtTemp
     real(kind=Real8_), ALLOCATABLE :: F(:),FBND(:), CR(:,:)
-    !$OMP THREADPRIVATE(UR, J0, J1, P4, X, FUP, R, CORR, CGR1, CGR2, CGR3, CTEMP)
-    !$OMP THREADPRIVATE(CGR, CR, LIMITER, F, FBND, sgn, I, J, K, L)
 
     ALLOCATE(sgn(nR,nT),CR(nR,nT),F(NR+2),FBND(nR))
+
     DTDriftR(S) = 100000.0
     DO I=1,NR
        DO J=1,NT
@@ -208,16 +202,14 @@ contains
     use ModRamTiming,    ONLY: DtsNext, Dts, DtsMin
     use ModRamVariables, ONLY: F2, FNIS, FNHS, BNES, VT, EIR, RLZ, MDR, DPHI
 
-    implicit none
-    save
+    implicit none; save
 
     integer, intent(in) :: S
     integer :: i, sgn, j, j1, k, l, n
     real(kind=Real8_) :: x, fup, r, corr, ome, ctemp
     real(kind=Real8_) :: GPA1,GPA2,LIMITER
     real(kind=Real8_), ALLOCATABLE :: FBND(:),F(:)
-    !$OMP THREADPRIVATE(SGN, J1, X, FUP, R, CORR, OME, CTEMP, GPA1, GPA2, FBND, F, LIMITER)
-    !$OMP THREADPRIVATE(I,J,K,L,N)
+    
     ALLOCATE(FBND(nT),F(nT))
 
     DtDriftP(S) = 100000.0
@@ -299,8 +291,7 @@ contains
     use ModRamVariables, ONLY: F2, BNES, FNIS, FNHS, dBdt, dIdt, EKEV, WE, RMAS, &
                                DPHI, RLZ, MDR, EBND, GREL, GRBND, DE, VT, EIR, EIP
 
-    implicit none
-    save
+    implicit none; save
 
     integer, intent(in) :: S
     integer :: i, sgn, j, j0, j2, k, l, n
@@ -308,9 +299,7 @@ contains
                          drdt, dpdt, dbdt1, didt1, x, fup, r, corr, ome
     real(kind=Real8_) :: DRD1,DPD1,DRD2,DPD2, ctemp, LIMITER
     real(kind=Real8_), ALLOCATABLE :: FBND(:),F(:),GRZERO(:)
-    !$OMP THREADPRIVATE(SGN, J0, J2, GPA, GPR1, GPR2, GPR3, GPP1, GPP2, EDT1, DRDT)
-    !$OMP THREADPRIVATE(DPDT, DBDT1, DIDT1, X, FUP, R, CORR, DRD1, DPD1, DRD2, DPD2)
-    !$OMP THREADPRIVATE(CTEMP, FBND, F, LIMITER, I, J, K, L, N)
+    
     ALLOCATE(GRZERO(nS),FBND(nE),F(0:nE+2))
 
     DtDriftE(S)=10000.0
@@ -402,8 +391,7 @@ contains
                                RLZ, DPHI, MDR, GREL, EKEV, DMU, WMU, MU, &
                                VT, EIP, EIR
 
-    implicit none
-    save
+    implicit none; save
 
     integer, intent(in) :: S
     integer :: i, j, j0, j1, k, l, n
@@ -412,9 +400,7 @@ contains
     real(kind=Real8_) :: CMUDOT,EDT,DRM2,DPM2,DRM1,DPM1, ctemp, LIMITER
     real(kind=Real8_), ALLOCATABLE :: FBND(:),F(:)
     integer :: ISGM
-    !$OMP THREADPRIVATE(J0, J1, GMR1, GMR2, GMR3, GMP1, GMP2, DRDM, DPDM, DBDT2, DIBNDT2)
-    !$OMP THREADPRIVATE(X, FUP, R, CORR, CMUDOT, EDT, DRM2, DPM2, DRM1, DPM1, CTEMP)
-    !$OMP THREADPRIVATE(FBND, F, LIMITER, ISGM, I, J, K, L, N)
+
     ALLOCATE(FBND(nPa),F(nPa))
 
     DtDriftMu(S) = 10000.0
@@ -508,7 +494,7 @@ contains
 !                               RLZ, EKEV, WE, RMAS, DPHI, MDR, DE, dIdt, dBdt, &
 !                               dIbndt, P1, P2, GREL, CONF1, CONF2, FGEOS, F2,  &
 !                               DE, DMU, WMU, MU, GRBND, EBND
-!    implicit none
+!    implicit none; save
 !
 !    integer, intent(in) :: order
 !    integer :: Io, Im, Ip, Jo, Jm, Jp, K, L, sgn, N

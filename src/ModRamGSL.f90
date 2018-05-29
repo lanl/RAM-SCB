@@ -5,7 +5,7 @@
 
 MODULE ModRamGSL
 
-  implicit none
+  implicit none; save
 
   ! C Interface Bindings
   interface
@@ -87,7 +87,7 @@ MODULE ModRamGSL
 !==================================================================================================
   subroutine GSL_error(modName, subName, message, errno)
 
-    implicit none
+    implicit none; save
 
     character(len=*) :: modName, subName, message
     integer :: errno
@@ -99,7 +99,7 @@ MODULE ModRamGSL
 
     use, intrinsic :: iso_c_binding
 
-    implicit none
+    implicit none; save
 
     integer(c_int) :: a
 
@@ -116,8 +116,7 @@ MODULE ModRamGSL
     use, intrinsic :: iso_c_binding
     use nrtype, ONLY: DP
 
-    implicit none
-    save
+    implicit none; save
 
     real(DP), INTENT(IN) :: theta(:), field(:), distance(:)
     real(DP), INTENT(INOUT) :: y_i(:), y_h(:), y_hdens(:), bM(:)
@@ -126,8 +125,8 @@ MODULE ModRamGSL
     real(c_double) :: saved
     real(c_double), ALLOCATABLE :: bM_c(:), y_i_c(:), y_h_c(:), y_hdens_c(:)
     real(c_double), ALLOCATABLE :: theta_c(:), field_c(:), distance_c(:)
-    !$OMP THREADPRIVATE(nT_c, nPa_c, bM_c, y_i_c, y_h_c, y_hdens_c)
-    !$OMP THREADPRIVATE(theta_c, field_c, distance_c, saved)
+    !$OMP THREADPRIVATE(theta_C,field_C,distance_C,bM_c,y_i_c,y_h_c)
+    !$OMP THREADPRIVATE(y_hdens_c,nT_c,nPa_c)
 
     nT_c = size(theta,1)
     nPa_c = size(bM,1)
@@ -159,7 +158,7 @@ MODULE ModRamGSL
     use, intrinsic :: iso_c_binding
     use nrtype, ONLY: DP
 
-    implicit none
+    implicit none; save
 
     integer, intent(out) :: err
     real(DP), DIMENSION(:), INTENT(IN)  :: x1, f1
@@ -195,7 +194,7 @@ MODULE ModRamGSL
     use, intrinsic :: iso_c_binding
     use nrtype, ONLY: DP
 
-    implicit none
+    implicit none; save
 
     integer, intent(out) :: err
     real(DP), DIMENSION(:), INTENT(IN)  :: x1, f1, x2
@@ -243,7 +242,7 @@ MODULE ModRamGSL
     use, intrinsic :: iso_c_binding
     use nrtype, ONLY: DP
 
-    implicit none
+    implicit none; save
 
     integer, INTENT(OUT)  :: err
     real(DP), INTENT(IN)  :: x1(:), f1(:), x2
@@ -290,7 +289,7 @@ MODULE ModRamGSL
 
     use nrtype, ONLY: DP
 
-    implicit none
+    implicit none; save
 
     integer, parameter :: NN = 9
     integer, INTENT(OUT) :: err
@@ -346,7 +345,7 @@ MODULE ModRamGSL
 
     use nrtype, ONLY: DP
 
-    implicit none
+    implicit none; save
 
     integer, parameter :: NN = 9
     integer, INTENT(OUT) :: err
@@ -410,7 +409,7 @@ MODULE ModRamGSL
     use, intrinsic :: iso_c_binding
     use nrtype, ONLY: DP
 
-    implicit none
+    implicit none; save
 
     integer, INTENT(OUT) :: err
     real(DP), INTENT(IN) :: x1(:), y1(:), x2, y2
@@ -456,7 +455,7 @@ MODULE ModRamGSL
     use, intrinsic :: iso_c_binding
     use nrtype, ONLY: DP
 
-    implicit none
+    implicit none; save
 
     integer, INTENT(OUT) :: err
     real(DP), DIMENSION(:), INTENT(IN)  :: x1, y1, x2, y2
@@ -502,7 +501,7 @@ MODULE ModRamGSL
     use, intrinsic :: iso_c_binding
     use nrtype, ONLY: DP
 
-    implicit none
+    implicit none; save
 
     integer, INTENT(OUT) :: err
     real(DP), DIMENSION(:), INTENT(IN)  :: x1, y1
@@ -543,7 +542,7 @@ MODULE ModRamGSL
     use, intrinsic :: iso_c_binding
     use nrtype, ONLY: DP
 
-    implicit none
+    implicit none; save
 
     integer, INTENT(OUT) :: err
     real(DP), DIMENSION(:), INTENT(IN) :: x1, y1, z1, x2, y2, z2
@@ -592,7 +591,7 @@ MODULE ModRamGSL
     use, intrinsic :: iso_c_binding
     use nrtype, ONLY: DP
 
-    implicit none
+    implicit none; save
 
     integer, INTENT(OUT) :: err
     real(DP), DIMENSION(:), INTENT(IN)  :: x1
@@ -615,7 +614,7 @@ MODULE ModRamGSL
     dfdx = REAL(dx,DP)
     err = int(err_c(1),kind=4)
 
-    DEALLOCATE(xa,fa)
+    DEALLOCATE(xa,fa,dx)
 
     RETURN
 
@@ -627,7 +626,7 @@ MODULE ModRamGSL
     use, intrinsic :: iso_c_binding
     use nrtype, ONLY: DP
 
-    implicit none
+    implicit none; save
 
     integer, INTENT(OUT) :: err
     real(DP), DIMENSION(:), INTENT(IN)    :: x1, y1
@@ -671,7 +670,7 @@ MODULE ModRamGSL
     use, intrinsic :: iso_c_binding
     use nrtype, ONLY: DP
 
-    implicit none
+    implicit none; save
 
     integer, INTENT(OUT) :: err
     real(DP), DIMENSION(:), INTENT(IN)      :: x1, y1, z1
@@ -750,7 +749,7 @@ MODULE ModRamGSL
 
     use nrtype, ONLY: DP
 
-    implicit none
+    implicit none; save
 
     integer, INTENT(OUT) :: err
     real(DP), INTENT(IN)  :: x1(:), y1(:), f1(:), x2, y2
@@ -797,7 +796,7 @@ MODULE ModRamGSL
 
     use nrtype, ONLY: DP
 
-    implicit none
+    implicit none; save
 
     integer, INTENT(OUT)  :: err
     real(DP), INTENT(IN)  :: x1(:), y1(:), z1(:), f1(:), x2, y2, z2

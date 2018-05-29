@@ -7,8 +7,7 @@ module ModScbParams
 
   use ModScbMain, ONLY: DP
 
-  implicit none
-  save
+  implicit none; save
 
   character(len=200) :: QinDentonPath = 'IM/input_scb/'
   character(len=200) :: TS07Path = 'NONE'

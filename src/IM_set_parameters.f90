@@ -24,14 +24,15 @@ subroutine IM_set_parameters
   use ModIOUnit, ONLY: UNITTMP_
   use ModTimeConvert, ONLY: time_real_to_int, time_int_to_real
 
-  implicit none
+  implicit none; save
 
   integer :: nrIn, ntIn, neIn, npaIn
   logical :: TempLogical
-  logical :: StopCommand = .false., IsStopTimeSet = .false.
+  logical :: StopCommand, IsStopTimeSet
   character(len=100) :: StringLine, NameCommand, RestartFile
   character(len=*), parameter  :: NameSub = 'IM_set_parameters'
-
+  StopCommand = .false.
+  IsStopTimeSet = .false.
   !---------------------------------------------------------------------------
  
   do

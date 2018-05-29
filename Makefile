@@ -129,6 +129,60 @@ test_help:
 	@echo "   test1_check			Compare results to reference solution."
 
 
+#TEST TRAVIS
+testTravis:
+	@echo "starting..." > test1.diff
+	@echo "test1_compile..." >> test1.diff
+	make test1_compile
+	@echo "test1_rundir..." >> test1.diff
+	make test1_rundir PARAMFILE=PARAM.in.test1
+	@echo "test1_run..." >> test1.diff
+	make test1_run MPIRUN=
+	@echo "test1_check..." >> test1.diff
+	make test1_check
+	@echo "starting..." > test3.diff
+	@echo "test3_compile..." >> test3.diff
+	make test3_compile
+	@echo "test3_rundir..." >> test3.diff
+	make test3_rundir PARAMFILE=PARAM.in.test3
+	@echo "test3_run..." >> test3.diff
+	make test3_run MPIRUN=
+	@echo "starting..." > test4.diff
+	@echo "test4_compile..." >> test4.diff
+	make test4_compile
+	@echo "test4_rundir..." >> test4.diff
+	make test4_rundir PARAMFILE=PARAM.in.test4
+	@echo "test4_run..." >> test4.diff
+	make test4_run MPIRUN=
+	@echo "test4_check..." >> test4.diff
+	make testTravis_check
+
+#TRAVIS Test
+testTravis_check:
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9 \
+                ${TESTDIR3}/output_ram/pressure_d20130317_t001500.dat \
+                ${TESTDIR4}/output_ram/pressure_d20130317_t001500.dat \
+                > testTravis.diff
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                             \
+                ${TESTDIR3}/output_scb/hI_output_d20130317_t001500.dat \
+                ${TESTDIR4}/output_scb/hI_output_d20130317_t001500.dat \
+                >> testTravis.diff
+	ncdump -v "FluxH+","B_xyz"                                     \
+               ${TESTDIR3}/output_ram/sat1_d20130317_t000000.nc        \
+               | sed -e '1,/data:/d' >                                 \
+               ${TESTDIR3}/output_ram/sat1.test
+	ncrcat ${TESTDIR4}/output_ram/sat1_d20130317_t000000.nc       \
+               ${TESTDIR4}/output_ram/sat1_d20130317_t001000.nc       \
+               ${TESTDIR4}/output_ram/sat1.nc
+	ncdump -v "FluxH+","B_xyz" ${TESTDIR4}/output_ram/sat1.nc     \
+               | sed -e '1,/data:/d' >                                \
+               ${TESTDIR4}/output_ram/sat1.test        
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                            \
+                ${TESTDIR3}/output_ram/sat1.test                      \
+                ${TESTDIR4}/output_ram/sat1.test                      \
+                >> testTravis.diff
+	@echo "Test Successful!"
+
 #TEST 1----------------------------------
 test1:
 	@echo "starting..." > test1.diff
@@ -348,4 +402,3 @@ test4_check:
                 ${IMDIR}/output/test3/sat2.ref                        \
                 >> test4.diff
 	@echo "Test Successful!"
-

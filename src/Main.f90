@@ -38,7 +38,7 @@ use ModRamEField,    ONLY: get_electric_field
 use ModScbInit,      ONLY: scb_allocate, scb_init, scb_deallocate
 use ModScbRun,       ONLY: scb_run
 use ModScbIO,        ONLY: computational_domain
-use ModRamScb,       ONLY: ramscb_allocate, computehI, ramscb_deallocate
+use ModRamScb,       ONLY: ramscb_allocate, computehI, ramscb_deallocate, compute3DFlux
 
 !!!! External Modules (share/Library/src)
 use ModReadParam
@@ -52,7 +52,7 @@ use ModIOUnit,       ONLY: UNITTMP_
 use ModMpi
 use ModRamMpi
 
-implicit none
+implicit none; save
 
 integer :: i,j,k
 logical :: triggerSCB
@@ -179,7 +179,7 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
 
          ! Couple SCB -> RAM
          if ((hICalc).and.(method.ne.3)) call computehI(nIter)
-         !call computehI(nIter)
+         call compute3DFlux
          FLUSH(6)
 
          call write_prefix
@@ -235,7 +235,7 @@ end program ram_scb
 
     use ModRamParams, ONLY: IsComponent
 
-    implicit none
+    implicit none; save
 
     character(len=7) :: StringPrefix = 'IM:'
 
@@ -255,7 +255,7 @@ subroutine CON_stop(String)
 
   use ModIOUnit,       ONLY: UNITTMP_
 
-  implicit none
+  implicit none; save
 
   character(len=*), intent(in) :: String
   character(len=200) :: FileName
@@ -290,7 +290,7 @@ subroutine CON_set_do_test(String,DoTest,DoTestMe)
   
   use ModRamParams, ONLY: StringTest
 
-  implicit none
+  implicit none; save
   character (len=*), intent(in)  :: String
   logical          , intent(out) :: DoTest, DoTestMe
 
@@ -307,7 +307,7 @@ contains
     !
     ! directly.
 
-    implicit none
+    implicit none; save
 
     character (len=*), intent(in) :: StringA, StringB
 

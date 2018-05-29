@@ -8,8 +8,7 @@ MODULE ModRamBoundary
 
   use ModRamVariables, ONLY: FGEOS
 
-  implicit none
-  save
+  implicit none; save
 
   contains
 
@@ -21,7 +20,7 @@ subroutine get_boundary_flux
   use ModRamTiming, ONLY: TimeRamElapsed
   use ModRamParams, ONLY: BoundaryFiles
 
-  implicit none
+  implicit none; save
  
   integer :: iS
 
@@ -52,7 +51,7 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   use ModRamGSL, ONLY: GSL_Interpolation_1D
   use ModRamIO,  ONLY: read_geomlt_file
 
-  implicit none
+  implicit none; save
 
   integer :: GSLerr
   character(len=4), intent(in) :: NameParticleIn
@@ -242,8 +241,8 @@ end subroutine get_geomlt_flux
     use ModIoUnit, ONLY: UNITTMP_
     USE ModConst,  ONLY: cProtonMass
 
-    implicit none
-    save
+    implicit none; save
+
     integer             :: ij, ik, j, jw, k, l, nLines,u
     real(kind=Real8_)   :: bexp, ahe0, ahe1, gexp, doy, azir, &
                            fracComposition, T

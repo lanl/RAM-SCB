@@ -15,14 +15,14 @@ MODULE ModScbEuler
   
   use ModScbFunctions, ONLY: extap
   
-  implicit none
+  implicit none; save; save
   
   contains
 
 !==============================================================================
   SUBROUTINE mapTheta
     !!!! Module Variables
-    !USE ModScbParams,    ONLY: psiChange, theChange
+    USE ModScbParams,    ONLY: psiChange, theChange
     USE ModScbGrids,     ONLY: nthe, nthem, npsi, nzeta, nzetap, ny
     USE ModScbVariables, ONLY: diffmx, rjac, nisave,  x, y, z, sumb, sumdb, chiVal
 
@@ -35,7 +35,8 @@ MODULE ModScbEuler
 
     INTEGER :: i, j, k, i1, i2, GSLerr
     REAL(DP), DIMENSION(nthe) :: xOld, yOld, zOld, distance, chiValOld
-    INTEGER :: psiChange = 0, theChange = 0
+    psiChange = 0
+    theChange = 0
 
     ! Now move theta coordinates along each surface equal arc length along the i grids
     zetaloop: DO k = 2, nzeta
@@ -162,7 +163,9 @@ MODULE ModScbEuler
     use ModScbGrids, ONLY: nthe, npsi, nzeta, nzetap, nthem
  
     use nrtype, ONLY: pi_d
- 
+
+    implicit none; save; save
+
     INTEGER :: i, j, k
   
     DO k = 1, nzetap
@@ -175,7 +178,7 @@ MODULE ModScbEuler
   SUBROUTINE mapAlpha(iSmoothMove)
     ! new cubic GSL interpolation, without involving linear distance calculation
     USE ModScbMain,      ONLY: DP
-    !USE ModScbParams,    ONLY: psiChange, theChange
+    USE ModScbParams,    ONLY: psiChange, theChange
     USE ModScbGrids,     ONLY: nthe, npsi, nzeta, ny, nthem, nzetap
     USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, alfaPrev, &
                                left, right
@@ -191,7 +194,8 @@ MODULE ModScbEuler
     REAL(DP), DIMENSION(nthe,npsi,nzeta+1) :: xPrev, yPrev, zPrev
     REAL(DP) :: blend
     INTEGER :: i, j, k, ierr, GSLerr
-    integer :: psiChange = 0, theChange = 0
+    psiChange = 0
+    theChange = 0
 
     blend = 0.1_dp**iAlphaMove
   
@@ -553,7 +557,6 @@ MODULE ModScbEuler
     use nrtype, ONLY: DP, pi_d
   
     IMPLICIT NONE
-    save
  
     REAL(DP) :: anorm, diff, rjac, &
          & anormaverage, dyDummy, anormResid, anormError, anormf
@@ -561,8 +564,9 @@ MODULE ModScbEuler
     REAL(DP) :: RESULT, omegaOpt
     REAL(DP), ALLOCATABLE :: angle(:,:,:), resid(:,:,:)
     INTEGER, ALLOCATABLE :: ni(:)
-    INTEGER :: j, i, ict, jz, k, kp, km, iz, im, ip, izmx, jzmx, kmx, ierr, nratio, &
+    INTEGER :: j, i, ict, jz, izmx, jzmx, kmx, ierr, nratio, &
          myPsiBegin, myPsiEnd, my_array_type2, psiRangeDiff, resultInt, loc(3)
+    INTEGER, SAVE :: k, kp, km, iz, im, ip
     !$OMP THREADPRIVATE(k,kp,km,iz,im,ip)
   
     ALLOCATE(angle(nthe,npsi,nzeta+1), STAT = ierr)
@@ -785,7 +789,7 @@ MODULE ModScbEuler
     ! new psiMap, without computing linear distance
     ! first and last flux surface remain unchanged
     USE ModScbMain,      ONLY: DP
-    !USE ModScbParams,    ONLY: psiChange, theChange
+    USE ModScbParams,    ONLY: psiChange, theChange
     USE ModScbGrids,     ONLY: nthe, nthem, npsi, npsim, nzeta, nzetap, na
     USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, left, right
  
@@ -793,13 +797,15 @@ MODULE ModScbEuler
   
     IMPLICIT NONE
   
-    INTEGER :: iSmoothMove = 0
+    INTEGER :: iSmoothMove
     INTEGER :: ierr, k, i, j, GSLerr, i1, i2
     REAL(DP), DIMENSION(npsi) :: xOld, yOld, zOld, psiOld
     REAL(DP), DIMENSION(nthe,npsi,nzeta+1) :: xPrev, yPrev, zPrev
     REAL(DP) :: blend
-    integer :: psiChange = 0, theChange = 0
+    psiChange = 0
+    theChange = 0
 
+    iSmoothMove = 0
     blend = 0.1_dp**iPsiMove
     IF (iSmoothMove /= 0 .AND. iPsiMove > 1) THEN
        ! Add these in difficult equilibria
@@ -1150,14 +1156,14 @@ MODULE ModScbEuler
     use nrtype, ONLY: pi_d
   
     IMPLICIT NONE
-    save
  
     REAL(DP) :: omegaOpt
     REAL(DP) :: omc, anorm, anormf, diff, ano, sumbtest, anormResid, anormError
     REAL(DP), ALLOCATABLE :: psiPrev(:,:,:), psiPrevTemp(:,:,:), resid(:,:,:), om(:)
     INTEGER, ALLOCATABLE :: ni(:)
-    INTEGER :: j, k, i, ierr, ict, jz, jp, jm, iz, im, ip, nratio, myAlphaBegin, &
+    INTEGER :: j, k, i, ierr, ict, nratio, myAlphaBegin, &
                myAlphaEnd, my_array_type_psi2, alphaRangeDiff, resultInt, loc(3)
+    INTEGER, SAVE :: jz, jp, jm, iz, im, ip
     !$OMP THREADPRIVATE(jz,jp,jm,iz,im,ip)
 
     !     perform SOR iteration

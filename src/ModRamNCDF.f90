@@ -5,8 +5,7 @@
 
 module ModRamNCDF
 
-  implicit none
-  save
+  implicit none; save
   
   contains
 !==============================================================================
@@ -69,7 +68,7 @@ module ModRamNCDF
 !      
 !    use netcdf
 !
-!    implicit none
+!    implicit none; save
 !
 !    integer, intent(in) :: iFileID
 !    character(len=*), intent(in) LL varChar

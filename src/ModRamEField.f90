@@ -8,8 +8,7 @@ MODULE ModRamEField
 
   use ModRamVariables, ONLY: VT, VTOL, VTN, TOLV, EIR, EIP
 
-  implicit none
-  save
+  implicit none; save; save
 
   contains
 
@@ -26,7 +25,7 @@ subroutine get_electric_field
 
   use ModTimeConvert, ONLY: TimeType, time_real_to_int
 
-  implicit none
+  implicit none; save; save
 
   real(kind=Real8_) :: AVS
   integer :: I, J
@@ -89,7 +88,7 @@ subroutine ram_gen_efilename(TimeIn,NameOut)
 
   use ModTimeConvert, ONLY: TimeType
 
-  implicit none
+  implicit none; save; save
 
   ! Args and return value.
   type(TimeType), intent(in) :: TimeIn
@@ -151,7 +150,7 @@ subroutine ram_get_electric(NextEfile, EOut_II)
 
   use nrtype, ONLY: DP,pi_d
 
-  implicit none
+  implicit none; save; save
 
   integer :: GSLerr
   ! Arguments
@@ -160,16 +159,17 @@ subroutine ram_get_electric(NextEfile, EOut_II)
   ! Kp, F10.7 no longer acquired through E-field files.
   real(kind=Real8_):: KpOut, f107Out
   
-
   type(TimeType) :: TimeNext
   integer :: nDay, nFile, iError, i, j, k, jw
   character(len=200) :: StringHeader, NameFileOut
   REAL(kind=Real8_) :: Epot_Cart(0:nR,nT)
   real(kind=Real8_) :: day, tth, ap, rsun, RRL, PH, wep(49)
-  REAL(kind=Real8_) :: radOut = RadiusMax+0.25
+  REAL(kind=Real8_) :: radOut
   REAL(kind=Real8_) :: xo(nR,nT), yo(nR,nT)
   character(len=*), parameter :: NameSub = 'ram_get_electric'
   !--------------------------------------------------------------------------
+  radOut = RadiusMax+0.25
+
   ! Initialize efield to zero.
   ! NOTE THAT ON RESTART, WE MUST CHANGE THIS.
   if (.not.IsRestart) THEN
@@ -316,10 +316,7 @@ SUBROUTINE ionospheric_potential
   REAL(DP) :: radius, angle, lineData(3)
   REAL(DP) :: thangle, zangle, byimf, bzimf_l
   REAL(DP) :: bt, swvel, swden, alindex, bndylat
-  REAL(DP), PARAMETER :: tiny = 1.E-6_dp
   INTEGER :: ier, iCount_neighbor, iDomain
-  !C  INTEGER, PARAMETER :: mlat_range = 81, mlon_range = 181
-  INTEGER, PARAMETER :: mlat_range = 36, mlon_range = 91
   INTEGER :: iTimeArr(0:24), dstArr(0:24)
   INTEGER :: iYear_l, iDoy_l, iHour_l, iMin_l, iLines
   integer :: isec_l, imsec_l, imonth_l, iday_l
@@ -332,6 +329,9 @@ SUBROUTINE ionospheric_potential
   CHARACTER(LEN = 15) :: StringDateTime
   CHARACTER(LEN = 100) :: header
   LOGICAL :: UseAL
+
+  INTEGER, PARAMETER :: mlat_range = 36, mlon_range = 91
+  REAL(DP), PARAMETER :: tiny = 1.E-6_dp
 
   DO k = 2, nzeta
      DO j = 1, npsi

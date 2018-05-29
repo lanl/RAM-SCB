@@ -9,7 +9,6 @@ MODULE ModScbMain
   USE ModRamMain, ONLY: PathRamOut, PathScbOut, PathScbIn
 
   IMPLICIT NONE
-  SAVE
 
   REAL(DP), PARAMETER :: mu0 = 4._dp*pi_d*1.E-7_dp, &
                          BEarth = 0.31_dp*1.E-4_dp, &

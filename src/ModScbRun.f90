@@ -14,8 +14,7 @@
                                dSqPdPsiSq, DstDps, DstDpsInsideGeo, DstBiot, DstBiotInsideGeo, &
                                kmax, nisave, nitry, iteration, iConvGlobal, lconv, zetaVal
   
-    implicit none
-    save
+    implicit none; save; save
 
     REAL(DP), ALLOCATABLE :: pressPerRawExt(:,:), pressParRawExt(:,:), &
                              radRawExt(:), azimRawExt(:)
@@ -78,8 +77,10 @@
     LOGICAL :: check
 
     ! Variables for timing
-    integer :: time1, clock_rate = 1000, clock_max = 100000
+    integer :: time1, clock_rate, clock_max
     real(dp) :: starttime,stoptime
+    clock_rate = 1000
+    clock_max = 100000
 
     ALLOCATE(xStart(nthe,npsi,nzeta+1), yStart(nthe,npsi,nzeta+1), zStart(nthe,npsi,nzeta+1))
     ALLOCATE(psiStart(nthe,npsi,nzeta+1), alphaStart(nthe,npsi,nzeta+1), fStart(npsi))
@@ -542,7 +543,6 @@
     REAL(DP), DIMENSION(:,:), ALLOCATABLE :: dVoldXEq, dVoldYEq, dVoldZeta, dVoldAlpha, dVoldRho, &
          dVoldPsi, dEntdXEq, dEntdYEq, dEntdZeta, dEntdAlpha, dEntdRho, &
          dEntdPsi, facVasGlobal, secondTermB
-    INTEGER, DIMENSION(3) :: dimlens = (/1, 1, 1/)
     REAL(DP) :: delS
     REAL(DP) :: rr1, rr2, zangle, thangle, thangleOnEarth, rr, dza, dya
     REAL(DP) ::  dipoleFactor, dipoleFactor4RE, factorIncrease
@@ -735,7 +735,7 @@
     use ModScbFunctions, ONLY: extap
     !!!! NR Modules
     use nrtype, ONLY: DP
-    implicit none
+    implicit none; save; save
   
     integer :: i,j,k
   
@@ -885,7 +885,6 @@ SUBROUTINE pressure
     REAL(DP) :: rCenter, rr1, rr2, thangle, zangle, pMin, pMax, deltaCS, deltaPhi, deltaPhi2, pressSK, &
          delta1, delta2, x1, x2, pUp, pDown, pUp2, pDown2, coeffUp, coeffDown
     REAL(DP) :: press1D(npsi), pressMid(npsi)
-    REAL(DP), PARAMETER :: tiny = 1e-6_dp
     REAL(DP) :: dydummy
     REAL(SP) :: dummyLine(10)
     INTEGER, PARAMETER :: nXRoe = 17, nYRoe = 14, nEnergRoe = 12, nPARoe = 18
@@ -1419,7 +1418,7 @@ FUNCTION pressureRad(radius)
 
   IMPLICIT NONE
 
-  integer :: iCorrectedPressure = 1
+  integer, parameter :: iCorrectedPressure = 1
   REAL(DP) :: radius, LargeA, LA, dPdRRight, dPdR2Right, Acap, Bcap, Ccap, Dcap, &
        Acap2, Bcap2, Ccap2, pressureRad
   REAL(DP) :: m, n, pUp, pDown, x1, x2, delta1, delta2, pressureSK, pUp2, pDown2

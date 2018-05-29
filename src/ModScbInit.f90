@@ -8,7 +8,7 @@ MODULE ModScbInit
   
   use ModScbVariables
   
-  implicit none
+  implicit none; save; save
   
   contains
 !==============================================================================
@@ -17,7 +17,7 @@ MODULE ModScbInit
     use ModRamGrids, ONLY: nR, nT, nPa
     use ModScbGrids
 
-    implicit none
+    implicit none; save; save
 
 !--- SCE Components
     ALLOCATE(paraj(npsi,nzeta+1))
@@ -109,7 +109,7 @@ MODULE ModScbInit
 !==============================================================================
   subroutine scb_deallocate
 
-    implicit none
+    implicit none; save; save
 
 !--- SCE Components
     DEALLOCATE(paraj)
@@ -169,8 +169,6 @@ MODULE ModScbInit
   
     REAL(DP) :: xpsitot, psis, xpl, phi, aa, dphi
   
-    REAL(DP), PARAMETER :: pow = 1.0_dp, TINY = 1.E-15_dp
-
     r0Start = 1.0
 
     ! Additional parameters

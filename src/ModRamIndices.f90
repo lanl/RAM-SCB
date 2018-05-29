@@ -12,8 +12,7 @@ module ModRamIndices
   use ModRamVariables, ONLY: NameIndexSource, nRawKp, nRawF107, kptime, Kp, &
                              F107, timeKp, timeF107, rawKp, rawF107
 
-  implicit none
-  save
+  implicit none; save
 
   contains
   !===========================================================================
@@ -24,7 +23,7 @@ module ModRamIndices
     use ModTimeConvert, ONLY: TimeType, time_int_to_real
     use ModIoUnit,      ONLY: UNITTMP_
 
-    implicit none
+    implicit none; save
 
     type(timetype),   intent(in) :: StartTime, EndTime
     character(len=*), intent(in) :: NameFile
@@ -136,7 +135,7 @@ module ModRamIndices
     ! Based on source of indices, prepare indices for this simulation.
     use ModTimeConvert, ONLY: TimeType
 
-    implicit none
+    implicit none; save
 
     type(timetype), intent(in) :: StartTime, EndTime
 
@@ -159,13 +158,13 @@ module ModRamIndices
     ! Input time format should be floating point used in ModTimeConvert.
     use ModRamMain, ONLY: Real8_
     
-    implicit none
+    implicit none; save
 
     real(kind=Real8_), intent(in) :: timeNow
     real(kind=Real8_), intent(out):: kpNow, f10Now
     
     integer :: iTime
-    real(kind=Real8_) :: dTime, dateNow, nSecInDay=86400.0
+    real(kind=Real8_) :: dTime, dateNow
 
     character(len=*), parameter :: NameSub='get_indices'
     !------------------------------------------------------------------------
@@ -185,7 +184,7 @@ module ModRamIndices
 
     ! F10.7 index is not interpolated; merely use the value at the
     ! current day.
-    dateNow=timeNow - mod(timeNow, nSecInDay)
+    dateNow=timeNow - mod(timeNow, 86400.0)
     do iTime=1, nRawF107
        if (timeF107(iTime) .eq. dateNow) then
           f10Now = rawF107(iTime)

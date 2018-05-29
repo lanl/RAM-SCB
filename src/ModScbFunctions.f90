@@ -6,7 +6,7 @@
 MODULE ModScbFunctions
   ! Contains various functions and subroutines for performing calculations in SCB
   
-  implicit none
+  implicit none; save; save
   
   contains
 !==============================================================================

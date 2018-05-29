@@ -7,8 +7,8 @@ module ModRamSats
 
   use ModRamMain, ONLY: Real8_
 
-  implicit none
-  save
+  implicit none; save
+
   private !except...
 
   public:: read_sat_params
@@ -38,7 +38,7 @@ module ModRamSats
 
   character(len=*), parameter :: NameMod = 'ModRamSats'
 
-contains
+  contains
 
 !============================================================================
   subroutine read_sat_params
@@ -46,6 +46,8 @@ contains
     use ModReadParam
     use ModRamParams, ONLY: DoSaveRamSats
     use ModRamTiming, ONLY: DtWriteSat
+
+    implicit none; save
 
     logical :: DoTest, DoTestMe
     integer :: iSat, l1, l2
@@ -99,6 +101,8 @@ contains
     use ModTimeConvert, ONLY: time_int_to_real
     use ModIoUnit,      ONLY: UnitTmp_
     use CON_axes
+
+    implicit none; save
 
     integer :: iError, i, iSat , nPoint
 
@@ -277,6 +281,7 @@ contains
 
     use ModTimeConvert,  ONLY: time_real_to_int, TimeType
 
+    implicit none; save
 
     character(len=200) :: FileName
     character(len=100) :: SatFileName
@@ -308,6 +313,8 @@ contains
     use ModRamVariables, ONLY: EKEV, WE, WMU, MU
 
     use ModRamNCDF, ONLY: ncdf_check, write_ncdf_globatts
+
+    implicit none; save
 
     character(len=200), intent(in) :: FileNameIn
 
@@ -521,7 +528,7 @@ contains
     use ModRamGSL, ONLY: GSL_NN
     use ModTimeConvert,  ONLY: time_real_to_int, TimeType
 
-    implicit none
+    implicit none; save
     type(TimeType) :: TimeRamRestart
 
     integer :: GSLerr
@@ -750,6 +757,8 @@ contains
 
       use netcdf
       use ModRamGrids, ONLY: nE, nPa
+
+      implicit none; save
 
       ! Arguments:
       integer, intent(in)           :: iRec

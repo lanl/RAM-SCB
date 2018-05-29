@@ -14,8 +14,7 @@ MODULE ModRamRun
                              NECR, PParH, PPerH, PParO, PPerO, PParE, PPerE, &
                              PParHe, PPerHe, PParT, PPerT, F2
 
-  implicit none
-  save
+  implicit none; save
 
   contains
 
@@ -42,7 +41,7 @@ MODULE ModRamRun
     !!!! Share Modules
     use ModTimeConvert, ONLY: TimeType
 
-    implicit none
+    implicit none; save
 
     real(kind=Real8_)  :: AVS, VT_kV(NR+1,NT), lambda
     integer :: i, j, k, l, jw ! Iterators
@@ -176,7 +175,7 @@ MODULE ModRamRun
     use ModRamGrids,     ONLY: NR, NE, NPA, NT
     use ModRamVariables, ONLY: EKEV, WE, WMU, F2
 
-    implicit none
+    implicit none; save
     save
 
     integer, intent(in) :: S
@@ -222,8 +221,7 @@ MODULE ModRamRun
     use ModRamGSL,       ONLY: GSL_Interpolation_1D, GSL_Interpolation_2D
     use ModRamFunctions, ONLY: ACOSD
 
-    implicit none
-    save
+    implicit none; save
 
     integer, intent(in) :: S
     integer :: i, iwa, j, k, klo, l, iz, ier, kn, i1, j1, GSLerr, u
