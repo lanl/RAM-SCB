@@ -113,7 +113,7 @@ test:
 
 testTravis:
 	@(make test1)
-	@(make test3)
+	@(make test2)
 
 test_help:
 	@echo "Preceed all commands with 'make'..."
@@ -130,7 +130,7 @@ test_help:
 
 
 #TEST TRAVIS
-testTravis:
+testTravisLong:
 	@echo "starting..." > test1.diff
 	@echo "test1_compile..." >> test1.diff
 	make test1_compile
