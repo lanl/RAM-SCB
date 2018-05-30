@@ -11,15 +11,19 @@ program ram_scb
 !============================================================================
 !!!! Module Variables
 use ModRamMain,      ONLY: Real8_, S, iCal, nIter
-use ModRamParams,    ONLY: DoSaveFinalRestart, DoVarDt, IsComponent
+use ModRamParams,    ONLY: DoSaveFinalRestart, DoVarDt, IsComponent, NameBoundMag, &
+                           verbose, reset, DoUseRam, SCBonRAMTime, RAMTie
 use ModRamTiming,    ONLY: DtsFramework, DtsMax, DtsMin, DtsNext, Dts, Dt_hI, &
                            TimeRamStart, TimeRamNow, TimeMax, TimeRamElapsed, &
                            TimeRamStop, T, UTs, Dt_bc, DtEfi
 use ModRamVariables, ONLY: Kp, F107, DTDriftR, DTDriftP, DTDriftE, DTDriftMu, &
                            PParT, PPerT, FGEOS
 use ModScbGrids,     ONLY: npsi, nzeta, nthe
-use ModScbVariables, ONLY: alfa, psi, x, y, z
+use ModScbVariables, ONLY: alfa, psi, x, y, z, hICalc, SORFail
+use ModScbParams,    ONLY: method
+
 !!!! Module Subroutines and Functions
+use ModRamGSL,       ONLY: GSL_Initialize
 use ModRamInjection, ONLY: injection
 use ModRamCouple,    ONLY: RAMCouple_Allocate, RAMCouple_Deallocate
 use ModRamFunctions, ONLY: ram_sum_pressure, RamFileName
@@ -33,7 +37,9 @@ use ModRamBoundary,  ONLY: get_boundary_flux
 use ModRamEField,    ONLY: get_electric_field
 use ModScbInit,      ONLY: scb_allocate, scb_init, scb_deallocate
 use ModScbRun,       ONLY: scb_run
-use ModRamScb,       ONLY: ramscb_allocate, computehI, ramscb_deallocate
+use ModScbIO,        ONLY: computational_domain
+use ModRamScb,       ONLY: ramscb_allocate, computehI, ramscb_deallocate, compute3DFlux
+
 !!!! External Modules (share/Library/src)
 use ModReadParam
 use CON_planet,      ONLY: set_planet_defaults
@@ -41,16 +47,17 @@ use CON_axes,        ONLY: init_axes, test_axes
 use ModPlanetConst,  ONLY: init_planet_const
 use ModTimeConvert,  ONLY: time_real_to_int
 use ModIOUnit,       ONLY: UNITTMP_
+
 !!!! MPI Modules
 use ModMpi
 use ModRamMpi
 
-implicit none
+implicit none; save
 
 integer :: i,j,k
+logical :: triggerSCB
 character(len=200) :: FileName
 real(kind=Real8_) :: DtOutputMax, DtEndMax, DtTemp
-real(kind=Real8_), DIMENSION(4,20,25) :: ParTemp, PerTemp
 !----------------------------------------------------------------------------
 ! Ensure code is set to StandAlone mode.
 IsComponent = .false.
@@ -79,6 +86,7 @@ call ramscb_allocate
 ! Initialize RAM_SCB
 call ram_init
 call scb_init
+call GSL_Initialize
 
 ! Initialize planet and axes if in stand-alone mode.
 ! In component mode, the framework takes care of this.
@@ -109,7 +117,7 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
          DtEndMax   = (TimeMax-TimeRamElapsed)/2.0
          DtOutputMax = max_output_timestep(TimeRamElapsed)
          DTs = min(DTsNext,DTsmax,DtOutputMax,DtEndMax,DTsFramework)
-         if (Kp.gt.6.0 .AND. DTs.gt.5.0) DTs = 5.0   !1. or 0.25 
+         if (Kp.gt.6.0 .AND. DTs.gt.5.0) DTs = 5.0
       else if(mod(UTs, Dt_hI) .eq. 0) then
          DTs = 5.0
          if(Kp .ge. 5.0) DTs = min(DTsMin,DTs)
@@ -132,23 +140,13 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
       end if
 !!!!!!!!!
 
-!!!!!!!!! INJECTION TEST
-!      if ((iCal.eq.150).or.  &
-!         (iCal.eq.100).or.  &
-!         (iCal.eq.500).or.  &
-!         (iCal.eq.1200).or. &
-!         (iCal.eq.2000)) then
-!         call injection(iCal)
-!      endif
-!!!!!!!!!
-
 !!!!!!!!!! RUN RAM
       ! Broadcast current call to ram_all
       call write_prefix
       write(*,*) 'Calling ram_run for UTs, DTs,Kp = ', UTs, Dts, Kp
-
       ! Call RAM for each species.
-      call ram_run
+      if (DoUseRAM) call ram_run
+      FLUSH(6)
 
       ! Increment and update time
       TimeRamElapsed = TimeRamElapsed + 2.0 * DTs
@@ -157,31 +155,36 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
 !!!!!!!!!
 
 !!!!!!!!! RUN SCB
-      ! Call SCB if Dt_hI has passed
-      if (((mod(TimeRamElapsed, Dt_hI).eq.0).or.(Dt_hI.eq.1))) then
-!       if (mod(iCal,5).eq.0) then
+      ! Call SCB if conditions are met
+      triggerSCB = .false.
+      if (SCBonRAMTime) then
+         if ((mod(nIter,RAMTie).eq.0).and.(nIter.gt.1)) triggerSCB = .true.
+      else
+         if (((mod(TimeRamElapsed, Dt_hI).eq.0).or.(Dt_hI.eq.1))) triggerSCB = .true.
+      endif
+      if (triggerSCB) then
          call write_prefix
          write(*,*) 'Running SCB model to update B-field...'
 
          call ram_sum_pressure
-         call scb_run
-
-!         FileName = RamFileName('MAG_xyz','dat',TimeRamNow)
-!         open(UNITTMP_, File=FileName, Status='NEW')
-!         write(UNITTMP_,*) npsi, nthe, nzeta
-!         do j=1,npsi
-!           do i=1,nthe
-!             do k=1,nzeta
-!               write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
-!             enddo
-!           enddo
-!         enddo
+         call scb_run(nIter)
+         FLUSH(6)
+         if ((SORFail).and.(Reset)) then
+            if (verbose) print*, 'Error in SCB calculation, attempting a full reset'
+            call computational_domain
+            call scb_run(0)
+            if (SORFail) hICalc = .false.
+         endif
+         FLUSH(6)
 
          ! Couple SCB -> RAM
-         call computehI
+         if ((hICalc).and.(method.ne.3)) call computehI(nIter)
+         call compute3DFlux
+         FLUSH(6)
 
          call write_prefix
          write(*,*) 'Finished 3D Equilibrium code.'
+         DtsNext = DtsMin ! This is so we don't accidently take to big of a step after an SCB call
       end if
 !!!!!!!!!
 
@@ -190,6 +193,7 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
       call do_timing
       ! Check and write output, as necessary.
       call handle_output(TimeRamElapsed)
+      FLUSH(6)
 !!!!!!!!!
 
 !!!!!!!!! FINISH TIME STEP
@@ -223,7 +227,6 @@ if ((.not.IsComponent)) then
           '==============================================================='
 end if
 
-
 call MPI_Finalize(iError)
 
 end program ram_scb
@@ -232,7 +235,7 @@ end program ram_scb
 
     use ModRamParams, ONLY: IsComponent
 
-    implicit none
+    implicit none; save
 
     character(len=7) :: StringPrefix = 'IM:'
 
@@ -244,13 +247,39 @@ end program ram_scb
 !============================================================================
 subroutine CON_stop(String)
   ! "Safely" stop RAM-SCB on all nodes.
-  use ModRamTiming, ONLY: TimeRamElapsed
-  implicit none
+  use ModScbGrids,     ONLY: nthe, npsi, nzeta
+  use ModScbVariables, ONLY: x,y,z
+  use ModRamTiming,    ONLY: TimeRamElapsed, TimeRamNow
+  use ModRamIO,        ONLY: write_fail_file
+  use ModRamFunctions, ONLY: RamFileName
+
+  use ModIOUnit,       ONLY: UNITTMP_
+
+  implicit none; save
 
   character(len=*), intent(in) :: String
+  character(len=200) :: FileName
+
+  integer :: i, j, k
+
   write(*,*)'Stopping execution! at time=',TimeRamElapsed,&
        ' with msg:'
   write(*,*)String
+
+  call write_fail_file
+
+  FileName = RamFileName('MAGxyz2','dat',TimeRamNow)
+  open(UNITTMP_, File=FileName)
+  write(UNITTMP_,*) nthe, npsi, nzeta
+  do i=1,nthe
+     do j = 1, npsi
+        do k=1,nzeta
+           write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
+        enddo
+    enddo
+  enddo
+  close(UNITTMP_)
+
   stop
 end subroutine CON_stop
 
@@ -261,7 +290,7 @@ subroutine CON_set_do_test(String,DoTest,DoTestMe)
   
   use ModRamParams, ONLY: StringTest
 
-  implicit none
+  implicit none; save
   character (len=*), intent(in)  :: String
   logical          , intent(out) :: DoTest, DoTestMe
 
@@ -278,7 +307,7 @@ contains
     !
     ! directly.
 
-    implicit none
+    implicit none; save
 
     character (len=*), intent(in) :: StringA, StringB
 

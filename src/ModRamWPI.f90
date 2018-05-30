@@ -1,3 +1,8 @@
+!============================================================================
+!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    All rights reserved.
+!============================================================================
+
 MODULE ModRamWPI
 ! Contains subroutines related to wave particle interactions
 ! and electron lifetimes
@@ -19,7 +24,7 @@ MODULE ModRamWPI
     use ModRamGrids,     ONLY: NE, NR
     use ModRamVariables, ONLY: EKEV, LZ
 
-    implicit none
+    implicit none; save
 
     integer :: i, ii, j, k
     real(kind=Real8_):: TAU_WAVE,xE,xL,xlife
@@ -136,7 +141,7 @@ MODULE ModRamWPI
     !!!! Module Subroutines/Functions
     use ModRamFunctions, ONLY: asind
 
-    implicit none
+    implicit none; save
 
     integer :: i, k
     real(kind=Real8_):: TAU_WAVE,EMEV,R1,R2,CONE(NR+4),CLC
@@ -185,8 +190,8 @@ MODULE ModRamWPI
     !!!! Share Modules
     use ModIoUnit,   ONLY: UNITTMP_
 
-    implicit none
-    save
+    implicit none; save
+
     integer :: i, ix, kn, l
     character(len=80) HEADER
     character(len=3) ST4
@@ -234,13 +239,15 @@ MODULE ModRamWPI
     !!!! Share Modules
     use ModIoUnit, ONLY: UNITTMP_
 
-    implicit none
-    save
+    implicit none; save
+
     integer :: i, j, kn, l, ikp
-    real(kind=Real8_):: RLDAA(ENG,NPA),RUDAA(ENG,NPA)
+    real(kind=Real8_), ALLOCATABLE :: RLDAA(:,:),RUDAA(:,:)
     character(len=1) ST3
     character(len=2) ST2
     character(len=80) HEADER
+
+    ALLOCATE(RLDAA(ENG,NPA),RUDAA(ENG,NPA))
 
     ikp=INT(KP)
     IF (ikp.gt.4) ikp=4
@@ -290,6 +297,8 @@ MODULE ModRamWPI
 20  FORMAT(A80)
 27  FORMAT(80(1PE12.3))
 
+    DEALLOCATE(RLDAA,RUDAA)
+
     RETURN
   END SUBROUTINE WAPARA_CHORUS
 
@@ -301,7 +310,7 @@ MODULE ModRamWPI
 
     use ModRamVariables, ONLY: KP
 
-    implicit none
+    implicit none; save
 
     integer :: i1,i2
 
@@ -338,7 +347,8 @@ MODULE ModRamWPI
     !!!! Share Modules
     use ModIoUnit, ONLY: UNITTMP_
 
-    implicit none
+    implicit none; save
+
     integer :: i,j,k,l,IER,nkp,nloop
     character(len=32) :: H1,H2,H3,nchar
     character(len=64) :: fname
@@ -409,11 +419,12 @@ MODULE ModRamWPI
   SUBROUTINE WAVELO(S)
 
     use ModRamMain,      ONLY: Real8_
+    use ModRamParams,    ONLY: DoUsePlane_SCB
     use ModRamGrids,     ONLY: NE, NR, NT, NPA
     use ModRamTiming,    ONLY: Dts
-    use ModRamVariables, ONLY: F2, KP, LZ, IP1, IR1, EKEV
+    use ModRamVariables, ONLY: F2, KP, LZ, IP1, IR1, EKEV, NECR
 
-    implicit none
+    implicit none; save
 
     integer, intent(in) :: S
     integer :: i, j, k, l, j1, i1
@@ -427,6 +438,7 @@ MODULE ModRamWPI
       RLpp(J)=5.39-0.382*KPmax  ! PP from Moldwin et al. [2002]
       DO I=2,NR
         I1=(I-2)*IR1+3
+        IF (DoUsePlane_SCB.and.NECR(I1,J1).gt.50.) RLpp(J)=LZ(I)
       ENDDO
     ENDDO
 
@@ -473,7 +485,7 @@ MODULE ModRamWPI
     !!!! Share Modules
     use ModIoUnit, ONLY: UNITTMP_
 
-    implicit none
+    implicit none; save
 
     integer, intent(in) :: S
     integer :: i, j, k, l

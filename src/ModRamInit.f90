@@ -1,14 +1,14 @@
+!============================================================================
+!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    All rights reserved.
+!============================================================================
+
 MODULE ModRamInit
 ! Contains subroutines for initialization of RAM
 
-  use ModRamVariables!, ONLY: RMAS, V, VBND, GREL, GRBND, FACGR, EPP, ERNH, &
-                     !        UPA, WE, DE, EKEV, EBND, PHI, LT, MLT, MU, DMU, &
-                     !        WMU, PAbn, LZ, RLZ, AMLA, BE, ZRPabn, FFACTOR, &
-                     !        PHIOFS, IR1, DL1, MDR, dPhi, IP1, CONF1, CONF2, &
-                     !        RFACTOR, GridExtend
+  use ModRamVariables
 
-  implicit none
-  save
+  implicit none; save
 
   contains
 !==============================================================================
@@ -17,7 +17,7 @@ subroutine ram_allocate
   use ModRamGrids,     ONLY: RadiusMax, RadiusMin, nR, nRExtend, nT, nE, nPa, &
                              Slen, ENG, NCF, NL, nS, nX
 
-  implicit none
+  implicit none; save
 
   nRExtend = NR + 3
   nX = NPA
@@ -41,7 +41,7 @@ subroutine ram_allocate
            NDAAJ(NR,ENG,NPA,NCF), ENOR(ENG), ECHOR(ENG), BDAAR(NR,NT,ENG,NPA), &
            CDAAR(NR,NT,NE,NPA))
 ! ModRamLoss Variables
-!  ALLOCATE(ATLOS(NR,NE), ACHAR(NR,NT,NE,NPA))
+  ALLOCATE(ATLOS(nS,NR,NE), CHARGE(nS,NR,NT,NE,NPA))
 ! ModRamEField Variables
   ALLOCATE(VT(NR+1,NT), EIR(NR+1,NT), EIP(NR+1,NT), VTOL(NR+1,NT), VTN(NR+1,NT))
 ! ModRamBoundary Variables
@@ -64,7 +64,7 @@ end subroutine ram_allocate
 !==============================================================================
 subroutine ram_deallocate
 
-  implicit none
+  implicit none; save
 
 !!!!!!!! Deallocate Arrays
 ! Main RAM Variables
@@ -113,7 +113,7 @@ SUBROUTINE ram_init
   use ModTimeConvert, ONLY: TimeType, time_real_to_int
   use ModNumConst,    ONLY: cTwoPi
 
-  implicit none
+  implicit none; save
 
   character(len=8)   :: StringSysDate
   character(len=10)  :: StringSysTime
@@ -207,7 +207,6 @@ SUBROUTINE ram_init
         end if
      ENDIF
   end do
-!!!!!!!!!!!!
 
 END SUBROUTINE ram_init
 
@@ -221,27 +220,29 @@ END SUBROUTINE ram_init
     use ModRamConst, ONLY: RE, PI, M1, MP, CS, Q, HMIN
     use ModRamGrids, ONLY: RadiusMax, RadiusMin, NR, NPA, Slen, NT, NE, &
                            NS, NLT, EnergyMin
+    use ModRamParams, ONLY: DoUsePlane_SCB
     !!!! Module Subroutines/Functions
     use ModRamFunctions, ONLY: ACOSD, ASIND, COSD, SIND
 
-    implicit none
+    implicit none; save
 
     real(kind=Real8_) :: degrad, camlra, elb, rw, rwu
-    real(kind=Real8_) :: clc, spa
-    real(kind=Real8_) :: CONE(NR+4),RLAMBDA(NPA),MUBOUN
+    real(kind=Real8_) :: clc, spa, MUBOUN
+    real(kind=Real8_), ALLOCATABLE :: CONE(:),RLAMBDA(:)
 
     integer :: i, j, k, l, iml, ic, ip
 
     character(len=80) TITLE
 
-    save
+    ALLOCATE(CONE(NR+4),RLAMBDA(NPA))
 
     ! Grid size of L shell
     DL1 = (RadiusMax - RadiusMin)/(nR - 1)
-    !IF (MOD(DL1,0.25_8).NE.0) THEN
-    !  WRITE(6,*) 'RAM: Error : DL is not a multiple of 0.25 '
-    !  STOP
-    !END IF
+    IF ((MOD(DL1,0.25_8).NE.0).and.(DoUsePlane_SCB)) THEN
+      write(*,*) MOD(DL1,0.25_8)
+      WRITE(6,*) 'RAM: Error : DL is not a multiple of 0.25 '
+      STOP
+    END IF
 
     degrad=pi/180.
     amla(1)=0. ! Magnetic latitude grid in degrees
@@ -267,10 +268,10 @@ END SUBROUTINE ram_init
     END DO
 
     DPHI=2.*PI/(NT-1)      ! Grid size for local time [rad]
-    !IF (MOD(NLT,NT-1).NE.0) THEN
-    !  WRITE(6,*) ' Error : NT-1 is not a factor of NLT '
-    !  STOP
-    !END IF
+    IF (MOD(NLT,NT-1).NE.0) THEN
+      WRITE(6,*) ' Error : NT-1 is not a factor of NLT '
+      STOP
+    END IF
 
     DO J=1,NT
       PHI(J)=(J-1)*DPHI ! Magnetic local time in radian
@@ -349,7 +350,11 @@ END SUBROUTINE ram_init
       IF(L.EQ.49) THEN
         PA(50)=16.
       ELSE
-        IC=IC+1
+        if (IC.lt.nR) then
+           IC=IC+(nR-1)/19
+        else
+           IC=IC+1
+        endif
       ENDIF
       MU(L+1)=COSD(PA(L+1))
       DMU(L)=(MU(L+1)-MU(L))       ! Grid size in cos pitch angle
@@ -410,35 +415,55 @@ END SUBROUTINE ram_init
     CONF2=((LZ(NR)+2.*DL1)/LZ(NR))**2
 
     RFACTOR=3.4027E10*MDR*DPHI
+
+    DEALLOCATE(CONE,RLAMBDA)
     RETURN
   END SUBROUTINE ARRAYS
 
 !==============================================================================
 SUBROUTINE init_input
   !!!! Module Variables
-  use ModRamMain,      ONLY: Real8_, S, PathRamIn
-  use ModRamParams,    ONLY: IsRestart, IsStarttimeSet, electric, IsComponent
-  use ModRamGrids,     ONLY: NR, NT, NE, NPA
+  use ModRamMain,      ONLY: Real8_, S, PathRamIn, nIter
+  use ModRamParams,    ONLY: IsRestart, IsStarttimeSet, electric, IsComponent, &
+                             DoUsePlane_SCB, HardRestart
+  use ModRamGrids,     ONLY: NR, NT, NE, NPA, NL, NLT
   use ModRamTiming,    ONLY: DtEfi, T, TimeRamNow, TimeRamElapsed, TOld
-  use ModRamVariables,  ONLY: F2, XNN, XND, ENERD, ENERN, FNHS, Kp, F107, TOLV
+  use ModRamVariables, ONLY: F2, XNN, XND, ENERD, ENERN, FNHS, Kp, F107, TOLV, &
+                             NECR
+  use ModScbGrids,     ONLY: nthe, npsi, nzeta
+  use ModScbVariables, ONLY: xpsiin, xpsiout, psiVal, alphaVal, f, fp, fzet, &
+                             fzetp, xzero3, constZ, psiin, psiout, psitot
+  use ModScbParams,    ONLY: method
   !!!! Module Subroutines/Functions
+  use ModRamRun,       ONLY: ANISCH
+  use ModRamBoundary,  ONLY: get_boundary_flux
   use ModRamRestart,   ONLY: read_restart
   use ModRamIndices,   ONLY: get_indices
-  use ModRamFunctions, ONLY: FUNT
   use ModRamIO,        ONLY: read_initial
+  use ModRamFunctions, ONLY: ram_sum_pressure
+  use ModRamScb,       ONLY: computehI, compute3DFlux
+  use ModScbRun,       ONLY: scb_run, pressure
+  use ModScbEuler,     ONLY: psiges, alfges
+  use ModScbIO,        ONLY: computational_domain
+  use ModScbCompute,   ONLY: computeBandJacob_Initial, compute_convergence
   !!!! Share Modules
   use ModIOUnit,      ONLY: UNITTMP_
   use ModTimeConvert, ONLY: TimeType
+  !!!!
+  use nrtype, ONLY: twopi_d
 
-  implicit none
+  implicit none; save
 
-  integer :: iS, i, j, k, l, ik, N
+  integer :: iS, i, j, k, l, ik, N, methodTemp
   integer :: iR, iT, iE, iPA
   real(kind=Real8_) :: F2r(NR,NT,36,NPA)
-  character(len=2), dimension(4) :: ST2 = (/'_e','_h','he','_o'/)
+  real(kind=Real8_) :: xpsitot, psis, xpl, phi, dphi
+
+  character(len=100) :: HEADER
   character(len=200) :: fileName
 
   character(len=*), parameter :: NameSub='init_input'
+
 
   !!!!!!!!!! Restart vs Initial Run
   if(IsRestart) then
@@ -449,21 +474,64 @@ SUBROUTINE init_input
      !!!!!! RESTART DATA !!!!!!!
      call read_restart
 
+     call psiges
+     call alfges
+
      call get_indices(TimeRamNow%Time, Kp, f107)
      TOLV = FLOOR(TimeRamElapsed/DtEfi)*DtEfi
+
+     ! Compute information not stored in restart files
+     if (HardRestart) then
+        call computational_domain
+        call ram_sum_pressure
+        call scb_run(0)
+        call computehI(0)
+        call compute3DFlux
+     else
+        methodTemp = method
+        call ComputeBandJacob_Initial
+        call compute3DFlux
+     endif
+
+     call get_boundary_flux ! FGEOS
   else
+     nIter = 1
      !!!!!! INITIALIZE DATA !!!!!
      call read_initial
 
      ! Initial indices
      call get_indices(TimeRamNow%Time, Kp, f107)
      TOLV = 0.0
+
+     ! Compute the SCB computational domain
+     call write_prefix
+     write(*,*) 'Running SCB model to initialize B-field...'
+
+     call computational_domain
+
+     call ram_sum_pressure
+     call scb_run(0)
+
+     ! Couple SCB -> RAM
+     call computehI(0)
+
+     call compute3DFlux
+
+     call write_prefix
+     write(*,*) 'Finished 3D Equilibrium code.'
+
+     if (DoUsePlane_SCB) then
+        write(*,*) "Reading in initial plasmasphere density model"
+        OPEN(UNITTMP_,FILE='ne_full.dat',STATUS='OLD') ! Kp=1-2 (quiet)
+        READ(UNITTMP_,'(A)') HEADER
+        READ(UNITTMP_,*) ((NECR(I,J),I=1,NL),J=0,NLT)  ! L= 1.5 to 10
+        CLOSE(UNITTMP_)
+     endif
   end if
 !!!!!!!!
 
-30  FORMAT(75(1PE11.3))
  return
 
-END SUBROUTINE init_input
+end subroutine init_input
 
 END MODULE ModRamInit

@@ -1,20 +1,19 @@
-!==============================================================================
-module ModRamMain
-!    This module replaces the common blocks in RAM.
-!    DTW, EDIT: 2009-04-21: updated for latest version of RAM.
+!============================================================================
 !    Copyright (c) 2016, Los Alamos National Security, LLC
 !    All rights reserved.
-!==============================================================================
+!============================================================================
+
+module ModRamMain
 
   use ModTimeConvert, ONLY: TimeType
   use nrtype,         ONLY: DP, SP
   use ModRamGrids,    ONLY: NS, NR, NT, NE, NPA
 
-  implicit none
+  implicit none; save
   save
 
 ! RAM version.
-  real, parameter :: CodeVersion = 3.0
+  real, parameter :: CodeVersion = 2.2
 
 ! Kind for double precision, set here for portability.
   integer, parameter :: Real8_ = DP
@@ -36,14 +35,11 @@ module ModRamMain
 !!!!!
 
 !!!!! ITERATIONS
-  integer :: iCal     ! Tracks iteration number, kind of.
-  integer :: nIter=0  ! Tracks iteration, including restart.
+  integer :: iCal  ! Tracks iteration number, excluding restart
+  integer :: nIter ! Tracks iteration, including restart.
 !!!!!
 
-!\
-! PARAMS Block.
-!/
-integer :: S
+  integer :: S
 
 end Module ModRamMain
 !==============================================================================

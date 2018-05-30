@@ -41,7 +41,6 @@ LIB:
 clean:
 	@touch ${INSTALLFILES}
 	@cd ${srcDir};          make clean
-	@cd srcSlatec;    make clean
 	@cd srcInterface; make clean
 	@(if [ -d util ];  then cd util;  make clean; fi);
 	@(if [ -d share ]; then cd share; make clean; fi);
@@ -55,7 +54,6 @@ allclean:
 	@(if [ -d srcPspline ]; then rm -rf srcPspline; fi);
 	@cd ${srcDir}; make distclean
 	@cd srcInterface; make distclean
-	@cd srcSlatec; make distclean
 	rm -f *~
 
 rundir: 
@@ -66,6 +64,7 @@ rundir:
 	cp input/newtau.dat ${RUNDIR}/
 	cp input/ne_full.dat ${RUNDIR}/
 	cp input/initialization.nc ${RUNDIR}/IM/
+	cp input/QinDenton_20130317_1min.txt ${RUNDIR}/IM/
 #	cp input/dgrf*.dat ${RUNDIR}/
 #	cp input/igrf*.dat ${RUNDIR}/
 #	cp input/ccir*.asc ${RUNDIR}/
@@ -85,7 +84,8 @@ rundir:
 		mv Input_git/hI_output_0000.dat input_scb/;         \
 		mv Input_git/hI_dipole.dat input_scb/;	          \
 		mv Input_git/dipole_config.cdf Input_git/t89*.cdf input_scb/; \
-                mv initialization.nc input_ram/;
+                mv initialization.nc input_ram/;                              \
+		mv QinDenton_20130317_1min.txt input_scb/;
 	@(if [ "$(STANDALONE)" != "NO" ]; then \
 		cd ${RUNDIR} ; \
 		cp ${IMDIR}/Param/PARAM.in.default ./PARAM.in; \
@@ -106,10 +106,14 @@ TESTDIR3 = run_test3
 TESTDIR4 = run_test4
 
 test:
-	-@(make test1)
-	-@(make test2)
-	-@(make test3)
-	-@(make test4)
+	@(make test1)
+	@(make test2)
+	@(make test3)
+	@(make test4)
+
+testTravis:
+	@(make test1)
+	@(make test2)
 
 test_help:
 	@echo "Preceed all commands with 'make'..."
@@ -124,6 +128,60 @@ test_help:
 	@echo "   test1_run			Execute the test simulation."
 	@echo "   test1_check			Compare results to reference solution."
 
+
+#TEST TRAVIS
+testTravisLong:
+	@echo "starting..." > test1.diff
+	@echo "test1_compile..." >> test1.diff
+	make test1_compile
+	@echo "test1_rundir..." >> test1.diff
+	make test1_rundir PARAMFILE=PARAM.in.test1
+	@echo "test1_run..." >> test1.diff
+	make test1_run MPIRUN=
+	@echo "test1_check..." >> test1.diff
+	make test1_check
+	@echo "starting..." > test3.diff
+	@echo "test3_compile..." >> test3.diff
+	make test3_compile
+	@echo "test3_rundir..." >> test3.diff
+	make test3_rundir PARAMFILE=PARAM.in.test3
+	@echo "test3_run..." >> test3.diff
+	make test3_run MPIRUN=
+	@echo "starting..." > test4.diff
+	@echo "test4_compile..." >> test4.diff
+	make test4_compile
+	@echo "test4_rundir..." >> test4.diff
+	make test4_rundir PARAMFILE=PARAM.in.test4
+	@echo "test4_run..." >> test4.diff
+	make test4_run MPIRUN=
+	@echo "test4_check..." >> test4.diff
+	make testTravis_check
+
+#TRAVIS Test
+testTravis_check:
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9 \
+                ${TESTDIR3}/output_ram/pressure_d20130317_t001500.dat \
+                ${TESTDIR4}/output_ram/pressure_d20130317_t001500.dat \
+                > testTravis.diff
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                             \
+                ${TESTDIR3}/output_scb/hI_output_d20130317_t001500.dat \
+                ${TESTDIR4}/output_scb/hI_output_d20130317_t001500.dat \
+                >> testTravis.diff
+	ncdump -v "FluxH+","B_xyz"                                     \
+               ${TESTDIR3}/output_ram/sat1_d20130317_t000000.nc        \
+               | sed -e '1,/data:/d' >                                 \
+               ${TESTDIR3}/output_ram/sat1.test
+	ncrcat ${TESTDIR4}/output_ram/sat1_d20130317_t000000.nc       \
+               ${TESTDIR4}/output_ram/sat1_d20130317_t001000.nc       \
+               ${TESTDIR4}/output_ram/sat1.nc
+	ncdump -v "FluxH+","B_xyz" ${TESTDIR4}/output_ram/sat1.nc     \
+               | sed -e '1,/data:/d' >                                \
+               ${TESTDIR4}/output_ram/sat1.test        
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                            \
+                ${TESTDIR3}/output_ram/sat1.test                      \
+                ${TESTDIR4}/output_ram/sat1.test                      \
+                >> testTravis.diff
+	@echo "Test Successful!"
 
 #TEST 1----------------------------------
 test1:
@@ -147,7 +205,7 @@ test1_rundir:
 	cp input/sat*.dat ${TESTDIR1}/
 
 test1_run:
-	cd ${TESTDIR1}; ${MPIRUN} ./ram_scb.exe > runlog
+	cd ${TESTDIR1}; ${MPIRUN} ./ram_scb.exe | tee runlog
 
 test1_check:
 	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9 			        \
@@ -158,10 +216,6 @@ test1_check:
 		${TESTDIR1}/output_ram/pressure_d20130317_t001500.dat   \
 		${IMDIR}/output/test1/pressure.ref                      \
 		>> test1.diff			        
-	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9		                \
-		${TESTDIR1}/output_ram/log_n000000.log 		        \
-		${IMDIR}/output/test1/log.ref                   	\
-		>> test1.diff
 	ncdump -v "FluxH+","B_xyz"                              	\
                ${TESTDIR1}/output_ram/sat1_d20130317_t000000.nc 	\
                | sed -e '1,/data:/d' >                          	\
@@ -204,11 +258,11 @@ test2_rundir:
 test2_run:
 	cd ${TESTDIR2};                                 \
 	rm PARAM.in; ln -s PARAM.in.test2.1st PARAM.in; \
-	${MPIRUN} ./ram_scb.exe > runlog1;              \
+	${MPIRUN} ./ram_scb.exe | tee runlog1;              \
 	rm PARAM.in; ln -s PARAM.in.test2.2nd PARAM.in; \
 	mv restartOUT/*.nc restartIN/restart.nc; \
 	mv restartOUT/*.txt restartIN/restart_info.txt; \
-	${MPIRUN} ./ram_scb.exe > runlog2;	
+	${MPIRUN} ./ram_scb.exe | tee runlog2;	
 
 test2_check:
 	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9	                      \
@@ -216,7 +270,7 @@ test2_check:
 		${IMDIR}/output/test1/pressure.ref                    \
 		> test2.diff
 	ncrcat ${TESTDIR2}/output_ram/sat1_d20130317_t000000.nc       \
-	       ${TESTDIR2}/output_ram/sat1_d20130317_t000800.nc       \
+	       ${TESTDIR2}/output_ram/sat1_d20130317_t001000.nc       \
 	       ${TESTDIR2}/output_ram/sat1.nc
 	ncdump -v "FluxH+","B_xyz" ${TESTDIR2}/output_ram/sat1.nc     \
                | sed -e '1,/data:/d' >                                \
@@ -226,7 +280,7 @@ test2_check:
                 ${IMDIR}/output/test1/sat1.ref                        \
                 >> test2.diff
 	ncrcat ${TESTDIR2}/output_ram/sat2_d20130317_t000000.nc       \
-               ${TESTDIR2}/output_ram/sat2_d20130317_t000800.nc       \
+               ${TESTDIR2}/output_ram/sat2_d20130317_t001000.nc       \
                ${TESTDIR2}/output_ram/sat2.nc
 	ncdump -v "FluxH+","B_xyz" ${TESTDIR2}/output_ram/sat2.nc     \
                | sed -e '1,/data:/d' > \
@@ -259,17 +313,13 @@ test3_rundir:
 	cp input/sat*.dat ${TESTDIR3}/
 
 test3_run:
-	cd ${TESTDIR3}; ${MPIRUN} ./ram_scb.exe > runlog;
+	cd ${TESTDIR3}; ${MPIRUN} ./ram_scb.exe | tee runlog;
 
 test3_check:
 	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                             \
 		${TESTDIR3}/output_ram/pressure_d20130317_t001500.dat  \
 		${IMDIR}/output/test3/pressure.ref      	       \
 		> test3.diff
-	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9	                       \
-		${TESTDIR3}/output_ram/log_n000000.log                 \
-		${IMDIR}/output/test3/log.ref                          \
-		>> test3.diff
 	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9			       \
 		${TESTDIR3}/output_scb/hI_output_d20130317_t001500.dat \
 		${IMDIR}/output/test3/hI.ref 		 	       \
@@ -316,19 +366,23 @@ test4_rundir:
 test4_run:
 	cd ${TESTDIR4};                                  \
 	rm PARAM.in; ln -s PARAM.in.test4.1st PARAM.in;  \
-	${MPIRUN} ./ram_scb.exe > runlog1;               \
+	${MPIRUN} ./ram_scb.exe | tee runlog1;               \
 	rm PARAM.in; ln -s PARAM.in.test4.2nd PARAM.in;  \
 	mv restartOUT/*.nc restartIN/restart.nc; \
 	mv restartOUT/*.txt restartIN/restart_info.txt; \
-	${MPIRUN} ./ram_scb.exe > runlog2;      
+	${MPIRUN} ./ram_scb.exe | tee runlog2;      
 
 test4_check:
 	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                            \
                 ${TESTDIR4}/output_ram/pressure_d20130317_t001500.dat \
                 ${IMDIR}/output/test3/pressure.ref                    \
                 > test4.diff
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                             \
+                ${TESTDIR4}/output_scb/hI_output_d20130317_t001500.dat \
+                ${IMDIR}/output/test3/hI.ref                           \
+                >> test4.diff
 	ncrcat ${TESTDIR4}/output_ram/sat1_d20130317_t000000.nc       \
-               ${TESTDIR4}/output_ram/sat1_d20130317_t000800.nc       \
+               ${TESTDIR4}/output_ram/sat1_d20130317_t001000.nc       \
                ${TESTDIR4}/output_ram/sat1.nc
 	ncdump -v "FluxH+","B_xyz" ${TESTDIR4}/output_ram/sat1.nc     \
                | sed -e '1,/data:/d' >                                \
@@ -338,7 +392,7 @@ test4_check:
                 ${IMDIR}/output/test3/sat1.ref                        \
                 >> test4.diff
 	ncrcat ${TESTDIR4}/output_ram/sat2_d20130317_t000000.nc       \
-               ${TESTDIR4}/output_ram/sat2_d20130317_t000800.nc       \
+               ${TESTDIR4}/output_ram/sat2_d20130317_t001000.nc       \
                ${TESTDIR4}/output_ram/sat2.nc
 	ncdump -v "FluxH+","B_xyz" ${TESTDIR4}/output_ram/sat2.nc     \
                | sed -e '1,/data:/d' >                                \
@@ -348,4 +402,3 @@ test4_check:
                 ${IMDIR}/output/test3/sat2.ref                        \
                 >> test4.diff
 	@echo "Test Successful!"
-

@@ -22,7 +22,7 @@ T			DoVarDt
 
 #STOP
 -1			MaxIteration
-480			tSimulationMax
+600			tSimulationMax
 *************************************************
 
 *************** COMPONENT BLOCK *****************

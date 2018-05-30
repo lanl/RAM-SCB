@@ -1,9 +1,14 @@
+!============================================================================
+!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    All rights reserved.
+!============================================================================
 Module ModScbVariables
-
   use nrtype, ONLY: DP
 
-  implicit none
-  save
+  implicit none; save
+
+  integer :: left, right, nFail = 0
+  logical :: SORFail = .false., hICalc = .true.
 
 ! Figure out
   REAL(DP), ALLOCATABLE :: EXInd(:,:,:), EYInd(:,:,:), EZInd(:,:,:), EXConv(:,:,:), &

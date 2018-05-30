@@ -1,15 +1,17 @@
-module ModRamTiming
-!    A module for tracking code efficiency and other timing metrics.
+!============================================================================
 !    Copyright (c) 2016, Los Alamos National Security, LLC
 !    All rights reserved.
+!============================================================================
+
+module ModRamTiming
+!    A module for tracking code efficiency and other timing metrics.
 
   use ModRamMain, ONLY: Real8_, niter, PathRamOut
   use ModRamParams, ONLY: DoSaveRamSats
 
   use ModTimeConvert, ONLY: TimeType
 
-  implicit none
-  save
+  implicit none; save
 
   type(TimeType) :: TimeRamNow, TimeRamStart, TimeRamStop, TimeRamRealStart, TimeRamFinish
 
@@ -35,7 +37,8 @@ module ModRamTiming
                        DtWriteSat   = 60.0,   &  ! How often satellite files are written to (configurable in PARAM)
                        DtW_Pressure = 300.0,  &
                        DtW_hI       = 300.0,  &
-                       DtW_EField   = 3600.0
+                       DtW_EField   = 3600.0, &
+                       DtW_MAGxyz   = 300.0
   real(kind=Real8_) :: T, UTs
   real(kind=Real8_) :: Efficiency = 0.0, SysTimeStart, SysTimeNow
   real(kind=Real8_) :: dtPrintTiming = 300.0
@@ -54,6 +57,8 @@ contains
   subroutine init_timing()
 
     use ModIoUnit,  ONLY: io_unit_new
+
+    implicit none; save
 
     character(len=100) :: NameFile
     integer :: iError
@@ -86,15 +91,15 @@ contains
   !===========================================================================
   subroutine do_timing()
 
-!    use ModRamMpi, ONLY: iProc
-!    use ModRamIO,  ONLY: write_prefix
+    implicit none; save
 
     real(kind=Real8_) :: CpuTimeNow
-    integer :: t1, clock_rate = 100, clock_max = 100000
+    integer :: t1, clock_rate, clock_max
     !-------------------------------------------------------------------------
+    clock_rate = 1000
+    clock_max = 100000
+
     ! Update system time.
-!    call cpu_time(CpuTimeNow)
-!    CpuTimeNow = omp_get_wtime()
     call system_clock(t1,clock_rate,clock_max)
     CpuTimeNow = t1/clock_rate
     SysTimeNow = CpuTimeNow - SysTimeStart
@@ -119,14 +124,21 @@ contains
   !===========================================================================
   subroutine finalize_timing()
     
-!    use ModRamIO, ONLY: write_prefix
+    implicit none; save
 
     real(kind=Real8_) :: CpuTimeNow
+    integer :: t1, clock_rate, clock_max
     !-------------------------------------------------------------------------
+    clock_rate = 1000
+    clock_max = 100000
+
     close(iUnitEffFile)
 
     ! Update system time.
-    call cpu_time(CpuTimeNow)
+    !call cpu_time(CpuTimeNow)
+    !SysTimeNow = CpuTimeNow - SysTimeStart
+    call system_clock(t1,clock_rate,clock_max)
+    CpuTimeNow = t1/clock_rate
     SysTimeNow = CpuTimeNow - SysTimeStart
 
     ! Update timing metrics (only efficiency so far...)
@@ -149,11 +161,13 @@ contains
     ! Because RAM uses a time-splitting approach, the answer is divided by
     ! two (because each step moves forward in time by Dt twice.)
 
+    implicit none; save
+
     ! Arguments:
     real(kind=Real8_) :: max_output_timestep
     real(kind=Real8_), intent(in) :: TimeIn
 
-    real(kind=Real8_) :: DtSatTemp=999999.9
+    real(kind=Real8_) :: DtSatTemp
     real(kind=Real8_) :: hI_temp, bc_temp, ef_temp, rt_temp
 
     logical :: DoTest, DoTestMe
@@ -171,6 +185,7 @@ contains
     if (DtRestart.le.1.0) rt_temp = 9999999.9
 
     ! Only include sats if we are writing them.
+    DtSatTemp=999999.9
     if(DoSaveRamSats) DtSatTemp=DtWriteSat
 
     ! Biggest timestep we can take is the smallest difference of the amount
@@ -185,7 +200,8 @@ contains
          rt_temp     -mod(TimeIn, rt_temp     ), &
          DtW_Pressure-mod(TimeIn, DtW_Pressure), &
          DtW_EField  -mod(TimeIn, DtW_EField  ), &
-         DtW_hI      -mod(TimeIn, DtW_hI      )) / 2.0
+         DtW_hI      -mod(TimeIn, DtW_hI      ), &
+         DtW_MAGxyz  -mod(TimeIn, DtW_MAGxyz  )) / 2.0
 
     if(DoTestMe)then
        call write_prefix

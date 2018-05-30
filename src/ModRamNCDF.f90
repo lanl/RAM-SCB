@@ -1,13 +1,11 @@
 !============================================================================
-module ModRamNCDF
-!   A set of variables and tools for general I/O handling, file name
-!   creation, etc.
-!   Copyright (c) 2016, Los Alamos National Security, LLC
-!   All rights reserved.
-!******************************************************************************
+!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    All rights reserved.
+!============================================================================
 
-  implicit none
-  save
+module ModRamNCDF
+
+  implicit none; save
   
   contains
 !==============================================================================
@@ -70,7 +68,7 @@ module ModRamNCDF
 !      
 !    use netcdf
 !
-!    implicit none
+!    implicit none; save
 !
 !    integer, intent(in) :: iFileID
 !    character(len=*), intent(in) LL varChar

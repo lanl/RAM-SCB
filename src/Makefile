@@ -17,11 +17,11 @@ LIBNOMPI  = ${LIBDIR}/libNOMPI.a
 
 # Extra search directories for -I option (-p for Absoft!!!)
 # Set twice to work with old and new SWMF versions.
-SEARCH_EXTRA = -I${PSPLINE_PATH} -I${NETCDF_PATH}
-INCL_EXTRA   = -I${PSPLINE_PATH} -I${NETCDF_PATH}
+SEARCH_EXTRA = -I${NETCDF_PATH} -I${GSL_PATH}
+INCL_EXTRA   = -I${NETCDF_PATH} -I${GSL_PATH}
 
 # Keep RAM_SCB in single precision.
-PRECISION = 
+PRECISION = -frecord-marker=4 -fdefault-real-8 -fdefault-double-8 -fall-intrinsics
 
 # List of fortran object files:
 RAM_OBJECTS=                  \
@@ -46,24 +46,46 @@ RAM_OBJECTS=                  \
 	ModRamWPI.o           \
         ModRamInjection.o     \
 	IM_set_parameters.o
-        
+
+PLE_OBJECTS=                  \
+        ModPlane.o            \
+        ModRamPl_Ne.o         \
+        plane_scb.o           \
+        fct-source.o          \
+        irisub_2012.o         \
+        iritec.o              \
+        iri87.o               \
+        iriflip.o             \
+        iridreg.o             \
+        irifun_2012.o         \
+        msis86.o              \
+        nrlmsise00_sub.o      \
+        igrf.o
+
 SCB_OBJECTS=                  \
         ModScbEquation.o      \
 	ModScbEuler.o         \
 	ModScbFunctions.o     \
 	ModScbGrids.o         \
 	ModScbInit.o          \
-	ModScbInterp.o        \
 	ModScbIO.o            \
 	ModScbMain.o          \
 	ModScbParams.o        \
 	ModScbRun.o           \
-	ModScbSpline.o        \
         ModScbVariables.o     \
-        scb_physQuantities.o  \
-	Geopack-2008_dp.o\
-	w2k_r8.o\
+	ModScbCompute.o       \
+	Geopack-2008_dp.o     \
+        T89.o		      \
+	T96.o		      \
+	T02.o		      \
+	TS04.o		      \
+	TS07.o                \
+	w2k_r8.o	      \
 	w05.o
+
+GSL_OBJECTS=		\
+	ModRamGSL.o	\
+	RamGSL.o
 
 CPL_OBJECTS=            \
         ModRamCouple.o  \
@@ -71,36 +93,11 @@ CPL_OBJECTS=            \
         ModScbCouple.o
 
 EXT_OBJECTS=       \
-	nrmod.o    \
 	nrtype.o   \
-	nrutil.o   \
-	recipes1.o \
-	recipes2.o \
 	mpi.o      \
 	ModRamMpi.o 
 
-SCE_OBJECTS=                \
-        ModIESize.o         \
-        ModIonosphere.o     \
-        ModConductance.o    \
-        ModIE_Interface.o   \
-        IE_gather.o         \
-        IE_ModIo.o          \
-        IE_ModMain.o        \
-        IE_solve.o          \
-        IE_wrapper.o        \
-        iono_conductances.o \
-        ionosphere.o        \
-        iono_currents.o     \
-        iono_joule.o        \
-        iono_solver.o
-
-SLATEC_OBJECTS = ../srcSlatec/*.o
-${SLATEC_OBJECTS}:
-	cd ../srcSlatec; make slatec
-
-
-OBJECTS = ${RAM_OBJECTS} ${SCB_OBJECTS} ${CPL_OBJECTS} ${EXT_OBJECTS} ${SCE_OBJECTS}
+OBJECTS = ${RAM_OBJECTS} ${SCB_OBJECTS} ${CPL_OBJECTS} ${EXT_OBJECTS} ${GSL_OBJECTS} ${PLE_OBJECTS}
 
 # List of objects required for executable:
 OBJECTS_EXE = Main.o
@@ -123,9 +120,9 @@ LIB:	DEPEND
 	@echo ${MY_LIB} has been brought up to date.
 	@echo ' '
 
-${MY_LIB}: ${SLATEC_OBJECTS} ${OBJECTS}
+${MY_LIB}: ${OBJECTS}
 	rm -f ${MY_LIB}
-	${AR} ${MY_LIB} ${OBJECTS} ${SLATEC_OBJECTS}
+	${AR} ${MY_LIB} ${OBJECTS}
 
 # Rule for creating executable:
 RAM_SCB: DEPEND
