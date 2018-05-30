@@ -24,7 +24,8 @@ MODULE ModRamWPI
     use ModRamGrids,     ONLY: NE, NR
     use ModRamVariables, ONLY: EKEV, LZ
 
-    implicit none; save
+
+    implicit none
 
     integer :: i, ii, j, k
     real(kind=Real8_):: TAU_WAVE,xE,xL,xlife
@@ -141,7 +142,8 @@ MODULE ModRamWPI
     !!!! Module Subroutines/Functions
     use ModRamFunctions, ONLY: asind
 
-    implicit none; save
+
+    implicit none
 
     integer :: i, k
     real(kind=Real8_):: TAU_WAVE,EMEV,R1,R2,CONE(NR+4),CLC
@@ -190,7 +192,8 @@ MODULE ModRamWPI
     !!!! Share Modules
     use ModIoUnit,   ONLY: UNITTMP_
 
-    implicit none; save
+
+    implicit none
 
     integer :: i, ix, kn, l
     character(len=80) HEADER
@@ -239,7 +242,8 @@ MODULE ModRamWPI
     !!!! Share Modules
     use ModIoUnit, ONLY: UNITTMP_
 
-    implicit none; save
+
+    implicit none
 
     integer :: i, j, kn, l, ikp
     real(kind=Real8_), ALLOCATABLE :: RLDAA(:,:),RUDAA(:,:)
@@ -248,6 +252,7 @@ MODULE ModRamWPI
     character(len=80) HEADER
 
     ALLOCATE(RLDAA(ENG,NPA),RUDAA(ENG,NPA))
+    RLDAA = 0.0; RUDAA = 0.0
 
     ikp=INT(KP)
     IF (ikp.gt.4) ikp=4
@@ -310,7 +315,8 @@ MODULE ModRamWPI
 
     use ModRamVariables, ONLY: KP
 
-    implicit none; save
+
+    implicit none
 
     integer :: i1,i2
 
@@ -347,7 +353,8 @@ MODULE ModRamWPI
     !!!! Share Modules
     use ModIoUnit, ONLY: UNITTMP_
 
-    implicit none; save
+
+    implicit none
 
     integer :: i,j,k,l,IER,nkp,nloop
     character(len=32) :: H1,H2,H3,nchar
@@ -424,11 +431,15 @@ MODULE ModRamWPI
     use ModRamTiming,    ONLY: Dts
     use ModRamVariables, ONLY: F2, KP, LZ, IP1, IR1, EKEV, NECR
 
-    implicit none; save
+
+    implicit none
 
     integer, intent(in) :: S
     integer :: i, j, k, l, j1, i1
-    real(kind=Real8_) :: TAU_LIF,RLpp(NT),Bw,Kpmax
+    real(kind=Real8_) :: TAU_LIF,Bw,Kpmax
+    real(kind=Real8_), ALLOCATABLE :: RLpp(:)
+
+    ALLOCATE(RLpp(nT))
 
     Bw=30.
     IF (KP.GE.4.0) Bw=100.                                 ! pT
@@ -468,6 +479,7 @@ MODULE ModRamWPI
       ENDDO
     ENDDO
 
+    DEALLOCATE(RLpp)
     RETURN
   END SUBROUTINE WAVELO
 
@@ -485,11 +497,16 @@ MODULE ModRamWPI
     !!!! Share Modules
     use ModIoUnit, ONLY: UNITTMP_
 
-    implicit none; save
+
+    implicit none
 
     integer, intent(in) :: S
     integer :: i, j, k, l
-    real(kind=Real8_) :: F(NPA),AN,BN,GN,RP,DENOM,RK(NPA),RL(NPA),FACMU(NPA)
+    real(kind=Real8_) :: AN,BN,GN,RP,DENOM
+    real(kind=Real8_), ALLOCATABLE :: F(:), RK(:), RL(:), FACMU(:)
+
+    ALLOCATE(F(NPA),RK(NPA),RL(NPA),FACMU(NPA))
+    F = 0.0; RK = 0.0; RL = 0.0; FACMU = 0.0
 
     DO J=1,NT
       DO I=2,NR
@@ -532,6 +549,7 @@ MODULE ModRamWPI
       ENDDO
     ENDDO
 
+    DEALLOCATE(F,RK,RL,FACMU)
     RETURN
   END SUBROUTINE WPADIF
 

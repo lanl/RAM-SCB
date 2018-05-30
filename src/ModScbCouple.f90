@@ -11,7 +11,7 @@ Module ModScbCouple
                           LatSWMF, LonSWMF, xEqSWMF, yEqSWMF, pEqSWMF, nEqSWMF, &
                           nLinesSWMF
 
-  implicit none; save; save
+  implicit none
   save
 
   ! Copied from the old Module_points (now removed)

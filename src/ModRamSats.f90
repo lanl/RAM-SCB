@@ -7,7 +7,8 @@ module ModRamSats
 
   use ModRamMain, ONLY: Real8_
 
-  implicit none; save
+
+  implicit none
 
   private !except...
 
@@ -47,7 +48,8 @@ module ModRamSats
     use ModRamParams, ONLY: DoSaveRamSats
     use ModRamTiming, ONLY: DtWriteSat
 
-    implicit none; save
+
+    implicit none
 
     logical :: DoTest, DoTestMe
     integer :: iSat, l1, l2
@@ -102,7 +104,8 @@ module ModRamSats
     use ModIoUnit,      ONLY: UnitTmp_
     use CON_axes
 
-    implicit none; save
+
+    implicit none
 
     integer :: iError, i, iSat , nPoint
 
@@ -159,6 +162,7 @@ module ModRamSats
     allocate(Time_I(MaxPoint), Xyz_DI(3, MaxPoint))
     allocate(SatTraj_IID(nRamSat, MaxPoint, 3))
     allocate(SatTime_II(nRamSat, MaxPoint))
+    Time_I = 0.0; XYZ_DI = 0.0; SatTraj_IID = 0.0; SatTime_II = 0.0
 
     ! Read the trajectories
     SATELLITES: do iSat=1, nRamSat
@@ -281,7 +285,8 @@ module ModRamSats
 
     use ModTimeConvert,  ONLY: time_real_to_int, TimeType
 
-    implicit none; save
+
+    implicit none
 
     character(len=200) :: FileName
     character(len=100) :: SatFileName
@@ -314,7 +319,8 @@ module ModRamSats
 
     use ModRamNCDF, ONLY: ncdf_check, write_ncdf_globatts
 
-    implicit none; save
+
+    implicit none
 
     character(len=200), intent(in) :: FileNameIn
 
@@ -528,7 +534,8 @@ module ModRamSats
     use ModRamGSL, ONLY: GSL_NN
     use ModTimeConvert,  ONLY: time_real_to_int, TimeType
 
-    implicit none; save
+
+    implicit none
     type(TimeType) :: TimeRamRestart
 
     integer :: GSLerr
@@ -560,6 +567,7 @@ module ModRamSats
     if(.not. DoSaveRamSats) return
    
     ALLOCATE(distance(nthe,npsi,nzeta-1))
+    distance = 0.0
 
     SATLOOP: do iSat=1, nRamSat
        distance = 0.0
@@ -758,7 +766,8 @@ module ModRamSats
       use netcdf
       use ModRamGrids, ONLY: nE, nPa
 
-      implicit none; save
+
+      implicit none
 
       ! Arguments:
       integer, intent(in)           :: iRec

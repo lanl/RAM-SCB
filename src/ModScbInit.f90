@@ -8,7 +8,8 @@ MODULE ModScbInit
   
   use ModScbVariables
   
-  implicit none; save; save
+
+  implicit none
   
   contains
 !==============================================================================
@@ -17,10 +18,12 @@ MODULE ModScbInit
     use ModRamGrids, ONLY: nR, nT, nPa
     use ModScbGrids
 
-    implicit none; save; save
+
+    implicit none
 
 !--- SCE Components
     ALLOCATE(paraj(npsi,nzeta+1))
+    paraj = 0.0
 !---
 
 !!!!! Allocate Arrays
@@ -30,32 +33,72 @@ MODULE ModScbInit
              bZIntern(nthe,npsi,nzeta), x(nthe,npsi,nzeta+1), y(nthe,npsi,nzeta+1), &
              z(nthe,npsi,nzeta+1), xx(nthe,npsi,nzeta+1), yy(nthe,npsi,nzeta+1), &
              bf(nthe,npsi,nzeta+1), bsq(nthe,npsi,nzeta+1), fluxVolume(npsi,nzeta))
+    jacobian = 0.0; bX = 0.0; bY = 0.0; bZ = 0.0; bXIntern = 0.0; bYIntern = 0.0
+    bZIntern = 0.0; x = 0.0; y = 0.0; z = 0.0; xx = 0.0; yy = 0.0; bf = 0.0; bsq = 0.0
+    fluxVolume = 0.0
 !
     ALLOCATE(vecx(nthe,npsi,nzeta), vecr(nthe,npsi,nzeta), vecd(nthe,npsi,nzeta), &
              vec1(nthe,npsi,nzeta), vec2(nthe,npsi,nzeta), vec3(nthe,npsi,nzeta), &
              vec4(nthe,npsi,nzeta), vec6(nthe,npsi,nzeta), vec7(nthe,npsi,nzeta), &
              vec8(nthe,npsi,nzeta), vec9(nthe,npsi,nzeta))
+    vecx = 0.0; vecr = 0.0; vecd = 0.0; vec1 = 0.0; vec2 = 0.0; vec3 = 0.0
+    vec4 = 0.0; vec6 = 0.0; vec7 = 0.0; vec8 = 0.0; vec9 = 0.0;
 ! ModScbEuler Variables
     ALLOCATE(psi(nthe,npsi,nzeta+1), psiSav1(nthe,npsi,nzeta+1), psiSav2(nthe,npsi,nzeta+1), &
              alfa(nthe,npsi,nzeta+1), alfaSav1(nthe,npsi,nzeta+1), alfaSav2(nthe,npsi,nzeta+1), &
              alphaVal(nzeta+1), alphaValInitial(nzeta+1), psiVal(npsi), psiPrev(nthe,npsi,nzeta+1), &
              alfaPrev(nthe,npsi,nzeta+1))
+    psi = 0.0; psiSav1 = 0.0; psiSav2 = 0.0; alfa = 0.0; alfaSav1 = 0.0;
+    alfaSav2 = 0.0; alphaVal = 0.0; alphaValInitial = 0.0; psiVal = 0.0;
+    psiPrev = 0.0; alfaPrev = 0.0
 ! ModScbInit Variables
     ALLOCATE(f(npsi), fp(npsi), rhoVal(npsi), chiVal(nthe), thetaVal(nthe), zetaVal(nzeta), &
              fzet(nzeta+1), fzetp(nzeta+1), chi(nthe,npsi,nzeta+1))
-! ModScbRun Variables
-    ALLOCATE(radEqMidNew(npsi), gradRhoSq(nthe,npsi,nzeta), gradZetaSq(nthe,npsi,nzeta), &
+    f = 0.0; fp = 0.0; rhoVal = 0.0; chiVal = 0.0; thetaVal = 0.0; zetaVal = 0.0
+    fzet = 0.0; fzetp = 0.0; chi = 0.0;
+! Convergence Variables
+    ALLOCATE(Jx(nthe,npsi,nzeta), Jy(nthe,npsi,nzeta), Jz(nthe,npsi,nzeta), &
+             GradPx(nthe,npsi,nzeta), GradPy(nthe,npsi,nzeta), GradPz(nthe,npsi,nzeta), &
+             JxBx(nthe,npsi,nzeta), JxBy(nthe,npsi,nzeta), JxBz(nthe,npsi,nzeta), &
+             JCrossB(nthe,npsi,nzeta), GradP(nthe,npsi,nzeta), jGradRho(nthe,npsi,nzeta), &
+             jGradZeta(nthe,npsi,nzeta), jGradTheta(nthe,npsi,nzeta))
+    Jx = 0.0; Jy = 0.0; Jz = 0.0; GradPx = 0.0; GradPy = 0.0; GradPz = 0.0
+    JxBx = 0.0; JxBy = 0.0; JxBz = 0.0; JCrossB = 0.0; GradP = 0.0
+    jGradRho = 0.0; jGradZeta = 0.0; jGradTheta = 0.0
+! Derivative Variables
+    ALLOCATE(gradRhoSq(nthe,npsi,nzeta), gradZetaSq(nthe,npsi,nzeta), &
              gradRhoGradZeta(nthe,npsi,nzeta), gradRhoGradTheta(nthe,npsi,nzeta), &
-             gradThetaGradZeta(nthe,npsi,nzeta), gradPsiGradAlpha(nthe,npsi,nzeta), &
+             gradThetaGradZeta(nthe,npsi,nzeta), gradThetaSq(nthe,npsi,nzeta), &
+             gradRhoX(nthe,npsi,nzeta), gradZetaX(nthe,npsi,nzeta), gradThetaX(nthe,npsi,nzeta), &
+             gradRhoY(nthe,npsi,nzeta), gradZetaY(nthe,npsi,nzeta), gradThetaY(nthe,npsi,nzeta), &
+             gradRhoZ(nthe,npsi,nzeta), gradZetaZ(nthe,npsi,nzeta), gradThetaZ(nthe,npsi,nzeta), &
+             derivXRho(nthe,npsi,nzeta), derivXZeta(nthe,npsi,nzeta), derivXTheta(nthe,npsi,nzeta), &
+             derivYRho(nthe,npsi,nzeta), derivYZeta(nthe,npsi,nzeta), derivYTheta(nthe,npsi,nzeta), &
+             derivZRho(nthe,npsi,nzeta), derivZZeta(nthe,npsi,nzeta), derivZTheta(nthe,npsi,nzeta))
+    gradRhoSq = 0.0; gradZetaSq = 0.0; gradRhoGradZeta = 0.0; gradRhoGradTheta = 0.0
+    gradThetaGradZeta = 0.0; gradThetaSq = 0.0; gradRhoX = 0.0; gradZetaX = 0.0; gradThetaX = 0.0
+    gradRhoY = 0.0; gradZetaY = 0.0; gradThetaY = 0.0; gradRhoZ = 0.0; gradZetaZ = 0.0; gradThetaZ = 0.0
+    derivXRho = 0.0; derivXZeta = 0.0; derivXTheta = 0.0; derivYRho = 0.0; derivYZeta = 0.0
+    derivYTheta = 0.0; derivZRho = 0.0; derivZZeta = 0.0; derivZTheta = 0.0
+!
+! ModScbRun Variables
+    ALLOCATE(radEqMidNew(npsi), gradPsiGradAlpha(nthe,npsi,nzeta), &
              dPperdAlpha(nthe,npsi,nzeta), dBBdAlpha(nthe,npsi,nzeta), dBBdPsi(nthe,npsi,nzeta), &
              dPPerdPsi(nthe,npsi,nzeta), dPPardAlpha(nthe,npsi,nzeta), dPPardPsi(nthe,npsi,nzeta), &
              dPPerdTheta(nthe,npsi,nzeta), dPPerdRho(nthe,npsi,nzeta), dPPerdZeta(nthe,npsi,nzeta), &
              dBsqdAlpha(nthe,npsi,nzeta), dBsqdPsi(nthe,npsi,nzeta), dBsqdTheta(nthe,npsi,nzeta), &
-             gradThetaSq(nthe,npsi,nzeta), bfInitial(nthe,npsi,nzeta+1), pressure3D(nthe,npsi,nzeta+1), &
+             bfInitial(nthe,npsi,nzeta+1), pressure3D(nthe,npsi,nzeta+1), &
              bj(nthe,npsi,nzeta+1), phij(nthe,npsi,nzeta+1), ppar(nthe,npsi,nzeta+1), &
              pper(nthe,npsi,nzeta+1), tau(nthe,npsi,nzeta+1), sigma(nthe,npsi,nzeta+1), &
              dPdAlpha(nthe,npsi,nzeta+1), dPdPsi(nthe,npsi,nzeta+1), dSqPdAlphaSq(nthe,npsi,nzeta+1), &
              dSqPdPsiSq(nthe,npsi,nzeta+1),dBsqdRho(nthe,npsi,nzeta),dBsqdZeta(nthe,npsi,nzeta))
+    radEqMidNew = 0.0; gradPsiGradAlpha = 0.0
+    dPperdAlpha = 0.0; dBBdAlpha = 0.0; dBBdPsi = 0.0; dPPerdPsi = 0.0
+    dPPardAlpha = 0.0; dPPardPsi = 0.0; dPPerdTheta = 0.0; dPPerdRho = 0.0
+    dPPerdZeta = 0.0; dBsqdAlpha = 0.0; dBsqdPsi = 0.0; dBsqdTheta = 0.0
+    gradThetaSq = 0.0; bfInitial = 0.0; pressure3D = 0.0; bj = 0.0; phij = 0.0
+    ppar = 0.0; pper = 0.0; tau = 0.0; sigma = 0.0; dPdAlpha = 0.0; dPdPsi = 0.0
+    dSqPdAlphaSq = 0.0; dSqPdPsiSq = 0.0; dBsqdRho = 0.0; dBsqdZeta = 0.0
 ! Extra Variables
     ALLOCATE(EXInd(nthe,npsi,nzeta+1), EYInd(nthe,npsi,nzeta+1), EZInd(nthe,npsi,nzeta+1), &
              EXConv(nthe,npsi,nzeta+1), EYConv(nthe,npsi,nzeta+1), EZConv(nthe,npsi,nzeta+1), &
@@ -65,10 +108,18 @@ MODULE ModScbInit
              gradAlphaSq(nthe,npsi,nzeta), radialCurvature(nthe,npsi,nzeta), dAlphadT(nthe,npsi,nzeta), &
              dBetadT(nthe,npsi,nzeta), bpar(nthe,npsi,nzeta+1), bper(nthe,npsi,nzeta+1), &
              jParDirect(nthe,npsi,nzeta+1))
+    EXInd = 0.0; EYInd = 0.0; EZInd = 0.0; EXConv = 0.0; EYConv = 0.0; EZConv = 0.0
+    PhiIono = 0.0; dPhiIonodAlpha = 0.0; dPhiIonodBeta = 0.0; radGrid = 0.0
+    angleGrid = 0.0; ratioEq = 0.0; dela = 0.0; factor = 0.0; curvaturePsi = 0.0
+    curvatureGradPsi = 0.0; gradAlphaSq = 0.0; radialCurvature = 0.0; dAlphadT = 0.0
+    dBetadT = 0.0; bpar = 0.0; bper = 0.0; jParDirect = 0.0
 ! Mixed Variables
     ALLOCATE(hdens_Cart(NR,NT,NPA), h_Cart(NR,NT,NPA), h_Cart_interp(NR,NT,NPA), I_Cart(NR,NT,NPA), &
              I_Cart_interp(NR,NT,NPA), bZEq_Cart(NR,NT), flux_vol_Cart(NR,NT), radRaw(0:NR), &
              azimRaw(NT))
+    hdens_Cart = 0.0; h_Cart = 0.0; h_Cart_interp = 0.0; I_Cart = 0.0
+    I_Cart_interp = 0.0; bZEq_Cart = 0.0; flux_vol_Cart = 0.0; radRaw = 0.0
+    azimRaw = 0.0
 !!!!!
 
   nthem = nthe-1; nthep = nthe+1
@@ -109,7 +160,8 @@ MODULE ModScbInit
 !==============================================================================
   subroutine scb_deallocate
 
-    implicit none; save; save
+
+    implicit none
 
 !--- SCE Components
     DEALLOCATE(paraj)
@@ -119,16 +171,23 @@ MODULE ModScbInit
 ! Main SCB Variables
     DEALLOCATE(jacobian, bX, bY, bZ, bXIntern, bYIntern, bZIntern, x, y, &
                z, xx, yy, bf, bsq, fluxVolume)
-!
     DEALLOCATE(vecx, vecr, vecd, vec1, vec2, vec3, vec4, vec6, vec7, vec8, vec9)
 ! ModScbEuler Variables
     DEALLOCATE(psi, psiSav1, psiSav2, alfa, alfaSav1, alfaSav2, alphaVal, &
                alphaValInitial, psiVal, psiPrev, alfaPrev)
 ! ModScbInit Variables
     DEALLOCATE(f, fp, rhoVal, chiVal, thetaVal, zetaVal, fzet, fzetp, chi)
+! Convergence Variables
+    DEALLOCATE(Jx, Jy, Jz, GradPx, GradPy, GradPz, JxBx, JxBy, JxBz, JCrossB, GradP, &
+               jGradRho, jGradZeta, jGradTheta)
+! Derivative Variables
+    DEALLOCATE(gradRhoSq, gradZetaSq, gradRhoGradZeta, gradRhoGradTheta, &
+               gradThetaGradZeta, gradThetaSq, gradRhoX, gradZetaX, gradThetaX, &
+               gradRhoY, gradZetaY, gradThetaY, gradRhoZ, gradZetaZ, gradThetaZ, &
+               derivXRho, derivXZeta, derivXTheta, derivYRho, derivYZeta, derivYTheta, &
+               derivZRho, derivZZeta, derivZTheta)
 ! ModScbRun Variables
-    DEALLOCATE(radEqMidNew, gradRhoSq, gradZetaSq, gradRhoGradZeta, gradRhoGradTheta, &
-               gradThetaGradZeta, gradPsiGradAlpha, dPperdAlpha, dBBdAlpha, dBBdPsi, &
+    DEALLOCATE(radEqMidNew, gradPsiGradAlpha, dPperdAlpha, dBBdAlpha, dBBdPsi, &
                dPPerdPsi, dPPardAlpha, dPPardPsi, dPPerdTheta, dPPerdRho, dPPerdZeta, &
                dBsqdAlpha, dBsqdPsi, dBsqdTheta, gradThetaSq, bfInitial, pressure3D, &
                bj, phij, ppar, pper, tau, sigma, dPdAlpha, dPdPsi, dSqPdAlphaSq, &
@@ -163,7 +222,8 @@ MODULE ModScbInit
 
     use nrtype, ONLY: DP, pi_d, twopi_d
 
-    IMPLICIT NONE
+
+    implicit none
   
     INTEGER :: k, j, i, nc
   

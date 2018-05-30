@@ -7,7 +7,8 @@ Module ModRamVariables
 
   use nrtype, ONLY: DP
 
-  implicit none; save
+
+  implicit none
 
 ! UNKNOWN VARIABLES
   real(DP), ALLOCATABLE :: XNE(:,:)

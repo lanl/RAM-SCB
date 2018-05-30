@@ -12,7 +12,8 @@ module ModRamIndices
   use ModRamVariables, ONLY: NameIndexSource, nRawKp, nRawF107, kptime, Kp, &
                              F107, timeKp, timeF107, rawKp, rawF107
 
-  implicit none; save
+
+  implicit none
 
   contains
   !===========================================================================
@@ -23,7 +24,8 @@ module ModRamIndices
     use ModTimeConvert, ONLY: TimeType, time_int_to_real
     use ModIoUnit,      ONLY: UNITTMP_
 
-    implicit none; save
+
+    implicit none
 
     type(timetype),   intent(in) :: StartTime, EndTime
     character(len=*), intent(in) :: NameFile
@@ -101,6 +103,7 @@ module ModRamIndices
     allocate(rawKp(nRawKp))
     allocate(rawF107(nRawF107))
     allocate(timeF107(nRawF107))
+    timeKp = 0.0; rawKp = 0.0; rawF107 = 0.0; timeF107 = 0.0
 
     if(DoTest)then
        write(*,*) NameSub//': Number of lines to read = ', nRawF107
@@ -135,7 +138,8 @@ module ModRamIndices
     ! Based on source of indices, prepare indices for this simulation.
     use ModTimeConvert, ONLY: TimeType
 
-    implicit none; save
+
+    implicit none
 
     type(timetype), intent(in) :: StartTime, EndTime
 
@@ -158,7 +162,8 @@ module ModRamIndices
     ! Input time format should be floating point used in ModTimeConvert.
     use ModRamMain, ONLY: Real8_
     
-    implicit none; save
+
+    implicit none
 
     real(kind=Real8_), intent(in) :: timeNow
     real(kind=Real8_), intent(out):: kpNow, f10Now

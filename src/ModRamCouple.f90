@@ -14,7 +14,8 @@ module ModRamCouple
 
   use ModRamParams
 
-  implicit none; save
+
+  implicit none
   save
 
   public :: set_type_mhd
@@ -82,7 +83,8 @@ contains
 
     use ModRamGrids, ONLY: nT, nE, nRExtend, nR
 
-    implicit none; save
+
+    implicit none
 
     ALLOCATE(IonoMap_DSII(3,2,nRextend,nT), MhdDensPres_VII(3,nT,4), FluxBats_IIS(nE, nT, 1:4), &
              PMhdGhost(nT), FluxBats_anis(nE,nPa,nT,1:4), iEnd(2*(nRExtend)*nT), xEqSWMF(nRExtend,nT-1), &
@@ -106,7 +108,8 @@ contains
 !==============================================================================
   subroutine RAMCouple_Deallocate
 
-    implicit none; save
+
+    implicit none
 
     DEALLOCATE(IonoMap_DSII, MhdDensPres_VII, FluxBats_IIS, PMhdGhost, iEnd, &
                FluxBats_anis, xEqSWMF, yEqSWMF, pEqSWMF, nEqSWMF, SwmfPot_II)
@@ -120,7 +123,8 @@ contains
     ! and O+ in simulation if multi.  If those cannot be found, 
     ! revert to single species.
     
-    implicit none; save
+
+    implicit none
 
     character(len=*), intent(in) :: NameVarIn
     integer, intent(in)          :: nVarIn
@@ -213,7 +217,8 @@ contains
     
     use ModRamFunctions,ONLY: get_dipole_trace
 
-    implicit none; save
+
+    implicit none
 
     integer,           intent(in) :: nVarIn, nPointIn
     real(kind=Real8_), intent(in) :: BufferLine_VI(nVarIn, nPointIn)
@@ -358,7 +363,8 @@ contains
 
     use ModIoUnit, ONLY: UnitTmp_
     use ModConst,  ONLY: cProtonMass, cElectronCharge, cPi
-    implicit none; save
+
+    implicit none
 
     real, parameter :: cMass2Num = 1.0E6 * cProtonMass
 
@@ -667,7 +673,8 @@ contains
   subroutine write_FluxGM
     ! Quickly write out flux from GM to files for stand-alone RAM.
     use ModIoUnit,      ONLY: UnitTmp_
-    implicit none; save
+
+    implicit none
     
     integer :: iS, iT, nFile, iPa
     character(len=100) :: NameFile
@@ -706,7 +713,8 @@ contains
     ! on energy window for a Maxwellian particle distribution.
     
     use ModConst,   ONLY: cElectronCharge, cPi
-    implicit none; save
+
+    implicit none
 
     ! Arguments:
     real(kind=Real8_) :: divMaxwellian

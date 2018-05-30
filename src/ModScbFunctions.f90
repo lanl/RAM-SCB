@@ -6,7 +6,8 @@
 MODULE ModScbFunctions
   ! Contains various functions and subroutines for performing calculations in SCB
   
-  implicit none; save; save
+
+  implicit none
   
   contains
 !==============================================================================
@@ -16,6 +17,7 @@ MODULE ModScbFunctions
     REAL(DP), INTENT(IN)     :: x1, x2, x3
     REAL(DP), INTENT(OUT)    :: x4
     REAL(DP)                 :: ddx1, ddx2, ddx, pm
+    x4 = 0.0; ddx = 0.0; ddx2 = 0.0; ddx = 0.0; pm = 0.0
   
     x4 = 3. * x3 - 3. * x2 + x1
     ddx1 = x3 - x2

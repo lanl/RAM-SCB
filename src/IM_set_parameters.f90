@@ -24,7 +24,8 @@ subroutine IM_set_parameters
   use ModIOUnit, ONLY: UNITTMP_
   use ModTimeConvert, ONLY: time_real_to_int, time_int_to_real
 
-  implicit none; save
+
+  implicit none
 
   integer :: nrIn, ntIn, neIn, npaIn
   logical :: TempLogical

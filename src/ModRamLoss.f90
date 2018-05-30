@@ -7,7 +7,8 @@ MODULE ModRamLoss
 ! Contains subroutines for calculating particle loss and loss rates
 ! currently contains charge exchange and atmospheric loss
 
-  implicit none; save
+
+  implicit none
 
   contains
 
@@ -22,7 +23,8 @@ MODULE ModRamLoss
     use ModRamTiming,    ONLY: DTs
     use ModRamVariables, ONLY: EKEV, V, RLZ, HDNS, CHARGE, ATLOS
 
-    implicit none; save
+
+    implicit none
 
     integer, intent(in) :: S
     integer :: l, k, i, j
@@ -97,7 +99,8 @@ MODULE ModRamLoss
     use ModRamGrids,     ONLY: NE, NT, NR, NPA
     use ModRamVariables, ONLY: F2, CHARGE
 
-    implicit none; save
+
+    implicit none
 
     integer, intent(in) :: S
     integer :: i, j, k, l
@@ -125,7 +128,8 @@ MODULE ModRamLoss
     use ModRamGrids,     ONLY: NE, NT, NR, NPA
     use ModRamVariables, ONLY: F2, FNHS, UPA, ATLOS
 
-    implicit none; save
+
+    implicit none
 
     integer, intent(in) :: S
     integer :: i, j, k, l, u

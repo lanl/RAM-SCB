@@ -7,7 +7,8 @@
     subroutine plane(yearIn, dayIn, secIn, Kp, ap, R, f10p7, dt, n, wpot)
 
         use ModPlane
-        implicit none; save
+
+        implicit none
 
         integer, intent(in) :: yearIn, dayIn
         real(kind=Real8_), intent(in) :: ap, R
@@ -83,7 +84,8 @@
 
     subroutine advLtime(time, dt, n)
         use ModPlane, ONLY: L, tau0, n0, uL, NL, NLT, Real8_
-        implicit none; save
+
+        implicit none
 
         real, intent(in) :: time, dt
         real(kind=Real8_), intent(inout) :: n(NL,0:*)
@@ -121,7 +123,8 @@
 
     subroutine advTtime(time, dt)
         use ModPlane, ONLY: mlt, nsw, ut, NL, NLT
-        implicit none; save
+
+        implicit none
 
         real, intent(in) :: time, dt
         integer i
@@ -142,7 +145,8 @@
 !
     subroutine initContent(R)
         use ModPlane, ONLY: L, n0, NL, PI, day
-        implicit none; save
+
+        implicit none
 
         real, intent(in) :: R
 
@@ -178,7 +182,8 @@
 !
     subroutine volume()
         use ModPlane, ONLY: L, vol, NL, RE_km
-        implicit none; save
+
+        implicit none
 
         real a, x
         integer i
@@ -202,7 +207,8 @@
         use ModRamPl_Ne, ONLY: UseSCB_nondipole, useFixedTau, Real8_
         use ModPlane, ONLY: mlt, L, vol, n0, tau0, NL, NLT, RE_cm, day, sec
         use ModIoUnit,      ONLY: UnitTmp_
-        implicit none; save
+
+        implicit none
 
         real, intent(in) :: R, ap, f10p7, mLong, mLat, Kp
         real :: ns(NL,0:NLT)
@@ -291,7 +297,8 @@
 !
     subroutine initGrid()
         use ModPlane, ONLY: L, mlt, NL, NLT, DL, DLT
-        implicit none; save
+
+        implicit none
 
         integer i
         save
@@ -318,7 +325,8 @@
     subroutine fluxInf(gLat,gLong,mLat,mLong,f10p7,ap_,Rs,flux)
       use ModPlane, ONLY: RE_cm, RE_km, KB, year, day, month, sec
       use ModRamPl_Ne, ONLY: UseNRL_MSISE, UseIRI_2012
-      implicit none; save
+
+      implicit none
 
       real, intent(inout) :: flux
       real, intent(in) :: gLat, gLong, mLat, mLong, f10p7, ap_, Rs
@@ -473,7 +481,8 @@
 !  Rsun()  --  calculate sunspot number Rs from F_10.7
 !
     real function Rsun(f10p7)
-      implicit none; save
+
+      implicit none
 
       real, intent(in) :: f10p7
       real :: a, b
@@ -490,7 +499,8 @@
 !  flux10p7()  --  calculate F_10.7 from sunspot number Rs
 !
     real function flux10p7(Rs)
-      implicit none; save
+
+      implicit none
 
       real, intent(in) :: Rs
       real :: a, b
@@ -508,7 +518,8 @@
     real function Bfield(L,mlto)
       use ModRamPl_Ne, ONLY: UseSCB_nondipole, hI_file_name, Nd, NLsh, Nmlt, Npa
       use ModIoUnit,      ONLY: UnitTmp_
-      implicit none; save
+
+      implicit none
       real, intent(in) :: L,mlto
 
       integer :: i,j,k,iL1,iL2,iT1,iT2
@@ -590,7 +601,8 @@
       use ModRamPl_Ne, ONLY: UseSCB_nondipole, hI_file_name, Nd, NLsh, Nmlt, Npa
       use ModPlane, ONLY: vol,L
       use ModIoUnit,      ONLY: UnitTmp_
-      implicit none; save
+
+      implicit none
       real, intent(in) :: Lo,mlto
 
       integer :: i,j,k,iL1,iL2,iT1,iT2
@@ -695,7 +707,8 @@
 ! FROM GEOGRAFIC LONGITUDE (LONG) AND LATITUDE (LATI) FOR ART=0
 ! AND REVERSE FOR ART=1. ALL ANGLES IN DEGREE.
 ! LATITUDE:-90 TO 90. LONGITUDE:0 TO 360 EAST.
-      implicit none; save
+
+      implicit none
 
       INTEGER, intent(in) :: ART
       REAL, intent(inout) :: MLONG,MLAT,LONG,LATI
@@ -749,7 +762,8 @@
 !
     subroutine nTOnsw(n)
         use ModPlane, ONLY: nsw, NL, NLT, Real8_
-        implicit none; save
+
+        implicit none
 
         real(kind=Real8_), intent(in) :: n(NL,0:*)
         integer i, j
@@ -769,7 +783,8 @@
 !
     subroutine nswTOn(n)
         use ModPlane, ONLY: nsw, NL, NLT, Real8_
-        implicit none; save
+
+        implicit none
 
         real(kind=Real8_), intent(inout) :: n(NL,0:*)
         integer i, j
@@ -789,7 +804,8 @@
 !
     subroutine velocity(Kp, wpot)
         use ModPlane, ONLY: L, mlt, uL, ut, NR, NT, NL, NLT, DTR, PI, RE, Real8_
-        implicit none; save
+
+        implicit none
 
         real, intent(in) :: KP
         real(kind=Real8_), intent(in) :: wpot(NR+1,NT)
@@ -866,7 +882,8 @@
 !
     SUBROUTINE CARPENTER(NE,KPMAX,DAY,R)
       use ModPlane, ONLY: NL, NLT, Real8_
-      implicit none; save
+
+      implicit none
       
         real, intent(in) :: KPMAX, R
         real(kind=Real8_), intent(inout) :: NE(NL,0:NLT)
@@ -928,7 +945,8 @@
 ! segment 
     FUNCTION SPS(L,DAY,R)
       use ModPlane, ONLY: PI
-      implicit none; save
+
+      implicit none
 
         real, intent(in) :: L, R
         integer, intent(in) :: DAY
@@ -945,7 +963,8 @@
 !
 ! Function PS calculate the electron density at the plasmapause segment
     FUNCTION PS(L,LPPI,X,DAY,R)
-       implicit none; save
+
+       implicit none
 
         real, intent(in) :: L, LPPI, X, R
         INTEGER DAY
@@ -959,7 +978,8 @@
 !
 ! Function FUNC is used to locate Lppo
     FUNCTION FUNC(L)
-       implicit none; save
+
+       implicit none
 
         real, intent(in) :: L
 
@@ -977,7 +997,8 @@
 !
 !    JMAX...max iterations
 !
-      implicit none; save
+
+      implicit none
 
       real, external :: FUNC
       real, intent(in) :: X1, X2, XACC
@@ -1037,7 +1058,8 @@
 !
     SUBROUTINE ELINTP(XX, YY, N, X, Y, IER)
 !
-      implicit none; save
+
+      implicit none
 
       real, intent(in) :: XX(N), YY(N), X
       real, intent(inout) :: Y
@@ -1089,7 +1111,8 @@
 !
       use ModPlane, ONLY: Real8_
 
-      implicit none; save
+
+      implicit none
 
       real, intent(in) :: X1, X2, Y, X1A(M),X2A(N)
       real(kind=Real8_), intent(in) :: YA(M,N)

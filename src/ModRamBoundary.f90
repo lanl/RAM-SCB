@@ -8,7 +8,8 @@ MODULE ModRamBoundary
 
   use ModRamVariables, ONLY: FGEOS
 
-  implicit none; save
+
+  implicit none
 
   contains
 
@@ -20,7 +21,8 @@ subroutine get_boundary_flux
   use ModRamTiming, ONLY: TimeRamElapsed
   use ModRamParams, ONLY: BoundaryFiles
 
-  implicit none; save
+
+  implicit none
  
   integer :: iS
 
@@ -51,7 +53,8 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   use ModRamGSL, ONLY: GSL_Interpolation_1D
   use ModRamIO,  ONLY: read_geomlt_file
 
-  implicit none; save
+
+  implicit none
 
   integer :: GSLerr
   character(len=4), intent(in) :: NameParticleIn
@@ -112,6 +115,7 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   if (eGrid_SI(iSpec,NEL_).lt.EkeV(nE)) rE = 1
   pE = rE + lE
   allocate(flux_II(0:NTL,NEL_+pE), logFlux_II(nT,NEL_+pE), logELan(NEL_+pE), logERam(nE))
+  flux_II = 0.0; logFlux_II = 0.0; logELan = 0.0; logERam = 0.0
 
   ! Get closest times and interpolate
   iTime1 = 0
@@ -241,7 +245,8 @@ end subroutine get_geomlt_flux
     use ModIoUnit, ONLY: UNITTMP_
     USE ModConst,  ONLY: cProtonMass
 
-    implicit none; save
+
+    implicit none
 
     integer             :: ij, ik, j, jw, k, l, nLines,u
     real(kind=Real8_)   :: bexp, ahe0, ahe1, gexp, doy, azir, &
@@ -251,6 +256,7 @@ end subroutine get_geomlt_flux
     real(kind=Real8_), ALLOCATABLE :: RELAN(:,:),FLAN(:,:),FluxLanl(:,:)
 
     ALLOCATE(RELAN(NTL,NEL),FLAN(NT,NEL),FluxLanl(nT,nE))
+    RELAN = 0.0; FLAN = 0.0; FluxLanl = 0.0
     T = TimeRamElapsed
 
     ! Create Young et al. composition ratios.

@@ -4,7 +4,8 @@ module ModRamFunctions
 !    All rights reserved.
 !=============================================================================
 
-  implicit none; save
+
+  implicit none
   
   contains
 !==============================================================================
@@ -16,7 +17,8 @@ module ModRamFunctions
 
     use ModTimeConvert
 
-    implicit none; save
+
+    implicit none
 
     character(len=200)           :: RamFileName
     type(TimeType),   intent(in) :: TimeIn
@@ -42,7 +44,8 @@ module ModRamFunctions
     use ModRamGrids, ONLY: NR, NE, NT, NPA
     use ModRamVariables, ONLY: f2, rfactor, upa, we, wmu, ekev
 
-    implicit none; save
+
+    implicit none
 
     real(kind=Real8_), intent(out) :: dstOut
 
@@ -71,7 +74,8 @@ module ModRamFunctions
 !
 !    use ModRamMain, ONLY: Real8_
 !
-!    implicit none; save
+
+!    implicit none
 !
 !    integer :: ier = 0
 !    real(kind=Real8_)            :: erff
@@ -93,7 +97,8 @@ module ModRamFunctions
 !    
 !    use ModRamMain, ONLY: Real8_
 !
-!    implicit none; save
+
+!    implicit none
 !
 !    real(kind=Real8_) :: gammp
 !    real(kind=Real8_) :: GLN, GAMMCF
@@ -126,7 +131,8 @@ module ModRamFunctions
 !    
 !    use ModRamMain, ONLY: Real8_
 !    use ModRamConst, ONLY: PI 
-!    implicit none; save
+
+!    implicit none
 !
 !    real(kind=Real8_), intent(in) :: x
 !    real(kind=Real8_) :: G1
@@ -144,7 +150,8 @@ module ModRamFunctions
 
     use ModRamMain, ONLY: Real8_
     use ModRamConst, ONLY: PI
-    implicit none; save
+
+    implicit none
     
 
     real(kind=Real8_), intent(in)  :: x
@@ -171,7 +178,8 @@ module ModRamFunctions
 
     use ModRamMain, ONLY: Real8_
     use ModRamConst, ONLY: PI
-    implicit none; save
+
+    implicit none
 
     real(kind=Real8_), intent(in) :: x
     real(kind=Real8_) :: y, alpha, beta, A1, A2, A3, A4
@@ -199,7 +207,8 @@ module ModRamFunctions
     use ModRamMain, ONLY: Real8_
     use ModRamConst, ONLY: PI
 
-    implicit none; save
+
+    implicit none
     real(kind=Real8_), intent(in) :: x, y
     real(kind=Real8_) :: atan2d
 
@@ -214,7 +223,8 @@ module ModRamFunctions
     use ModRamMain, ONLY: Real8_
     use ModRamConst, ONLY: PI
     
-    implicit none; save
+
+    implicit none
     real(kind=Real8_), intent(in) :: x
     real(kind=Real8_) :: acosd
     !-----------------------------------------------------------------------
@@ -228,7 +238,8 @@ module ModRamFunctions
     use ModRamMain, ONLY: Real8_
     use ModRamConst, ONLY: PI
     
-    implicit none; save
+
+    implicit none
     real(kind=Real8_), intent(in) :: x
     real(kind=Real8_):: asind
     !-----------------------------------------------------------------------
@@ -242,7 +253,8 @@ module ModRamFunctions
     use ModRamMain, ONLY: Real8_
     use ModRamConst, ONLY: PI
 
-    implicit none; save
+
+    implicit none
     real(kind=Real8_), intent(in) :: x
     real(kind=Real8_) :: cosd
     !-----------------------------------------------------------------------
@@ -256,7 +268,8 @@ module ModRamFunctions
     use ModRamMain, ONLY: Real8_
     use ModRamConst, ONLY: PI
 
-    implicit none; save
+
+    implicit none
     real(kind=Real8_), intent(in) :: x
     real(kind=Real8_) :: sind
     !-----------------------------------------------------------------------
@@ -268,7 +281,8 @@ module ModRamFunctions
   subroutine get_dipole_trace(xIn, nPoints, xOut, yOut, zOut)
     ! Create nPoints cartesian points along dipole from xIn to Earth's surface.
     use ModRamMain, ONLY: Real8_
-    implicit none; save
+
+    implicit none
     
     ! Argument declarations
     real(kind=Real8_), intent(in) :: xIn(3)
@@ -313,7 +327,8 @@ module ModRamFunctions
     use ModRamParams,    ONLY: DoAnisoPressureGMCoupling
     use ModRamGrids,     ONLY: NR, NT
     
-    implicit none; save
+
+    implicit none
     
     real(kind=Real8_), parameter :: onethird=1.0/3.0, twothird=2.0/3.0
     integer :: i, j
@@ -341,7 +356,8 @@ module ModRamFunctions
     ! to our location, X,Y, and Z.
     ! The return value, NewtFit, is the value of U interpolated to xi,yi,zi.
     use ModRamMain, ONLY: Real8_
-    implicit none; save
+
+    implicit none
     ! Output value:
     real(kind=Real8_) :: NewtfitLarge
     ! Input Values:
@@ -398,7 +414,8 @@ module ModRamFunctions
     ! fourth nearest neighbor, etc.
 
     use ModRamMain, ONLY: Real8_
-    implicit none; save
+
+    implicit none
 
     ! Output value:
     real(kind=Real8_) :: Newtfit
@@ -451,7 +468,8 @@ module ModRamFunctions
     
     use ModRamMain, ONLY: Real8_
     
-    implicit none; save
+
+    implicit none
     
     ! Arguments and return value:
     integer, intent(in) :: n

@@ -5,7 +5,8 @@
 
 Module ModRamGrids
 
-  implicit none; save
+
+  implicit none
   save
   
   !!! RAM Grids

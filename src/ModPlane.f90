@@ -8,7 +8,8 @@ module ModPlane
 
   use ModRamPl_Ne, ONLY: NL, NLT, NR, PI, RE, RE_cm, RE_km, KB, NT, Real8_, Real4_
 
-  implicit none; save
+
+  implicit none
   save
 
   !\

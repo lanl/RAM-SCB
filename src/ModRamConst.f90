@@ -8,7 +8,8 @@ MODULE ModRamConst
   use ModRamMain,  ONLY: Real8_
   use ModNumConst, ONLY: cPi
 
-  implicit none; save
+
+  implicit none
   save
 
   real(kind=Real8_) :: ME    = 7.9E15,    &   ! Magnetic moment of the earth [T*m3]

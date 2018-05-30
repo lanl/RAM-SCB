@@ -52,7 +52,8 @@ use ModIOUnit,       ONLY: UNITTMP_
 use ModMpi
 use ModRamMpi
 
-implicit none; save
+
+implicit none
 
 integer :: i,j,k
 logical :: triggerSCB
@@ -235,7 +236,8 @@ end program ram_scb
 
     use ModRamParams, ONLY: IsComponent
 
-    implicit none; save
+
+    implicit none
 
     character(len=7) :: StringPrefix = 'IM:'
 
@@ -255,7 +257,8 @@ subroutine CON_stop(String)
 
   use ModIOUnit,       ONLY: UNITTMP_
 
-  implicit none; save
+
+  implicit none
 
   character(len=*), intent(in) :: String
   character(len=200) :: FileName
@@ -290,7 +293,8 @@ subroutine CON_set_do_test(String,DoTest,DoTestMe)
   
   use ModRamParams, ONLY: StringTest
 
-  implicit none; save
+
+  implicit none
   character (len=*), intent(in)  :: String
   logical          , intent(out) :: DoTest, DoTestMe
 
@@ -307,7 +311,8 @@ contains
     !
     ! directly.
 
-    implicit none; save
+
+    implicit none
 
     character (len=*), intent(in) :: StringA, StringB
 

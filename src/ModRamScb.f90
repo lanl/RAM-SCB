@@ -8,7 +8,8 @@ Module ModRamScb
 
   use nrtype, ONLY: DP
 
-  implicit none; save; save
+
+  implicit none
 
   INTEGER, allocatable :: INDEXPA(:,:,:,:) ! Index that maps the pitch angle on each point of a field line to the equatorial (RAM) one
   REAL(DP), allocatable :: flux3DEQ(:,:,:,:,:)
@@ -21,17 +22,21 @@ subroutine ramscb_allocate
   use ModRamGrids, ONLY: NS, NE, NPA
   use ModScbGrids, ONLY: nthe, npsi, nzeta, nXRaw
 
-  implicit none; save; save
+
+  implicit none
 
   ALLOCATE(INDEXPA(nthe,npsi,nzeta,NPA), Flux3DEq(NS,npsi,nzeta,NE,NPA))
-  
-end subroutine ramscb_allocate
+  INDEXPA = 0.0; Flux3DEq = 0.0
 
+  return
+
+end subroutine ramscb_allocate
 
 !==============================================================================
 subroutine ramscb_deallocate
 
-  implicit none; save; save
+
+  implicit none
 
   DEALLOCATE(INDEXPA, Flux3DEq)
 
@@ -53,7 +58,8 @@ subroutine Compute3DFlux
 
   use nrtype, ONLY: DP, pi_d, twopi_d
 
-  implicit none; save; save
+
+  implicit none
 
   integer :: i, j, k, L, iS, GSLErr
   real(DP) :: MuEq, radius, angle
@@ -219,7 +225,8 @@ SUBROUTINE computehI(iter)
   use nrtype,    ONLY: DP, pi_d, pio2_d
   USE ModIOUnit, ONLY: UNITTMP_
 
-  IMPLICIT NONE
+
+  implicit none
 
   INTEGER, INTENT(IN) :: iter
   INTEGER :: ii, j, iS, GSLerr
@@ -264,17 +271,29 @@ SUBROUTINE computehI(iter)
   LMAX = 200
 
   ALLOCATE(length(npsi,nzeta+1), r0(npsi,nzeta+1), BeqDip(npsi,nzeta+1))
+  length = 0.0; r0 = 0.0; BEqDip = 0.0
   ALLOCATE(distance(nthe,npsi,nzeta))
+  distance = 0.0
   ALLOCATe(H_value(npsi,nzeta,NPA), I_value(npsi,nzeta,NPA), HDens_value(npsi,nzeta,NPA), &
            yI(npsi,nzeta,NPA), yH(npsi,nzeta,NPA), yD(npsi,nzeta,NPA), bfmirror(npsi,nzeta,NPA))
+  H_value = 0.0; I_value = 0.0; HDens_Value = 0.0; yI = 0.0; yH = 0.0; yD = 0.0
+  bfMirror = 0.0
   ALLOCATE(BeqDip_Cart(nR))
+  BEqDip_Cart = 0.0
   ALLOCATE(ScaleAt(nT))
+  ScaleAt = 0
   ALLOCATE(bfMirror_RAM(nPa), yI_RAM(nPA), yH_RAM(nPA), yD_RAM(nPA))
+  bfMirror_RAM = 0.0; yI_RAM = 0.0; yH_RAM = 0.0; yD_RAM = 0.0
   ALLOCATE(bbx(nthe), bby(nthe), bbz(nthe), bb(nthe), dd(nthe), cVal(nthe), &
            xx(nthe), yy(nthe), zz(nthe))
+  bbx = 0.0; bby = 0.0; bbz = 0.0; bb = 0.0; dd = 0.0; cVal = 0.0
+  xx = 0.0; yy = 0.0; zz = 0.0
   ALLOCATE(BzeqDiff_Cart(nR,nT))
+  BzEqDiff_Cart = 0.0
   ALLOCATE(BNESPrev(nR+1,nT))
+  BNESPrev = 0.0
   ALLOCATE(FNISPrev(nR+1,nT,nPa),BOUNISPrev(nR+1,nT,nPa))
+  FNISPrev = 0.0; BOUNISPrev = 0.0
 
   h_Cart = 0._dp
   I_Cart = 0._dp

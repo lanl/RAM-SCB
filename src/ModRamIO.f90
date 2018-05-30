@@ -11,7 +11,8 @@ module ModRamIO
   use ModRamNCDF,   ONLY: ncdf_check, write_ncdf_globatts
   use ModRamTiming, ONLY: DtLogFile, DtWriteSat
 
-  implicit none; save
+
+  implicit none
 
   logical :: IsFramework = .false. 
 
@@ -38,7 +39,8 @@ contains
 
     use ModTimeConvert
 
-    implicit none; save
+
+    implicit none
 
     character(len=200)           :: RamFileName
     type(TimeType),   intent(in) :: TimeIn
@@ -66,7 +68,8 @@ contains
 
     use ModIoUnit,    ONLY: UNITTMP_
 
-    implicit none; save
+
+    implicit none
 
     character(len=*), parameter :: NameSub = 'init_output'
     !------------------------------------------------------------------------
@@ -117,7 +120,8 @@ contains
     ! Share Modules
     use ModIOUnit, ONLY: UNITTMP_
 
-    implicit none; save
+
+    implicit none
 
     real(kind=Real8_), intent(in) :: TimeIn
 
@@ -204,7 +208,8 @@ subroutine read_geomlt_file(NameParticle)
   use ModIOUnit,      ONLY: UNITTMP_
   use ModTimeConvert, ONLY: TimeType, time_int_to_real
 
-  implicit none; save
+
+  implicit none
 
   character(len=4), intent(in) :: NameParticle
 
@@ -385,7 +390,8 @@ end subroutine read_geomlt_file
      !!!! Share Modules
      use ModIoUnit,       ONLY: UNITTMP_
 
-     implicit none; save
+
+     implicit none
 
      logical :: THERE
      integer :: I, J, K, L
@@ -473,7 +479,8 @@ end subroutine read_geomlt_file
 
     use netcdf
 
-    implicit none; save
+
+    implicit none
 
     integer :: i, j, k, l, iS, iDomain, GSLerr
     integer :: iRDim, iTDim, iEDim, iPaDim, iR, iT, iE, iPa, iError
@@ -627,7 +634,8 @@ end subroutine read_geomlt_file
 
     use ModIOUnit, ONLY: UNITTMP_
 
-    implicit none; save
+
+    implicit none
 
     character(len=23)  :: StringDate
     character(len=300) :: NameFileOut
@@ -673,7 +681,8 @@ end subroutine read_geomlt_file
     use ModRamFunctions
 
     use ModIOUnit, ONLY: UNITTMP_, io_unit_new
-    implicit none; save
+
+    implicit none
 
     integer :: i, j, k, l, jw, iw
     real(kind=Real8_) :: weight, esum, csum, psum, precfl, NSUM
@@ -810,7 +819,8 @@ end subroutine read_geomlt_file
     !!!! Share Modules
     use ModIOUnit, ONLY: UNITTMP_
 
-    implicit none; save
+
+    implicit none
 
     character(len=23)            :: StringTime
     character(len=*), intent(in) :: StringIter
@@ -867,7 +877,8 @@ subroutine ram_write_hI
 
   use ModIOUnit, ONLY: UNITTMP_
 
-  implicit none; save
+
+  implicit none
 
   integer :: i, j, L
   character(len=200) :: filenamehI
@@ -904,7 +915,8 @@ subroutine write_dsbnd
   !!!! Share Modules
   use ModIoUnit,      ONLY: UNITTMP_
 
-  implicit none; save
+
+  implicit none
 
   integer :: K, j
   character(len=2), DIMENSION(4) :: ST2 = (/ '_e','_h','he','_o' /)
@@ -948,7 +960,8 @@ end Subroutine write_dsbnd
     !!!! NetCdf Modules
     use netcdf
 
-    implicit none; save
+
+    implicit none
     
     integer :: stat
     integer :: iFluxEVar, iFluxHVar, iFluxHeVar, iFluxOVar, iPParTVar, &

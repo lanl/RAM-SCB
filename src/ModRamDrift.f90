@@ -11,7 +11,8 @@ MODULE ModRamDrift
   use ModRamGrids,     ONLY: nR, nE, nPA
   use ModRamVariables, ONLY: FracCFL, DtDriftR, DtDriftP, DtDriftE, DtDriftMu
 
-  implicit none; save
+
+  implicit none
 
   integer :: QS
   real(kind=Real8_), ALLOCATABLE :: VR(:), P1(:), P2(:,:), MUDOT(:,:), EDOT(:,:), &
@@ -22,7 +23,8 @@ contains
 !==============================================================================
   SUBROUTINE DRIFTEND
 
-    implicit none; save
+
+    implicit none
     
     DEALLOCATE(VR, P1, P2, EDOT, MUDOT, CDriftR, CDriftP, CDriftE, CDriftMu)
 
@@ -41,16 +43,19 @@ contains
     use ModRamVariables, ONLY: RLZ, MDR, DPHI, EKEV, GREL, WMU, EBND, GRBND, &
                                PHIOFS, MU
 
-    implicit none; save
+
+    implicit none
 
     integer, intent(in) :: S
     real(kind=Real8_) :: MUBOUN!, RA(NS)
     integer :: i, j, k, l
 
     ALLOCATE(VR(nR), P1(nR), P2(nR,nE), EDOT(nR,nE), MUDOT(nR,nPA))
+    VR = 0.0; P1 = 0.0; P2 = 0.0; EDOT = 0.0; MUDOT = 0.0
     ALLOCATE(CDriftR(nR,nT,nE,nPa), CDriftP(nR,nT,nE,nPa), &
              CDriftE(nR,nT,nE,nPa), CDriftMu(nR,nT,nE,nPa))
-    
+    CDriftR = 0.0; CDriftP = 0.0; CDriftE = 0.0; CDriftMu = 0.0
+
     !DATA RA/1.,.77,.2,.03/    ! Proportions of species in the plasmasph
     ! Electric field offset in radians and particle charge
     PHIOFS=0*PI/12.
@@ -96,7 +101,8 @@ contains
     use ModRamParams,    ONLY: BetaLim
     use ModRamVariables, ONLY: F2, BNES, FNIS, FNHS, MDR, EKEV, GREL, DPHI, &
                                RLZ, CONF1, CONF2, FGEOS, VT, EIP
-    implicit none; save
+
+    implicit none
 
     integer, intent(in) :: S
     integer :: UR, i, j, j0, j1, k, l, n
@@ -106,6 +112,7 @@ contains
     real(kind=Real8_), ALLOCATABLE :: F(:),FBND(:), CR(:,:)
 
     ALLOCATE(sgn(nR,nT),CR(nR,nT),F(NR+2),FBND(nR))
+    sgn = 1; CR = 0.0; F = 0.0; FBND = 0.0
 
     DTDriftR(S) = 100000.0
     DO I=1,NR
@@ -202,7 +209,8 @@ contains
     use ModRamTiming,    ONLY: DtsNext, Dts, DtsMin
     use ModRamVariables, ONLY: F2, FNIS, FNHS, BNES, VT, EIR, RLZ, MDR, DPHI
 
-    implicit none; save
+
+    implicit none
 
     integer, intent(in) :: S
     integer :: i, sgn, j, j1, k, l, n
@@ -211,6 +219,7 @@ contains
     real(kind=Real8_), ALLOCATABLE :: FBND(:),F(:)
     
     ALLOCATE(FBND(nT),F(nT))
+    FBND = 0.0; F = 0.0
 
     DtDriftP(S) = 100000.0
     OME=7.3E-5 ! Earth's angular velocity [rad/s]
@@ -291,7 +300,8 @@ contains
     use ModRamVariables, ONLY: F2, BNES, FNIS, FNHS, dBdt, dIdt, EKEV, WE, RMAS, &
                                DPHI, RLZ, MDR, EBND, GREL, GRBND, DE, VT, EIR, EIP
 
-    implicit none; save
+
+    implicit none
 
     integer, intent(in) :: S
     integer :: i, sgn, j, j0, j2, k, l, n
@@ -301,6 +311,7 @@ contains
     real(kind=Real8_), ALLOCATABLE :: FBND(:),F(:),GRZERO(:)
     
     ALLOCATE(GRZERO(nS),FBND(nE),F(0:nE+2))
+    GRZERO = 0.0; FBND = 0.0; F = 0.0
 
     DtDriftE(S)=10000.0
     QS=1.
@@ -391,7 +402,8 @@ contains
                                RLZ, DPHI, MDR, GREL, EKEV, DMU, WMU, MU, &
                                VT, EIP, EIR
 
-    implicit none; save
+
+    implicit none
 
     integer, intent(in) :: S
     integer :: i, j, j0, j1, k, l, n
@@ -402,6 +414,7 @@ contains
     integer :: ISGM
 
     ALLOCATE(FBND(nPa),F(nPa))
+    FBND = 0.0; F = 0.0
 
     DtDriftMu(S) = 10000.0
     QS=1.
@@ -494,7 +507,8 @@ contains
 !                               RLZ, EKEV, WE, RMAS, DPHI, MDR, DE, dIdt, dBdt, &
 !                               dIbndt, P1, P2, GREL, CONF1, CONF2, FGEOS, F2,  &
 !                               DE, DMU, WMU, MU, GRBND, EBND
-!    implicit none; save
+
+!    implicit none
 !
 !    integer, intent(in) :: order
 !    integer :: Io, Im, Ip, Jo, Jm, Jp, K, L, sgn, N

@@ -8,7 +8,7 @@ MODULE ModRamEField
 
   use ModRamVariables, ONLY: VT, VTOL, VTN, TOLV, EIR, EIP
 
-  implicit none; save; save
+  implicit none
 
   contains
 
@@ -25,7 +25,8 @@ subroutine get_electric_field
 
   use ModTimeConvert, ONLY: TimeType, time_real_to_int
 
-  implicit none; save; save
+
+  implicit none
 
   real(kind=Real8_) :: AVS
   integer :: I, J
@@ -88,7 +89,8 @@ subroutine ram_gen_efilename(TimeIn,NameOut)
 
   use ModTimeConvert, ONLY: TimeType
 
-  implicit none; save; save
+
+  implicit none
 
   ! Args and return value.
   type(TimeType), intent(in) :: TimeIn
@@ -150,7 +152,8 @@ subroutine ram_get_electric(NextEfile, EOut_II)
 
   use nrtype, ONLY: DP,pi_d
 
-  implicit none; save; save
+
+  implicit none
 
   integer :: GSLerr
   ! Arguments
@@ -172,10 +175,10 @@ subroutine ram_get_electric(NextEfile, EOut_II)
 
   ! Initialize efield to zero.
   ! NOTE THAT ON RESTART, WE MUST CHANGE THIS.
-  if (.not.IsRestart) THEN
+  !if (.not.IsRestart) THEN
      EOut_II  = 0.0
      Epot_Cart = 0.0
-  endif
+  !endif
 
   IF ((electric.EQ.'WESC').or.(electric.eq.'IESC').or.(electric.eq.'W5SC')) THEN
      DO j = 0,nR
@@ -307,7 +310,8 @@ SUBROUTINE ionospheric_potential
   !!!! NR Modules
   use nrtype, ONLY: DP
 
-  IMPLICIT NONE
+
+  implicit none
 
   integer :: doy, GSLerr
   INTEGER :: i, ierralloc, j, j1, k1, k, ierr, ierrDom, idealerr
@@ -360,8 +364,10 @@ SUBROUTINE ionospheric_potential
         ! Initialize arrays and fill with correct values.
         ! IM_wrapper ensures that, despite the IE grid, we always
         ! have values from and including 10 to 80 degrees colat.
-        if(.not. allocated(PhiIonoRaw)) &
-             allocate(PhiIonoRaw(nIeTheta, nIePhi))
+        if (.not. allocated(PhiIonoRaw)) then
+           allocate(PhiIonoRaw(nIeTheta, nIePhi))
+           PhiIonoRaw = 0.0
+        endif
         if(.not. allocated(colat) .and. .not. allocated(lon)) then
            allocate(colat(nIeTheta), lon(nIePhi))
            colat = 0.0

@@ -8,7 +8,8 @@ MODULE ModRamInit
 
   use ModRamVariables
 
-  implicit none; save
+
+  implicit none
 
   contains
 !==============================================================================
@@ -17,7 +18,8 @@ subroutine ram_allocate
   use ModRamGrids,     ONLY: RadiusMax, RadiusMin, nR, nRExtend, nT, nE, nPa, &
                              Slen, ENG, NCF, NL, nS, nX
 
-  implicit none; save
+
+  implicit none
 
   nRExtend = NR + 3
   nX = NPA
@@ -30,33 +32,51 @@ subroutine ram_allocate
            PParT(NS,NR,NT), FNHS(NR+1,NT,NPA), FNIS(NR+1,NT,NPA), BOUNHS(NR+1,NT,NPA), &
            BOUNIS(NR+1,NT,NPA), dIdt(NR+1,NT,NPA), dBdt(NR+1,NT), dIbndt(NR+1,NT,NPA), &
            HDNS(NR+1,NT,NPA), BNES(NR+1,NT))
+  F2 = 0.0; FLUX = 0.0; PPerH = 0.0; PParH = 0.0; PPerE = 0.0; PParE = 0.0; PPerO = 0.0
+  PParO = 0.0; PPerHe = 0.0; PParHe = 0.0; PAllSum = 0.0; PParSum = 0.0; PPerT = 0.0
+  PParT = 0.0; FNHS = 0.0; FNIS = 0.0; BOUNHS = 0.0; BOUNIS = 0.0; dIdt = 0.0
+  dBdt = 0.0; dIbndt = 0.0; HDNS = 0.0; BNES = 0.0
 ! ModRamInit Variables
   ALLOCATE(RMAS(NS), V(NS,NE), VBND(NS,NE), GREL(NS,NE), GRBND(NS,NE), FACGR(NS,NE), &
            EPP(NS,NE), ERNH(NS,NE), UPA(NR), WE(NE), DE(NE), EKEV(NE), EBND(NE), &
            PHI(NT), LT(NT), MLT(NT), MU(NPA), DMU(NPA), WMU(NPA), PAbn(NPA), LZ(NR+1), &
            RLZ(NR+1), AMLA(Slen), BE(NR+1,Slen), GridExtend(NRExtend), ZRPabn(NR,NPA,Slen), &
            FFACTOR(NS,NR,NE,NPA), PA(NPA))
+  RMAS = 0.0; V = 0.0; VBND = 0.0; GREL = 0.0; GRBND = 0.0; FACGR = 0.0; EPP = 0.0
+  ERNH = 0.0; UPA = 0.0; WE = 0.0; DE = 0.0; EKEV = 0.0; EBND = 0.0; PHI = 0.0
+  LT = 0.0; MLT = 0.0; MU = 0.0; DMU = 0.0; WMU = 0.0; PAbn = 0.0; LZ = 0.0; PA = 0.0
+  RLZ = 0.0; AMLA = 0.0; BE = 0.0; GridExtend = 0.0; ZrPabn = 0.0; FFACTOR = 0.0
 ! ModRamWPI Variables
   ALLOCATE(WALOS1(NR,NE), WALOS2(NR,NE), WALOS3(NR,NE), fpofc(NCF), NDVVJ(NR,ENG,NPA,NCF), &
            NDAAJ(NR,ENG,NPA,NCF), ENOR(ENG), ECHOR(ENG), BDAAR(NR,NT,ENG,NPA), &
            CDAAR(NR,NT,NE,NPA))
+  WALOS1 = 0.0; WALOS2 = 0.0; WALOS3 = 0.0; fpofc = 0.0; NDVVJ = 0.0; NDAAJ = 0.0
+  ENOR = 0.0; ECHOR = 0.0; BDAAR = 0.0; CDAAR = 0.0
 ! ModRamLoss Variables
   ALLOCATE(ATLOS(nS,NR,NE), CHARGE(nS,NR,NT,NE,NPA))
+  ATLOS = 0.0; CHARGE = 0.0
 ! ModRamEField Variables
   ALLOCATE(VT(NR+1,NT), EIR(NR+1,NT), EIP(NR+1,NT), VTOL(NR+1,NT), VTN(NR+1,NT))
+  VT = 0.0; EIR = 0.0; EIP = 0.0; VTOL = 0.0; VTN = 0.0
 ! ModRamBoundary Variables
   ALLOCATE(FGEOS(NS,NT,NE,NPA))
+  FGEOS = 0.0
 ! ModRamDrift Variables
 !  ALLOCATE(P1(NR), VR(NR), P2(NR,NE), EDOT(NR,NE), MUDOT(NR,NPA), CDriftR(NR,NT,NE,NPA), &
 !           sgnDriftR(NR,NT,NE,NPA), CDriftP(NR,NT,NE,NPA), CDriftE(NR,NT,NE,NPA), &
 !           CDriftMu(NR,NT,NE,NPA))
   ALLOCATE(DtDriftR(nS), DtDriftP(nS), DtDriftE(nS), DtDriftMu(nS))
+  DtDriftR = 0.0; DtDriftP = 0.0; DtDriftE = 0.0; DtDriftMu = 0.0
 ! ModRamRun Variables
   ALLOCATE(SETRC(NS), ELORC(NS), LSDR(NS), LSCHA(NS), LSATM(NS), LSCOE(NS), &
            LSCSC(NS), LSWAE(NS), XNN(NS,NR), XND(NS,NR), LNCN(NS,NR), LNCD(NS,NR), &
            LECN(NS,NR), LECD(NS,NR), ENERN(NS,NR), ENERD(NS,NR), ATEW(NR,NT,NE,NPA), &
            ATAW(NR,NT,NE,NPA), ATAC(NR,NT,NE,NPA), ATEC(NR,NT,NE,NPA), XNE(NR,NT), &
            ATMC(NR,NT,NE,NPA), ATAW_emic(NR,NT,NE,NPA), NECR(NL,0:48))
+  SETRC = 0.0; ELORC = 0.0; LSDR = 0.0; LSCHA = 0.0; LSATM = 0.0; LSCOE = 0.0
+  LSCSC = 0.0; LSWAE = 0.0; XNN = 0.0; XND = 0.0; LNCN = 0.0; LNCD = 0.0
+  LECN = 0.0; LECD = 0.0; ENERN = 0.0; ENERD = 0.0; ATEW = 0.0; ATAW = 0.0
+  ATAC = 0.0; ATEC = 0.0; XNE = 0.0; ATMC = 0.0; ATAW_emic = 0.0; NECR = 0.0
 !!!!!!!!!
 
 end subroutine ram_allocate
@@ -64,7 +84,8 @@ end subroutine ram_allocate
 !==============================================================================
 subroutine ram_deallocate
 
-  implicit none; save
+
+  implicit none
 
 !!!!!!!! Deallocate Arrays
 ! Main RAM Variables
@@ -113,7 +134,8 @@ SUBROUTINE ram_init
   use ModTimeConvert, ONLY: TimeType, time_real_to_int
   use ModNumConst,    ONLY: cTwoPi
 
-  implicit none; save
+
+  implicit none
 
   character(len=8)   :: StringSysDate
   character(len=10)  :: StringSysTime
@@ -224,7 +246,8 @@ END SUBROUTINE ram_init
     !!!! Module Subroutines/Functions
     use ModRamFunctions, ONLY: ACOSD, ASIND, COSD, SIND
 
-    implicit none; save
+
+    implicit none
 
     real(kind=Real8_) :: degrad, camlra, elb, rw, rwu
     real(kind=Real8_) :: clc, spa, MUBOUN
@@ -235,6 +258,7 @@ END SUBROUTINE ram_init
     character(len=80) TITLE
 
     ALLOCATE(CONE(NR+4),RLAMBDA(NPA))
+    CONE = 0; RLAMBDA = 0
 
     ! Grid size of L shell
     DL1 = (RadiusMax - RadiusMin)/(nR - 1)
@@ -445,14 +469,15 @@ SUBROUTINE init_input
   use ModScbRun,       ONLY: scb_run, pressure
   use ModScbEuler,     ONLY: psiges, alfges
   use ModScbIO,        ONLY: computational_domain
-  use ModScbCompute,   ONLY: computeBandJacob_Initial, compute_convergence
+  use ModScbCompute,   ONLY: computeBandJacob, compute_convergence
   !!!! Share Modules
   use ModIOUnit,      ONLY: UNITTMP_
   use ModTimeConvert, ONLY: TimeType
   !!!!
   use nrtype, ONLY: twopi_d
 
-  implicit none; save
+
+  implicit none
 
   integer :: iS, i, j, k, l, ik, N, methodTemp
   integer :: iR, iT, iE, iPA
@@ -488,8 +513,7 @@ SUBROUTINE init_input
         call computehI(0)
         call compute3DFlux
      else
-        methodTemp = method
-        call ComputeBandJacob_Initial
+        call ComputeBandJacob
         call compute3DFlux
      endif
 

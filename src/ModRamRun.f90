@@ -8,13 +8,8 @@ MODULE ModRamRun
 ! Calls subroutines from ModRamDrift, ModRamWPI, and ModRamLoss
 ! Calculates new F2 and parallel/perpendicular pressures
 
-  use ModRamVariables, ONLY: SETRC, ELORC, LSDR, LSCHA, LSATM, LSCOE, LSCSC, &
-                             LSWAE, XNN, XND, LNCN, LNCD, LECN, LECD, ENERN, &
-                             ENERD, ATEW, ATAW, ATAC, ATEC, ATMC, ATAW_EMIC, &
-                             NECR, PParH, PPerH, PParO, PPerO, PParE, PPerE, &
-                             PParHe, PPerHe, PParT, PPerT, F2
 
-  implicit none; save
+  implicit none
 
   contains
 
@@ -32,7 +27,9 @@ MODULE ModRamRun
     use ModRamVariables, ONLY: Kp, VT, VTOL, VTN, TOLV, LZ, PHI, PHIOFS, MU, &
                                WMU, FFACTOR, FLUX, FNHS, DtDriftR, DtDriftP, &
                                DtDriftE, DtDriftMu, NECR, F107, RZ, IG, rsn, &
-                               IAPO
+                               IAPO, LSDR, ELORC, LSCHA, LSWAE, LSATM, PPerT, &
+                               PParT, PPerO, PParO, PPerH, PParH, PPerE, PParE, &
+                               PPerHe, PParHe, F2
     !!!! Module Subroutines/Functions
     use ModRamDrift, ONLY: DRIFTPARA, DRIFTR, DRIFTP, DRIFTE, DRIFTMU, DRIFTEND, &
                            CDriftR, CDriftP, CDriftE, CDriftMu
@@ -41,9 +38,10 @@ MODULE ModRamRun
     !!!! Share Modules
     use ModTimeConvert, ONLY: TimeType
 
-    implicit none; save
 
-    real(kind=Real8_)  :: AVS, VT_kV(NR+1,NT), lambda
+    implicit none
+
+    real(kind=Real8_)  :: AVS, lambda
     integer :: i, j, k, l, jw ! Iterators
     integer :: IS ! Species to advect.
     integer :: DAY, nmonth
@@ -63,12 +61,11 @@ MODULE ModRamRun
 
     ! Added capability to couple to plasmaspheric density model
     IF (DoUsePlane_SCB) THEN
-       VT_kV = VT/1e3 ! potential in kV for call to plane
        ! Need total number of days from TimeRamNow
        DAY = TimeRamNow%iMonth*30 + TimeRamNow%iDay
        CALL APFMSIS(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay,TimeRamNow%iHour,IAPO)
        CALL TCON(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay,DAY,RZ,IG,rsn,nmonth)
-       CALL PLANE(TimeRamNow%iYear,DAY,T,KP,IAPO(2),RZ(3),F107,2.*DTs,NECR,VT_kV)
+       CALL PLANE(TimeRamNow%iYear,DAY,T,KP,IAPO(2),RZ(3),F107,2.*DTs,NECR,VT/1e3)
     END IF
 
     do iS=1,4
@@ -173,15 +170,15 @@ MODULE ModRamRun
     !!!! Module Variables
     use ModRamMain,      ONLY: Real8_
     use ModRamGrids,     ONLY: NR, NE, NPA, NT
-    use ModRamVariables, ONLY: EKEV, WE, WMU, F2
+    use ModRamVariables, ONLY: EKEV, WE, WMU, F2, SETRC, ELORC
 
-    implicit none; save
-    save
+
+    implicit none
 
     integer, intent(in) :: S
-    integer :: i, j, k, l
-    real(kind=Real8_):: enold
-    real(kind=Real8_):: WEIGHT
+    integer, SAVE:: i, j, k, l
+    real(kind=Real8_), SAVE :: enold
+    real(kind=Real8_), SAVE :: WEIGHT
     !$OMP THREADPRIVATE(ENOLD, WEIGHT, I, J, K, L)
 
     ELORC(S)=0.
@@ -216,12 +213,13 @@ MODULE ModRamRun
     use ModRamVariables, ONLY: IP1, UPA, WMU, FFACTOR, MU, EKEV, LZ, PHI, MLT,  &
                                PAbn, RMAS, GREL, IR1, EPP, ERNH, CDAAR, BDAAR,  &
                                ENOR, NDAAJ, fpofc, Kp, BOUNHS, FNHS, BNES, XNE, &
-                               NECR
+                               NECR, PPerT, PParT, F2, ATAW, ATAW_emic, ATAC
     ! Module Subroutines/Functions
     use ModRamGSL,       ONLY: GSL_Interpolation_1D, GSL_Interpolation_2D
     use ModRamFunctions, ONLY: ACOSD
 
-    implicit none; save
+
+    implicit none
 
     integer, intent(in) :: S
     integer :: i, iwa, j, k, klo, l, iz, ier, kn, i1, j1, GSLerr, u
@@ -232,17 +230,19 @@ MODULE ModRamRun
     real(kind=Real8_), ALLOCATABLE :: DWAVE(:),CMRA(:),BWAVE(:,:),AVDAA(:),TAVDAA(:),&
                                       DAA(:,:,:),DUMP(:,:),XFR(:,:),XFRe(:),ALENOR(:),&
                                       DUME(:,:),DVV(:,:,:),AVDVV(:),TAVDVV(:),WCDT(:,:),&
-                                      XFRT(:,:),PA(:),DAMR(:,:),DAMR1(:),GREL_new(:),BOUNHS_(:)
+                                      XFRT(:,:),PA(:),DAMR(:,:),DAMR1(:),GREL_new(:)
     INTEGER :: KHI(5)
-    INTEGER, ALLOCATABLE :: MINP(:), MAXP(:)
     character(len=80) HEADER
     DATA khi/6, 10, 25, 30, 35/ ! ELB=0.1 keV -> 0.4,1,39,129,325 keV 
 
     ALLOCATE(DWAVE(NPA),CMRA(SLEN),BWAVE(NR,NT),AVDAA(NPA),TAVDAA(NPA), &
              DAA(NE,NPA,Slen),DUMP(ENG,NCF),XFR(NR,NT),XFRe(NCF),ALENOR(ENG), &
              DUME(ENG,NCF),DVV(NE,NPA,Slen),AVDVV(NPA),TAVDVV(NPA),WCDT(NR,NT), &
-             XFRT(NR,NT),PA(NPA),DAMR(NPA,NCO),DAMR1(NPA),GREL_new(Ny),BOUNHS_(Nx))
-    ALLOCATE(MINP(nT),MAXP(nT))
+             XFRT(NR,NT),PA(NPA),DAMR(NPA,NCO),DAMR1(NPA),GREL_new(Ny))
+    DWAVE = 0.0; CMRA = 0.0; BWAVE = 0.0; AVDAA = 0.0; TAVDAA = 0.0; DAA = 0.0
+    DUMP = 0.0; XFR = 0.0; XFRe = 0.0; ALENOR = 0.0; DUME = 0.0; DVV = 0.0
+    AVDVV = 0.0; TAVDVV = 0.0; WCDT = 0.0; XFRT = 0.0; PA = 0.0; DAMR = 0.0
+    DAMR1 = 0.0; GREL_new = 0.0
 
     cv=CS*100 ! speed of light in [cm/s]
     esu=Q*3E9 ! elementary charge in [esu]
@@ -400,8 +400,7 @@ MODULE ModRamRun
     DEALLOCATE(DWAVE,CMRA,BWAVE,AVDAA,TAVDAA, &
                DAA,DUMP,XFR,XFRe,ALENOR, &
                DUME,DVV,AVDVV,TAVDVV,WCDT, &
-               XFRT,PA,DAMR,DAMR1,GREL_new,BOUNHS_)
-    DEALLOCATE(MINP,MAXP)
+               XFRT,PA,DAMR,DAMR1,GREL_new)
   RETURN
   end subroutine ANISCH
 

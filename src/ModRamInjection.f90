@@ -5,7 +5,8 @@
 
 Module ModRamInjection
 
-  implicit none; save
+
+  implicit none
 
   contains
 !==============================================================================
@@ -18,7 +19,8 @@ Module ModRamInjection
 !    use ModRamFunctions, ONLY: ram_sum_pressure
 !    use ModScbRun,       ONLY: scb_run
 !    use ModRamScb,       ONLY: computehI
-!    implicit none; save
+
+!    implicit none
 !
     integer, intent(in) :: iCal
 !    integer :: iS, I, J, K, L, R

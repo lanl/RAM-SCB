@@ -11,7 +11,8 @@ module ModRamTiming
 
   use ModTimeConvert, ONLY: TimeType
 
-  implicit none; save
+
+  implicit none
 
   type(TimeType) :: TimeRamNow, TimeRamStart, TimeRamStop, TimeRamRealStart, TimeRamFinish
 
@@ -58,7 +59,8 @@ contains
 
     use ModIoUnit,  ONLY: io_unit_new
 
-    implicit none; save
+
+    implicit none
 
     character(len=100) :: NameFile
     integer :: iError
@@ -91,7 +93,8 @@ contains
   !===========================================================================
   subroutine do_timing()
 
-    implicit none; save
+
+    implicit none
 
     real(kind=Real8_) :: CpuTimeNow
     integer :: t1, clock_rate, clock_max
@@ -124,7 +127,8 @@ contains
   !===========================================================================
   subroutine finalize_timing()
     
-    implicit none; save
+
+    implicit none
 
     real(kind=Real8_) :: CpuTimeNow
     integer :: t1, clock_rate, clock_max
@@ -161,7 +165,8 @@ contains
     ! Because RAM uses a time-splitting approach, the answer is divided by
     ! two (because each step moves forward in time by Dt twice.)
 
-    implicit none; save
+
+    implicit none
 
     ! Arguments:
     real(kind=Real8_) :: max_output_timestep

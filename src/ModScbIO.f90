@@ -7,10 +7,11 @@ MODULE ModScbIO
   
   use nrtype, ONLY: DP
 
-  implicit none; save; save
+
+  implicit none
  
-  REAL(DP) :: PARMOD(10)
-  INTEGER  :: IOPT
+  REAL(DP), SAVE :: PARMOD(10)
+  INTEGER, SAVE  :: IOPT
 
   contains
 
@@ -45,7 +46,8 @@ MODULE ModScbIO
     !!!! NR Modules
     use nrtype, ONLY: DP, SP, pi_d, twopi_d
 
-    IMPLICIT NONE
+
+    implicit none
 
     INTEGER :: i, j, k, scanLeft, scanRight, GSLerr
 
@@ -338,14 +340,15 @@ MODULE ModScbIO
     use ModScbEuler,     ONLY: mapAlpha, mapPsi, InterpolatePsiR, mapTheta, &
                                psiges, alfges, psifunctions
     use ModScbFunctions, ONLY: extap
-    use ModScbCompute,   ONLY: ComputeBandJacob_Initial
+    use ModScbCompute,   ONLY: ComputeBandJacob
     !!!! Share Modules
     use ModTimeConvert, ONLY: n_day_of_year
     USE ModIOUnit,      ONLY: UNITTMP_
     !!! NR Modules
     use nrtype, ONLY: DP, pi_d, twopi_d
 
-    implicit none; save; save
+
+    implicit none
 
     LOGICAL, INTENT(OUT) :: updated
     LOGICAL :: outside
@@ -618,7 +621,7 @@ MODULE ModScbIO
     !call Write_MAGxyz
 
     SORFail = .false.
-    call ComputeBandJacob_Initial
+    call ComputeBandJacob
     do k = 2,nzeta
        do j = 1,npsi
           i = nThetaEquator
@@ -641,7 +644,9 @@ MODULE ModScbIO
     use ModRamParams, ONLY: NameBoundMag
 
     use nrtype, ONLY: DP
-    implicit none; save; save
+
+
+    implicit none
 
     EXTERNAL :: DIP_08, IGRF_GSW_08, SMGSW_08, T89C, T96_01, T01_01, T04_s
     EXTERNAL :: TS07D_JULY_2017
@@ -724,7 +729,8 @@ MODULE ModScbIO
   subroutine DUMMY(IOPT,PARMOD,PSI,X,Y,Z,BXGSW,BYGSW,BZGSW)
     use nrtype, ONLY: DP
     
-    implicit none; save; save
+
+    implicit none
 
     integer :: iopt
     real(DP) :: parmod(10), x, y, z, bxgsw, bygsw, bzgsw, psi
@@ -744,7 +750,9 @@ MODULE ModScbIO
     USE ModIoUnit, ONLY: UNITTMP_
 
     use nrtype, ONLY: DP
-    implicit none; save; save
+
+
+    implicit none
 
     real(DP), intent(out) :: Pdyn, Dst, ByIMF, BzIMF, G(3), W(6)
 
@@ -860,7 +868,8 @@ MODULE ModScbIO
 
     use ModIoUnit, ONLY: UNITTMP_
 
-    IMPLICIT NONE
+
+    implicit none
 
     INTEGER :: i, j, k
 
@@ -890,7 +899,8 @@ SUBROUTINE Write_ionospheric_potential
   USE nrtype
   USE netcdf
 
-  IMPLICIT NONE
+
+  implicit none
 
   CHARACTER*500 :: filename
 
@@ -1020,15 +1030,10 @@ END SUBROUTINE Write_ionospheric_potential
   use ModScbMain,      ONLY: prefixOut
   use ModScbParams,    ONLY: isotropy
   USE ModScbGrids,     ONLY: nthe, npsi, nzeta, dt, dr, dpPrime
-  USE ModScbVariables, ONLY: thetaVal, rhoVal, zetaVal, x, y, z, &
-                             jacobian, normDiff, normGradP, GradZetaSq, &
-                             GradThetaGradZeta, GradRhoGradTheta, GradRhoSq, &
-                             GradRhoGradZeta, ppar, pper, nThetaEquator, &
-                             normJxB, f, fzet, nZetaMidnight, pnormal, &
-                             dPPerdRho, dPPerdZeta, dPPerdTheta, bnormal, &
-                             pjconst, dPdAlpha, dPdPsi, vecd, vec1, vec2, &
-                             vec3, vec4, vec6, vec7, vec8, vec9, vecr, vecx, &
-                             alfa, psi, fp, alphaVal, psiVal
+  USE ModScbVariables, ONLY: x, y, z, bf, bnormal, Jx, Jy, Jz, Bx, By, Bz, &
+                             GradPx, GradPy, GradPz, JCrossB, GradP, &
+                             vecd, vec1, vec2, vec3, vec4, vec6, vec7, vec8, &
+                             vec9, vecr, vecx, alfa, psi, fp, alphaVal, psiVal
   !!!! Module Subroutine/Function
   use ModRamFunctions, ONLY: RamFileName
   use ModRamGSL,       ONLY: GSL_Derivs
@@ -1038,43 +1043,20 @@ END SUBROUTINE Write_ionospheric_potential
   !!!! NR Modules
   use nrtype,    ONLY: DP
 
-  IMPLICIT NONE
+
+  implicit none
 
   INTEGER :: i, j, k, id, ierr, idealerr, GSLerr
   CHARACTER(len=200) :: FileName
 
-  REAL(DP) :: normDiffRel, volume, bf(nthe,npsi,nzeta+1), bsq(nthe,npsi,nzeta+1), &
-              distance(nthe,npsi,nzeta+1)
-  REAL(DP), DIMENSION(nthe,npsi,nzeta) :: derivXTheta, derivXRho, derivXZeta, &
-       derivYTheta, derivYRho, derivYZeta, derivZTheta, derivZRho, derivZZeta, &
-       gradRhoX, gradRhoY, gradRhoZ, gradZetaX, gradZetaY, gradZetaZ, gradThetaX, &
-       gradThetaY, gradThetaZ, gradThetaSq, derivBsqTheta, derivBsqRho, derivBsqZeta, &
-       derivNU1, derivNU2
-  ! gradRhoSq, gradRhoGradZeta are global
-
-  REAL(DP), DIMENSION(nthe,npsi,nzeta) :: jGradRhoPartialTheta, derivjGradRhoPartialTheta, &
-       jGradRhoPartialZeta, derivjGradRhoPartialZeta, jGradRho, jGradRhoFactor, jGradZetaPartialRho, &
-       derivjGradZetaPartialRho, jGradZetaPartialTheta, derivjGradZetaPartialTheta, jGradZeta, &
-       jGradZetaFactor, jGradThetaPartialRho, derivjGradThetaPartialRho, jGradThetaPartialZeta, &
-       derivjGradThetaPartialZeta, jGradTheta, jGradThetaFactor, phiToroid, derivPhiRho, derivPhiZeta, &
-       derivPhiTheta, derivDiffPTheta
-
-  REAL(DP), DIMENSION(nthe,npsi,nzeta) :: jCrossBUpRho, jCrossBUpZeta, jCrossBUpTheta, &
-       derivjCrossBUpRho, derivjCrossBUpZeta, derivjCrossBUpTheta, jCrossBMinusGradPSq, &
-       jCrossBMinusGradPMod, jCrossBSq, jCrossB, gradPSq, gradP
-
-  REAL(DP), DIMENSION(nthe,npsi,nzeta) :: jrrInt, jrr, jzzInt, jzz, jrtInt, jrt, jztInt, jzt, &
-       rhoCompSq, zetaCompSq, thetaCompSq, curlJCrossBSq, curlJCrossB
-
-  REAL(DP), DIMENSION(nthe,npsi,nzeta) :: xRHS, xLHS, rRHS, rLHS
-  REAL(DP), DIMENSION(npsi,nzeta) :: erRHS, erLHS, exRHS, exLHS
-  REAL(DP), DIMENSION(nthe,npsi,nzeta) :: Jx, Jy, Jz, Bx, By, Bz, JxBx, JxBy, &
-                                          JxBz, GradPx, GradPy, GradPz
+  REAL(DP), ALLOCATABLE :: xRHS(:,:,:), xLHS(:,:,:), rRHS(:,:,:), rLHS(:,:,:)
 
   character(len=2), intent(in) :: iter
-!  LOGICAL, EXTERNAL :: isnand ! Intrinsic for Portland Group Fortran
-
   !**********************************************************************************************************!
+  ALLOCATE(xRHS(nthe,npsi,nzeta), xLHS(nthe,npsi,nzeta), &
+           rRHS(nthe,npsi,nzeta), rLHS(nthe,npsi,nzeta))
+  xRHS = 0.0; xLHS = 0.0; rRHS = 0.0; rLHS = 0.0
+
   call metric
   call newj
   DO i = 2,nthe-1
@@ -1145,6 +1127,7 @@ END SUBROUTINE Write_ionospheric_potential
   END DO
   CLOSE(UNITTMP_)
 
+  DEALLOCATE(xRHS, xLHS, rRHS, rLHS)
   RETURN
 
   END SUBROUTINE Write_convergence_anisotropic
@@ -1165,7 +1148,8 @@ END SUBROUTINE Write_ionospheric_potential
     !!!! Share Modules
     USE ModIoUnit, ONLY: UNITTMP_
 
-    implicit none; save; save
+
+    implicit none
 
     integer :: i, j, k
     character(len=200) :: FileName
