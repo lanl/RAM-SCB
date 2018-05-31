@@ -5,7 +5,6 @@
 
 MODULE ModScbCompute
   ! Contains subroutines for computing various SCB parameters
-  
 
   implicit none
 
@@ -52,14 +51,28 @@ MODULE ModScbCompute
                 gradPhiIonoGradBeta, dipoleFactor, dipoleFactor4RE, factorIncrease, thangle, &
                 thangleOnEarth, rr1, rr2, rr, zangle
     REAL(DP) :: rrlatx(201),rrlaty(201), wlabels(4)
-    REAL(DP), DIMENSION(nthe,nzeta) :: metricDif, metricDif2
-    REAL(DP), DIMENSION(npsi,nzeta+1) :: rrx, rry, parajDirect
-    REAL(DP), DIMENSION(nthe,npsi,nzeta) :: alphaTerm, psiTerm, derivNU1, derivNU2
-    REAL(DP), DIMENSION(nthe,npsi,nzeta) :: derivBsqRho, derivBsqZeta
-    REAL(DP), DIMENSION(nthe,npsi,nzeta) :: jGradRhoFactor, jGradZetaFactor, jGradThetaFactor, &
-                                            phiToroid, derivPhiRho, derivPhiZeta, &
-                                            derivPhiTheta, dPpardZeta, dPpardRho, dPpardTheta, &
-                                            generateFAC, generateFACPAlpha, generateFACPPsi
+    REAL(DP), ALLOCATABLE :: rrx(:,:), rry(:,:), parajDirect(:,:)
+    REAL(DP), ALLOCATABLE :: alphaTerm(:,:,:), psiTerm(:,:,:), derivBsqRho(:,:,:), derivBsqZeta(:,:,:), &
+                             jGradRhoFactor(:,:,:), jGradZetaFactor(:,:,:), jGradThetaFactor(:,:,:), &
+                             phiToroid(:,:,:), derivPhiRho(:,:,:), derivPhiZeta(:,:,:), &
+                             derivPhiTheta(:,:,:), dPpardZeta(:,:,:), dPpardRho(:,:,:), dPpardTheta(:,:,:), &
+                             generateFAC(:,:,:), generateFACPAlpha(:,:,:), generateFACPPsi(:,:,:)
+
+     ALLOCATE(jGradRhoFactor(nthe,npsi,nzeta), jGradZetaFactor(nthe,npsi,nzeta), &
+              jGradThetaFactor(nthe,npsi,nzeta), phiToroid(nthe,npsi,nzeta), &
+              derivPhiRho(nthe,npsi,nzeta), derivPhiZeta(nthe,npsi,nzeta), &
+              derivPhiTheta(nthe,npsi,nzeta), dPpardZeta(nthe,npsi,nzeta), &
+              dPpardRho(nthe,npsi,nzeta), dPpardTheta(nthe,npsi,nzeta), &
+              generateFAC(nthe,npsi,nzeta), generateFACPAlpha(nthe,npsi,nzeta), &
+              generateFACPPsi(nthe,npsi,nzeta), alphaTerm(nthe,npsi,nzeta), &
+              psiTerm(nthe,npsi,nzeta), derivBsqRho(nthe,npsi,nzeta), derivBsqZeta(nthe,npsi,nzeta))
+     ALLOCATE(rrx(npsi,nzeta+1), rry(npsi,nzeta+1), parajDirect(npsi,nzeta+1))
+     rrx = 0.0; rry = 0.0; parajDirect = 0.0
+     jGradRhoFactor = 0.0; jGradZetaFactor = 0.0; jGradThetaFactor = 0.0
+     phiToroid = 0.0; derivPhiRho = 0.0; derivPhiZeta = 0.0
+     derivPhiTheta = 0.0; dPpardZeta = 0.0; dPpardRho = 0.0; dPpardTheta = 0.0
+     generateFAC = 0.0; generateFACPAlpha = 0.0; generateFACPPsi = 0.0
+     alphaTerm = 0.0; psiTerm = 0.0; derivBsqRho = 0.0; derivBsqZeta = 0.0
 
      !  Compute metrics after the solution has converged
      !  xx is the radius in cylindrical coordinate system
@@ -380,8 +393,6 @@ MODULE ModScbCompute
      END DO alphaLoop
 
      ! Express physical quantities (use normalization constants)
-     pjconst = 1.E6  * 0.31E-4 / (xzero3 * 4. * pi_d * 1.e-7 * 6.4E6)
-
      bj = bj * pjconst
      jParDirect = jParDirect * pjconst
      phij = phij * pjconst
@@ -410,6 +421,11 @@ MODULE ModScbCompute
 !        END DO
 !     END DO
 
+     DEALLOCATE(jGradRhoFactor, jGradZetaFactor, jGradThetaFactor, phiToroid, &
+                derivPhiRho, derivPhiZeta, derivPhiTheta, dPpardZeta, &
+                dPpardRho, dPpardTheta, generateFAC, generateFACPAlpha, &
+                generateFACPPsi, alphaTerm, psiTerm, derivBsqRho, derivBsqZeta)
+     DEALLOCATE(rrx, rry, parajDirect)
      RETURN
 
   END SUBROUTINE metrics
@@ -433,7 +449,6 @@ MODULE ModScbCompute
     USE ModRamGSL, ONLY: GSL_Derivs
     !!!! NR Modules
     use nrtype, ONLY: DP
-
 
     implicit none
 
@@ -522,7 +537,6 @@ MODULE ModScbCompute
     use ModRamGSL,       ONLY: GSL_Derivs
     !!!! NR Modules
     use nrtype,    ONLY: DP
-
 
     implicit none
 
@@ -685,18 +699,6 @@ MODULE ModScbCompute
           endif
        ENDDO
     ENDDO
-do i = 2,nthe-1
-do j = 1,npsi
-do k = 1,nzeta
-if (JGradRho(i,j,k).ne.JGradRho(i,j,k)) write(*,*) 'Jx', i, j, k
-if (JGradZeta(i,j,k).ne.JGradZeta(i,j,k)) write(*,*) 'Jy', i, j, k
-if (JGradTheta(i,j,k).ne.JGradTheta(i,j,k)) write(*,*) 'Jz', i, j, k
-if (Bx(i,j,k).ne.Bx(i,j,k)) write(*,*) 'Bx', i, j, k
-if (By(i,j,k).ne.By(i,j,k)) write(*,*) 'By', i, j, k
-if (Bz(i,j,k).ne.Bz(i,j,k)) write(*,*) 'Bz', i, j, k
-enddo
-enddo
-enddo
 
     JxBx = Jy*Bz-Jz*By
     JxBy = Jz*Bx-Jx*Bz
@@ -705,15 +707,15 @@ enddo
     jCrossB = sqrt(JxBx**2+JxBy**2+JxBz**2)
     gradP = sqrt(GradPx**2+GradPy**2+GradPz**2)
 
-    GradPx = GradPx * pnormal*2
-    GradPy = GradPy * pnormal*2
-    GradPz = GradPz * pnormal*2
-    Bx = Bx * bnormal
-    By = By * bnormal
-    Bz = Bz * bnormal
-    Jx = Jx * pjconst*6.4
-    Jy = Jy * pjconst*6.4
-    Jz = Jz * pjconst*6.4
+    !GradPx = GradPx * pnormal*2
+    !GradPy = GradPy * pnormal*2
+    !GradPz = GradPz * pnormal*2
+    !Bx = Bx * bnormal
+    !By = By * bnormal
+    !Bz = Bz * bnormal
+    !Jx = Jx * pjconst*6.4
+    !Jy = Jy * pjconst*6.4
+    !Jz = Jz * pjconst*6.4
     jCrossB = jCrossB*bnormal*pjconst*6.4
     GradP   = GradP*pnormal
     jCrossBMinusGradPMod = jCrossB-GradP

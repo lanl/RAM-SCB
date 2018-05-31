@@ -7,15 +7,6 @@ MODULE ModScbEuler
   ! Contains subroutines responsible for calculating the alpha (actually beta)
   ! and psi (actually alpha) Euler potentials
   
-  use ModScbVariables, ONLY: psi, alfa, &
-                             alphaVal, alphaValInitial, psiVal, blendAlpha, &
-                             blendPsi, diffmx, rjac, decreaseConvAlpha, &
-                             decreaseConvPsi, errorAlpha, errorAlphaPrev, &
-                             errorPsi, errorPsiPrev, iAlphaMove, iPsiMove
-  
-  use ModScbFunctions, ONLY: extap
-  
-
   implicit none
   
   contains
@@ -32,13 +23,13 @@ MODULE ModScbEuler
     !!!! NR Modules
     use nrtype, ONLY: DP, pi_d
 
-
     implicit none
 
     INTEGER :: i, j, k, i1, i2, GSLerr
-    REAL(DP), DIMENSION(nthe) :: xOld, yOld, zOld, distance, chiValOld
-    psiChange = 0
-    theChange = 0
+    REAL(DP), ALLOCATABLE :: xOld(:), yOld(:), zOld(:), distance(:), chiValOld(:)
+
+    ALLOCATE(xOld(nthe),yOld(nthe),zOld(nthe),distance(nthe),chiValOld(nthe))
+    xOld = 0.0; yOld = 0.0; zOld = 0.0; distance = 0.0; chiValOld = 0.0
 
     ! Now move theta coordinates along each surface equal arc length along the i grids
     zetaloop: DO k = 2, nzeta
@@ -72,6 +63,7 @@ MODULE ModScbEuler
     y(:,:,nzetap) = y(:,:,2)
     z(:,:,nzetap) = z(:,:,2)
 
+    DEALLOCATE(xOld,yOld,zOld,distance,chiValOld)
     RETURN
 
   END SUBROUTINE mapTheta
@@ -79,96 +71,14 @@ MODULE ModScbEuler
 !================================================!
 !=========== Alpha Euler Potential ==============!
 !================================================!
-  SUBROUTINE alphaFunctions
-
-    USE ModScbMain,      ONLY: DP
-    USE ModScbGrids,     ONLY: nzeta
-    use ModScbVariables, ONLY: zetaVal, fzet, fzetp, alphaVal
-
-    USE ModRamGSL, ONLY: GSL_Interpolation_1D
-
-
-    implicit none
-
-    integer :: GSLerr
-    REAL(DP) :: alphaValue(nzeta)
-
-    CALL GSL_Interpolation_1D('Cubic',zetaVal(1:nzeta), alphaval(1:nzeta), &
-                              alphaValue, fzet(1:nzeta), GSLerr)
-    CALL GSL_Interpolation_1D('Cubic',zetaVal(1:nzeta), fzet(1:nzeta), &
-                              alphaValue, fzetp(1:nzeta), GSLerr)
-
-    RETURN
-  END SUBROUTINE alphaFunctions
-
-!==============================================================================
-  SUBROUTINE InterpolateAlphaPhi
-    ! Interpolates the new values of psi at the new locations xnew on midnight 
-    ! equator
-    !!!! Module Variables
-    USE ModScbParams,    ONLY: iAzimOffset
-    USE ModScbGrids, ONLY: nzeta, npsi
-    use ModScbVariables, ONLY: x, y, nThetaEquator, alphaVal, zetaVal
-    !!!! Module Subroutines/Functions
-    USE ModRamGSL, ONLY: GSL_Interpolation_1D
-    !!!! NR Modules
-    use nrtype, ONLY: DP, twopi_d
-
-
-    implicit none
-
-    REAL(DP), DIMENSION(nzeta+1) :: phiEqmid, alphaval1D
-    INTEGER :: ialloc, ierr, k, j, jmax, GSLerr
-
-    REAL(DP) :: distConsecFluxSqOld, distConsecFluxSq
-
-    distConsecFluxSq = 0._dp
-    distConsecFluxSqOld = 0._dp
-
-    IF (iAzimOffset == 2) THEN
-       DO j = 2, npsi
-          phiEqmid = atan2(y(nThetaEquator,j,:),x(nThetaEquator,j,:))
-          where (phiEqMid(3:nzeta).lt.0) phiEqMid(3:nzeta) = phiEqMid(3:nzeta) + twopi_d
-          phiEqMid(1) = phiEqMid(nzeta) - twopi_d
-          phiEqMid(nzeta+1) = phiEqMid(2) + twopi_d
-          do k = 2, nzeta
-             distConsecFluxSq = phiEqMid(k) - phiEqMid(k-1)
-             IF (distConsecFluxSq > distConsecFluxSqOld) THEN
-                distConsecFluxSqOld = distConsecFluxSq
-                jMax = j
-             END IF
-          END DO
-       end DO
-    ELSE IF (iAzimOffset == 1) THEN
-       jmax = npsi
-    END IF
-
-    phiEqmid = atan2(y(nThetaEquator,jMax,:),x(nThetaEquator,jMax,:))
-    where (phiEqMid(3:nzeta).lt.0) phiEqMid(3:nzeta) = phiEqMid(3:nzeta) + twopi_d
-    phiEqMid(1) = phiEqMid(nzeta) - twopi_d
-    phiEqMid(nzeta+1) = phiEqMid(2) + twopi_d
-
-    alphaval1D = alphaval
-
-    CALL GSL_Interpolation_1D('Cubic',phiEqMid,alphaVal1D,zetaVal(1:nzeta),alphaVal(1:nzeta),GSLerr)
-
-    alphaVal(1) = alphaVal(nzeta) - twopi_d
-    alphaVal(nzeta+1) = alphaval(2) + twopi_d
-    
-    RETURN
-
-  END SUBROUTINE InterpolateAlphaPhi
-
 !==============================================================================
   SUBROUTINE alfges
     !   initial guess of alpha 
 
-    use ModScbMain,  ONLY: DP  
-    use ModScbGrids, ONLY: nthe, npsi, nzeta, nzetap, nthem
+    use ModScbMain,      ONLY: DP  
+    use ModScbGrids,     ONLY: nthe, npsi, nzeta, nzetap, nthem
+    use ModScbVariables, ONLY: alfa, alphaVal
  
-    use nrtype, ONLY: pi_d
-
-
     implicit none
 
     INTEGER :: i, j, k
@@ -180,73 +90,55 @@ MODULE ModScbEuler
   END SUBROUTINE alfges
                                
 !==============================================================================
-  SUBROUTINE mapAlpha(iSmoothMove)
+  SUBROUTINE mapAlpha
     ! new cubic GSL interpolation, without involving linear distance calculation
     USE ModScbMain,      ONLY: DP
     USE ModScbParams,    ONLY: psiChange, theChange
     USE ModScbGrids,     ONLY: nthe, npsi, nzeta, ny, nthem, nzetap
     USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, alfaPrev, &
-                               left, right
+                               left, right, alfa, alphaVal
   
     USE ModRamGSL, ONLY: GSL_Interpolation_1D
   
     use nrtype, ONLY: pi_d
   
-
     implicit none
   
-    INTEGER, INTENT(IN) :: iSmoothMove
-    REAL(DP), DIMENSION(nzeta+1) :: xOld, yOld, zOld, alfaOld
-    REAL(DP), DIMENSION(nthe,npsi,nzeta+1) :: xPrev, yPrev, zPrev
-    REAL(DP) :: blend
-    INTEGER :: i, j, k, ierr, GSLerr
-    psiChange = 0
-    theChange = 0
+    INTEGER :: i, j, k, GSLerr
+    REAL(DP), ALLOCATABLE :: xOld(:), yOld(:), zOld(:), alfaOld(:)
 
-    blend = 0.1_dp**iAlphaMove
-  
-    IF (iSmoothMove /= 0 .AND. iAlphaMove > 1) THEN
-       ! Add these in difficult equilibria
-       PRINT*, 'mapalpha: blend = ', blend
-       x = 1*blend*x + (1.-1*blend)*xPrev
-       y = 1*blend*y + (1.-1*blend)*yPrev
-       z = 1*blend*z + (1.-1*blend)*zPrev
-    ELSE
-       xPrev = x
-       yPrev = y
-       zPrev = z
-  
-       ierr = 0
+    ALLOCATE(xOld(nzeta+1),yOld(nzeta+1),zOld(nzeta+1),alfaOld(nzeta+1))
+    xOld = 0.0; yOld = 0.0; zOld = 0.0; alfaOld = 0.0
 
-       jloop : DO j = 1+psiChange, npsi-psiChange
-          iloop: DO i = 1+theChange, nthe-theChange
-             xOld(1:nzeta+1) = x(i,j,1:nzeta+1)
-             yOld(1:nzeta+1) = y(i,j,1:nzeta+1)
-             zOld(1:nzeta+1) = z(i,j,1:nzeta+1)
-             alfaOld(1:nzeta+1) = alfa(i,j,1:nzeta+1)
-             !DO k = 2,nzeta+1
-             !   if (alfaOld(k).lt.alfaOld(k-1)) then
-             !      alfaOld(k) = alfaOld(k-1)+1E-6
-             !   endif
-             !ENDDO
+    jloop : DO j = 1+psiChange, npsi-psiChange
+       iloop: DO i = 1+theChange, nthe-theChange
+          xOld(1:nzeta+1) = x(i,j,1:nzeta+1)
+          yOld(1:nzeta+1) = y(i,j,1:nzeta+1)
+          zOld(1:nzeta+1) = z(i,j,1:nzeta+1)
+          alfaOld(1:nzeta+1) = alfa(i,j,1:nzeta+1)
+          !DO k = 2,nzeta+1
+          !   if (alfaOld(k).lt.alfaOld(k-1)) then
+          !      alfaOld(k) = alfaOld(k-1)+1E-6
+          !   endif
+          !ENDDO
 
-             CALL GSL_Interpolation_1D('Cubic',alfaOld,xOld,alphaVal(2:nzeta),x(i,j,2:nzeta),GSLerr)
-             CALL GSL_Interpolation_1D('Cubic',alfaOld,yOld,alphaVal(2:nzeta),y(i,j,2:nzeta),GSLerr)
-             CALL GSL_Interpolation_1D('Cubic',alfaOld,zOld,alphaVal(2:nzeta),z(i,j,2:nzeta),GSLerr)
-          END DO iloop
-       END DO jloop
+          CALL GSL_Interpolation_1D('Cubic',alfaOld,xOld,alphaVal(2:nzeta),x(i,j,2:nzeta),GSLerr)
+          CALL GSL_Interpolation_1D('Cubic',alfaOld,yOld,alphaVal(2:nzeta),y(i,j,2:nzeta),GSLerr)
+          CALL GSL_Interpolation_1D('Cubic',alfaOld,zOld,alphaVal(2:nzeta),z(i,j,2:nzeta),GSLerr)
+       END DO iloop
+    END DO jloop
 
-       ! Periodic boundary conditions
-       x(:,:,1) = x(:,:,nzeta)
-       y(:,:,1) = y(:,:,nzeta)
-       z(:,:,1) = z(:,:,nzeta)
-       x(:,:,nzetap) = x(:,:,2)
-       y(:,:,nzetap) = y(:,:,2)
-       z(:,:,nzetap) = z(:,:,2)
+    ! Periodic boundary conditions
+    x(:,:,1) = x(:,:,nzeta)
+    y(:,:,1) = y(:,:,nzeta)
+    z(:,:,1) = z(:,:,nzeta)
+    x(:,:,nzetap) = x(:,:,2)
+    y(:,:,nzetap) = y(:,:,2)
+    z(:,:,nzetap) = z(:,:,2)
 
-       call alfges
-    END IF
-  
+    call alfges
+ 
+    DEALLOCATE(xOld,yOld,zOld,alfaOld) 
     RETURN
   
   END SUBROUTINE mapAlpha
@@ -271,39 +163,33 @@ MODULE ModScbEuler
     USE ModScbGrids,     ONLY: nthe, nthem, npsi, nzeta, nzetap, ny
     USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, vecd, vec1, vec2, &
                                vec3, vec4, vec6, vec7, vec8, vec9, vecx, &
-                               left, right, SORFail
+                               left, right, SORFail, alfa, alphaVal, diffmx, &
+                               blendAlpha
+
+    use ModScbFunctions, ONLY: extap
   
     use nrtype, ONLY: DP, pi_d
   
 
     implicit none
  
-    REAL(DP) :: anorm, diff, rjac, &
-         & anormaverage, dyDummy, anormResid, anormError, anormf
-    REAL(DP), ALLOCATABLE :: alfaPrev(:,:,:), alfaPrevTemp(:,:,:), om(:)
-    REAL(DP) :: RESULT, omegaOpt
-    REAL(DP), ALLOCATABLE :: angle(:,:,:), resid(:,:,:)
+    INTEGER :: j, i, ict, jz, izmx, jzmx, kmx, ierr, nratio, myPsiBegin, myPsiEnd, &
+               my_array_type2, psiRangeDiff, resultInt, loc(3)
+    REAL(DP) :: anorm, diff, rjac, anormaverage, dyDummy, anormResid, anormError, &
+                anormf, omegaOpt
+
     INTEGER, ALLOCATABLE :: ni(:)
-    INTEGER :: j, i, ict, jz, izmx, jzmx, kmx, ierr, nratio, &
-         myPsiBegin, myPsiEnd, my_array_type2, psiRangeDiff, resultInt, loc(3)
+    REAL(DP), ALLOCATABLE :: alfaPrev(:,:,:), alfaPrevTemp(:,:,:), om(:), resid(:,:,:)
+    
     INTEGER, SAVE :: k, kp, km, iz, im, ip
     !$OMP THREADPRIVATE(k,kp,km,iz,im,ip)
   
-    ALLOCATE(angle(nthe,npsi,nzeta+1), STAT = ierr)
     ALLOCATE(alfaprev(nthe,npsi,nzeta+1), STAT = ierr)
     ALLOCATE(alfaPrevTemp(nthe,npsi,nzeta+1), STAT = ierr)
     ALLOCATE(resid(nthe,npsi,nzeta+1), STAT = ierr)
     ALLOCATE(ni(npsi), om(ny))
-    angle = 0.0; alfaprev = 0.0; alfaPrevTemp = 0.0; resid = 0.0; ni = 0.0; om = 0.0
+    alfaprev = 0.0; alfaPrevTemp = 0.0; resid = 0.0; ni = 0.0; om = 0.0
 
-    DO k = 1, nzeta
-       DO j = 1, npsi
-          DO i = 1, nthe
-             angle(i,j,k) = ACOS(x(i,j,k)/SQRT(x(i,j,k)**2+y(i,j,k)**2))  - pi_d
-          END DO
-       END DO
-    END DO
-  
     rjac = 1._dp - 2._dp*pi_d*pi_d / (REAL(nzeta,dp)*REAL(nzeta,dp) + REAL(nthe,dp)*REAL(nthe,dp))  ! Radius of convergence for the Jacobi method, can be used
     ! to find optimal SOR omega
   
@@ -396,10 +282,7 @@ MODULE ModScbEuler
        !ENDDO
     ENDDO
 
-    IF (ALLOCATED(angle)) DEALLOCATE(angle, STAT = ierr)
-    IF (ALLOCATED(alfaPrev)) DEALLOCATE(alfaPrev)
-    IF (ALLOCATED(alfaPrevTemp)) DEALLOCATE(alfaPrevTemp)
-    IF (ALLOCATED(resid)) DEALLOCATE(resid)
+    DEALLOCATE(alfaPrev,alfaPrevTemp,resid)
     DEALLOCATE(ni,om)
  
     RETURN
@@ -413,14 +296,12 @@ MODULE ModScbEuler
   
     USE ModScbMain,      ONLY: DP
     USE ModScbGrids,     ONLY: npsi
-    use ModScbVariables, ONLY: rhoVal, f, fp
+    use ModScbVariables, ONLY: rhoVal, f, fp, psival
  
     use ModRamGSL, ONLY: GSL_Derivs 
   
-
     implicit none
   
-    REAL(DP) :: psiValue(npsi)
     INTEGER :: j, GSLerr
   
     CALL GSL_Derivs(rhoVal(1:npsi), psival(1:npsi), f(1:npsi), GSLerr)
@@ -434,7 +315,7 @@ MODULE ModScbEuler
     ! Interpolates the new values of psi at the new locations xnew on midnight equator
     !!!! Module Variables
     USE ModScbParams,    ONLY: iAzimOffset, psiChange
-    USE ModScbGrids, ONLY: npsi, nzeta
+    USE ModScbGrids,     ONLY: npsi, nzeta
     use ModScbVariables, ONLY: x, y, nThetaEquator, nZetaMidnight, psiVal, kmax, &
                                radEqmidNew
     !!!! Module Subroutines/Functions
@@ -442,14 +323,14 @@ MODULE ModScbEuler
     !!!! NR Modules
     use nrtype, ONLY: DP
 
-
     implicit none
 
-    REAL(DP), DIMENSION(npsi) :: radEqmid, psival1D
     INTEGER :: ialloc, ierr, j, k, GSLerr
-
     REAL(DP) :: deltaR, distConsecFluxSqOld, distConsecFluxSq
-    REAL(DP) :: radius(npsi)
+    REAL(DP), ALLOCATABLE :: radEqmid(:), psiVal1D(:), radius(:)
+
+    ALLOCATE(radEqMid(npsi), psiVal1D(npsi), radius(npsi))
+    radEqMid = 0.0; psiVal1D = 0.0; radius = 0.0
 
     distConsecFluxSq = 0._dp
     distConsecFluxSqOld = 0._dp
@@ -479,22 +360,18 @@ MODULE ModScbEuler
 
     radEqmid = SQRT(x(nThetaEquator,:,kMax)**2 + y(nThetaEquator,:,kMax)**2)
 
-    !do j = 2, npsi
-    !   if (radEqmid(j).lt.radEqMid(j-1)) radEqMid(j) = radEqMid(j-1) + 1E-6
-    !enddo
-
     psival1D = psival
     CALL GSL_Interpolation_1D('Cubic',radEqMid, psiVal1D, radEqMidNew(2:npsi), psiVal(2:npsi), GSLerr)
 
+    DEALLOCATE(radEqMid,psiVal1D,radius)
     RETURN
 
   END SUBROUTINE InterpolatePsiR
 
 !==============================================================================
   SUBROUTINE psiges
-    !   initial guess of poloidal flux
-  
-    USE ModScbGrids,     ONLY: npsi, nthe, nzetap
+    USE ModScbGrids,     ONLY: npsi
+    use ModScbVariables, ONLY: psival, psi
   
     INTEGER :: i, j, k
   
@@ -514,67 +391,45 @@ MODULE ModScbEuler
     USE ModScbMain,      ONLY: DP
     USE ModScbParams,    ONLY: psiChange, theChange
     USE ModScbGrids,     ONLY: nthe, nthem, npsi, npsim, nzeta, nzetap, na
-    USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, left, right
+    USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, left, right, &
+                               psi, psiVal
  
     use ModRamGSL, ONLY: GSL_Interpolation_1D 
   
-
     implicit none
   
-    INTEGER :: iSmoothMove
-    INTEGER :: ierr, k, i, j, GSLerr, i1, i2
-    REAL(DP), DIMENSION(npsi) :: xOld, yOld, zOld, psiOld
-    REAL(DP), DIMENSION(nthe,npsi,nzeta+1) :: xPrev, yPrev, zPrev
-    REAL(DP) :: blend
-    psiChange = 0
-    theChange = 0
+    INTEGER :: k, i, j, GSLerr, i1, i2
+    REAL(DP), ALLOCATABLE :: xOld(:), yOld(:), zOld(:), psiOld(:)
 
-    iSmoothMove = 0
-    blend = 0.1_dp**iPsiMove
-    IF (iSmoothMove /= 0 .AND. iPsiMove > 1) THEN
-       ! Add these in difficult equilibria
-       PRINT*, 'mappsi: blend = ', blend
-       x = 1*blend*x + (1.-1*blend)*xPrev
-       y = 1*blend*y + (1.-1*blend)*yPrev
-       z = 1*blend*z + (1.-1*blend)*zPrev
-       !C z(nThetaEquator,:,:) = 0._dp ! Symmetry
-    ELSE
-       xPrev = x
-       yPrev = y
-       zPrev = z
-       ierr = 0
-  
-       kloop: DO k = 2, nzeta
-          iloop: DO i = 1+theChange, nthe-theChange
-             xOld(1:npsi) = x(i,1:npsi,k)
-             yOld(1:npsi) = y(i,1:npsi,k)
-             zOld(1:npsi) = z(i,1:npsi,k)
-             psiOld(1:npsi) = psi(i,1:npsi,k)
-             !do j = 2,npsi
-             !   if (psiOld(j).lt.psiOld(j-1)) then
-             !      psiold(j) = psiOld(j-1) + 1E-6
-             !   endif
-             !enddo
+    ALLOCATE(xOld(npsi), yOld(npsi), zOld(npsi), psiOld(npsi))
+    xOld = 0.0; yOld = 0.0; zOld = 0.0; psiOld = 0.0
 
-             i1 = 1 + psiChange
-             i2 = npsi - psiChange
-             CALL GSL_Interpolation_1D('Cubic',psiOld, xOld, psiVal(i1:i2), x(i,i1:i2,k), GSLerr)
-             CALL GSL_Interpolation_1D('Cubic',psiOld, yOld, psiVal(i1:i2), y(i,i1:i2,k), GSLerr)
-             CALL GSL_Interpolation_1D('Cubic',psiOld, zOld, psiVal(i1:i2), z(i,i1:i2,k), GSLerr)
-          END DO iloop
-       END DO kloop
+    kloop: DO k = 2, nzeta
+       iloop: DO i = 1+theChange, nthe-theChange
+          xOld(1:npsi) = x(i,1:npsi,k)
+          yOld(1:npsi) = y(i,1:npsi,k)
+          zOld(1:npsi) = z(i,1:npsi,k)
+          psiOld(1:npsi) = psi(i,1:npsi,k)
+
+          i1 = 1 + psiChange
+          i2 = npsi - psiChange
+          CALL GSL_Interpolation_1D('Cubic',psiOld, xOld, psiVal(i1:i2), x(i,i1:i2,k), GSLerr)
+          CALL GSL_Interpolation_1D('Cubic',psiOld, yOld, psiVal(i1:i2), y(i,i1:i2,k), GSLerr)
+          CALL GSL_Interpolation_1D('Cubic',psiOld, zOld, psiVal(i1:i2), z(i,i1:i2,k), GSLerr)
+       END DO iloop
+    END DO kloop
   
-       ! periodic boundary condition in zeta
-       x(:,:,1) = x(:,:,nzeta)
-       y(:,:,1) = y(:,:,nzeta)
-       z(:,:,1) = z(:,:,nzeta)
-       x(:,:,nzetap) = x(:,:,2)
-       y(:,:,nzetap) = y(:,:,2)
-       z(:,:,nzetap) = z(:,:,2)
+    ! periodic boundary condition in zeta
+    x(:,:,1) = x(:,:,nzeta)
+    y(:,:,1) = y(:,:,nzeta)
+    z(:,:,1) = z(:,:,nzeta)
+    x(:,:,nzetap) = x(:,:,2)
+    y(:,:,nzetap) = y(:,:,2)
+    z(:,:,nzetap) = z(:,:,2)
   
-       call psiges
-    END IF
-  
+    call psiges
+
+    DEALLOCATE(xOld,yOld,zOld,psiOld)  
     RETURN
   
   END SUBROUTINE mapPsi
@@ -598,25 +453,26 @@ MODULE ModScbEuler
     USE ModScbGrids,     ONLY: nthe, nthem, npsi, npsim, nzeta, nzetap, na
     USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, vecd, vec1, vec2, &
                                vec3, vec4, vec6, vec7, vec8, vec9, vecr, &
-                               left, right, SORFail
+                               left, right, SORFail, psi, psiVal, blendPsi, diffmx
+
+    use ModScbFunctions, ONLY: extap
   
     use nrtype, ONLY: pi_d
   
-
     implicit none
  
-    REAL(DP) :: omegaOpt
-    REAL(DP) :: omc, anorm, anormf, diff, ano, sumbtest, anormResid, anormError
+    REAL(DP) :: omegaOpt, omc, anorm, anormf, diff, ano, sumbtest, anormResid, &
+                anormError, rjac
     REAL(DP), ALLOCATABLE :: psiPrev(:,:,:), psiPrevTemp(:,:,:), resid(:,:,:), om(:)
     INTEGER, ALLOCATABLE :: ni(:)
     INTEGER :: j, k, i, ierr, ict, nratio, myAlphaBegin, &
                myAlphaEnd, my_array_type_psi2, alphaRangeDiff, resultInt, loc(3)
+
     INTEGER, SAVE :: jz, jp, jm, iz, im, ip
     !$OMP THREADPRIVATE(jz,jp,jm,iz,im,ip)
 
     !     perform SOR iteration
-    !..   choose for inner iteration loop
-  
+    !..   choose for inner iteration loop  
     ALLOCATE(psiPrevTemp(nthe,npsi,nzeta+1), STAT = ierr)
     ALLOCATE(psiPrev(nthe,npsi,nzeta+1), STAT = ierr)
     ALLOCATE(resid(nthe,npsi,nzeta+1), STAT = ierr)

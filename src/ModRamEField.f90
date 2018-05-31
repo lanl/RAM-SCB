@@ -6,8 +6,6 @@
 MODULE ModRamEField
 ! Contains subroutines related to getting the electric field for RAM
 
-  use ModRamVariables, ONLY: VT, VTOL, VTN, TOLV, EIR, EIP
-
   implicit none
 
   contains
@@ -20,7 +18,7 @@ subroutine get_electric_field
   use ModRamConst,     ONLY: RE
   use ModRamParams,    ONLY: electric, IsComponent
   use ModRamGrids,     ONLY: NR, NT
-  use ModRamVariables, ONLY: KP, PHI, LZ, PHIOFS
+  use ModRamVariables, ONLY: KP, PHI, LZ, PHIOFS, VT, VTOL, VTN, TOLV
   use ModRamCouple,    ONLY: SwmfPot_II
 
   use ModTimeConvert, ONLY: TimeType, time_real_to_int
@@ -89,7 +87,6 @@ subroutine ram_gen_efilename(TimeIn,NameOut)
 
   use ModTimeConvert, ONLY: TimeType
 
-
   implicit none
 
   ! Args and return value.
@@ -152,25 +149,22 @@ subroutine ram_get_electric(NextEfile, EOut_II)
 
   use nrtype, ONLY: DP,pi_d
 
-
   implicit none
 
-  integer :: GSLerr
   ! Arguments
   character(len=200),intent(in)  :: NextEfile
   real(kind=Real8_), intent(out) :: EOut_II(NR+1, NT)
-  ! Kp, F10.7 no longer acquired through E-field files.
-  real(kind=Real8_):: KpOut, f107Out
   
   type(TimeType) :: TimeNext
-  integer :: nDay, nFile, iError, i, j, k, jw
+  integer :: nDay, nFile, iError, i, j, k, jw, GSLerr
+  real(DP) :: day, tth, ap, rsun, RRL, PH, wep(49), radOut, KpOut, F107Out
+  REAL(DP), ALLOCATABLE :: Epot_Cart(:,:), xo(:,:), yo(:,:)
   character(len=200) :: StringHeader, NameFileOut
-  REAL(kind=Real8_) :: Epot_Cart(0:nR,nT)
-  real(kind=Real8_) :: day, tth, ap, rsun, RRL, PH, wep(49)
-  REAL(kind=Real8_) :: radOut
-  REAL(kind=Real8_) :: xo(nR,nT), yo(nR,nT)
   character(len=*), parameter :: NameSub = 'ram_get_electric'
   !--------------------------------------------------------------------------
+  ALLOCATE(Epot_Cart(0:nR,nT), xo(nR,nT), yo(nR,nT))
+  Epot_Cart = 0.0; xo = 0.0; yo = 0.0
+
   radOut = RadiusMax+0.25
 
   ! Initialize efield to zero.
@@ -232,6 +226,7 @@ subroutine ram_get_electric(NextEfile, EOut_II)
            print*, 'SwmfPot_II here SwmfPot_II mm', maxval(swmfpot_II), minval(swmfpot_ii)
      END IF Weimer_electric_potential_along_SCB
 
+     DEALLOCATE(Epot_Cart, xo, yo)
      RETURN
   END IF
 
@@ -257,6 +252,7 @@ subroutine ram_get_electric(NextEfile, EOut_II)
   ! If coupled to SWMF IE, first E-field is zero.
   if(IsComponent .and. electric .eq. 'IESC') then 
      close(UNITTMP_)
+     DEALLOCATE(Epot_Cart, xo, yo)
      return
   endif
 
@@ -285,6 +281,9 @@ subroutine ram_get_electric(NextEfile, EOut_II)
      enddo
   enddo
 
+  DEALLOCATE(Epot_Cart, xo, yo)
+  RETURN
+
 end subroutine ram_get_electric
 
 !============================================================================
@@ -292,9 +291,8 @@ SUBROUTINE ionospheric_potential
   !!!! Module Variables
   use ModRamMain,      ONLY: PathSwmfOut
   use ModRamTiming,    ONLY: TimeRamNow, TimeRamElapsed
-  use ModRamParams,    ONLY: IsComponent, electric, UseSWMFFile
+  use ModRamParams,    ONLY: IsComponent, electric, UseSWMFFile, NameOmniFile
   use ModRamCouple,    ONLY: SwmfIonoPot_II, nIePhi, nIeTheta
-  use ModRamIndices,   ONLY: NameOmniFile
   use ModScbMain,      ONLY: iConvE
   use ModScbGrids,     ONLY: npsi, nzeta, nthe, nzetap
   use ModScbVariables, ONLY: phiiono, x, y, z, r0Start, dPhiIonodAlpha, &
@@ -313,21 +311,15 @@ SUBROUTINE ionospheric_potential
 
   implicit none
 
-  integer :: doy, GSLerr
-  INTEGER :: i, ierralloc, j, j1, k1, k, ierr, ierrDom, idealerr
-  REAL(DP) :: dPhiIonodRho(npsi, nzeta+1), dPhiIonodZeta(npsi, nzeta+1), &
-       colatGrid(npsi,nzeta+1), lonGrid(npsi,nzeta+1), latGrid(npsi,nzeta+1)
-  REAL(DP) :: radius, angle, lineData(3)
-  REAL(DP) :: thangle, zangle, byimf, bzimf_l
-  REAL(DP) :: bt, swvel, swden, alindex, bndylat
-  INTEGER :: ier, iCount_neighbor, iDomain
-  INTEGER :: iTimeArr(0:24), dstArr(0:24)
-  INTEGER :: iYear_l, iDoy_l, iHour_l, iMin_l, iLines
-  integer :: isec_l, imsec_l, imonth_l, iday_l
-  REAL(DP) :: bzimfArr_l, byimf_l, pdyn_l, Nk_l, Vk_l, bTot_l
-  real(DP) :: bximf_l, vx_l, vy_l, vz_l, t_l
-  INTEGER :: AL_l, SymH_l
-  REAL(DP), ALLOCATABLE :: colat(:), lon(:), phiIonoRaw(:,:)
+  integer :: doy, GSLerr, i, ierralloc, j, j1, k1, k, ierr, ierrDom, idealerr, &
+             ier, iCount_neighbor, iDomain, iTimeArr(0:24), dstArr(0:24), iYear_l, &
+             iDoy_l, iHour_l, iMin_l, iLines, isec_l, imsec_l, imonth_l, iday_l, &
+             AL_l, SymH_l
+  REAL(DP) :: radius, angle, lineData(3), thangle, zangle, byimf, bzimf_l, bt, &
+              swvel, swden, alindex, bndylat, bzimfArr_l, byimf_l, pdyn_l, Nk_l, &
+              Vk_l, bTot_l, bximf_l, vx_l, vy_l, vz_l, t_l
+  REAL(DP), ALLOCATABLE :: colat(:), lon(:), phiIonoRaw(:,:), dPhiIonodRho(:,:), &
+                           dPhiIonodZeta(:,:), colatGrid(:,:), lonGrid(:,:), latGrid(:,:)
   REAL(DP), EXTERNAL :: EpotVal, BoundaryLat
   CHARACTER(LEN = 3) :: zeroChars
   CHARACTER(LEN = 15) :: StringDateTime
@@ -336,6 +328,10 @@ SUBROUTINE ionospheric_potential
 
   INTEGER, PARAMETER :: mlat_range = 36, mlon_range = 91
   REAL(DP), PARAMETER :: tiny = 1.E-6_dp
+  !================================================================================================
+  ALLOCATE(dPhiIonodRho(npsi, nzeta+1), dPhiIonodZeta(npsi, nzeta+1), &
+           colatGrid(npsi,nzeta+1), lonGrid(npsi,nzeta+1), latGrid(npsi,nzeta+1))
+  dPhiIonodRho = 0.0; dPhiIonodZeta = 0.0; colatGrid=0.0; lonGrid = 0.0; latGrid = 0.0
 
   DO k = 2, nzeta
      DO j = 1, npsi
@@ -567,6 +563,7 @@ SUBROUTINE ionospheric_potential
 
 
   CASE DEFAULT
+     DEALLOCATE(dPhiIonodRho, dPhiIonodZeta, colatGrid, lonGrid,latGrid)
      STOP 'ionospheric_potential: problem.'
 
   END SELECT
@@ -594,6 +591,7 @@ SUBROUTINE ionospheric_potential
 
   call Write_Ionospheric_Potential
 
+  DEALLOCATE(dPhiIonodRho, dPhiIonodZeta, colatGrid, lonGrid,latGrid)
   RETURN
 
 END SUBROUTINE ionospheric_potential

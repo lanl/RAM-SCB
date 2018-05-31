@@ -8,11 +8,6 @@ module ModRamIndices
   ! the PARAM interface, allows the user to select source of indices, gather
   ! and interpolate the values to the current simulation time.
 
-  use ModRamParams,    ONLY: NameIndexFile, NameOmniFile
-  use ModRamVariables, ONLY: NameIndexSource, nRawKp, nRawF107, kptime, Kp, &
-                             F107, timeKp, timeF107, rawKp, rawF107
-
-
   implicit none
 
   contains
@@ -20,6 +15,9 @@ module ModRamIndices
   subroutine read_index_file(StartTime, EndTime, NameFile)
 
     use ModRamMain, ONLY: Real8_
+    use ModRamParams,    ONLY: NameIndexFile, NameOmniFile
+    use ModRamVariables, ONLY: NameIndexSource, nRawKp, nRawF107, kptime, Kp, &
+                               F107, timeKp, timeF107, rawKp, rawF107
 
     use ModTimeConvert, ONLY: TimeType, time_int_to_real
     use ModIoUnit,      ONLY: UNITTMP_
@@ -136,8 +134,10 @@ module ModRamIndices
   !===========================================================================
   subroutine init_indices(StartTime, EndTime)
     ! Based on source of indices, prepare indices for this simulation.
-    use ModTimeConvert, ONLY: TimeType
+    use ModRamParams,    ONLY: NameIndexFile
+    use ModRamVariables, ONLY: NameIndexSource
 
+    use ModTimeConvert, ONLY: TimeType
 
     implicit none
 
@@ -160,9 +160,11 @@ module ModRamIndices
     ! Interpolate Kp to current time.
     ! Use f10.7 according to current day.
     ! Input time format should be floating point used in ModTimeConvert.
+    use ModRamVariables, ONLY: nRawKp, nRawF107, kptime, Kp, F107, timeKp, &
+                               timeF107, rawKp, rawF107
+
     use ModRamMain, ONLY: Real8_
     
-
     implicit none
 
     real(kind=Real8_), intent(in) :: timeNow

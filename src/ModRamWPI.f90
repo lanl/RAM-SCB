@@ -7,10 +7,7 @@ MODULE ModRamWPI
 ! Contains subroutines related to wave particle interactions
 ! and electron lifetimes
 
-  use ModRamVariables, ONLY: NKpDiff, Kp_Chorus, NR_Dxx, NT_Dxx, NE_Dxx, NPA_Dxx, &
-                             CDAAR_Chorus, WALOS1, WALOS2, WALOS3, fpofc, NDVVJ, &
-                             NDAAJ, ENOR, ECHOR, BDAAR, CDAAR, RCHOR_Dxx, TCHOR_Dxx, &
-                             ECHOR_Dxx, PACHOR_Dxx
+  implicit none
 
   contains
 
@@ -20,16 +17,15 @@ MODULE ModRamWPI
 !**************************************************************************
   SUBROUTINE WAVEPARA1
 
-    use ModRamMain,      ONLY: Real8_
+    use ModRamMain,      ONLY: DP
     use ModRamGrids,     ONLY: NE, NR
-    use ModRamVariables, ONLY: EKEV, LZ
+    use ModRamVariables, ONLY: EKEV, LZ, WALOS1
 
 
     implicit none
 
     integer :: i, ii, j, k
-    real(kind=Real8_):: TAU_WAVE,xE,xL,xlife
-    real(kind=Real8_):: rEa(5),rL(8),rlife(5,8),clife(5)
+    real(DP):: TAU_WAVE,xE,xL,xlife, rEa(5),rL(8),rlife(5,8),clife(5)
     DATA rEa/0.2,0.5,1.0,1.5,2.0/
     DATA rL/5.0,4.5,4.0,3.5,3.0,2.5,2.0,1.65/
 
@@ -135,18 +131,21 @@ MODULE ModRamWPI
 !**************************************************************************
   SUBROUTINE WAVEPARA2
     !!!! Module Variables
-    use ModRamMain,      ONLY: Real8_, S
+    use ModRamMain,      ONLY: DP, S
     use ModRamConst,     ONLY: HMIN, RE, PI
     use ModRamGrids,     ONLY: NE, NR
-    use ModRamVariables, ONLY: EKEV, LZ, RLZ, V
+    use ModRamVariables, ONLY: EKEV, LZ, RLZ, V, WALOS2, WALOS3
     !!!! Module Subroutines/Functions
     use ModRamFunctions, ONLY: asind
-
 
     implicit none
 
     integer :: i, k
-    real(kind=Real8_):: TAU_WAVE,EMEV,R1,R2,CONE(NR+4),CLC
+    real(DP):: TAU_WAVE,EMEV,R1,R2,CLC
+    real(DP), ALLOCATABLE :: CONE(:)
+
+    ALLOCATe(CONE(nR+4))
+    CONE = 0.0
 
     DO K=2,NE
       DO I=2,NR
@@ -177,6 +176,7 @@ MODULE ModRamWPI
       ENDDO
     ENDDO
 
+    DEALLOCATE(CONE)
     RETURN
   END SUBROUTINE WAVEPARA2
 
@@ -188,10 +188,9 @@ MODULE ModRamWPI
     !!!! Module Variables
     use ModRamMain,      ONLY: PathRamIn
     use ModRamGrids,     ONLY: NR, NCF, ENG, NPA
-    use ModRamVariables, ONLY: LZ
+    use ModRamVariables, ONLY: LZ, fpofc, ndaaj, ENOR, ndvvj
     !!!! Share Modules
     use ModIoUnit,   ONLY: UNITTMP_
-
 
     implicit none
 
@@ -236,17 +235,16 @@ MODULE ModRamWPI
 !**************************************************************************
   SUBROUTINE WAPARA_CHORUS
     !!!! Module Variables
-    use ModRamMain,      ONLY: Real8_, PathRamIn
+    use ModRamMain,      ONLY: DP, PathRamIn
     use ModRamGrids,     ONLY: NR, NT, ENG, NPA
-    use ModRamVariables, ONLY: KP
+    use ModRamVariables, ONLY: KP, ECHOR, BDAAR
     !!!! Share Modules
     use ModIoUnit, ONLY: UNITTMP_
-
 
     implicit none
 
     integer :: i, j, kn, l, ikp
-    real(kind=Real8_), ALLOCATABLE :: RLDAA(:,:),RUDAA(:,:)
+    real(DP), ALLOCATABLE :: RLDAA(:,:),RUDAA(:,:)
     character(len=1) ST3
     character(len=2) ST2
     character(len=80) HEADER
@@ -313,8 +311,7 @@ MODULE ModRamWPI
 !**************************************************************************
   SUBROUTINE WAPARA_Kp()
 
-    use ModRamVariables, ONLY: KP
-
+    use ModRamVariables, ONLY: KP, CDAAR, CDAAR_chorus, NKpDiff, Kp_chorus
 
     implicit none
 
@@ -344,23 +341,26 @@ MODULE ModRamWPI
 !**************************************************************************
   SUBROUTINE WAPARA_BAS
     !!!! Module Variables
-    use ModRamMain,      ONLY: Real8_
+    use ModRamMain,      ONLY: DP
     use ModRamParams,    ONLY: DoUseKpDiff
     use ModRamGrids,     ONLY: NPA, NT, NE, NR
-    use ModRamVariables, ONLY: MU
+    use ModRamVariables, ONLY: MU, nR_Dxx, nE_Dxx, nPa_Dxx, RCHOR_Dxx, &
+                               TCHOR_Dxx, ECHOR_Dxx, CDAAR_chorus, &
+                               PACHOR_Dxx, CDAAR, nKpDiff, nT_Dxx
     !!!! Module Subroutines/Functions
     use ModRamFunctions, ONLY: ACOSD
     !!!! Share Modules
     use ModIoUnit, ONLY: UNITTMP_
-
 
     implicit none
 
     integer :: i,j,k,l,IER,nkp,nloop
     character(len=32) :: H1,H2,H3,nchar
     character(len=64) :: fname
-    real(kind=Real8_) :: Dxx_hold(NR_Dxx,NE_Dxx,NPA_Dxx)
-    real(kind=Real8_) :: PA(NPA)
+    real(DP), ALLOCATABLE :: Dxx_hold(:,:,:), PA(:)
+
+    ALLOCATE(Dxx_hold(NR_Dxx,NE_Dxx,NPA_Dxx), PA(NPA))
+    Dxx_hold = 0.0; Pa = 0.0
 
     write(*,*) "Starting WAPARA_BAS"
 
@@ -416,6 +416,7 @@ MODULE ModRamWPI
 
     write(*,*) "Finished WAPARA_BAS"
 
+    DEALLOCATE(Dxx_hold, PA)
     RETURN
   END SUBROUTINE WAPARA_BAS
 
@@ -425,21 +426,22 @@ MODULE ModRamWPI
 !************************************************************************
   SUBROUTINE WAVELO(S)
 
-    use ModRamMain,      ONLY: Real8_
+    use ModRamMain,      ONLY: DP
     use ModRamParams,    ONLY: DoUsePlane_SCB
     use ModRamGrids,     ONLY: NE, NR, NT, NPA
     use ModRamTiming,    ONLY: Dts
-    use ModRamVariables, ONLY: F2, KP, LZ, IP1, IR1, EKEV, NECR
-
+    use ModRamVariables, ONLY: F2, KP, LZ, IP1, IR1, EKEV, NECR, WALOS1, &
+                               WALOS2, WALOS3
 
     implicit none
 
     integer, intent(in) :: S
     integer :: i, j, k, l, j1, i1
-    real(kind=Real8_) :: TAU_LIF,Bw,Kpmax
-    real(kind=Real8_), ALLOCATABLE :: RLpp(:)
+    real(DP) :: TAU_LIF,Bw,Kpmax
+    real(DP), ALLOCATABLE :: RLpp(:)
 
     ALLOCATE(RLpp(nT))
+    RLpp = 0.0
 
     Bw=30.
     IF (KP.GE.4.0) Bw=100.                                 ! pT
@@ -490,20 +492,19 @@ MODULE ModRamWPI
 !*************************************************************************
   SUBROUTINE WPADIF(S)
     !!!! Module Variables
-    use ModRamMain,      ONLY: Real8_, PathRamOut
+    use ModRamMain,      ONLY: DP, PathRamOut
     use ModRamGrids,     ONLY: NT, NR, NE, NPA
     use ModRamTiming,    ONLY: Dts, T
     use ModRamVariables, ONLY: F2, FNHS, MU, DMU, WMU, ATAC, ATAW
     !!!! Share Modules
     use ModIoUnit, ONLY: UNITTMP_
 
-
     implicit none
 
     integer, intent(in) :: S
     integer :: i, j, k, l
-    real(kind=Real8_) :: AN,BN,GN,RP,DENOM
-    real(kind=Real8_), ALLOCATABLE :: F(:), RK(:), RL(:), FACMU(:)
+    real(DP) :: AN,BN,GN,RP,DENOM
+    real(DP), ALLOCATABLE :: F(:), RK(:), RL(:), FACMU(:)
 
     ALLOCATE(F(NPA),RK(NPA),RL(NPA),FACMU(NPA))
     F = 0.0; RK = 0.0; RL = 0.0; FACMU = 0.0

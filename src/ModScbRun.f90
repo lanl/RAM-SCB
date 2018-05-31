@@ -5,7 +5,6 @@
 
   MODULE ModScbRun
   ! Contains subroutines responsible for making the SCB calculations
-  
 
     implicit none
 
@@ -40,8 +39,7 @@
     USE ModScbCompute,  ONLY: computeBandJacob, compute_convergence, metrics
     USE ModScbEuler,    ONLY: alfges, psiges, mapalpha, mappsi, directAlpha, &
                               iterateAlpha, directPsi, iteratePsi, psiFunctions, &
-                              InterpolatePsiR, alphaFunctions, InterpolateAlphaPhi, &
-                              maptheta
+                              InterpolatePsiR, maptheta
     USE ModScbEquation, ONLY: newk, newj, metric, metrica ! LHS and RHS equations
     USE ModScbIO,       ONLY: Write_Convergence_Anisotropic, Update_Domain, Computational_Domain
     !!!! Share Modules
@@ -49,7 +47,6 @@
     USE ModIOUnit, ONLY: UNITTMP_
     !!!! NR Modules
     use nrtype, ONLY: DP, twopi_d, pi_d
-  
 
     implicit none
   
@@ -67,7 +64,6 @@
                                    alphaPrev(:,:,:), psiPrev(:,:,:), xStart(:,:,:), &
                                    yStart(:,:,:), zStart(:,:,:), psiStart(:,:,:), &
                                    alphaStart(:,:,:), fStart(:)
-    REAL(DP), PARAMETER :: pow = 1.0_dp, TINY = 1.E-15_dp
     LOGICAL :: check
 
     ! Variables for timing
@@ -248,7 +244,7 @@
 
           Move_points_in_alpha_theta: DO
              ! move zeta grid points along constant alphaEuler and theta lines
-             CALL mapalpha(iSm)
+             CALL mapalpha
              ! move theta grid points along constant alphaEuler and zeta lines
              CALL maptheta
              CALL metrica
@@ -476,7 +472,6 @@
     !!!! NR Modules
     use nrtype, ONLY: DP
 
-
     implicit none
   
     INTEGER  :: i, j, k, iplx
@@ -535,10 +530,9 @@
     !!!! NR Modules
     use nrtype, ONLY: DP
 
-
     implicit none
   
-    real(DP) :: ent_local(:,:), vol_local(:,:)
+    real(DP), INTENT(INOUT) :: ent_local(:,:), vol_local(:,:)
     integer, intent(IN) :: iteration_local
   
     INTEGER :: i, j, k, ierr, idealerr, ncdfId, GSLerr
@@ -721,14 +715,15 @@
     !!!! NR Modules
     use nrtype, ONLY: DP, pi_d
 
-
     implicit none
   
     INTEGER :: i, j, k, iplx
-    REAL(DP) :: magneticEnergy(nthe), magneticEnergyInsideGeo(nthe), &
-                magneticEnergyDipole, thermalEnergy(nthe), thermalEnergyInsideGeo(nthe), &
-                rsq, totalEnergy, volumeTotal
-  
+    REAL(DP) :: magneticEnergyDipole, rsq, totalEnergy, volumeTotal
+    REAL(DP), ALLOCATABLE :: magneticEnergy(:), magneticEnergyInsideGeo(:), &
+                             thermalEnergy(:), thermalEnergyInsideGeo(:)
+
+    ALLOCATE(magneticEnergy(nthe), magneticEnergyInsideGeo(nthe), &
+             thermalEnergy(nthe), thermalEnergyInsideGeo(nthe))
     magneticEnergy = 0.0_dp
     magneticEnergyInsideGeo = 0.0_dp
     magneticEnergyDipole = 0.0_dp
@@ -768,7 +763,8 @@
     DstDPSInsideGeo = 1.3_dp * (-BEarth) * (2._dp*SUM(thermalEnergyInsideGeo))/(3._dp*magneticEnergyDipole) * 1.E9_dp
     WRITE(*, '(A, 1X, F8.2, 1X, F8.2, 1X, F8.2, 1X, F8.2, A)') 'DstDPS, DstDPSGeo, DstBiot, DstBiotGeo = ', real(DstDPS), &
          real(DstDPSInsideGeo), real(DstBiot), real(DstBiotInsideGeo), ' nT' ! 1.3 factor due to currents induced in the Earth 
-  
+
+    DEALLOCATE(magneticEnergy,magneticEnergyInsideGeo,thermalEnergy,thermalEnergyInsideGeo)  
     RETURN
   
   END SUBROUTINE dps_general
@@ -804,7 +800,6 @@ SUBROUTINE pressure
     USE ModScbFunctions, ONLY: SavGol7, pRoeRad, extap
     !!!! NR Modules
     use nrtype, ONLY: DP, SP, pi_d, twopi_d
-
 
     implicit none
 
@@ -1272,7 +1267,6 @@ FUNCTION pressureTsygMuk(xEqGsm, yEqGsm)
 
   USE nrtype
   USE ModScbVariables, ONLY: pnormal
-  use ModRamIndices,   ONLY: NameOmniFile
   use ModIOUnit,       ONLY: UNITTMP_
 
   implicit none

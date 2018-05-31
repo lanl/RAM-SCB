@@ -5,13 +5,6 @@
 
 module ModRamIO
 
-  use ModRamMain,   ONLY: Real8_, S, nIter
-  use ModRamConst,  ONLY: PI
-  use ModRamParams, ONLY: DoSaveRamSats, UseNewFmt
-  use ModRamNCDF,   ONLY: ncdf_check, write_ncdf_globatts
-  use ModRamTiming, ONLY: DtLogFile, DtWriteSat
-
-
   implicit none
 
   logical :: IsFramework = .false. 
@@ -26,7 +19,7 @@ module ModRamIO
   
   character(len=10), parameter :: NameMod = 'ModRamMain'
   
-contains
+  contains
 !============================!
 !===== BASE SUBROUTINES =====!
 !============================!
@@ -37,8 +30,7 @@ contains
     ! PrefixIn and SuffixIn are short, descriptive strings (e.g. 
     ! 'pressure', 'ram_o' for prefixes and 'dat', 'cdf' for suffixes.
 
-    use ModTimeConvert
-
+    use ModTimeConvert, ONLY: TimeType
 
     implicit none
 
@@ -65,9 +57,9 @@ contains
     use ModRamTiming, ONLY: TimeRamRealStart
     use ModRamSats,   ONLY: read_sat_input, init_sats
     use ModRamMain,   ONLY: PathRamOut, PathScbOut
+    use ModRamParams, ONLY: DoSaveRamSats
 
     use ModIoUnit,    ONLY: UNITTMP_
-
 
     implicit none
 
@@ -104,10 +96,11 @@ contains
     ! If so, call the proper routines to write the output.
 
     !!!! Module Variables
+    use ModRamMain,      ONLY: DP, S
     use ModRamParams,    ONLY: DoSaveRamSats, NameBoundMag
     use ModRamTiming,    ONLY: Dt_hI, DtRestart, DtWriteSat, TimeRamNow, &
                                TimeRamElapsed, DtW_Pressure, DtW_hI, DtW_Efield, &
-                               DtW_MAGxyz
+                               DtW_MAGxyz, DtLogFile
     use ModRamGrids,     ONLY: NR, NT
     use ModRamVariables, ONLY: PParH, PPerH, PParHe, PPerHe, PParE, PPerE, &
                                PParO, PPerO, VT
@@ -120,12 +113,11 @@ contains
     ! Share Modules
     use ModIOUnit, ONLY: UNITTMP_
 
-
     implicit none
 
-    real(kind=Real8_), intent(in) :: TimeIn
+    real(DP), intent(in) :: TimeIn
 
-    real(kind=Real8_) :: dst
+    real(DP) :: dst
     logical :: DoTest, DoTestMe
     integer :: iS
     character(len=4) :: StrScbIter
@@ -197,7 +189,7 @@ contains
 subroutine read_geomlt_file(NameParticle)
 
   !!!! Module Variables
-  use ModRamMain,      ONLY: PathRamIN
+  use ModRamMain,      ONLY: DP,PathRamIN
   use ModRamTiming,    ONLY: TimeRamNow, Dt_bc, TimeRamStart
   use ModRamGrids,     ONLY: NE, NEL, NEL_prot, NTL, NBD
   use ModRamParams,    ONLY: boundary, BoundaryPath
@@ -208,7 +200,6 @@ subroutine read_geomlt_file(NameParticle)
   use ModIOUnit,      ONLY: UNITTMP_
   use ModTimeConvert, ONLY: TimeType, time_int_to_real
 
-
   implicit none
 
   character(len=4), intent(in) :: NameParticle
@@ -217,7 +208,7 @@ subroutine read_geomlt_file(NameParticle)
   integer :: iError, i, j, k, iSpec, NEL_
 
   ! Buffers to hold read data before placing in correct location.
-  real(kind=Real8_), allocatable :: Buffer_I(:), Buffer_III(:,:,:), Buffer2_I(:)
+  real(DP), allocatable :: Buffer_I(:), Buffer_III(:,:,:), Buffer2_I(:)
   integer, allocatable           :: iBuffer_II(:,:)
 
   ! Usual debug variables.
@@ -236,8 +227,8 @@ subroutine read_geomlt_file(NameParticle)
   character(len=1)   :: sa
 
   character(len=25), allocatable :: TimeBuffer(:)
-  real(kind=Real8_), allocatable :: MLTBuffer(:), EnergyBuffer(:)
-  real(kind=Real8_), allocatable :: NSCBuffer(:,:,:), FluxBuffer(:,:,:)
+  real(DP), allocatable :: MLTBuffer(:), EnergyBuffer(:)
+  real(DP), allocatable :: NSCBuffer(:,:,:), FluxBuffer(:,:,:)
 
   !------------------------------------------------------------------------
   call CON_set_do_test(NameSub, DoTest, DoTestMe)
@@ -379,7 +370,7 @@ end subroutine read_geomlt_file
 !===========================================================================
   subroutine read_hI_file
      !!!! Module Variables
-     use ModRamMain,      ONLY: PathScbIn
+     use ModRamMain,      ONLY: DP,PathScbIn
      use ModRamTiming,    ONLY: TimeRamNow
      use ModRamParams,    ONLY: NameBoundMag, UseEfInd
      use ModRamGrids,     ONLY: NR, NT, NPA
@@ -390,14 +381,13 @@ end subroutine read_geomlt_file
      !!!! Share Modules
      use ModIoUnit,       ONLY: UNITTMP_
 
-
      implicit none
 
      logical :: THERE
      integer :: I, J, K, L
      integer :: IPA, nFive
 
-     real(kind=Real8_) :: RRL, PH
+     real(DP) :: RRL, PH
 
      character(len=100) :: HEADER
      character(len=200) :: hIFile
@@ -467,7 +457,7 @@ end subroutine read_geomlt_file
 !==============================================================================
   subroutine read_initial
 
-    use ModRamMain,      ONLY: Real8_, PathRamIn
+    use ModRamMain,      ONLY: DP, PathRamIn
     use ModRamGrids,     ONLY: nR, nT, nE, nPA, RadiusMax, RadiusMin
     use ModRamVariables, ONLY: F2, FNHS, FNIS, BOUNHS, BOUNIS, BNES, HDNS, EIR, &
                                EIP, dBdt, dIdt, dIbndt, EkeV, Lz, MLT, Pa, &
@@ -476,25 +466,25 @@ end subroutine read_geomlt_file
     use ModRamParams,    ONLY: InitializationPath
 
     use ModRamGSL, ONLY: GSL_Interpolation_2D
+    use ModRamNCDF, ONLY: ncdf_check
 
     use netcdf
-
+    use nrtype, ONLY: pi_d
 
     implicit none
 
-    integer :: i, j, k, l, iS, iDomain, GSLerr
-    integer :: iRDim, iTDim, iEDim, iPaDim, iR, iT, iE, iPa, iError
+    integer :: i, j, k, l, iS, iDomain, GSLerr, iRDim, iTDim, iEDim, iPaDim, &
+               iR, iT, iE, iPa, iError
     integer :: iFluxEVar, iFluxHVar, iFluxHeVar, iFluxOVar, iHVar, iBHVar, &
                iIVar, iBIVar, iBNESVar, iHDNSVar, iEIRVar, iEIPVar, &
                iDBDTVar, iDIDTVar, iDIBNVar, iFileID, iStatus, iPParTVar, &
                iPPerTVar
-   
-    real(kind=Real8_), allocatable :: iF2(:,:,:,:,:), iFNHS(:,:,:), iFNIS(:,:,:), &
-         iBOUNHS(:,:,:), iBOUNIS(:,:,:), iEIR(:,:), iEIP(:,:), iBNES(:,:), &
-         iHDNS(:,:,:), idBdt(:,:), idIdt(:,:,:), idIbndt(:,:,:), iLz(:), iMLT(:), &
-         iEkeV(:), iPaVar(:), radGrid(:,:), angleGrid(:,:), iPParT(:,:,:), iPPerT(:,:,:)
-
-    real(kind=Real8_) :: DL1, DPHI
+    real(DP), allocatable :: iF2(:,:,:,:,:), iFNHS(:,:,:), iFNIS(:,:,:), iBOUNHS(:,:,:), &
+                             iBOUNIS(:,:,:), iEIR(:,:), iEIP(:,:), iBNES(:,:), &
+                             iHDNS(:,:,:), idBdt(:,:), idIdt(:,:,:), idIbndt(:,:,:), &
+                             iLz(:), iMLT(:), iEkeV(:), iPaVar(:), radGrid(:,:), &
+                             angleGrid(:,:), iPParT(:,:,:), iPPerT(:,:,:)
+    real(DP) :: DL1, DPHI
 
     character(len=100)             :: NameFile, StringLine
 
@@ -558,7 +548,7 @@ end subroutine read_geomlt_file
       iLz(I)=2.+(I-2)*DL1
     END DO
 
-    DPHI=2.*PI/(iT-1)
+    DPHI=2.*PI_d/(iT-1)
     DO J=1,iT
       iMLT(J)=(J-1)*DPHI
     END DO
@@ -579,7 +569,7 @@ end subroutine read_geomlt_file
           radGrid(i,:) = Lz(i)
        ENDDO
        DO j=1,NT
-          angleGrid(:,j) = MLT(j)*2*PI/24
+          angleGrid(:,j) = MLT(j)*2*PI_d/24
        ENDDO
        do iS=1,4
           CALL GSL_Interpolation_2D(iLz, iMLT, iPParT(iS,:,:), radGrid(1:nR,:), &
@@ -625,7 +615,7 @@ end subroutine read_geomlt_file
 !==========================================================================
   subroutine ram_epot_write
 
-    use ModRamMain, ONLY: Real8_, PathRamOut
+    use ModRamMain, ONLY: DP, PathRamOut
     use ModRamTiming, ONLY: TimeRamNow, TimeRamElapsed
     use ModRamGrids, ONLY: nR, nT
     use ModRamVariables, ONLY: Kp, F107, VT, LZ, MLT
@@ -634,13 +624,12 @@ end subroutine read_geomlt_file
 
     use ModIOUnit, ONLY: UNITTMP_
 
-
     implicit none
 
     character(len=23)  :: StringDate
     character(len=300) :: NameFileOut
     integer :: i, j
-    real(kind=Real8_) :: T
+    real(DP) :: T
    
     T = TimeRamElapsed
     write(StringDate,"(i4.4,'-',i2.2,'-',i2.2,'_',i2.2,2(':',i2.2)'.',i3.3)"), TimeRamNow%iYear, &
@@ -670,7 +659,7 @@ end subroutine read_geomlt_file
 !==========================================================================
   subroutine ram_hour_write !Previously WRESULT in ram_all
 
-    use ModRamMain,      ONLY: Real8_, S, PathRamOut
+    use ModRamMain,      ONLY: DP, S, PathRamOut
     use ModRamConst,     ONLY: pi
     use ModRamGrids,     ONLY: nR, nE, nPA, nT
     use ModRamVariables, ONLY: F2, FFACTOR, FNHS, WE, WMU, XNN, XND, ENERN,   &
@@ -685,9 +674,9 @@ end subroutine read_geomlt_file
     implicit none
 
     integer :: i, j, k, l, jw, iw
-    real(kind=Real8_) :: weight, esum, csum, psum, precfl, NSUM
-    real(kind=Real8_), ALLOCATABLE :: XNNO(:),XNDO(:)
-    real(kind=Real8_), ALLOCATABLE :: F(:,:,:,:),FZERO(:,:,:),ENO(:),EDO(:),AVEFL(:,:,:),BARFL(:)
+    real(DP) :: weight, esum, csum, psum, precfl, NSUM
+    real(DP), ALLOCATABLE :: XNNO(:),XNDO(:)
+    real(DP), ALLOCATABLE :: F(:,:,:,:),FZERO(:,:,:),ENO(:),EDO(:),AVEFL(:,:,:),BARFL(:)
     character(len=23) :: StringDate
     character(len=2)  :: ST2
     character(len=100) :: ST4, NameFileOut
@@ -819,7 +808,7 @@ end subroutine read_geomlt_file
     !!!! Share Modules
     use ModIOUnit, ONLY: UNITTMP_
 
-
+    use nrtype, ONLY: pi_d
     implicit none
 
     character(len=23)            :: StringTime
@@ -853,11 +842,11 @@ end subroutine read_geomlt_file
     do i=2, NR
        do j=1, NT
           if (.not.DoAnisoPressureGMCoupling) then
-             write(UNITTMP_,*) LZ(I),PHI(J)*12/PI,PPERH(I,J),PPARH(I,J), &
+             write(UNITTMP_,*) LZ(I),PHI(J)*12/PI_d,PPERH(I,J),PPARH(I,J), &
                                PPERO(I,J),PPARO(I,J), PPERHE(I,J),PPARHE(I,J), &
                                PPERE(I,J),PPARE(I,J),PAllSum(i,j)
           else
-             write(UNITTMP_,*) LZ(I),PHI(J)*12/PI,PPERH(I,J),PPARH(I,J), &
+             write(UNITTMP_,*) LZ(I),PHI(J)*12/PI_d,PPERH(I,J),PPARH(I,J), &
                                PPERO(I,J),PPARO(I,J),PPERHE(I,J),PPARHE(I,J), &
                                PPERE(I,J),PPARE(I,J),PAllSum(i,j),PparSum(i,j)
           end if
@@ -876,7 +865,6 @@ subroutine ram_write_hI
   use ModRamVariables, ONLY: LZ, MLT, FNHS, BOUNHS, FNIS, BOUNIS, BNES, HDNS
 
   use ModIOUnit, ONLY: UNITTMP_
-
 
   implicit none
 
@@ -915,7 +903,6 @@ subroutine write_dsbnd
   !!!! Share Modules
   use ModIoUnit,      ONLY: UNITTMP_
 
-
   implicit none
 
   integer :: K, j
@@ -934,7 +921,6 @@ subroutine write_dsbnd
 end Subroutine write_dsbnd
 
 !==============================================================================
-
   subroutine write_fail_file
 
     !!!! Module Variables

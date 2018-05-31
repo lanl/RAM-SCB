@@ -6,7 +6,6 @@
 Module ModScbGrids
 
   use nrtype, ONLY: DP, pi_d
-  
 
   implicit none
   

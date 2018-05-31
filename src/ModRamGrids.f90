@@ -5,9 +5,9 @@
 
 Module ModRamGrids
 
+  use nrtype, ONLY: DP
 
   implicit none
-  save
   
   !!! RAM Grids
   integer :: NR       = 20,  &  ! grid points in radial direction 
@@ -31,13 +31,13 @@ Module ModRamGrids
              NCF  = 5,  &
              NCO  = 5
   
-  real, parameter :: RadiusMin = 1.75, & ! Min radius for RAM grid
-                     RadiusMax = 6.5, &  ! Max radius for RAM Grid
-                     RadOut = 6.75       ! Extended RAM grid for SCB use
+  real(DP), parameter :: RadiusMin = 1.75, & ! Min radius for RAM grid
+                         RadiusMax = 6.5, &  ! Max radius for RAM Grid
+                         RadOut = 6.75       ! Extended RAM grid for SCB use
   
-  real :: EnergyMin = 0.1
+  real(DP) :: EnergyMin = 0.1
   
-  integer :: Nx! = NPA             ! Grid points for PA in mixed diffusion solver
+  integer :: Nx = 72             ! Grid points for PA in mixed diffusion solver
   integer :: Ny = 37
   integer :: NyE = 300             ! Grid points for energy    "     "
 

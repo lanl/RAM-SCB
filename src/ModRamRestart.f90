@@ -4,6 +4,13 @@
 !============================================================================
 
 module ModRamRestart
+
+  implicit none
+  
+  contains
+  !==========================================================================
+  subroutine write_restart
+    use ModRamParams, ONLY: TimedRestarts
     !!!! Module Variables
     use ModRamMain,      ONLY: PathRestartOut, PathRestartIn, niter
     use ModRamFunctions, ONLY: RamFileName
@@ -27,14 +34,6 @@ module ModRamRestart
     use ModIOUnit, ONLY: UNITTMP_
     !!!! NetCdf Modules
     use netcdf
-
-
-  implicit none
-  
-  contains
-  !==========================================================================
-  subroutine write_restart
-    use ModRamParams, ONLY: TimedRestarts
 
     implicit none
     
@@ -413,7 +412,29 @@ module ModRamRestart
 
   !==========================================================================
   subroutine read_restart
-
+    !!!! Module Variables
+    use ModRamMain,      ONLY: PathRestartOut, PathRestartIn, niter
+    use ModRamFunctions, ONLY: RamFileName
+    use ModRamTiming,    ONLY: TimeRamElapsed, TimeRamStart, TimeRamNow, DtsNext, &
+                               TOld
+    use ModRamGrids,     ONLY: NR, NT, NE, NPA
+    use ModRamVariables, ONLY: F2, PParT, PPerT, FNHS, FNIS, BOUNHS, BOUNIS, &
+                               BNES, HDNS, EIR, EIP, dBdt, dIdt, dIbndt, VTN, &
+                               VTOL, VT, EIR, EIP, FGEOS, PParH, PPerH, PParO, &
+                               PPerO, PParHe, PPerHe, PParE, PPerE
+    use ModRamScb,       ONLY: indexPA, FLUX3DEQ
+    use ModScbMain,      ONLY: DP
+    use ModScbGrids,     ONLY: nthe, npsi, nzeta, nzetap
+    use ModScbVariables, ONLY: x, y, z, bX, bY, bZ, bf, alfa, psi, alphaVal, psiVal, &
+                               chi, chiVal, xpsiout, xpsiin, left, right, constZ,    &
+                               constTheta, kmax, nZetaMidnight, thetaVal, f, fp, fzet, &
+                               fzetp, zetaVal, rhoVal
+    !!!! Module Subroutines/Functions
+    use ModRamNCDF, ONLY: ncdf_check, write_ncdf_globatts
+    !!!! Share Modules
+    use ModIOUnit, ONLY: UNITTMP_
+    !!!! NetCdf Modules
+    use netcdf
 
     implicit none
     

@@ -7,7 +7,6 @@ MODULE ModRamLoss
 ! Contains subroutines for calculating particle loss and loss rates
 ! currently contains charge exchange and atmospheric loss
 
-
   implicit none
 
   contains
@@ -18,7 +17,7 @@ MODULE ModRamLoss
 !**************************************************************************
   SUBROUTINE CEPARA(S)
     !!!! Module Variables
-    use ModRamMain,      ONLY: Real8_
+    use ModRamMain,      ONLY: DP
     use ModRamGrids,     ONLY: NE, NR, NT, NPA
     use ModRamTiming,    ONLY: DTs
     use ModRamVariables, ONLY: EKEV, V, RLZ, HDNS, CHARGE, ATLOS
@@ -28,7 +27,7 @@ MODULE ModRamLoss
 
     integer, intent(in) :: S
     integer :: l, k, i, j
-    real(kind=Real8_) :: x, y, alpha, taub
+    real(DP) :: x, y, alpha, taub
 
     ! Calculate charge exchange crosss-section of ring species S with H
     ! and then the charge exchange decay rate ACHAR
@@ -99,7 +98,6 @@ MODULE ModRamLoss
     use ModRamGrids,     ONLY: NE, NT, NR, NPA
     use ModRamVariables, ONLY: F2, CHARGE
 
-
     implicit none
 
     integer, intent(in) :: S
@@ -127,7 +125,6 @@ MODULE ModRamLoss
     !!!! Module Variables
     use ModRamGrids,     ONLY: NE, NT, NR, NPA
     use ModRamVariables, ONLY: F2, FNHS, UPA, ATLOS
-
 
     implicit none
 

@@ -9,9 +9,7 @@ module ModRamMain
   use nrtype,         ONLY: DP, SP
   use ModRamGrids,    ONLY: NS, NR, NT, NE, NPA
 
-
   implicit none
-  save
 
 ! RAM version.
   real, parameter :: CodeVersion = 2.2

@@ -6,9 +6,6 @@
 MODULE ModScbInit
   ! Contains subroutines for initializattion of SCB component
   
-  use ModScbVariables
-  
-
   implicit none
   
   contains
@@ -17,8 +14,7 @@ MODULE ModScbInit
 
     use ModRamGrids, ONLY: nR, nT, nPa
     use ModScbGrids
-
-
+    use ModScbVariables
     implicit none
 
 !--- SCE Components
@@ -160,6 +156,7 @@ MODULE ModScbInit
 !==============================================================================
   subroutine scb_deallocate
 
+    use ModScbVariables
 
     implicit none
 
@@ -189,7 +186,7 @@ MODULE ModScbInit
 ! ModScbRun Variables
     DEALLOCATE(radEqMidNew, gradPsiGradAlpha, dPperdAlpha, dBBdAlpha, dBBdPsi, &
                dPPerdPsi, dPPardAlpha, dPPardPsi, dPPerdTheta, dPPerdRho, dPPerdZeta, &
-               dBsqdAlpha, dBsqdPsi, dBsqdTheta, gradThetaSq, bfInitial, pressure3D, &
+               dBsqdAlpha, dBsqdPsi, dBsqdTheta, bfInitial, pressure3D, &
                bj, phij, ppar, pper, tau, sigma, dPdAlpha, dPdPsi, dSqPdAlphaSq, &
                dSqPdPsiSq, dBsqdRho, dBsqdZeta)
 ! Extra Variables
@@ -212,7 +209,10 @@ MODULE ModScbInit
     use ModScbParams,    ONLY: blendAlphaInit, blendPsiInit
     USE ModScbGrids,     ONLY: nthe, npsi, nzeta
     use ModScbVariables, ONLY: blendAlpha, blendPsi, alphaVal, alphaValInitial, &
-                               psiVal, xpsiout, xpsiin, r0Start
+                               psiVal, xpsiout, xpsiin, r0Start, nZetaMidnight, &
+                               nThetaEquator, bzero, pressurequot, xzero, xzero3, &
+                               re1, bnormal, pnormal, enormal, pjconst, zetaVal, &
+                               thetaVal, rhoVal, nMaximum
 
     use ModRamFunctions, ONLY: ram_sum_pressure
     use ModRamScb,       ONLY: computehI
@@ -221,7 +221,6 @@ MODULE ModScbInit
     use ModScbIO,        ONLY: computational_domain
 
     use nrtype, ONLY: DP, pi_d, twopi_d
-
 
     implicit none
   
@@ -272,7 +271,7 @@ MODULE ModScbInit
     !permeability=4.*pi*1.e-7 H/m
     !cc  The unit conversion constant pjconst = 0.0134
     !cc  The current is in unit of (microA/m**2) by multiplying with pjconst
-    pjconst = 0.0134 !1.e6_dp * 0.31E-4_dp / (xzero3 * 4._dp * pi_d * 1.E-7_dp * 6.4E6_dp)
+    pjconst = 1.e6_dp * 0.31E-4_dp / (xzero3 * 4._dp * pi_d * 1.E-7_dp * 6.4E6_dp)
 !!!!!
 
 !!!!! Set computational coordinates grid

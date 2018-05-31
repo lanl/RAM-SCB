@@ -8,7 +8,6 @@ MODULE ModRamRun
 ! Calls subroutines from ModRamDrift, ModRamWPI, and ModRamLoss
 ! Calculates new F2 and parallel/perpendicular pressures
 
-
   implicit none
 
   contains
@@ -17,7 +16,7 @@ MODULE ModRamRun
   SUBROUTINE ram_run
 
     !!!! Module Variables
-    use ModRamMain,      ONLY: Real8_
+    use ModRamMain,      ONLY: DP
     use ModRamParams,    ONLY: electric, DoUseWPI, DoUseBASdiff, DoUseKpDiff, &
                                DoUsePlane_SCB
     use ModRamConst,     ONLY: RE
@@ -41,7 +40,7 @@ MODULE ModRamRun
 
     implicit none
 
-    real(kind=Real8_)  :: AVS, lambda
+    real(DP)  :: AVS, lambda
     integer :: i, j, k, l, jw ! Iterators
     integer :: IS ! Species to advect.
     integer :: DAY, nmonth
@@ -168,18 +167,15 @@ MODULE ModRamRun
 !************************************************************************
   SUBROUTINE SUMRC(S)
     !!!! Module Variables
-    use ModRamMain,      ONLY: Real8_
+    use ModRamMain,      ONLY: DP
     use ModRamGrids,     ONLY: NR, NE, NPA, NT
     use ModRamVariables, ONLY: EKEV, WE, WMU, F2, SETRC, ELORC
-
 
     implicit none
 
     integer, intent(in) :: S
-    integer, SAVE:: i, j, k, l
-    real(kind=Real8_), SAVE :: enold
-    real(kind=Real8_), SAVE :: WEIGHT
-    !$OMP THREADPRIVATE(ENOLD, WEIGHT, I, J, K, L)
+    integer :: i, j, k, l
+    real(DP) :: enold, WEIGHT
 
     ELORC(S)=0.
     ENOLD=SETRC(S)
@@ -205,7 +201,7 @@ MODULE ModRamRun
 !*************************************************************************
   SUBROUTINE ANISCH(S)
     ! Module Variables
-    use ModRamMain,      ONLY: Real8_
+    use ModRamMain,      ONLY: DP
     use ModRamConst,     ONLY: CS, PI, Q
     use ModRamParams,    ONLY: DoUseWPI, DoUsePlane_SCB, DoUseBASdiff
     use ModRamGrids,     ONLY: NR, NT, NPA, ENG, SLEN, NCO, NCF, Nx, Ny, NE
@@ -218,19 +214,18 @@ MODULE ModRamRun
     use ModRamGSL,       ONLY: GSL_Interpolation_1D, GSL_Interpolation_2D
     use ModRamFunctions, ONLY: ACOSD
 
-
     implicit none
 
     integer, intent(in) :: S
     integer :: i, iwa, j, k, klo, l, iz, ier, kn, i1, j1, GSLerr, u
-    real(kind=Real8_) :: cv, rfac, rnhtt, edent, pper, ppar, rnht, Y, &
-                         eden,sume,suma,sumn,ernm,epma,epme,anis,epar,taudaa,taudea,taudee, &
-                         gausgam,anist,epart,fnorm,xfrl,Bw,esu,omega,er1,dx
-    real(kind=Real8_) :: MUBOUN,KEVERG,DN(2,25),EPO(2,25),AII(2,25)
-    real(kind=Real8_), ALLOCATABLE :: DWAVE(:),CMRA(:),BWAVE(:,:),AVDAA(:),TAVDAA(:),&
-                                      DAA(:,:,:),DUMP(:,:),XFR(:,:),XFRe(:),ALENOR(:),&
-                                      DUME(:,:),DVV(:,:,:),AVDVV(:),TAVDVV(:),WCDT(:,:),&
-                                      XFRT(:,:),PA(:),DAMR(:,:),DAMR1(:),GREL_new(:)
+    real(DP) :: cv, rfac, rnhtt, edent, pper, ppar, rnht, Y, &
+                eden,sume,suma,sumn,ernm,epma,epme,anis,epar,taudaa,taudea,taudee, &
+                gausgam,anist,epart,fnorm,xfrl,Bw,esu,omega,er1,dx
+    real(DP) :: MUBOUN,KEVERG,DN(2,25),EPO(2,25),AII(2,25)
+    real(DP), ALLOCATABLE :: DWAVE(:),CMRA(:),BWAVE(:,:),AVDAA(:),TAVDAA(:),&
+                             DAA(:,:,:),DUMP(:,:),XFR(:,:),XFRe(:),ALENOR(:),&
+                             DUME(:,:),DVV(:,:,:),AVDVV(:),TAVDVV(:),WCDT(:,:),&
+                             XFRT(:,:),PA(:),DAMR(:,:),DAMR1(:),GREL_new(:)
     INTEGER :: KHI(5)
     character(len=80) HEADER
     DATA khi/6, 10, 25, 30, 35/ ! ELB=0.1 keV -> 0.4,1,39,129,325 keV 

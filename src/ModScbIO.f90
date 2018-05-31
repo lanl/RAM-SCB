@@ -7,7 +7,6 @@ MODULE ModScbIO
   
   use nrtype, ONLY: DP
 
-
   implicit none
  
   REAL(DP), SAVE :: PARMOD(10)
@@ -46,7 +45,6 @@ MODULE ModScbIO
     !!!! NR Modules
     use nrtype, ONLY: DP, SP, pi_d, twopi_d
 
-
     implicit none
 
     INTEGER :: i, j, k, scanLeft, scanRight, GSLerr
@@ -55,13 +53,13 @@ MODULE ModScbIO
     REAL(DP) :: ratioFl=1, r0, t0, t1, tt, zt, b, rr, rt, psitemp
     REAL(DP) :: Pdyn, Dst, ByIMF, BzIMF, G(3), W(6)
     REAL(DP), DIMENSION(1000) :: distance, xx, yy, zz, distance2derivsX, &
-                                   distance2derivsY, distance2derivsZ, xxGSW, &
-                                   yyGSW, zzGSW, bx, by, bz
+                                 distance2derivsY, distance2derivsZ, xxGSW, &
+                                 yyGSW, zzGSW, bx, by, bz
     INTEGER :: LMAX = 2000
     INTEGER :: LOUT, iYear, iMonth, iDay, iHour, iMin, iSec, ifail
     REAL(DP) :: ER, DSMAX, RLIM, xf, yf, zf, xf2, yf2, zf2, DIR
     REAL(DP) :: x0, y0, z0, XGSW, YGSW, ZGSW, xfGSW, yfGSW, zfGSW, RIN
-    REAL(DP) :: AA, SPS, CPS, PS, AB, tVal(nthe), cVal(nthe), dut
+    REAL(DP) :: AA, SPS, CPS, PS, AB, dut
     COMMON /GEOPACK1/ AA(10),SPS,CPS,AB(3),PS
 
     integer :: time1, clock_rate, clock_max
@@ -79,12 +77,9 @@ MODULE ModScbIO
        constZ = 0.0
        constTheta = 0.0
        xpsiin = 1.75
-       xpsiout = 7.00
+       xpsiout = 7.50
        b = 0.0
-       DO i = 1, nthe
-          tVal(i) = pi_d * REAL(i-1, DP)/REAL(nthe-1, DP)
-       END DO
-       chival = (tVal + constTheta*sin(2.*tVal))
+       chival = (thetaVal + constTheta*sin(2.*thetaVal))
        kmax = nZetaMidnight
 
        do k=2,nzeta
@@ -222,9 +217,6 @@ MODULE ModScbIO
        ! in chosen field and perform nzeta*npsi traces to create grid
        constZ = 0.0
        constTheta = 0.3
-       DO i = 1, nthe
-          tVal(i) = pi_d * REAL(i-1, DP)/REAL(nthe-1, DP)
-       END DO
        do k=2,nzeta
           do j=1,npsi
              r0 = xpsiin + REAL(j-1,DP)/REAL(npsi-1,DP)*(xpsiout-xpsiin)
@@ -241,17 +233,17 @@ MODULE ModScbIO
                 distance(i) = distance(i-1) + SQRT((xx(i)-xx(i-1))**2 &
                               +(yy(i)-yy(i-1))**2 +(zz(i)-zz(i-1))**2)
              enddo
-             cVal = (tVal + constTheta * SIN(2.*tVal)) * distance(LOUT)/pi_d
+             chiVal = (thetaVal + constTheta * SIN(2.*thetaVal)) * distance(LOUT)/pi_d
 
-             CALL GSL_Interpolation_1D('Cubic',distance(1:LOUT),xx(1:LOUT),cVal(2:nthe),x(2:nthe,j,k),GSLerr)
+             CALL GSL_Interpolation_1D('Cubic',distance(1:LOUT),xx(1:LOUT),chiVal(2:nthe),x(2:nthe,j,k),GSLerr)
              if (GSLerr.ne.0) then
                 write(*,*) "  ModScbIO: Issue creating SCB fields from traced fields (x); j,k = ", j, k
              endif
-             CALL GSL_Interpolation_1D('Cubic',distance(1:LOUT),yy(1:LOUT),cVal(2:nthe),y(2:nthe,j,k),GSLerr)
+             CALL GSL_Interpolation_1D('Cubic',distance(1:LOUT),yy(1:LOUT),chiVal(2:nthe),y(2:nthe,j,k),GSLerr)
              if (GSLerr.ne.0) then
                 write(*,*) "  ModScbIO: Issue creating SCB fields from traced fields (y); j,k = ", j, k
              endif
-             CALL GSL_Interpolation_1D('Cubic',distance(1:LOUT),zz(1:LOUT),cVal(2:nthe),z(2:nthe,j,k),GSLerr)
+             CALL GSL_Interpolation_1D('Cubic',distance(1:LOUT),zz(1:LOUT),chiVal(2:nthe),z(2:nthe,j,k),GSLerr)
              if (GSLerr.ne.0) then
                 write(*,*) "  ModScbIO: Issue creating SCB fields from traced fields (z); j,k = ", j, k
              endif
@@ -276,7 +268,7 @@ MODULE ModScbIO
        x(:,:,nzeta+1) = x(:,:,2)
        y(:,:,nzeta+1) = y(:,:,2)
        z(:,:,nzeta+1) = z(:,:,2)
-       chival = (tVal + constTheta*sin(2.*tVal))
+       chival = (thetaVal + constTheta*sin(2.*thetaVal))
     endif
 
     ! Get the Psi (Alpha) Euler Potential
@@ -306,16 +298,16 @@ MODULE ModScbIO
     call alfges
 
     !! For outputing the magnetic field
-    !open(UNITTMP_,FILE=RamFileName('ComputeDomain','dat',TimeRamNow))
-    !write(UNITTMP_,*) nthe, npsi, nzeta
-    !do i = 1,nthe
-    ! do j = 1,npsi
-    !  do k = 1,nzeta
-    !   write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
-    !  enddo
-    ! enddo
-    !enddo
-    !close(UNITTMP_)
+    open(UNITTMP_,FILE=RamFileName('ComputeDomain','dat',TimeRamNow))
+    write(UNITTMP_,*) nthe, npsi, nzeta
+    do i = 1,nthe
+     do j = 1,npsi
+      do k = 1,nzeta
+       write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
+      enddo
+     enddo
+    enddo
+    close(UNITTMP_)
 
     return
 
@@ -347,23 +339,21 @@ MODULE ModScbIO
     !!! NR Modules
     use nrtype, ONLY: DP, pi_d, twopi_d
 
-
     implicit none
 
     LOGICAL, INTENT(OUT) :: updated
     LOGICAL :: outside
-    INTEGER :: i, j, k, L, n, outer(nthe,nzeta), GSLerr, i1, i2, jout, ktemp
-    REAL(DP) :: xpsitot, xpl, psis, ag, psitemp, adif, xpsitemp, rtest, dout
-    REAL(DP), DIMENSION(nthe) :: xOldTheta, yOldTheta, zOldTheta, chiValOld
-    REAL(DP), DIMENSION(npsi) :: radius, xOldPsi, yOldPsi, zOldPsi, psiOld
-    REAL(DP), DIMENSION(npsi+1) :: xtemp, ytemp, ztemp, psiValTemp, rtemp, dj
-    REAL(DP), DIMENSION(nzeta-1) :: xatemp, yatemp, zatemp
-    REAL(DP), DIMENSION(nzeta+1) :: phi, xPhi, yPhi, zPhi
-    REAL(DP), DIMENSION(nthe,nzeta+1) :: xout, yout, zout, rout
-    REAL(DP), DIMENSION(nthe,npsi) :: xmid, ymid, zmid, rmid
-    REAL(DP), DIMENSION(nthe,npsi,nzeta) :: rold
-    REAL(DP) :: xratio, yratio, zratio, psiRatio, xi, yi, zi, r1, r2
-    REAL(DP) :: rLeft, rMidd, rRight
+    INTEGER :: i, j, k, L, n, GSLerr, i1, i2, jout, ktemp
+    INTEGER, ALLOCATABLE :: outer(:,:)
+    REAL(DP) :: xpsitot, xpl, psis, ag, psitemp, adif, xpsitemp, rtest, dout, &
+                xratio, yratio, zratio, psiRatio, xi, yi, zi, r1, r2, rLeft, &
+                rMidd, rRight
+    REAL(DP), ALLOCATABLE :: xOldTheta(:), yOldTheta(:), zOldTheta(:), chiValOld(:), &
+                             radius(:), xOldPsi(:), yOldPsi(:), zOldPsi(:), psiOld(:), &
+                             xtemp(:), ytemp(:), ztemp(:), psiValTemp(:), rtemp(:), dj(:), &
+                             xatemp(:), yatemp(:), zatemp(:), phi(:), xPhi(:), yPhi(:), &
+                             zPhi(:), xout(:,:), yout(:,:), zout(:,:), rout(:,:), &
+                             xmid(:,:), ymid(:,:), zmid(:,:), rmid(:,:), rold(:,:,:)
 
     ! Variables for tracing
     REAL(DP) :: Pdyn, Dst, ByIMF, BzIMF, G(3), W(6)
@@ -393,6 +383,20 @@ MODULE ModScbIO
        call Computational_Domain
        return
     ENDIF
+
+    ALLOCATE(xOldTheta(nthe),yOldTheta(nthe),zOldTheta(nthe),chiValOld(nthe),&
+             radius(npsi),xOldPsi(npsi),yOldPsi(npsi),zOldPsi(npsi),psiOld(npsi),&
+             xtemp(npsi+1),ytemp(npsi+1),ztemp(npsi+1),psiValTemp(npsi+1),rtemp(npsi+1),&
+             dj(npsi+1),xatemp(nzeta-1),yatemp(nzeta-1),zatemp(nzeta-1),phi(nzeta+1),&
+             xPhi(nzeta+1),yPhi(nzeta+1),zPhi(nzeta+1),xout(nthe,nzeta+1),yout(nthe,nzeta+1),&
+             zout(nthe,nzeta+1),rout(nthe,nzeta+1),xmid(nthe,npsi),ymid(nthe,npsi),&
+             zmid(nthe,npsi),rmid(nthe,npsi),rold(nthe,npsi,nzeta),outer(nthe,nzeta))
+    xOldTheta = 0.0; yOldTheta = 0.0; zOldTheta = 0.0; chiValOld = 0.0; radius = 0.0
+    xOldPsi = 0.0; yOldPsi = 0.0; zOldPsi = 0.0; psiOld = 0.0; xtemp = 0.0; ytemp = 0.0
+    ztemp = 0.0; psiValTemp = 0.0; rtemp = 0.0; dj = 0.0; xatemp = 0.0; yatemp = 0.0
+    zatemp = 0.0; phi = 0.0; xPhi = 0.0; yPhi = 0.0; zPhi = 0.0; xout = 0.0; yout = 0.0
+    zout = 0.0; rout = 0.0; xmid = 0.0; ymid = 0.0; zmid = 0.0; rmid = 0.0; rold = 0.0
+    outer = 0
 
     DIR = -1.0
     DSMAX = 0.1
@@ -630,11 +634,19 @@ MODULE ModScbIO
              write(*,*) 'Issue with calculating new magnetic boundary, regenerating entire magnetic field'
              call computational_domain
              SORFail = .false.
+             DEALLOCATE(xOldTheta,yOldTheta,zOldTheta,chiValOld,radius,xOldPsi,yOldPsi, &
+                        zOldPsi,psiOld,xtemp,ytemp,ztemp,psiValTemp,rtemp,dj,xatemp,yatemp, &
+                        zatemp,phi,xPhi,yPhi,zPhi,xout,yout,zout,rout,xmid,ymid,zmid,rmid, &
+                        rold,outer)
              return
           endif
        enddo
     enddo
 
+    DEALLOCATE(xOldTheta,yOldTheta,zOldTheta,chiValOld,radius,xOldPsi,yOldPsi, &
+               zOldPsi,psiOld,xtemp,ytemp,ztemp,psiValTemp,rtemp,dj,xatemp,yatemp, &
+               zatemp,phi,xPhi,yPhi,zPhi,xout,yout,zout,rout,xmid,ymid,zmid,rmid, &
+               rold,outer)
     return
 
   end subroutine update_domain
@@ -645,7 +657,6 @@ MODULE ModScbIO
 
     use nrtype, ONLY: DP
 
-
     implicit none
 
     EXTERNAL :: DIP_08, IGRF_GSW_08, SMGSW_08, T89C, T96_01, T01_01, T04_s
@@ -653,11 +664,14 @@ MODULE ModScbIO
     integer, intent(in)   :: IOPT,LMAX
     REAL(DP), intent(in)  :: x0, y0, z0, ER, DSMAX, RLIM, PARMOD(10), DIR, RIN
     integer, intent(out)  :: LOUT
-    REAL(DP), intent(out) :: xf, yf, zf, xx(:), yy(:), zz(:), bx(:), by(:), bz(:)
+    REAL(DP), intent(inout) :: xf, yf, zf, xx(:), yy(:), zz(:), bx(:), by(:), bz(:)
 
     integer  :: i
     REAL(DP) :: xGSW, yGSW, zGSW, xfGSW, yfGSW, zfGSW, R0
-    REAL(DP), DIMENSION(LMAX) :: xxGSW, yyGSW, zzGSW, BxGSW, ByGSW, BzGSW 
+    REAL(DP), ALLOCATABLE :: xxGSW(:), yyGSW(:), zzGSW(:), BxGSW(:), ByGSW(:), BzGSW(:)
+
+    ALLOCATE(xxGSW(LMAX), yyGSW(LMAX), zzGSW(LMAX), BxGSW(LMAX), ByGSW(LMAX), BzGSW(LMAX))
+    xxGSW = 0.0; yyGSW = 0.0; zzGSW = 0.0; BxGSW = 0.0; ByGSW = 0.0; BzGSW = 0.0
 
     CALL SMGSW_08(x0,y0,z0,XGSW,YGSW,ZGSW,1)
     if (RIN.lt.0) then
@@ -721,6 +735,7 @@ MODULE ModScbIO
        CALL SMGSW_08(Bx(i),By(i),Bz(i),BxGSW(i),ByGSW(i),BzGSW(i),-1)
     enddo
 
+    DEALLOCATE(xxGSW,yyGSW,zzGSW,BxGSW,ByGSW,BzGSW)
     return
 
   end subroutine trace
@@ -729,7 +744,6 @@ MODULE ModScbIO
   subroutine DUMMY(IOPT,PARMOD,PSI,X,Y,Z,BXGSW,BYGSW,BZGSW)
     use nrtype, ONLY: DP
     
-
     implicit none
 
     integer :: iopt
@@ -750,7 +764,6 @@ MODULE ModScbIO
     USE ModIoUnit, ONLY: UNITTMP_
 
     use nrtype, ONLY: DP
-
 
     implicit none
 
@@ -805,6 +818,7 @@ MODULE ModScbIO
     enddo
 
     allocate(nSeconds(nIndex),Buffer(nIndex,36), BufferA(nIndex,36))
+    nSeconds = 0.0; Buffer = 0.0; BufferA = 0.0
 
     i = 1
     Cycle_QDFile: do
@@ -868,7 +882,6 @@ MODULE ModScbIO
 
     use ModIoUnit, ONLY: UNITTMP_
 
-
     implicit none
 
     INTEGER :: i, j, k
@@ -899,14 +912,13 @@ SUBROUTINE Write_ionospheric_potential
   USE nrtype
   USE netcdf
 
-
   implicit none
 
   CHARACTER*500 :: filename
 
   INTEGER :: alphaid, betaid, timeid, alphavarid, betavarid, &
-       xeqid, yeqid, xionoid, yionoid, phiionoid, dphiionodalphaid, &
-       dphiionodbetaid, timevarid, ncid
+             xeqid, yeqid, xionoid, yionoid, phiionoid, dphiionodalphaid, &
+             dphiionodbetaid, timevarid, ncid
 
   integer :: START(1), COUNT(1)
   integer :: START1D(2), COUNT1D(2)
@@ -1033,7 +1045,8 @@ END SUBROUTINE Write_ionospheric_potential
   USE ModScbVariables, ONLY: x, y, z, bf, bnormal, Jx, Jy, Jz, Bx, By, Bz, &
                              GradPx, GradPy, GradPz, JCrossB, GradP, &
                              vecd, vec1, vec2, vec3, vec4, vec6, vec7, vec8, &
-                             vec9, vecr, vecx, alfa, psi, fp, alphaVal, psiVal
+                             vec9, vecr, vecx, alfa, psi, fp, alphaVal, psiVal, &
+                             pnormal, bnormal, pjconst
   !!!! Module Subroutine/Function
   use ModRamFunctions, ONLY: RamFileName
   use ModRamGSL,       ONLY: GSL_Derivs
@@ -1042,7 +1055,6 @@ END SUBROUTINE Write_ionospheric_potential
   USE ModIoUnit, ONLY: UNITTMP_
   !!!! NR Modules
   use nrtype,    ONLY: DP
-
 
   implicit none
 
@@ -1119,9 +1131,15 @@ END SUBROUTINE Write_ionospheric_potential
                               jCrossB(i,j,k), gradP(i,j,k),    &
                               rLHS(i,j,k), rRHS(i,j,k),        &
                               xLHS(i,j,k), xRHS(i,j,k),        &
-                              Jx(i,j,k), Jy(i,j,k), Jz(i,j,k), &
-                              Bx(i,j,k), By(i,j,k), Bz(i,j,k), &
-                              GradPx(i,j,k), GradPy(i,j,k), GradPz(i,j,k)
+                              Jx(i,j,k)*pjconst*6.4, &
+                              Jy(i,j,k)*pjconst*6.4, &
+                              Jz(i,j,k)*pjconst*6.4, &
+                              Bx(i,j,k)*bnormal, &
+                              By(i,j,k)*bnormal, &
+                              Bz(i,j,k)*bnormal, &
+                              GradPx(i,j,k)*2*pnormal, &
+                              GradPy(i,j,k)*2*pnormal, &
+                              GradPz(i,j,k)*2*pnormal
         END DO
      END DO
   END DO
@@ -1147,7 +1165,6 @@ END SUBROUTINE Write_ionospheric_potential
   
     !!!! Share Modules
     USE ModIoUnit, ONLY: UNITTMP_
-
 
     implicit none
 

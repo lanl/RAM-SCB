@@ -5,8 +5,7 @@
 
 module ModRamSats
 
-  use ModRamMain, ONLY: Real8_
-
+  use ModRamMain, ONLY: DP
 
   implicit none
 
@@ -30,10 +29,10 @@ module ModRamSats
   integer :: iSatRecord(MaxRamSat) = 1  ! Location in netCDF file.
   
   ! Variables that contain the time and location of the sats.
-  real(kind=Real8_), allocatable :: SatTraj_IID(:,:,:), SatTime_II(:,:)
+  real(DP), allocatable :: SatTraj_IID(:,:,:), SatTime_II(:,:)
 
   ! Bad data flag (sat outside domain.)
-  real(kind=Real8_)  :: BadDataFlag=-1.0E10
+  real(DP)  :: BadDataFlag=-1.0E10
 
   character(len=3), parameter :: TypeCoordSystem = 'SMG'
 
@@ -47,7 +46,6 @@ module ModRamSats
     use ModReadParam
     use ModRamParams, ONLY: DoSaveRamSats
     use ModRamTiming, ONLY: DtWriteSat
-
 
     implicit none
 
@@ -104,7 +102,6 @@ module ModRamSats
     use ModIoUnit,      ONLY: UnitTmp_
     use CON_axes
 
-
     implicit none
 
     integer :: iError, i, iSat , nPoint
@@ -112,11 +109,9 @@ module ModRamSats
     ! One line of input
     character (len=100) :: line
 
-    integer      :: iTime_I(7)
-    integer      :: MaxPoint
-    real(kind=Real8_) :: Xyz_D(3)
-    real(kind=Real8_) :: DateTime
-    real(kind=Real8_), allocatable :: Time_I(:), Xyz_DI(:,:)
+    integer :: iTime_I(7), MaxPoint
+    real(DP) :: Xyz_D(3), DateTime
+    real(DP), allocatable :: Time_I(:), Xyz_DI(:,:)
     character(len=100):: NameFile
 
     character(len=*), parameter :: NameSub = NameMod // '::read_sat_input'
@@ -285,7 +280,6 @@ module ModRamSats
 
     use ModTimeConvert,  ONLY: time_real_to_int, TimeType
 
-
     implicit none
 
     character(len=200) :: FileName
@@ -318,7 +312,6 @@ module ModRamSats
     use ModRamVariables, ONLY: EKEV, WE, WMU, MU
 
     use ModRamNCDF, ONLY: ncdf_check, write_ncdf_globatts
-
 
     implicit none
 
@@ -522,7 +515,7 @@ module ModRamSats
     use ModRamFunctions
     use ModRamMain,      ONLY: PathRamOut
     use ModRamTiming,    ONLY: TimeRamElapsed, TimeRamNow, TimeRamStart
-    use ModRamGrids,     ONLY: NE, NPA
+    use ModRamGrids,     ONLY: nE, nPa, nS
     use ModScbGrids,     ONLY: nthe, npsi, nzeta
     use ModRamVariables, ONLY: WMU
     use ModScbVariables, ONLY: x, y, z, bX, bY, bZ, bnormal, EXConv, EYConv, &
@@ -534,40 +527,30 @@ module ModRamSats
     use ModRamGSL, ONLY: GSL_NN
     use ModTimeConvert,  ONLY: time_real_to_int, TimeType
 
-
     implicit none
     type(TimeType) :: TimeRamRestart
-
-    integer :: GSLerr
-    integer :: i, iPa, iTime, iSat, iLoc(27), jLoc(27), kLoc(27), iTemp(3), Pai
-    real(kind=Real8_) :: xSat(3), dTime, &
-         xNear(27), yNear(27), zNear(27), BtNear(3,27), BeNear(3,27), &
-         EcNear(3,27), xyzNear(3,27), rSat, pSat, tSat, rLoc, pLoc, tLoc, EiNear(3,27)
-    real(kind=Real8_) :: xNearT(27), yNearT(27), zNearT(27), rNear
-    real(kind=Real8_), parameter :: MaxDist = 0.25
-
-    real(kind=Real8_), ALLOCATABLE :: distance(:,:,:)
-
+    integer :: GSLerr, i, iPa, iTime, iSat, iLoc(27), jLoc(27), kLoc(27), iTemp(3), &
+               Pai, ix, ii, ij, ik, iS, iE, iT, iA(3), ierror
+    real(DP) :: xSat(3), dTime, xNear(27), yNear(27), zNear(27), BtNear(3,27), &
+                BeNear(3,27), EcNear(3,27), xyzNear(3,27), rSat, pSat, tSat, &
+                rLoc, pLoc, tLoc, EiNear(3,27), xNearT(27), yNearT(27), zNearT(27), &
+                rNear, SatB(6), SatEc(3), SatEi(3)
+    real(DP), parameter :: MaxDist = 0.25
+    real(DP), ALLOCATABLE :: distance(:,:,:), SatFlux(:,:,:), OmnFlux(:,:), &
+                             SatFluxNear(:,:,:,:)
     character(len=200) :: FileName
     character(len=100) :: SatFileName
 
-    ! Buffers to write to file:
-    real(kind=Real8_) :: SatB(6), SatEc(3), SatEi(3), &
-         SatFlux(4, nE, nPa), OmnFlux(4, nE)
-
     logical :: DoTest, DoTestMe
     character(len=*), parameter :: NameSub = NameMod // '::fly_sats'
-
-    integer :: ix, ii, ij, ik, iS, iE, iT, iA(3)
-    real(kind=Real8_) :: SatFluxNear(4,nE,nPa,27)
-    integer :: ierror
     !-----------------------------------------------------------------------
     call CON_set_do_test(NameSub, DoTest, DoTestMe)
 
     if(.not. DoSaveRamSats) return
    
-    ALLOCATE(distance(nthe,npsi,nzeta-1))
-    distance = 0.0
+    ALLOCATE(distance(nthe,npsi,nzeta-1),SatFlux(nS,nE,nPa),OmnFlux(nS,nE), &
+             SatFluxNear(nS,nE,nPa,27))
+    distance = 0.0; SatFlux = 0.0; OmnFlux = 0.0; SatFluxNear = 0.0
 
     SATLOOP: do iSat=1, nRamSat
        distance = 0.0
@@ -597,7 +580,7 @@ module ModRamSats
           SatFlux = BadDataFlag; OmnFlux = BadDataFlag
           xyzNear = BadDataFlag; BtNear = BadDataFlag
           call append_sat_record(SatFileName_O(iSat), iSatRecord(iSat), TimeRamElapsed, &
-               xSat, SatB, SatEc, SatFlux, OmnFlux, xyzNear, BtNear) !, SatEi
+               xSat, SatB, SatEc, SatFlux, OmnFlux) !, SatEi
           iSatRecord(iSat) = iSatRecord(iSat) + 1
           cycle SATLOOP                 ! don't trace this time.
        else
@@ -747,48 +730,47 @@ module ModRamSats
  
        ! Write information to output file.
        call append_sat_record(SatFileName_O(iSat), iSatRecord(iSat), TimeRamElapsed, &
-            xSat, SatB, SatEc, SatFlux, OmnFlux, xyzNear, BtNear) !, SatEi
+            xSat, SatB, SatEc, SatFlux, OmnFlux) !, SatEi
 
        ! Increment record location in NCDF file.
        iSatRecord(iSat) = iSatRecord(iSat) + 1
 
     end do SATLOOP
 
-  DEALLOCATE(distance)
+    DEALLOCATE(distance,SatFlux,OmnFlux,SatFluxNear)
 
   contains
 
     !========================================================================
     subroutine append_sat_record(InFileName, iRec, TimeIn, xVec, bVec, &
-         ecVec, FluxIn, OmnFluxIn, XYZnear, Bnear)! eiVec
+                                 ecVec, FluxIn, OmnFluxIn)! eiVec
       !Open a netCDF file and write new values.
 
       use netcdf
-      use ModRamGrids, ONLY: nE, nPa
-
+      use ModRamGrids, ONLY: nS, nE, nPa
 
       implicit none
 
       ! Arguments:
       integer, intent(in)           :: iRec
       character(len=200), intent(in):: InFileName
-      real(kind=Real8_), intent(in) :: xVec(3), bVec(6), ecVec(3)
-      real(kind=Real8_), intent(in) :: TimeIn, FluxIn(4,nE,nPa), &
-           OmnFluxIn(4,nE), XYZnear(3,27), Bnear(3,27) !, eiVec
+      real(DP), intent(in) :: xVec(:), bVec(:), ecVec(:), TimeIn, FluxIn(:,:,:), &
+                              OmnFluxIn(:,:) !, eiVec
       
       ! Local variables:
-      real(kind=Real8_) :: Flux(4,nE,nPa), OmFx(4,nE)
+      real(DP), ALLOCATABLE :: Flux(:,:,:), OmFx(:,:)
       integer :: iStatus, iFileID, iStart1D(1), iStart2D(2), iStart3D(3)
       integer :: iTimeVar, iXyzVar, iBVar, iHVar, iHeVar, iOVar, ieVar, &
-           iEcVar, iBeVar, ioHVar, ioHeVar, ioOVar, ioeVar, iBnear, iXYZnear !iEiVar
-
-      integer :: iXYZnear2, iBnear2, iBVar2, iBeVar2, iEcVar2
-      integer :: iXgrid, iYgrid, iZgrid
+                 iEcVar, iBeVar, ioHVar, ioHeVar, ioOVar, ioeVar, iBnear, &
+                 iXYZnear, iXYZnear2, iBnear2, iBVar2, iBeVar2, iEcVar2, &
+                 iXgrid, iYgrid, iZgrid !, iEiVar
 
       logical :: DoTest, DoTestMe
       character(len=100) :: NameSubSub = NameSub // '::append_sat_record'
       !-------------------------------------------------------------------
       call CON_set_do_test(NameSubSub, DoTest, DoTestMe)
+      ALLOCATE(Flux(nS,nE,nPa),OmFx(nS,nE))
+      Flux = 0.0; OmFx = 0.0
 
       ! Copy flux to a local variable.
       Flux = FluxIn
@@ -855,6 +837,7 @@ module ModRamSats
       ! Close NCDF file.
       iStatus = nf90_close(iFileID)
 
+      DEALLOCATE(Flux,OmFx)
     end subroutine append_sat_record
     
     !========================================================================

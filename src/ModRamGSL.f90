@@ -5,7 +5,6 @@
 
 MODULE ModRamGSL
 
-
   implicit none
 
   ! C Interface Bindings
@@ -119,7 +118,6 @@ MODULE ModRamGSL
     use, intrinsic :: iso_c_binding
     use nrtype, ONLY: DP
 
-
     implicit none
 
     real(DP), INTENT(IN) :: theta(:), field(:), distance(:)
@@ -204,7 +202,7 @@ MODULE ModRamGSL
 
     integer, intent(out) :: err
     real(DP), DIMENSION(:), INTENT(IN)  :: x1, f1, x2
-    real(DP), DIMENSION(:), INTENT(OUT) :: f2
+    real(DP), DIMENSION(:), INTENT(INOUT) :: f2
     character(len=*), INTENT(IN) :: ctype
 
     INTEGER(c_int) :: n1, n2, err_c(1), ntype
@@ -248,12 +246,11 @@ MODULE ModRamGSL
     use, intrinsic :: iso_c_binding
     use nrtype, ONLY: DP
 
-
     implicit none
 
     integer, INTENT(OUT)  :: err
     real(DP), INTENT(IN)  :: x1(:), f1(:), x2
-    real(DP), INTENT(OUT) :: f2
+    real(DP), INTENT(INOUT) :: f2
     character(len=*), INTENT(IN) :: ctype
 
     INTEGER(c_int) :: n1, n2, err_c(1), ntype
@@ -303,7 +300,7 @@ MODULE ModRamGSL
     integer, INTENT(OUT) :: err
     real(DP), DIMENSION(:,:), INTENT(IN) :: x1, y1, f1
     real(DP), INTENT(IN)  :: x2, y2
-    real(DP), INTENT(OUT) :: f2
+    real(DP), INTENT(INOUT) :: f2
 
     integer :: i,j,k, n1, m1, n2, m2, nTotal, iTotal, iTemp(1), stat
     real(DP) :: xNear(NN), yNear(NN), fNear(NN)
@@ -359,7 +356,7 @@ MODULE ModRamGSL
     integer, parameter :: NN = 9
     integer, INTENT(OUT) :: err
     real(DP), DIMENSION(:,:), INTENT(IN)  :: x1, y1, f1, x2, y2
-    real(DP), DIMENSION(:,:), INTENT(OUT) :: f2
+    real(DP), DIMENSION(:,:), INTENT(INOUT) :: f2
 
     integer :: i,j,k, n1, m1, n2, m2, nTotal, iTotal, iTemp(1), stat
     real(DP) :: xo, yo, xNear(NN), yNear(NN), fNear(NN)
@@ -424,7 +421,7 @@ MODULE ModRamGSL
     integer, INTENT(OUT) :: err
     real(DP), INTENT(IN) :: x1(:), y1(:), x2, y2
     real(DP), INTENT(IN) :: f1(:,:)
-    real(DP), INTENT(OUT) :: f2
+    real(DP), INTENT(INOUT) :: f2
     integer :: i, j
 
     INTEGER(c_int) :: n1, m1, n2, m2, err_c(1)
@@ -471,7 +468,7 @@ MODULE ModRamGSL
     integer, INTENT(OUT) :: err
     real(DP), DIMENSION(:), INTENT(IN)  :: x1, y1, x2, y2
     real(DP), DIMENSION(:,:), INTENT(IN) :: f1
-    real(DP), DIMENSION(:,:), INTENT(OUT) :: f2
+    real(DP), DIMENSION(:,:), INTENT(INOUT) :: f2
     integer :: i, j
 
     INTEGER(c_int) :: n1, m1, n2, m2, err_c(1)
@@ -518,7 +515,7 @@ MODULE ModRamGSL
     integer, INTENT(OUT) :: err
     real(DP), DIMENSION(:), INTENT(IN)  :: x1, y1
     real(DP), DIMENSION(:,:), INTENT(IN) :: f1, x2, y2
-    real(DP), DIMENSION(:,:), INTENT(OUT) :: f2
+    real(DP), DIMENSION(:,:), INTENT(INOUT) :: f2
 
     INTEGER(c_int) :: n1, m1, n2, m2, err_c(1)
     real(c_double), DIMENSION(:), ALLOCATABLE   :: xa, ya
@@ -560,7 +557,7 @@ MODULE ModRamGSL
     integer, INTENT(OUT) :: err
     real(DP), DIMENSION(:), INTENT(IN) :: x1, y1, z1, x2, y2, z2
     real(DP), DIMENSION(:,:,:), INTENT(IN)  :: f1
-    real(DP), DIMENSION(:,:,:), INTENT(OUT) :: f2
+    real(DP), DIMENSION(:,:,:), INTENT(INOUT) :: f2
 
     INTEGER(c_int) :: n1, m1, l1, n2, m2, l2, err_c(1)
     real(c_double), DIMENSION(:), ALLOCATABLE :: xa, ya, za, xb, yb, zb
@@ -610,7 +607,7 @@ MODULE ModRamGSL
     integer, INTENT(OUT) :: err
     real(DP), DIMENSION(:), INTENT(IN)  :: x1
     real(DP), DIMENSION(:), INTENT(IN)  :: f1
-    real(DP), DIMENSION(:), INTENT(OUT) :: dfdx
+    real(DP), DIMENSION(:), INTENT(INOUT) :: dfdx
 
     INTEGER(c_int) :: n1, m1, l1, err_c(1)
     real(c_double), DIMENSION(:), ALLOCATABLE :: xa
@@ -646,7 +643,7 @@ MODULE ModRamGSL
     integer, INTENT(OUT) :: err
     real(DP), DIMENSION(:), INTENT(IN)    :: x1, y1
     real(DP), DIMENSION(:,:), INTENT(IN)  :: f1
-    real(DP), DIMENSION(:,:), INTENT(OUT) :: dfdx, dfdy
+    real(DP), DIMENSION(:,:), INTENT(INOUT) :: dfdx, dfdy
     integer :: i, j
 
     INTEGER(c_int) :: n1, m1, l1, err_c(1)
@@ -691,7 +688,7 @@ MODULE ModRamGSL
     integer, INTENT(OUT) :: err
     real(DP), DIMENSION(:), INTENT(IN)      :: x1, y1, z1
     real(DP), DIMENSION(:,:,:), INTENT(IN)  :: f1
-    real(DP), DIMENSION(:,:,:), INTENT(OUT) :: dfdx, dfdy, dfdz
+    real(DP), DIMENSION(:,:,:), INTENT(INOUT) :: dfdx, dfdy, dfdz
     integer :: i, j, k, e1, e2, e3, dxerr, dyerr, dzerr
 
     INTEGER(c_int) :: n1, m1, l1, e1_c(1), e2_c(1), e3_c(1)
@@ -770,7 +767,7 @@ MODULE ModRamGSL
 
     integer, INTENT(OUT) :: err
     real(DP), INTENT(IN)  :: x1(:), y1(:), f1(:), x2, y2
-    real(DP), INTENT(OUT) :: f2
+    real(DP), INTENT(INOUT) :: f2
 
     integer :: i,ii
     real(DP) :: d,wsum
@@ -818,7 +815,7 @@ MODULE ModRamGSL
 
     integer, INTENT(OUT)  :: err
     real(DP), INTENT(IN)  :: x1(:), y1(:), z1(:), f1(:), x2, y2, z2
-    real(DP), INTENT(OUT) :: f2
+    real(DP), INTENT(INOUT) :: f2
 
     integer :: i,ii
     real(DP) :: d,wsum

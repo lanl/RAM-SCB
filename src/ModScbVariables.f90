@@ -5,7 +5,6 @@
 Module ModScbVariables
   use nrtype, ONLY: DP
 
-
   implicit none
 
   integer :: left, right, nFail = 0

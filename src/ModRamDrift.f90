@@ -19,7 +19,7 @@ MODULE ModRamDrift
                                     CDriftR(:,:,:,:), CDriftP(:,:,:,:), CDriftE(:,:,:,:), &
                                     CDriftMu(:,:,:,:)
 
-contains
+  contains
 !==============================================================================
   SUBROUTINE DRIFTEND
 
@@ -42,7 +42,6 @@ contains
     use ModRamTiming,    ONLY: Dts
     use ModRamVariables, ONLY: RLZ, MDR, DPHI, EKEV, GREL, WMU, EBND, GRBND, &
                                PHIOFS, MU
-
 
     implicit none
 
@@ -107,8 +106,8 @@ contains
     integer, intent(in) :: S
     integer :: UR, i, j, j0, j1, k, l, n
     integer, ALLOCATABLE :: sgn(:,:)
-    real(kind=Real8_) :: p4, x, fup, r, corr, cgr1, cgr2, cgr3, ctemp
-    real(kind=Real8_) :: CGR,LIMITER, DtTemp
+    real(kind=Real8_) :: p4, x, fup, r, corr, cgr1, cgr2, cgr3, ctemp, &
+                         CGR,LIMITER, DtTemp
     real(kind=Real8_), ALLOCATABLE :: F(:),FBND(:), CR(:,:)
 
     ALLOCATE(sgn(nR,nT),CR(nR,nT),F(NR+2),FBND(nR))
@@ -214,8 +213,7 @@ contains
 
     integer, intent(in) :: S
     integer :: i, sgn, j, j1, k, l, n
-    real(kind=Real8_) :: x, fup, r, corr, ome, ctemp
-    real(kind=Real8_) :: GPA1,GPA2,LIMITER
+    real(kind=Real8_) :: x, fup, r, corr, ome, ctemp, GPA1,GPA2,LIMITER
     real(kind=Real8_), ALLOCATABLE :: FBND(:),F(:)
     
     ALLOCATE(FBND(nT),F(nT))
@@ -306,8 +304,8 @@ contains
     integer, intent(in) :: S
     integer :: i, sgn, j, j0, j2, k, l, n
     real(kind=Real8_) :: ezero,gpa,gpr1,gpr2,gpr3,gpp1,gpp2,edt1, &
-                         drdt, dpdt, dbdt1, didt1, x, fup, r, corr, ome
-    real(kind=Real8_) :: DRD1,DPD1,DRD2,DPD2, ctemp, LIMITER
+                         drdt, dpdt, dbdt1, didt1, x, fup, r, corr, ome, &
+                         DRD1,DPD1,DRD2,DPD2, ctemp, LIMITER
     real(kind=Real8_), ALLOCATABLE :: FBND(:),F(:),GRZERO(:)
     
     ALLOCATE(GRZERO(nS),FBND(nE),F(0:nE+2))
@@ -402,16 +400,14 @@ contains
                                RLZ, DPHI, MDR, GREL, EKEV, DMU, WMU, MU, &
                                VT, EIP, EIR
 
-
     implicit none
 
     integer, intent(in) :: S
-    integer :: i, j, j0, j1, k, l, n
-    real(kind=Real8_) :: gmr1, gmr2, gmr3, gmp1, gmp2, &
-                         drdm, dpdm, dbdt2, dibndt2, x, fup, r, corr, ome
-    real(kind=Real8_) :: CMUDOT,EDT,DRM2,DPM2,DRM1,DPM1, ctemp, LIMITER
+    integer :: i, j, j0, j1, k, l, n, ISGM
+    real(kind=Real8_) :: gmr1, gmr2, gmr3, gmp1, gmp2, drdm, dpdm, dbdt2, dibndt2, &
+                         x, fup, r, corr, ome, CMUDOT,EDT,DRM2,DPM2,DRM1,DPM1, &
+                         ctemp, LIMITER
     real(kind=Real8_), ALLOCATABLE :: FBND(:),F(:)
-    integer :: ISGM
 
     ALLOCATE(FBND(nPa),F(nPa))
     FBND = 0.0; F = 0.0

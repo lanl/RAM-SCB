@@ -6,18 +6,15 @@
 MODULE ModRamInit
 ! Contains subroutines for initialization of RAM
 
-  use ModRamVariables
-
-
   implicit none
 
   contains
 !==============================================================================
 subroutine ram_allocate
 
+  use ModRamVariables ! Need to allocate and initialize all the variables
   use ModRamGrids,     ONLY: RadiusMax, RadiusMin, nR, nRExtend, nT, nE, nPa, &
                              Slen, ENG, NCF, NL, nS, nX
-
 
   implicit none
 
@@ -84,6 +81,7 @@ end subroutine ram_allocate
 !==============================================================================
 subroutine ram_deallocate
 
+  use ModRamVariables ! Need to deallocate all variables
 
   implicit none
 
@@ -121,19 +119,19 @@ end subroutine ram_deallocate
 SUBROUTINE ram_init
   !!!! Module Variables
   use ModRamParams,    ONLY: DoUseWPI, DoUseBASDiff
-  use ModRamMain,      ONLY: Real8_, S
+  use ModRamMain,      ONLY: DP, S
   use ModRamTiming,    ONLY: TimeRamStart, TimeMax, TimeRamRealStart, TimeRamNow
   use ModRamGrids,     ONLY: RadiusMax, RadiusMin, nR, nRExtend, nT
   use ModRamVariables, ONLY: PParH, PPerH, PParHe, PPerHe, PParO, PPerO, PParE, &
                              PPerE, LSDR, LSCHA, LSATM, LSCOE, LSCSC, LSWAE, ELORC, &
-                             SETRC, XNN, XND, ENERN, ENERD, LNCN, LNCD, LECN, LECD
+                             SETRC, XNN, XND, ENERN, ENERD, LNCN, LNCD, LECN, LECD, &
+                             Lz, GridExtend, Phi, kp, F107
   !!!! Modules Subroutines/Functions
   use ModRamWPI,     ONLY: WAPARA_HISS, WAPARA_BAS, WAPARA_CHORUS, WAVEPARA1, WAVEPARA2
   use ModRamIndices, ONLY: init_indices, get_indices
   !!!! Share Modules
   use ModTimeConvert, ONLY: TimeType, time_real_to_int
   use ModNumConst,    ONLY: cTwoPi
-
 
   implicit none
 
@@ -143,7 +141,7 @@ SUBROUTINE ram_init
 
   type(timetype) :: TimeRamStop, TimeNext
 
-  real(kind=Real8_) :: WEIGHT, dR, dPh
+  real(DP) :: WEIGHT, dR, dPh
 
   integer :: iR, iPhi, iS
   integer :: nFive, nFiveDay, nHour
@@ -238,20 +236,24 @@ END SUBROUTINE ram_init
 !**************************************************************************
   SUBROUTINE ARRAYS
     !!!! Module Variables
-    use ModRamMain,  ONLY: Real8_, S
-    use ModRamConst, ONLY: RE, PI, M1, MP, CS, Q, HMIN
-    use ModRamGrids, ONLY: RadiusMax, RadiusMin, NR, NPA, Slen, NT, NE, &
-                           NS, NLT, EnergyMin
-    use ModRamParams, ONLY: DoUsePlane_SCB
+    use ModRamMain,      ONLY: DP, S
+    use ModRamConst,     ONLY: RE, PI, M1, MP, CS, Q, HMIN
+    use ModRamGrids,     ONLY: RadiusMax, RadiusMin, NR, NPA, Slen, NT, NE, &
+                               NS, NLT, EnergyMin
+    use ModRamParams,    ONLY: DoUsePlane_SCB
+    use ModRamVariables, ONLY: amla, DL1, Lz, RLz, IR1, EKEV, Mu, WMu, DMu, &
+                               RMAS, WE, DE, EBND, GRBND, V, Pa, Pabn, UPA, &
+                               FFACTOR, GREL, ZrPabn, VBND, PHI, BE, MLT, &
+                               ERNH, EPP, FACGR, CONF1, CONF2, DPHI, IP1, &
+                               MDR, RFACTOR
     !!!! Module Subroutines/Functions
     use ModRamFunctions, ONLY: ACOSD, ASIND, COSD, SIND
 
-
     implicit none
 
-    real(kind=Real8_) :: degrad, camlra, elb, rw, rwu
-    real(kind=Real8_) :: clc, spa, MUBOUN
-    real(kind=Real8_), ALLOCATABLE :: CONE(:),RLAMBDA(:)
+    real(DP) :: degrad, camlra, elb, rw, rwu
+    real(DP) :: clc, spa, MUBOUN
+    real(DP), ALLOCATABLE :: CONE(:),RLAMBDA(:)
 
     integer :: i, j, k, l, iml, ic, ip
 
