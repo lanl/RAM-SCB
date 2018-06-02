@@ -21,7 +21,7 @@ SEARCH_EXTRA = -I${NETCDF_PATH} -I${GSL_PATH}
 INCL_EXTRA   = -I${NETCDF_PATH} -I${GSL_PATH}
 
 # Keep RAM_SCB in single precision.
-PRECISION = -frecord-marker=4 -fdefault-real-8 -fdefault-double-8 -fall-intrinsics
+PRECISION = -frecord-marker=4 -fdefault-real-8 -fdefault-double-8 -fall-intrinsics -finit-local-zero
 
 # List of fortran object files:
 RAM_OBJECTS=                  \
