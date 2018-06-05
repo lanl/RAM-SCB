@@ -19,18 +19,16 @@ MODULE ModScbEquation
   
     USE ModRamParams,    ONLY: verbose
     USE ModScbMain,      ONLY: DP
-    USE ModScbGrids,     ONLY: nthe, nthem, npsi, npsim, nzeta, nzetap, ny, rdr, &
-                               rdt, rdp, rdt4, rdp4, rdr2, rdp2, rdt2, rdpsq, &
-                               rdtsq, rdpdt4, rdr4, rdrsq
-    use ModScbVariables, ONLY: f, fzet, x, y, z, sumb, sumdb, bf, bsq, jacobian, &
-                               thetaVal, rhoVal, zetaVal, vecd, vec1, vec2, vec3, &
-                               vec4, vec6, vec7, vec8, vec9, left, right
+    USE ModScbGrids,     ONLY: nthe, npsi, nzeta, rdt, rdp, rdt4, rdp4, &
+                               rdr2, rdp2, rdt2, rdpsq, rdtsq, rdpdt4, rdr4
+    use ModScbVariables, ONLY: x, y, z, jacobian, vecd, vec1, vec2, vec3, &
+                               vec4, vec6, vec7, vec8, vec9
   
     use ModRamGSL, ONLY: GSL_Derivs
   
     implicit none
   
-    INTEGER :: i, j, k, GSLerr, nl0
+    INTEGER :: i, j, k
   
     REAL(DP) :: xa, xb, xc, xd, xe, xta, xtb, xtc, xtd, xte, xpa, xpb, xpc, xpd, &
                 xpe, xra, xrb, xrc, xrd, xre, yta, ytb, ytc, ytd, yte, ypa, ypb, &
@@ -43,10 +41,9 @@ MODULE ModScbEquation
                 gtxe, gtye, gtze, grsa, grsb, grsc, grsd, grse, gpsa, gpsb, gpsc, &
                 gpsd, gpse, gtsa, gtsb, gtsc, gtsd, gtse, grgpa, grgpb, grgpc, &
                 grgpd, grgpe, gpgta, gpgtb, gpgtc, gpgtd, gpgte, gtgra, gtgrb, &
-                gtgrc, gtgrd, gtgre, v1a, v1b, v1c, v2a, v2b, v2c, v2d, v3a, v3b, &
-                v3c, v3d, bsqa, bsqb, bsqc, bsqd
+                gtgrc, gtgrd, gtgre, v1a, v1b, v1c, v2a, v2b, v2c, v2d, v3b, &
+                v3c, v3d
   
-    !jacobian = 0._dp
     vecd = 0._dp
     vec1 = 0._dp
     vec2 = 0._dp
@@ -56,11 +53,10 @@ MODULE ModScbEquation
     vec7 = 0._dp
     vec8 = 0._dp
     vec9 = 0._dp
-    nl0 = 0
   
-    DO j=left+1,right-1
+    DO j=2,npsi-1
        DO k=2,nzeta
-          DO i=2,nthem
+          DO i=2,nthe-1
   
              xa = .5*(x(i,j,k)+x(i+1,j,k))
              xb = .5*(x(i,j,k)+x(i,j,k+1))
@@ -262,18 +258,16 @@ MODULE ModScbEquation
   
     USE ModRamParams,    ONLY: verbose
     USE ModScbMain,      ONLY: DP
-    USE ModScbGrids,     ONLY: nthe, nthem, npsi, npsim, nzeta, nzetap, ny, rdr, &
-                               rdt, rdp, rdt4, rdp4, rdr2, rdr4, rdp2, rdt2, rdpsq, &
-                               rdtsq, rdpdt4, rdrsq, rdtdr4
-    use ModScbVariables, ONLY: f, fzet, x, y, z, sumb, sumdb, bf, bsq, jacobian, &
-                               thetaVal, rhoVal, zetaVal, vecd, vec1, vec2, vec3, &
-                               vec4, vec6, vec7, vec8, vec9, left, right
+    USE ModScbGrids,     ONLY: nthe, npsi, nzeta, rdr, rdt, rdt4, rdp4, rdr2, &
+                               rdr4, rdp2, rdt2, rdtsq, rdrsq, rdtdr4
+    use ModScbVariables, ONLY: x, y, z, jacobian, vecd, vec1, vec2, vec3, &
+                               vec4, vec6, vec7, vec8, vec9
   
     use ModRamGSL, ONLY: GSL_Derivs
   
     implicit none
   
-    INTEGER :: i, j, k, GSLerr, nl0
+    INTEGER :: i, j, k
   
     REAL(DP) :: xa, xb, xc, xd, xe, xta, xtb, xtc, xtd, xte, xpa, xpb, xpc, xpd, &
                 xpe, xra, xrb, xrc, xrd, xre, yta, ytb, ytc, ytd, yte, ypa, ypb, &
@@ -286,8 +280,8 @@ MODULE ModScbEquation
                 gtxe, gtye, gtze, grsa, grsb, grsc, grsd, grse, gpsa, gpsb, gpsc, &
                 gpsd, gpse, gtsa, gtsb, gtsc, gtsd, gtse, grgpa, grgpb, grgpc, &
                 grgpd, grgpe, gpgta, gpgtb, gpgtc, gpgtd, gpgte, gtgra, gtgrb, &
-                gtgrc, gtgrd, gtgre, v1a, v1b, v1c, v2a, v2b, v2c, v2d, v3a, v3b, &
-                v3c, v3d, bsqa, bsqb, bsqc, bsqd
+                gtgrc, gtgrd, gtgre, v1a, v1b, v1c, v2a, v2b, v2c, v2d, v3b, &
+                v3c, v3d
   
     !jacobian = 0._dp
     vecd = 0._dp
@@ -299,11 +293,10 @@ MODULE ModScbEquation
     vec7 = 0._dp
     vec8 = 0._dp
     vec9 = 0._dp
-    nl0 = 0
   
-    DO j=left+1,right-1
+    DO j=2,npsi-1
        DO k=2,nzeta
-          DO i=2,nthem
+          DO i=2,nthe-1
   
              xa = .5*(x(i,j,k)+x(i+1,j,k))
              xb = .5*(x(i,j,k)+x(i,j+1,k))
@@ -505,19 +498,17 @@ MODULE ModScbEquation
     USE ModScbGrids,     ONLY: nthe, npsi, nzeta
     use ModScbVariables, ONLY: jacobian, bsq, f, fzet, alphaVal, GradRhoGradTheta, &
                                GradRhoGradZeta, GradThetaGradZeta, GradRhoSq, &
-                               GradZetaSq, GradThetaSq, dPdPsi, dSqPdAlphaSq, &
-                               dPPerdAlpha, dBsqdAlpha, dBsqdTheta, dPPerdTheta, &
-                               dBBdAlpha, dPdAlpha, sigma, dBsqdRho, dPPerdRho, &
-                               GradRhoSq, dPPerdZeta, dBsqdZeta, vecx, vecd, &
-                               left, right
+                               GradZetaSq, dSqPdAlphaSq, dBsqdTheta, dPPerdTheta, &
+                               dPdAlpha, sigma, GradRhoSq, dPPerdZeta, dBsqdZeta, &
+                               vecx, vecd
   
     implicit none
   
-    INTEGER         :: i, j, k
+    INTEGER  :: i, j, k
     REAL(DP) :: xpz, xpt, c0, tz, tt
   
     IF (isotropy == 1) THEN      ! Isotropic case
-       DO j = left, right
+       DO j = 1, npsi
           IF (iOuterMethod == 2) THEN   ! Newton method
              DO k = 2, nzeta
                 vecx(1:nthe, j, k) = -jacobian(1:nthe,j,k)/f(j)**2 * alphaVal(k) &
@@ -532,7 +523,7 @@ MODULE ModScbEquation
   
     ELSE                    ! Anisotropic case
        DO i = 1, nthe
-          DO j = left, right
+          DO j = 1, npsi
              DO k = 1, nzeta
                 IF (iOuterMethod == 1) THEN ! Picard method
                    xpz = (GradRhoSq(i,j,k)*GradZetaSq(i,j,k)-GradRhoGradZeta(i,j,k)**2)
@@ -568,20 +559,19 @@ MODULE ModScbEquation
     USE ModScbGrids,     ONLY: nthe, npsi, nzeta
     use ModScbVariables, ONLY: f, fzet, jacobian, bsq, psiVal, GradRhoGradTheta, &
                                GradRhoGradZeta, GradThetaGradZeta, GradRhoSq, &
-                               dPdPsi, dSqPdPsiSq, dPPerdPsi, dBsqdPsi, dBsqdTheta, &
-                               dPPerdTheta, dBBdPsi, sigma, dPPerdZeta, dBsqdZeta, &
-                               dPPerdRho, dBsqdRho, GradZetaSq, vecr, vecd, &
-                               nThetaEquator, nZetaMidnight, left, right
+                               dPdPsi, dSqPdPsiSq, dBsqdTheta, &
+                               dPPerdTheta, sigma, dPPerdRho, dBsqdRho, GradZetaSq, &
+                               vecr, vecd
   
     implicit none
   
-    INTEGER         :: i, j, k
+    INTEGER  :: i, j, k
     REAL(DP) :: xpr, xpt, c0, tr, tt
   
     Isotropic_case: IF (isotropy == 1) THEN
        DO k = 1, nzeta
           Newton_method:   IF (iOuterMethod == 2) THEN
-             DO j = left, right
+             DO j = 1, npsi
                 vecr(1:nthe, j, k) = jacobian(1:nthe, j, k)/fzet(k)**2 * (dpdPsi(1:nthe, j, k) - &
                                       dSqPdPsiSq(1:nthe,j,k)*psival(j))
                 vecd(1:nthe, j, k) = vecd(1:nthe, j, k) + jacobian(1:nthe,j,k)/fzet(k)**2 *dSqPdPsiSq(1:nthe,j,k)
@@ -592,7 +582,7 @@ MODULE ModScbEquation
        END DO
     ELSE       ! Anisotropic case
        DO k = 1, nzeta
-          DO j = left, right
+          DO j = 1, npsi
              DO i = 1, nthe
                 IF (iOuterMethod == 1) THEN ! Picard method
                    xpr = (GradRhoGradZeta(i,j,k)**2 - GradRhoSq(i,j,k)*GradZetaSq(i,j,k))

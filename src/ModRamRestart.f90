@@ -12,22 +12,19 @@ module ModRamRestart
   subroutine write_restart
     use ModRamParams, ONLY: TimedRestarts
     !!!! Module Variables
-    use ModRamMain,      ONLY: PathRestartOut, PathRestartIn, niter
+    use ModRamMain,      ONLY: PathRestartOut, niter
     use ModRamFunctions, ONLY: RamFileName
     use ModRamTiming,    ONLY: TimeRamElapsed, TimeRamStart, TimeRamNow, DtsNext, &
                                TOld
     use ModRamGrids,     ONLY: NR, NT, NE, NPA
     use ModRamVariables, ONLY: F2, PParT, PPerT, FNHS, FNIS, BOUNHS, BOUNIS, &
                                BNES, HDNS, EIR, EIP, dBdt, dIdt, dIbndt, VTN, &
-                               VTOL, VT, EIR, EIP, FGEOS, PParH, PPerH, PParO, &
-                               PPerO, PParHe, PPerHe, PParE, PPerE
-    use ModRamScb,       ONLY: indexPA, FLUX3DEQ
-    use ModScbMain,      ONLY: DP
+                               VTOL, VT, EIR, EIP
     use ModScbGrids,     ONLY: nthe, npsi, nzeta, nzetap
-    use ModScbVariables, ONLY: x, y, z, bX, bY, bZ, bf, alfa, psi, alphaVal, psiVal, &
-                               chi, chiVal, xpsiout, xpsiin, left, right, constZ,    &
-                               constTheta, kmax, nZetaMidnight, thetaVal, f, fp, fzet, &
-                               fzetp, zetaVal, rhoVal
+    use ModScbVariables, ONLY: x, y, z, alphaVal, psiVal, &
+                               chiVal, xpsiout, xpsiin, constZ,    &
+                               constTheta, kmax, thetaVal, f, fzet, &
+                               zetaVal, rhoVal
     !!!! Module Subroutines/Functions
     use ModRamNCDF, ONLY: ncdf_check, write_ncdf_globatts
     !!!! Share Modules
@@ -37,21 +34,20 @@ module ModRamRestart
 
     implicit none
     
-    integer :: stat
     integer :: iFluxEVar, iFluxHVar, iFluxHeVar, iFluxOVar, iPParTVar, &
-               iPPerTVar, iBxVar, iByVar, iBzVar, iBfVar, iHVar, iBHVar, &
+               iPPerTVar, iHVar, iBHVar, &
                iIVar, iBIVar, iBNESVar, iHDNSVar, iEIRVar, iEIPVar, &
-               iGEOVar, iPaIndexVar, iDtVar, iXVar, iYVar, iZVar, &
-               iVTNVar, iAlphaVar, iBetaVar, iAValVar, iBValVar, iVTOLVar, &
+               iDtVar, iXVar, iYVar, iZVar, &
+               iVTNVar, iAValVar, iBValVar, iVTOLVar, &
                iVTVar, iDBDTVar, iDIDTVar, iDIBNVar, iFileID, iStatus, &
-               iChiVar, iTOldVar, iCValVar, icTVar, icZVar, ipsiInVar, ipsiOutVar, &
+               iTOldVar, iCValVar, icTVar, icZVar, ipsiInVar, ipsiOutVar, &
                ikMaxVar, idAdRVar, idBdPVar, iThetaVar, iRhoVar, iZetaVar
 
     integer :: nRDim, nTDim, nEDim, nPaDim, nSDim, nThetaDim, nPsiDim, &
-               nZetaDim, nRPDim, nZetaPDim, iFlux3DVar
+               nZetaDim, nRPDim, nZetaPDim
     integer, parameter :: iDeflate = 2, yDeflate = 1
 
-    character(len=200)            :: NameFile,CWD
+    character(len=200) :: NameFile
 
     character(len=*), parameter :: NameSub='write_restart'
     logical :: DoTest, DoTestMe
@@ -413,46 +409,36 @@ module ModRamRestart
   !==========================================================================
   subroutine read_restart
     !!!! Module Variables
-    use ModRamMain,      ONLY: PathRestartOut, PathRestartIn, niter
+    use ModRamMain,      ONLY: DP, PathRestartIn
     use ModRamFunctions, ONLY: RamFileName
-    use ModRamTiming,    ONLY: TimeRamElapsed, TimeRamStart, TimeRamNow, DtsNext, &
-                               TOld
-    use ModRamGrids,     ONLY: NR, NT, NE, NPA
+    use ModRamTiming,    ONLY: DtsNext, TOld
     use ModRamVariables, ONLY: F2, PParT, PPerT, FNHS, FNIS, BOUNHS, BOUNIS, &
                                BNES, HDNS, EIR, EIP, dBdt, dIdt, dIbndt, VTN, &
-                               VTOL, VT, EIR, EIP, FGEOS, PParH, PPerH, PParO, &
+                               VTOL, VT, EIR, EIP, PParH, PPerH, PParO, &
                                PPerO, PParHe, PPerHe, PParE, PPerE
-    use ModRamScb,       ONLY: indexPA, FLUX3DEQ
-    use ModScbMain,      ONLY: DP
-    use ModScbGrids,     ONLY: nthe, npsi, nzeta, nzetap
-    use ModScbVariables, ONLY: x, y, z, bX, bY, bZ, bf, alfa, psi, alphaVal, psiVal, &
-                               chi, chiVal, xpsiout, xpsiin, left, right, constZ,    &
-                               constTheta, kmax, nZetaMidnight, thetaVal, f, fp, fzet, &
+    use ModScbGrids,     ONLY: npsi
+    use ModScbVariables, ONLY: x, y, z, alphaVal, psiVal, &
+                               chiVal, xpsiout, xpsiin, left, right, constZ,    &
+                               constTheta, kmax, thetaVal, f, fp, fzet, &
                                fzetp, zetaVal, rhoVal
     !!!! Module Subroutines/Functions
     use ModRamNCDF, ONLY: ncdf_check, write_ncdf_globatts
-    !!!! Share Modules
-    use ModIOUnit, ONLY: UNITTMP_
     !!!! NetCdf Modules
     use netcdf
 
     implicit none
     
-    integer :: nrIn, ntIn, neIn, npaIn
     integer :: iFluxEVar, iFluxHVar, iFluxHeVar, iFluxOVar, iPParTVar, &
-               iPPerTVar, iBxVar, iByVar, iBzVar, iBfVar, iHVar, iBHVar, &
+               iPPerTVar, iHVar, iBHVar, &
                iIVar, iBIVar, iBNESVar, iHDNSVar, iEIRVar, iEIPVar, &
-               iGEOVar, iPaIndexVar, iDtVar, iXVar, iYVar, iZVar, &
-               iVTNVar, iAlphaVar, iBetaVar, iAValVar, iBValVar, iVTOLVar, &
-               iVTVar, iDBDTVar, iDIDTVar, iDIBNVar, iFileID, iStatus, iFlux3DVar, &
-               iChiVar, iTOldVar, iCValVar, icTVar, icZVar, ipsiInVar, ipsiOutVar, &
+               iDtVar, iXVar, iYVar, iZVar, &
+               iVTNVar, iAValVar, iBValVar, iVTOLVar, &
+               iVTVar, iDBDTVar, iDIDTVar, iDIBNVar, iFileID, iStatus, &
+               iTOldVar, iCValVar, icTVar, icZVar, ipsiInVar, ipsiOutVar, &
                ikMaxVar, idAdRVar, idBdPVar, iThetaVar, iRhoVar, iZetaVar
-
-    character(len=100)             :: NameFile, StringLine
 
     character(len=*), parameter :: NameSub='read_restart'
     logical :: DoTest, DoTestMe
-    
     !------------------------------------------------------------------------
     call CON_set_do_test(NameSub, DoTest, DoTestMe)
    

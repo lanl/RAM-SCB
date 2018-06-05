@@ -14,9 +14,7 @@ module ModRamCouple
 
   use ModRamParams
 
-
   implicit none
-  save
 
   public :: set_type_mhd
   public :: generate_flux
@@ -217,7 +215,6 @@ contains
     
     use ModRamFunctions,ONLY: get_dipole_trace
 
-
     implicit none
 
     integer,           intent(in) :: nVarIn, nPointIn
@@ -272,7 +269,7 @@ contains
     MhdLines_IIV(:,:,3:5) = MhdLines_IIV(:,:,3:5)/6378100.0 !XYZ in R_E.
 
     ! Now, extend lines to ionosphere.  Fill in missing lines w/ dipole lines.
-    nPoints = maxval(iEnd)+5
+    nPoints = int(maxval(iEnd)+5,kind=4)
     iLon=1; iRad=1
     do iLine=1, nLinesSWMF
        ! If line is missing...
@@ -298,7 +295,7 @@ contains
           MhdLines_IIV(iLine,1,Uy_) = corot*lz(iRad)*cos(phi(iLon))
           MhdLines_IIV(iLine,1,Uz_) = 0.0
        else
-          i = iEnd(iLine)
+          i = int(iEnd(iLine),kind=4)
           !write(*,*)'Extending!'
           !write(*,*)'Adding ', nPoints-i, 'points.'
           !write(*,'(a,3f9.6)') '...from ', x(iLine,i),y(iLine,i),z(iLine,i)
@@ -369,7 +366,7 @@ contains
     real, parameter :: cMass2Num = 1.0E6 * cProtonMass
 
     real(kind=Real8_) :: ratioHeH, ratioOH, fracH, fracHe, fracO
-    real(kind=Real8_) :: factor, eCent, MhdPpar(4), MhdPper(4), dens, pres, ppar
+    real(kind=Real8_) :: factor, eCent, MhdPpar(4), MhdPper(4)
     real(kind=Real8_) :: factor1, kappa, gamma1, gamma2, gamma3
     integer :: iT, iE, iPa
     character(len=100) :: NameFile
@@ -511,7 +508,7 @@ contains
        call CON_stop(NameSub//' TypeMhd not recognized: '//TypeMhd)
     end select
 
-    if(mod(TimeRamElapsed, 60.0_Real8_) .eq. 0.0) then
+    if(abs(mod(TimeRamElapsed, 60.0_Real8_)) .le. 1e-9) then
        ! Write boundary dens and pressure to file.
        write(NameFile,'(a,i6.6,a)')&
             PathRamOut//"bound_plasma_t",nint(TimeRamElapsed/60._Real8_),".out"
@@ -680,7 +677,6 @@ contains
     character(len=100) :: NameFile
     character(len=35)  :: StringFormat
 
-    character(len=*), parameter :: NameSub = "write_FluxGM"
     !------------------------------------------------------------------------
     nFile = nint(TimeRamElapsed/300.0)
     write(StringFormat,'(a,i2,a)') '(f8.2, 1x, f7.2, ', nE, '(1x, 1pE11.4))'
@@ -712,7 +708,7 @@ contains
     ! and total plasma temperature (again, in eV) to receive new density based 
     ! on energy window for a Maxwellian particle distribution.
     
-    use ModConst,   ONLY: cElectronCharge, cPi
+    use ModConst,   ONLY: cPi
 
     implicit none
 

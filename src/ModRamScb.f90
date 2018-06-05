@@ -20,7 +20,7 @@ Module ModRamScb
   subroutine ramscb_allocate
   
     use ModRamGrids, ONLY: NS, NE, NPA
-    use ModScbGrids, ONLY: nthe, npsi, nzeta, nXRaw
+    use ModScbGrids, ONLY: nthe, npsi, nzeta
   
     implicit none
   
@@ -46,7 +46,6 @@ Module ModRamScb
     use ModRamVariables, ONLY: FLUX, MU, FFACTOR, FNHS, F2
     use ModRamGrids,     ONLY: nR, nT, nPa, nE, radout
   
-    USE ModScbParams,    ONLY: Symmetric
     use ModScbGrids,     ONLY: nthe, npsi, nzeta
     use ModScbVariables, ONLY: bf, radGrid, angleGrid, radRaw, azimRaw, &
                                nThetaEquator, x, y
@@ -177,22 +176,18 @@ Module ModRamScb
 !==================================================================================================
   SUBROUTINE computehI(iter)
   
-    use ModRamVariables, ONLY: Kp, F107, FLUX, FNHS, FNIS, BNES, HDNS, dBdt, &
-                               dIdt, dIbndt, BOUNHS, BOUNIS, EIR, EIP, DPHI, PHI, &
-                               RLZ, LZ, MU, DMU, WMU, MLT, PAbn, PA, DL1
-    use ModRamTiming,    ONLY: TimeRamNow, TimeRamStart, DT_hI, TimeRamElapsed, TOld
-    use ModRamConst,     ONLY: RE, HMIN, ME, b0dip
-    use ModRamParams,    ONLY: electric, IsComponent, NameBoundMag
-    use ModRamCouple,    ONLY: SwmfPot_II
-    use ModRamGrids,     ONLY: nR, nT, nPa, nE, RadiusMax, radout
+    use ModRamVariables, ONLY: FNHS, FNIS, BNES, HDNS, dBdt, &
+                               dIdt, dIbndt, BOUNHS, BOUNIS, EIR, EIP, &
+                               LZ, MU, MLT, PAbn, PA, DL1
+    use ModRamTiming,    ONLY: TimeRamElapsed, TOld
+    use ModRamConst,     ONLY: b0dip
+    use ModRamParams,    ONLY: NameBoundMag
+    use ModRamGrids,     ONLY: nR, nT, nPa, radout
   
-    USE ModScbMain,      ONLY: rHour, HourDecimal, Day, HourDecShort, iElectric, &
-                               prefixOut
-    USE ModScbParams,    ONLY: Symmetric
-    use ModScbGrids,     ONLY: nthe, npsi, nzeta, nXRaw, nAzimRAM
-    use ModScbVariables, ONLY: bf, chiVal, nZetaMidnight, x, y, z, bnormal, PhiIono, &
-                               radGrid, angleGrid, h_Cart, I_Cart, h_Cart_interp, &
-                               i_Cart_interp, bZEq_Cart, flux_vol_cart, bZ, chi, &
+    use ModScbGrids,     ONLY: nthe, npsi, nzeta
+    use ModScbVariables, ONLY: bf, chiVal, x, y, z, bnormal, &
+                               h_Cart, I_Cart, h_Cart_interp, &
+                               i_Cart_interp, bZEq_Cart, flux_vol_cart, bZ, &
                                hdens_Cart, radRaw, azimRaw, nThetaEquator, fluxVolume, &
                                thetaVal
   
@@ -202,20 +197,18 @@ Module ModRamScb
     use ModScbFunctions, ONLY: extap, locate
     use ModScbIO,        ONLY: trace, PARMOD, IOPT
   
-    use nrtype,    ONLY: DP, pi_d, pio2_d
-    USE ModIOUnit, ONLY: UNITTMP_
+    use nrtype,    ONLY: DP, pi_d
   
     implicit none
   
     INTEGER, INTENT(IN) :: iter
-    INTEGER :: ii, j, iS, GSLerr
+    INTEGER :: ii, j, GSLerr
     
     ! Variables for timing
     integer :: time1, clock_rate, clock_max
     real(dp) :: starttime,stoptime
   
     ! Variables for SCB
-    integer  :: statusIntegralI, statusIntegralH, statusIntegralHDens
     REAL(DP) :: DthI
     REAL(DP), ALLOCATABLE :: length(:,:), r0(:,:), BeqDip(:,:)
     REAL(DP), ALLOCATABLE :: distance(:,:,:), H_value(:,:,:), I_value(:,:,:), &
@@ -223,13 +216,13 @@ Module ModRamScb
                              bfmirror(:,:,:)
   
     ! Variables for RAM
-    logical  :: Extrap
     integer  :: nEquator
-    REAL(DP) :: MUeq, wn, xo, xn, xp, yo, yn, yp, t0, t1, rt, tt, zt
+    integer, ALLOCATABLE :: ScaleAt(:)
+    REAL(DP) :: wn, xo, xn, xp, yo, yn, yp, t0, t1, rt, tt, zt
     REAL(DP) :: r0_RAM, length_RAM
     REAL(DP), ALLOCATABLE :: BeqDip_Cart(:), bfMirror_RAM(:), yI_RAM(:), yH_RAM(:), &
                              yD_RAM(:), bbx(:), bby(:), bbz(:), bb(:), dd(:), &
-                             cVal(:), xx(:), yy(:), zz(:), ScaleAt(:)
+                             cVal(:), xx(:), yy(:), zz(:)
     REAL(DP), ALLOCATABLE :: BzeqDiff_Cart(:,:), BNESPrev(:,:)
     REAL(DP), ALLOCATABLE :: FNISPrev(:,:,:), BOUNISPrev(:,:,:)
     REAL(DP) :: scalingI, scalingH, scalingD, I_Temp, H_Temp, D_Temp
@@ -237,8 +230,8 @@ Module ModRamScb
     ! Variables for Tracing
     INTEGER :: LMAX, LOUT
     INTEGER :: ID
-    REAL(DP) :: x0, y0, z0, xe, ye, ze, xf, yf, zf, RIN
-    REAL(DP) :: ER, DSMAX, RLIM, DIR, PS
+    REAL(DP) :: x0, y0, z0, xe, ye, ze, xf, yf, zf
+    REAL(DP) :: ER, DSMAX, RLIM, DIR
     REAL(DP) :: PDyn, BzIMF, DIST, XMGNP, YMGNP, ZMGNP
     REAL(DP), DIMENSION(200) :: xtemp, ytemp, ztemp, bxtemp, bytemp, bztemp, dtemp
   
@@ -304,16 +297,16 @@ Module ModRamScb
           do j = 1,1 ! Dipole is azimuthially symmetric, only need to calculate one MLT
              ! Calculate h and I at RAM grid point
              zt = MLT(j)*2._dp*pi_d/24._dp - pi_d
-             t1 = dasin(dsqrt(1.0/LZ(i+1)))
+             t1 = asin(sqrt(1.0/LZ(i+1)))
              t0 = pi_d-t1
              do k=1,nthe
                 tt = t0 + REAL(k-1,DP)/REAL(nthe-1,DP)*(t1-t0) 
-                rt = LZ(i+1)*dsin(tt)**2
-                xx(k) = (rt)*dcos(zt)*dsin(tt)
-                yy(k) = (rt)*dsin(zt)*dsin(tt)
-                zz(k) = (rt)*dcos(tt)
+                rt = LZ(i+1)*sin(tt)**2
+                xx(k) = (rt)*cos(zt)*sin(tt)
+                yy(k) = (rt)*sin(zt)*sin(tt)
+                zz(k) = (rt)*cos(tt)
                 dd(k) = rt ! Distance from center of earth
-                bb(k) = (b0dip/bnormal)*dsqrt(1+3*dcos(tt)**2)/rt**3
+                bb(k) = (b0dip/bnormal)*sqrt(1+3*cos(tt)**2)/rt**3
              enddo
   
              cVal(1) = 0._dp
@@ -331,7 +324,7 @@ Module ModRamScb
              cVal(1:nthe) = pi_d*cVal(1:nthe)/cVal(nthe)
              r0_RAM = SQRT(xx(nEquator)**2+yy(nEquator)**2)
   
-             bfmirror_RAM(:) = bb(nEquator)/(1._dp - mu**2)
+             bfmirror_RAM(1:NPA-1) = bb(nEquator)/(1._dp - mu(1:NPA-1)**2)
              bfmirror_RAM(NPA) = bb(nthe)
   
              CALL GSL_Integration_hI(bfMirror_RAM(:),cVal(1:nthe),bb(1:nthe), &
@@ -449,15 +442,15 @@ Module ModRamScb
                 length(j,k) = length(j,k) + SQRT((x(i+1,j,k)-x(i,j,k))**2 + (y(i+1,j,k)-y(i,j,k))**2 + (z(i+1,j,k)-z(i,j,k))**2)
              END DO
   
-             bfmirror(j,k,:) = bf(nThetaEquator,j,k)/(1._dp - mu**2)
+             bfmirror(j,k,1:NPA-1) = bf(nThetaEquator,j,k)/(1._dp - mu(1:NPA-1)**2)
              bfmirror(j,k,NPA) = bf(nthe,j,k)
   
              CALL GSL_Integration_hI(bfMirror(j,k,:),chiVal(:),bf(:,j,k),distance(:,j,k), &
                                      yI(j,k,:), yH(j,k,:), yD(j,k,:))
              do L = 2,NPA
-                if ((yI(j,k,L).ne.yI(j,k,L)).or.(yI(j,k,L)+1.eq.yI(j,k,L))) yI(j,k,L) = yI(j,k-1,L)
-                if ((yH(j,k,L).ne.yH(j,k,L)).or.(yH(j,k,L)+1.eq.yH(j,k,L))) yH(j,k,L) = yH(j,k-1,L)
-                if ((yD(j,k,L).ne.yD(j,k,L)).or.(yD(j,k,L)+1.eq.yD(j,k,L))) yD(j,k,L) = yD(j,k-1,L)
+                if (isnan(yI(j,k,L))) yI(j,k,L) = yI(j,k-1,L)
+                if (isnan(yH(j,k,L))) yH(j,k,L) = yH(j,k-1,L)
+                if (isnan(yD(j,k,L))) yD(j,k,L) = yD(j,k-1,L)
              enddo
              I_value(j,k,:) = (length(j,k)/(pi_d*r0(j,k))) * yI(j,k,:)/SQRT(Bfmirror(j,k,:))
              H_value(j,k,:) = (length(j,k)/(pi_d*2*r0(j,k))) * yH(j,k,:)*SQRT(Bfmirror(j,k,:))
@@ -485,7 +478,7 @@ Module ModRamScb
        DSMAX = 0.1
        ER = 0.001
        RLIM = 20.0
-       ScaleAt = 0._dp
+       ScaleAt = 0
        scalingI = 0._dp
        scalingH = 0._dp
        scalingD = 0._dp
@@ -521,7 +514,7 @@ Module ModRamScb
                    endif
                 endif
              ENDDO
-             if ((wn.ne.0).or.(NameBoundMag.eq.'DIPS')) then
+             if ((abs(wn).gt.1e-9).or.(NameBoundMag.eq.'DIPS')) then
                 ! Interpolate from SCB -> RAM grid
                 DO L = 2,NPA
                    CALL GSL_Interpolation_2D(x(nThetaEquator,:,2:nzeta), y(nThetaEquator,:,2:nzeta), &
@@ -592,7 +585,7 @@ Module ModRamScb
                    cVal(:) = thetaVal(:)
                    r0_RAM = SQRT(xx(nThetaEquator)**2+yy(nThetaEquator)**2)
   
-                   bfmirror_RAM(:) = bb(nThetaEquator)/(1._dp - mu**2)
+                   bfmirror_RAM(1:NPA-1) = bb(nThetaEquator)/(1._dp - mu(1:NPA-1)**2)
                    bfmirror_RAM(NPA) = bb(nthe)
   
                    CALL GSL_Integration_hI(bfMirror_RAM(:),cVal(:),bb(:),dd(:), &
@@ -753,7 +746,7 @@ Module ModRamScb
                    BOUNHS(I,J,L) = h_Cart_interp(I-1,J,L)
                    BOUNIS(I,J,L) = i_Cart_interp(I-1,J,L)
                    !
-                   if ((DthI.eq.0).or.(FNISPrev(I,J,L).lt.0)) then
+                   if ((abs(DthI).le.1e-9).or.(FNISPrev(I,J,L).lt.0)) then
                       dIdt(I,J,L)   = 0._dp
                       dIbndt(I,J,L) = 0._dp
                    else
@@ -769,7 +762,7 @@ Module ModRamScb
                    ENDDO
                 ENDIF
                 BNES(I,J)=BNES(I,J)/1e9 ! to convert in [T]
-                if ((DthI.eq.0).or.(BNESPrev(I,J).lt.0)) then
+                if ((abs(DthI).le.1e-9).or.(BNESPrev(I,J).lt.0)) then
                    dBdt(I,J) = 0._dp
                 else
                    dBdt(I,J) = (BNES(I,J)-BNESPrev(I,J))/DThI

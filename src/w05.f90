@@ -140,7 +140,7 @@ module w05
 
     real(dp),intent(in) :: lat,mlt,fill
     real(dp),intent(out) :: epot
-    integer :: inside,j,m,mm,skip
+    integer :: inside,j,m,skip
     real(dp) :: z,phir,plm,colat,nlm
     real(dp) :: phim(2),cospm(2),sinpm(2)
 !
@@ -199,15 +199,15 @@ module w05
     real(dp),intent(in) :: colat
     real(dp),intent(out) :: nlm
 
-    integer :: istat,i,j,l,m,skip
-    real(dp) :: th0,out(1),colata(1),plm1
+    integer :: i,j,l,m,skip
+    real(dp) :: th0,out(1),colata(1)
     real(dp) :: cth(mxtablesize)
     real(dp),save :: prevth0=1.e36
     integer,save :: tablesize
 
     scplm05 = 0.
     th0 = bndyfitr
-    if (prevth0 /= th0) then
+    if (abs(prevth0-th0) > 1e-9) then
       tablesize = 3*nint(th0)
       if (tablesize > mxtablesize) then 
         write(6,"('>>> tablesize > mxtablesize: tablesize=',i5,&
@@ -262,7 +262,7 @@ module w05
     real(dp),intent(in) :: cth(tablesize)
     real(dp),intent(out) :: plmtable(tablesize)
 
-    integer :: i,k,ii
+    integer :: i,k
     real(dp) :: rm,rk,div,ans,xn
     real(dp),dimension(tablesize) :: a,x,tmp,table
 !
@@ -308,7 +308,6 @@ module w05
 
     integer,intent(in) :: m
     real(dp),intent(in) :: rn
-    integer :: i,n
     real(dp) :: rm
 
     if (m == 0) then 
@@ -334,7 +333,7 @@ module w05
     integer :: kk,mm
     real(dp) :: th0a(1),out(1)
 
-    if (th0 == 90.) then
+    if (abs(th0-90.0) <= 1e-9) then
       nkmlookup05 = float(k)
       return
     endif

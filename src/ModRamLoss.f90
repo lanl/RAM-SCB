@@ -22,7 +22,6 @@ MODULE ModRamLoss
     use ModRamTiming,    ONLY: DTs
     use ModRamVariables, ONLY: EKEV, V, RLZ, HDNS, CHARGE, ATLOS
 
-
     implicit none
 
     integer, intent(in) :: S
@@ -134,7 +133,7 @@ MODULE ModRamLoss
     DO K=2,NE
        DO J=1,NT
           DO I=2,NR
-             u = UPA(I)
+             u = int(UPA(I),kind=4)
              DO L=u,NPA
                 F2(S,I,J,K,L)=F2(S,I,J,K,L)*ATLOS(S,I,K)**(1/FNHS(I,J,L))
              ENDDO

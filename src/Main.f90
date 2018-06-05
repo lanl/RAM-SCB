@@ -10,16 +10,14 @@ program ram_scb
 !    All rights reserved.
 !============================================================================
 !!!! Module Variables
-use ModRamMain,      ONLY: Real8_, S, iCal, nIter
-use ModRamParams,    ONLY: DoSaveFinalRestart, DoVarDt, IsComponent, NameBoundMag, &
+use ModRamMain,      ONLY: DP, iCal, nIter
+use ModRamParams,    ONLY: DoSaveFinalRestart, DoVarDt, IsComponent, &
                            verbose, reset, DoUseRam, SCBonRAMTime, RAMTie
 use ModRamTiming,    ONLY: DtsFramework, DtsMax, DtsMin, DtsNext, Dts, Dt_hI, &
                            TimeRamStart, TimeRamNow, TimeMax, TimeRamElapsed, &
-                           TimeRamStop, T, UTs, Dt_bc, DtEfi
-use ModRamVariables, ONLY: Kp, F107, DTDriftR, DTDriftP, DTDriftE, DTDriftMu, &
-                           PParT, PPerT, FGEOS
-use ModScbGrids,     ONLY: npsi, nzeta, nthe
-use ModScbVariables, ONLY: alfa, psi, x, y, z, hICalc, SORFail
+                           UTs, Dt_bc, DtEfi
+use ModRamVariables, ONLY: Kp, F107
+use ModScbVariables, ONLY: hICalc, SORFail
 use ModScbParams,    ONLY: method
 
 !!!! Module Subroutines and Functions
@@ -46,7 +44,6 @@ use CON_planet,      ONLY: set_planet_defaults
 use CON_axes,        ONLY: init_axes, test_axes
 use ModPlanetConst,  ONLY: init_planet_const
 use ModTimeConvert,  ONLY: time_real_to_int
-use ModIOUnit,       ONLY: UNITTMP_
 
 !!!! MPI Modules
 use ModMpi
@@ -55,10 +52,8 @@ use ModRamMpi
 
 implicit none
 
-integer :: i,j,k
 logical :: triggerSCB
-character(len=200) :: FileName
-real(kind=Real8_) :: DtOutputMax, DtEndMax, DtTemp
+real(DP) :: DtOutputMax, DtEndMax
 !----------------------------------------------------------------------------
 ! Ensure code is set to StandAlone mode.
 IsComponent = .false.
@@ -119,7 +114,7 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
          DtOutputMax = max_output_timestep(TimeRamElapsed)
          DTs = min(DTsNext,DTsmax,DtOutputMax,DtEndMax,DTsFramework)
          if (Kp.gt.6.0 .AND. DTs.gt.5.0) DTs = 5.0
-      else if(mod(UTs, Dt_hI) .eq. 0) then
+      else if(abs(mod(UTs, Dt_hI)) .le. 1e-9) then
          DTs = 5.0
          if(Kp .ge. 5.0) DTs = min(DTsMin,DTs)
          if(Kp .gt. 6.0) DTs = 1.0   !1. or 0.25
@@ -131,12 +126,12 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
       call get_indices(TimeRamNow%Time, Kp, f107)
 
       ! Update Boundary Flux if Dt_bc has passed
-      if (mod(TimeRamElapsed, Dt_bc).eq.0) then
+      if (abs(mod(TimeRamElapsed, Dt_bc)).le.1e-9) then
          call get_boundary_flux
       end if
 
       ! Update Electric Fields if DtEfi has passed
-      if (mod(TimeRamElapsed, DtEfi).eq.0) then
+      if (abs(mod(TimeRamElapsed, DtEfi)).le.1e-9) then
          call get_electric_field
       end if
 !!!!!!!!!
@@ -161,7 +156,7 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
       if (SCBonRAMTime) then
          if ((mod(nIter,RAMTie).eq.0).and.(nIter.gt.1)) triggerSCB = .true.
       else
-         if (((mod(TimeRamElapsed, Dt_hI).eq.0).or.(Dt_hI.eq.1))) triggerSCB = .true.
+         if (abs(mod(TimeRamElapsed, Dt_hI)).le.1e-9) triggerSCB = .true.
       endif
       if (triggerSCB) then
          call write_prefix
@@ -252,7 +247,6 @@ subroutine CON_stop(String)
   use ModScbGrids,     ONLY: nthe, npsi, nzeta
   use ModScbVariables, ONLY: x,y,z
   use ModRamTiming,    ONLY: TimeRamElapsed, TimeRamNow
-  use ModRamIO,        ONLY: write_fail_file
   use ModRamFunctions, ONLY: RamFileName
 
   use ModIOUnit,       ONLY: UNITTMP_
@@ -268,8 +262,6 @@ subroutine CON_stop(String)
   write(*,*)'Stopping execution! at time=',TimeRamElapsed,&
        ' with msg:'
   write(*,*)String
-
-  call write_fail_file
 
   FileName = RamFileName('MAGxyz2','dat',TimeRamNow)
   open(UNITTMP_, File=FileName)

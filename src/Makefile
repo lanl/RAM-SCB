@@ -97,7 +97,7 @@ EXT_OBJECTS=       \
 	mpi.o      \
 	ModRamMpi.o 
 
-OBJECTS = ${RAM_OBJECTS} ${SCB_OBJECTS} ${CPL_OBJECTS} ${EXT_OBJECTS} ${GSL_OBJECTS} ${PLE_OBJECTS}
+OBJECTS = ${RAM_OBJECTS} ${SCB_OBJECTS} ${EXT_OBJECTS} ${GSL_OBJECTS} ${CPL_OBJECTS} ${PLE_OBJECTS}
 
 # List of objects required for executable:
 OBJECTS_EXE = Main.o

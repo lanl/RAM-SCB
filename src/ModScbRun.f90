@@ -15,23 +15,20 @@
 !==============================================================================
   SUBROUTINE scb_run(nIter)
     !!!! Module Variables
-    use ModRamParams,    ONLY: boundary, electric, NameBoundMag, verbose
+    use ModRamParams,    ONLY: boundary, verbose
     use ModRamVariables, ONLY: KP
-    use ModRamTiming,    ONLY: TimeRamNow
-    USE ModScbMain,      ONLY: damp, iSm, nrelax, numit, relax, thresh
-    USE ModScbGrids,     ONLY: nthe, npsi, nzeta, nAzimRAM, nXRawExt
-    USE ModScbVariables, ONLY: alfa, alfaSav1, alfaSav2, psi, psiSav1, psiSav2, psiVal, &
-                               alphaVal, blendAlpha, blendPsi, iAlphaMove, iPsiMove, &
+    USE ModScbMain,      ONLY: damp, nrelax, numit, relax
+    USE ModScbGrids,     ONLY: nthe, npsi, nzeta
+    USE ModScbVariables, ONLY: alfa, alfaSav1, psi, psiSav1, psiVal, &
+                               blendAlpha, blendPsi, &
                                decreaseConvAlpha, decreaseConvPsi, errorAlpha, errorPsi, &
                                diffmx, errorAlphaPrev, errorPsiPrev, x, y, z, sumb, &
-                               sumdb, jacobian, xzero3, psiin, psiout, psitot, &
-                               xpsiin, xpsiout, f, fp, fluxVolume, alfaPrev, nThetaEquator, &
-                               constZ, fzet, fzetp, chiVal, chi, thetaVal, constTheta, &
-                               normJxB, normGradP, SORFail, nFail, hICalc, normDiff, &
-                               iConvGlobal, lconv, nisave, nitry
+                               sumdb, jacobian, f, fluxVolume, normJxB, normGradP, &
+                               SORFail, nFail, hICalc, normDiff, iConvGlobal, lconv, &
+                               nisave, nitry
     use ModScbParams,    ONLY: decreaseConvAlphaMin, decreaseConvPsiMin, blendMin, &
                                decreaseConvAlphaMax, decreaseConvPsiMax, blendMax, &
-                               blendAlphaInit, blendPsiInit, MinSCBIterations, &
+                               MinSCBIterations, &
                                iAMR, isEnergDetailNeeded, isFBDetailNeeded, &
                                method, isotropy
     !!!! Module Subroutine/Functions
@@ -44,31 +41,27 @@
     USE ModScbIO,       ONLY: Write_Convergence_Anisotropic, Update_Domain, Computational_Domain
     !!!! Share Modules
     use ModTimeConvert, ONLY: n_day_of_year
-    USE ModIOUnit, ONLY: UNITTMP_
     !!!! NR Modules
-    use nrtype, ONLY: DP, twopi_d, pi_d
+    use nrtype, ONLY: DP, twopi_d
 
     implicit none
   
     INTEGER, INTENT(IN) :: nIter
-    INTEGER  :: iconv, nisave1, ierr, iCountEntropy, GSLerr
-    INTEGER  :: i, j, k, SCBIterNeeded
+    INTEGER  :: iconv, nisave1, iCountEntropy
+    INTEGER  :: SCBIterNeeded
     REAL(DP) :: outDistance, convDistance, blendInitial
     REAL(DP) :: sumdbconv, errorfirstalpha, diffmxfirstalpha, &
-                errorfirstpsi, diffmxfirstpsi, dphi, phi, psis, &
-                xpsitot, xpl
+                errorfirstpsi, diffmxfirstpsi
     REAL(DP) :: sumb1, sumdb1, diffmx1, normDiffPrev
-    REAL(DP) :: entropyFixed(npsi,nzeta)
-    REAL(DP), DIMENSION(500) :: psiSpline, xSpline, ySpline, zSpline
-    REAL(DP), ALLOCATABLE, SAVE :: xPrev(:,:,:), yPrev(:,:,:), zPrev(:,:,:), &
-                                   alphaPrev(:,:,:), psiPrev(:,:,:), xStart(:,:,:), &
-                                   yStart(:,:,:), zStart(:,:,:), psiStart(:,:,:), &
-                                   alphaStart(:,:,:), fStart(:)
+    REAL(DP), ALLOCATABLE :: xPrev(:,:,:), yPrev(:,:,:), zPrev(:,:,:), &
+                             alphaPrev(:,:,:), psiPrev(:,:,:), xStart(:,:,:), &
+                             yStart(:,:,:), zStart(:,:,:), psiStart(:,:,:), &
+                             alphaStart(:,:,:), fStart(:), entropyFixed(:,:)
     LOGICAL :: check
 
     ! Variables for timing
     integer :: time1, clock_rate, clock_max
-    real(dp) :: starttime,stoptime
+    real(DP) :: starttime,stoptime
     clock_rate = 1000
     clock_max = 100000
 
@@ -76,15 +69,17 @@
     xStart = 0.0; yStart = 0.0; zStart = 0.0
     ALLOCATE(psiStart(nthe,npsi,nzeta+1), alphaStart(nthe,npsi,nzeta+1), fStart(npsi))
     psiStart = 0.0; alphaStart = 0.0; fStart = 0.0
-    IF (.NOT. ALLOCATED(xPrev)) ALLOCATE(xPrev(SIZE(x,1), SIZE(x,2), SIZE(x,3)), STAT = ierr)
+    ALLOCATE(entropyFixed(npsi,nzeta))
+    entropyFixed = 0.0
+    IF (.NOT. ALLOCATED(xPrev)) ALLOCATE(xPrev(SIZE(x,1), SIZE(x,2), SIZE(x,3)))
     xPrev = 0.0
-    IF (.NOT. ALLOCATED(yPrev)) ALLOCATE(yPrev(SIZE(x,1), SIZE(x,2), SIZE(x,3)), STAT = ierr)
+    IF (.NOT. ALLOCATED(yPrev)) ALLOCATE(yPrev(SIZE(x,1), SIZE(x,2), SIZE(x,3)))
     yPrev = 0.0
-    IF (.NOT. ALLOCATED(zPrev)) ALLOCATE(zPrev(SIZE(x,1), SIZE(x,2), SIZE(x,3)), STAT = ierr)
+    IF (.NOT. ALLOCATED(zPrev)) ALLOCATE(zPrev(SIZE(x,1), SIZE(x,2), SIZE(x,3)))
     zPrev = 0.0
-    IF (.NOT. ALLOCATED(alphaPrev)) ALLOCATE(alphaPrev(nthe,npsi,nzeta+1), STAT = ierr)
+    IF (.NOT. ALLOCATED(alphaPrev)) ALLOCATE(alphaPrev(nthe,npsi,nzeta+1))
     alphaPrev = 0.0
-    IF (.NOT. ALLOCATED(psiPrev)) ALLOCATE(psiPrev(nthe,npsi,nzeta+1), STAT = ierr)
+    IF (.NOT. ALLOCATED(psiPrev)) ALLOCATE(psiPrev(nthe,npsi,nzeta+1))
     psiPrev = 0.0
 
     decreaseConvAlpha = decreaseConvAlphaMin + (decreaseConvAlphaMax - decreaseConvAlphaMin) &
@@ -299,8 +294,9 @@
           ENDIF
 
           call computeBandJacob
-          !CALL pressure
- 
+          CALL pressure
+          CALL compute_convergence
+
           !c  define the right-hand side of the alphaEuler equation
           CALL newj
   
@@ -457,7 +453,7 @@
     ! Remove for speed
     IF (isotropy == 0 .AND. isEnergDetailNeeded == 1) CALL dps_general
 
-    DEALLOCATE(xStart, yStart, zStart, psiStart, alphaStart, fStart)
+    DEALLOCATE(xStart, yStart, zStart, psiStart, alphaStart, fStart, entropyFixed)
 
     RETURN
   
@@ -474,7 +470,7 @@
 
     implicit none
   
-    INTEGER  :: i, j, k, iplx
+    INTEGER  :: i, j, k
     REAL(DP) :: magneticEnergy, thermalEnergy, totalEnergy, volumeTotal
   
     magneticEnergy = 0.0_dp
@@ -513,17 +509,13 @@
 !==============================================================================
   SUBROUTINE entropy(ent_local, vol_local, iteration_local)
     !!!! Module Variables 
-    USE ModScbGrids,     ONLY: nthe, npsi, nzeta, dt
-    use ModScbVariables, ONLY: x, y, z, xx, yy, jacobian, bf, nThetaEquator, &
-                               f, fzet, rhoVal, thetaVal, zetaVal, psiVal, &
-                               pjconst, r0Start, GradRhoSq, GradThetaSq, GradZetaSq, &
+    USE ModScbGrids,     ONLY: npsi, nzeta, dt
+    use ModScbVariables, ONLY: x, y, z, xx, jacobian, bf, nThetaEquator, &
+                               f, fzet, rhoVal, zetaVal, &
+                               r0Start, GradRhoSq, GradZetaSq, &
                                GradRhoGradTheta, GradRhoGradZeta, GradThetaGradZeta, &
-                               derivXTheta, derivXRho, derivXZeta, &
-                               derivYTheta, derivYRho, derivYZeta, &
-                               derivZTheta, derivZRho, derivZZeta, &
-                               gradRhoX, gradRhoY, gradRhoZ, dPdAlpha, &
-                               gradZetaX, gradZetaY, gradZetaZ, dPdPsi, &
-                               gradThetaX, gradThetaY, gradThetaZ, pressure3D
+                               gradRhoX, gradRhoY, dPdAlpha, &
+                               gradZetaX, gradZetaY, dPdPsi, pressure3D
 
     !!!! Module Subroutines/Functions
     use ModRamGSL, ONLY: GSL_Derivs
@@ -535,15 +527,12 @@
     real(DP), INTENT(INOUT) :: ent_local(:,:), vol_local(:,:)
     integer, intent(IN) :: iteration_local
   
-    INTEGER :: i, j, k, ierr, idealerr, ncdfId, GSLerr
-    REAL(DP) :: yyp, phi, deltaPhi
-    ! gradRhoSq, gradRhoGradZeta are global
-    REAL(DP), DIMENSION(:,:), ALLOCATABLE :: dVoldXEq, dVoldYEq, dVoldZeta, dVoldAlpha, &
-                                             dVoldRho, dVoldPsi, dEntdXEq, dEntdYEq, &
-                                             dEntdZeta, dEntdAlpha, dEntdRho, &
-                                             dEntdPsi, facVasGlobal, secondTermB
-    REAL(DP) :: delS
-    REAL(DP) :: rr1, rr2, zangle, thangle, thangleOnEarth, rr, dza, dya
+    INTEGER :: i, j, k, GSLerr
+    REAL(DP), ALLOCATABLE :: dVoldXEq(:,:), dVoldYEq(:,:), dVoldZeta(:,:), dVoldAlpha(:,:), &
+                             dVoldRho(:,:), dVoldPsi(:,:), dEntdXEq(:,:), dEntdYEq(:,:), &
+                             dEntdZeta(:,:), dEntdAlpha(:,:), dEntdRho(:,:), &
+                             dEntdPsi(:,:), facVasGlobal(:,:), secondTermB(:,:)
+    REAL(DP) :: rr1, rr2, thangle, thangleOnEarth
     REAL(DP) :: dipoleFactor, dipoleFactor4RE, factorIncrease
   
     ALLOCATE(dVoldZeta(npsi,nzeta), dVoldAlpha(npsi,nzeta), &
@@ -582,10 +571,8 @@
        dEntdAlpha(:,k) = dEntdZeta(:,k) / fzet(k)
     END DO
   
-    ALLOCATE(dVoldXEq(npsi,nzeta), stat = ierr)
-    ALLOCATE(dVoldYEq(npsi,nzeta), stat = ierr)
-    ALLOCATE(dEntdXEq(npsi,nzeta), stat = ierr)
-    ALLOCATE(dEntdYEq(npsi,nzeta), stat = ierr)
+    ALLOCATE(dVoldXEq(npsi,nzeta), dVoldYEq(npsi,nzeta), &
+             dEntdXEq(npsi,nzeta), dEntdYEq(npsi,nzeta))
     dVoldXEq = 0.0; dVoldYEq = 0.0; dEntdXEq = 0.0; dEntdYEq = 0.0
 
     DO j = 1, npsi
@@ -601,8 +588,7 @@
        END DO
     END DO
   
-    ALLOCATE(facVasGlobal(npsi,nzeta), stat = ierr)
-    ALLOCATE(secondTermB(npsi,nzeta), stat = ierr)
+    ALLOCATE(facVasGlobal(npsi,nzeta), secondTermB(npsi,nzeta))
     facVasGlobal = 0.0; secondTermB = 0.0
 
     DO j = 1, npsi
@@ -637,13 +623,13 @@
        END DO
     END DO
 
-    DEALLOCATE(facVasGlobal, stat = idealerr)
-    DEALLOCATE(secondTermB, stat = idealerr)
+    DEALLOCATE(facVasGlobal)
+    DEALLOCATE(secondTermB)
   
-    DEALLOCATE(dVoldXEq, stat = idealerr)
-    DEALLOCATE(dVoldYEq, stat = idealerr)
-    DEALLOCATE(dEntdXEq, stat = idealerr)
-    DEALLOCATE(dEntdYEq, stat = idealerr)
+    DEALLOCATE(dVoldXEq)
+    DEALLOCATE(dVoldYEq)
+    DEALLOCATE(dEntdXEq)
+    DEALLOCATE(dEntdYEq)
   
     ! Can de-allocate derivXRho etc.
     DEALLOCATE(dVoldZeta, dVoldAlpha, &
@@ -709,7 +695,7 @@
     !!!! Module Variables
     USE ModScbMain,      ONLY: mu0, REarth, BEarth
     USE ModScbGrids,     ONLY: nzeta, npsi, nthe, dr, dt, dpPrime
-    use ModScbVariables, ONLY: x, y, z, bsq, jacobian, pnormal, bnormal, &
+    use ModScbVariables, ONLY: x, y, bsq, jacobian, pnormal, bnormal, &
                                DstBiot, DstBiotInsideGeo, DstDPS, DstDPSInsideGeo, &
                                pper, ppar
     !!!! NR Modules
@@ -717,7 +703,7 @@
 
     implicit none
   
-    INTEGER :: i, j, k, iplx
+    INTEGER :: i, j, k
     REAL(DP) :: magneticEnergyDipole, rsq, totalEnergy, volumeTotal
     REAL(DP), ALLOCATABLE :: magneticEnergy(:), magneticEnergyInsideGeo(:), &
                              thermalEnergy(:), thermalEnergyInsideGeo(:)
@@ -770,11 +756,7 @@
   END SUBROUTINE dps_general
   
 !==============================================================================
-!******************************************************************************
 SUBROUTINE pressure
-!    Copyright (c) 2016, Los Alamos National Security, LLC
-!    All rights reserved.
-!******************************************************************************
     !!!! Module Variables
     USE ModRamVariables, ONLY: PParH, PPerH, PParO, PPerO, PParHe, PPerHe, PParE, &
                                PPerE, PHI, LZ
@@ -786,24 +768,22 @@ SUBROUTINE pressure
                                nAzimRAM
     use ModScbVariables, ONLY: x, y, z, xx, yy, bf, bsq, rhoVal, zetaVal, thetaVal, &
                                nZetaMidnight, nThetaEquator, pnormal, f, fzet, alfa, &
-                               dela, azimRaw, radGrid, angleGrid, ratioEq, dPPerdRho, &
+                               dela, azimRaw, radGrid, angleGrid, dPPerdRho, &
                                dPPerdZeta, dPPerdTheta, dBsqdRho, dBsqdZeta, dPdPsi, &
                                dSqPdPsiSq, dpdAlpha, dSqPdAlphaSq, pressure3D, ppar, &
-                               pper, dPperdPsi, bsq, dBBdPsi, dBsqdPsi, dPperdAlpha, &
-                               dBBdAlpha, dBsqdAlpha, dBsqdTheta, sigma, tau, &
-                               gradRhoGradZeta, gradZetaSq, gradRhoGradTheta, &
-                               gradThetaGradZeta, gradRhoSq
+                               pper, dPperdPsi, bsq, dBsqdPsi, dPperdAlpha, &
+                               dBsqdAlpha, dBsqdTheta, sigma, tau
     !!!! Module Subroutines/Functions
     USE ModRamGSL,       ONLY: GSL_Derivs, GSL_Interpolation_2D, GSL_Interpolation_1D, &
                                GSL_Smooth_1D
     USE ModSCBIO,        ONLY: write_scb_pressure
     USE ModScbFunctions, ONLY: SavGol7, pRoeRad, extap
     !!!! NR Modules
-    use nrtype, ONLY: DP, SP, pi_d, twopi_d
+    use nrtype, ONLY: DP, pi_d, twopi_d
 
     implicit none
 
-    INTEGER :: i, j, j1, k, k1, ierr, idealerr, GSLerr
+    INTEGER :: i, j, j1, k, k1, GSLerr
     REAL(DP) :: radius, angle, bEqSq, aN, pperN, pparN, yyp, gParam, pEq, ratioB, rBI, &
                 colatitudeMid, colatitudeNoo
     REAL(DP) :: aTemp(500), bTemp(500)
@@ -814,8 +794,8 @@ SUBROUTINE pressure
                              pperEqOld(:,:), pparEqOld(:,:), radGridEq(:,:), angleGridEq(:,:)
 
     REAL(DP), ALLOCATABLE :: dipoleFactorMid(:,:), dipoleFactorNoo(:,:)
-    REAL(DP), ALLOCATABLE :: BigBracketPsi(:,:,:), BigBracketAlpha(:,:,:), dBBdRho(:,:,:), &
-                             dBBdZeta(:,:,:), dummy1(:,:,:), dummy2(:,:,:)
+    !REAL(DP), ALLOCATABLE :: BigBracketPsi(:,:,:), BigBracketAlpha(:,:,:), dBBdRho(:,:,:), &
+    !                         dBBdZeta(:,:,:), dummy1(:,:,:), dummy2(:,:,:)
     REAL(DP), ALLOCATABLE :: xRaw(:,:), YRaw(:,:),pressProtonPerRaw(:,:), pressProtonParRaw(:,:), &
                              pressOxygenPerRaw(:,:), pressOxygenParRaw(:,:), pressHeliumPerRaw(:,:), &
                              pressHeliumParRaw(:,:), pressPerRaw(:,:), pressParRaw(:,:), &
@@ -1166,7 +1146,7 @@ SUBROUTINE pressure
           !   endif
           !ENDDO
           dPperdPsi(:,j,:) = 1./f(j) * dPperdRho(:,j,:)
-          IF (iOuterMethod == 2) dBBdPsi(:,j,:) = dBBdRho(:,j,:) / f(j)
+          !IF (iOuterMethod == 2) dBBdPsi(:,j,:) = dBBdRho(:,j,:) / f(j)
           dBsqdPsi(:,j,:) = 1./f(j) * dBsqdRho(:,j,:)
        END DO
   
@@ -1177,49 +1157,49 @@ SUBROUTINE pressure
           !   endif
           !END DO
           dPperdAlpha(:,:,k) = 1. / fzet(k) * dPperdZeta(:,:,k)
-          IF (iOuterMethod == 2) dBBdAlpha(:,:,k) = dBBdZeta(:,:,k) / fzet(k)
+          !IF (iOuterMethod == 2) dBBdAlpha(:,:,k) = dBBdZeta(:,:,k) / fzet(k)
           dBsqdAlpha(:,:,k) = 1. / fzet(k) * dBsqdZeta(:,:,k)
        END DO
   
-       IF (iOuterMethod == 2) THEN ! If using the Newton method, need these
-          ALLOCATE(BigBracketPsi(nthe,npsi,nzeta), stat = ierr)
-          ALLOCATE(BigBracketAlpha(nthe,npsi,nzeta), stat = ierr)
-          ALLOCATE(dBBdRho(nthe,npsi,nzeta), stat = ierr)
-          ALLOCATE(dBBdZeta(nthe,npsi,nzeta), stat = ierr)
-          ALLOCATE(dummy1(nthe,npsi,nzeta), stat = ierr)
-          ALLOCATE(dummy2(nthe,npsi,nzeta), stat = ierr)
-          BigBracketPsi = 0.0; BigBracketAlpha = 0.0; dBBdRho = 0.0
-          dBBdZeta = 0.0; dummy1 = 0.0; dummy2 = 0.0
-          DO k = 1, nzeta
-             DO j = 1, npsi
-                DO i = 1, nthe
-                   BigBracketAlpha(i,j,k) = (-1./sigma(i,j,k) * dPperdAlpha(i,j,k) &
-                        - 1./(sigma(i,j,k)*bsq(i,j,k)) * f(j)**2 * fzet(k) * (gradRhoSq(i,j,k)* &
-                        gradThetaGradZeta(i,j,k) - gradRhoGradTheta(i,j,k)*gradRhoGradZeta(i,j,k)) * &
-                        (dPperdTheta(i,j,k) + (1.-sigma(i,j,k))*0.5*dBsqdTheta(i,j,k)) - &
-                        (1. - sigma(i,j,k)) / sigma(i,j,k) * 0.5 * dBsqdAlpha(i,j,k))
-                   BigBracketPsi(i,j,k) = (1./sigma(i,j,k) * dPperdPsi(i,j,k) &
-                        - 1./(sigma(i,j,k)*bsq(i,j,k)) * f(j) * fzet(k)**2 * (gradRhoGradZeta(i,j,k)* &
-                        gradThetaGradZeta(i,j,k) - gradRhoGradTheta(i,j,k)*gradZetaSq(i,j,k)) * &
-                        (dPperdTheta(i,j,k) + (1.-sigma(i,j,k)) * 0.5_dp * dBsqdTheta(i,j,k)) + &
-                        (1.-sigma(i,j,k)) / sigma(i,j,k) * 0.5_dp * dBsqdPsi(i,j,k))
-                END DO
-             END DO
-          END DO
-          CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, &
-                          BigBracketAlpha(1:nthe,1:npsi,1:nzeta), &
-                          dummy1, dummy2, dBBdZeta, GSLerr)
-          CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, &
-                          BigBracketPsi(1:nthe,1:npsi,1:nzeta), &
-                          dummy1, dBBdRho, dummy2, GSLerr)
+       !IF (iOuterMethod == 2) THEN ! If using the Newton method, need these
+       !   ALLOCATE(BigBracketPsi(nthe,npsi,nzeta), stat = ierr)
+       !   ALLOCATE(BigBracketAlpha(nthe,npsi,nzeta), stat = ierr)
+       !   ALLOCATE(dBBdRho(nthe,npsi,nzeta), stat = ierr)
+       !   ALLOCATE(dBBdZeta(nthe,npsi,nzeta), stat = ierr)
+       !   ALLOCATE(dummy1(nthe,npsi,nzeta), stat = ierr)
+       !   ALLOCATE(dummy2(nthe,npsi,nzeta), stat = ierr)
+       !   BigBracketPsi = 0.0; BigBracketAlpha = 0.0; dBBdRho = 0.0
+       !   dBBdZeta = 0.0; dummy1 = 0.0; dummy2 = 0.0
+       !   DO k = 1, nzeta
+       !      DO j = 1, npsi
+       !         DO i = 1, nthe
+       !            BigBracketAlpha(i,j,k) = (-1./sigma(i,j,k) * dPperdAlpha(i,j,k) &
+       !                 - 1./(sigma(i,j,k)*bsq(i,j,k)) * f(j)**2 * fzet(k) * (gradRhoSq(i,j,k)* &
+       !                 gradThetaGradZeta(i,j,k) - gradRhoGradTheta(i,j,k)*gradRhoGradZeta(i,j,k)) * &
+       !                 (dPperdTheta(i,j,k) + (1.-sigma(i,j,k))*0.5*dBsqdTheta(i,j,k)) - &
+       !                 (1. - sigma(i,j,k)) / sigma(i,j,k) * 0.5 * dBsqdAlpha(i,j,k))
+       !            BigBracketPsi(i,j,k) = (1./sigma(i,j,k) * dPperdPsi(i,j,k) &
+       !                 - 1./(sigma(i,j,k)*bsq(i,j,k)) * f(j) * fzet(k)**2 * (gradRhoGradZeta(i,j,k)* &
+       !                 gradThetaGradZeta(i,j,k) - gradRhoGradTheta(i,j,k)*gradZetaSq(i,j,k)) * &
+       !                 (dPperdTheta(i,j,k) + (1.-sigma(i,j,k)) * 0.5_dp * dBsqdTheta(i,j,k)) + &
+       !                 (1.-sigma(i,j,k)) / sigma(i,j,k) * 0.5_dp * dBsqdPsi(i,j,k))
+       !         END DO
+       !      END DO
+       !   END DO
+       !   CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, &
+       !                   BigBracketAlpha(1:nthe,1:npsi,1:nzeta), &
+       !                   dummy1, dummy2, dBBdZeta, GSLerr)
+       !   CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, &
+       !                   BigBracketPsi(1:nthe,1:npsi,1:nzeta), &
+       !                   dummy1, dBBdRho, dummy2, GSLerr)
 
-          IF(ALLOCATED(BigBracketPsi)) DEALLOCATE(BigBracketPsi, stat = idealerr)
-          IF(ALLOCATED(BigBracketAlpha)) DEALLOCATE(BigBracketAlpha, stat = idealerr)
-          IF(ALLOCATED(dBBdRho)) DEALLOCATE(dBBdRho, stat = idealerr)
-          IF(ALLOCATED(dBBdZeta)) DEALLOCATE(dBBdZeta, stat = idealerr)
-          IF(ALLOCATED(dummy1)) DEALLOCATE(dummy1, stat = idealerr)
-          IF(ALLOCATED(dummy2)) DEALLOCATE(dummy2, stat = idealerr)
-       END IF
+       !   IF(ALLOCATED(BigBracketPsi)) DEALLOCATE(BigBracketPsi, stat = idealerr)
+       !   IF(ALLOCATED(BigBracketAlpha)) DEALLOCATE(BigBracketAlpha, stat = idealerr)
+       !   IF(ALLOCATED(dBBdRho)) DEALLOCATE(dBBdRho, stat = idealerr)
+       !   IF(ALLOCATED(dBBdZeta)) DEALLOCATE(dBBdZeta, stat = idealerr)
+       !   IF(ALLOCATED(dummy1)) DEALLOCATE(dummy1, stat = idealerr)
+       !   IF(ALLOCATED(dummy2)) DEALLOCATE(dummy2, stat = idealerr)
+       !END IF
 
     END IF Isotropy_choice
  
@@ -1267,7 +1247,6 @@ FUNCTION pressureTsygMuk(xEqGsm, yEqGsm)
 
   USE nrtype
   USE ModScbVariables, ONLY: pnormal
-  use ModIOUnit,       ONLY: UNITTMP_
 
   implicit none
 
@@ -1276,8 +1255,7 @@ FUNCTION pressureTsygMuk(xEqGsm, yEqGsm)
        A5 = 0.078, A6 = -4.422, A7 = -1.533, A8 = -1.217, A9 = 2.54, &
        A10 = 0.32, A11 = 0.754, A12 = 1.048, A13 = -0.074, A14 = 1.015
   REAL(DP) :: Bperp, rhoStar, rhoStar10, PSWStar, F, FStar, phi, theta, presAt10RE
-  integer :: aa, ab, ac, ad, i
-  real(DP) :: ba, bb, bc, bd, be, pdynGlobal, byimfGlobal, bzimfGlobal
+  real(DP) :: pdynGlobal, byimfGlobal, bzimfGlobal
 
   pdynGlobal = 2.10
   byimfGlobal = 0.0
@@ -1322,8 +1300,7 @@ FUNCTION pressureRad(radius)
   implicit none
 
   integer, parameter :: iCorrectedPressure = 1
-  REAL(DP) :: radius, LargeA, LA, dPdRRight, dPdR2Right, Acap, Bcap, Ccap, Dcap, &
-       Acap2, Bcap2, Ccap2, pressureRad
+  REAL(DP) :: radius, LargeA, pressureRad
   REAL(DP) :: m, n, pUp, pDown, x1, x2, delta1, delta2, pressureSK, pUp2, pDown2
 
   ! This subroutine outputs pressure as a function of radial distance r in the

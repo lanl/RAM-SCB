@@ -13,7 +13,7 @@ MODULE ModRamInit
 subroutine ram_allocate
 
   use ModRamVariables ! Need to allocate and initialize all the variables
-  use ModRamGrids,     ONLY: RadiusMax, RadiusMin, nR, nRExtend, nT, nE, nPa, &
+  use ModRamGrids,     ONLY: nR, nRExtend, nT, nE, nPa, &
                              Slen, ENG, NCF, NL, nS, nX
 
   implicit none
@@ -135,20 +135,11 @@ SUBROUTINE ram_init
 
   implicit none
 
-  character(len=8)   :: StringSysDate
-  character(len=10)  :: StringSysTime
-  character(len=200) :: NameEFile
+  type(timetype) :: TimeRamStop
 
-  type(timetype) :: TimeRamStop, TimeNext
+  real(DP) :: dR, dPh
 
-  real(DP) :: WEIGHT, dR, dPh
-
-  integer :: iR, iPhi, iS
-  integer :: nFive, nFiveDay, nHour
-  integer :: I, J, K, L, IK
-
-  character (len=*), parameter :: NameSub='init_ram'
-  logical                      :: DoTest, DoTestMe
+  integer :: iR, iPhi
 !------------------------------------------------------------------------------
   TimeRamStop%Time = TimeRamStart%Time + TimeMax
   call time_real_to_int(TimeRamStop)
@@ -157,34 +148,34 @@ SUBROUTINE ram_init
 
 !!!!!!!!! Zero Values
   ! Initialize Pressures.
-  PPerH  = 0
-  PParH  = 0
-  PPerO  = 0
-  PParO  = 0
-  PPerHe = 0
-  PParHe = 0
-  PPerE  = 0
-  PParE  = 0
+  PPerH  = 0.0
+  PParH  = 0.0
+  PPerO  = 0.0
+  PParO  = 0.0
+  PPerHe = 0.0
+  PParHe = 0.0
+  PPerE  = 0.0
+  PParE  = 0.0
 
   ! Initial loss is zero
-  LNCN  = 0.
-  LNCD  = 0.
-  LECN  = 0.
-  LECD  = 0.
-  LSDR  = 0.
-  LSCHA = 0.
-  LSATM = 0.
-  LSCOE = 0.
-  LSCSC = 0.
-  LSWAE = 0.
-  ELORC = 0.
-  SETRC = 0.
+  LNCN  = 0.0
+  LNCD  = 0.0
+  LECN  = 0.0
+  LECD  = 0.0
+  LSDR  = 0.0
+  LSCHA = 0.0
+  LSATM = 0.0
+  LSCOE = 0.0
+  LSCSC = 0.0
+  LSWAE = 0.0
+  ELORC = 0.0
+  SETRC = 0.0
 
   ! Initial energy and density
-  XNN   = 0
-  XND   = 0
-  ENERN = 0
-  ENERD = 0
+  XNN   = 0.0
+  XND   = 0.0
+  ENERN = 0.0
+  ENERD = 0.0
 !!!!!!!!!
 
 !!!!!!!!!! Initialize grid.
@@ -239,7 +230,7 @@ END SUBROUTINE ram_init
     use ModRamMain,      ONLY: DP, S
     use ModRamConst,     ONLY: RE, PI, M1, MP, CS, Q, HMIN
     use ModRamGrids,     ONLY: RadiusMax, RadiusMin, NR, NPA, Slen, NT, NE, &
-                               NS, NLT, EnergyMin
+                               NLT, EnergyMin
     use ModRamParams,    ONLY: DoUsePlane_SCB
     use ModRamVariables, ONLY: amla, DL1, Lz, RLz, IR1, EKEV, Mu, WMu, DMu, &
                                RMAS, WE, DE, EBND, GRBND, V, Pa, Pabn, UPA, &
@@ -257,18 +248,16 @@ END SUBROUTINE ram_init
 
     integer :: i, j, k, l, iml, ic, ip
 
-    character(len=80) TITLE
-
     ALLOCATE(CONE(NR+4),RLAMBDA(NPA))
-    CONE = 0; RLAMBDA = 0
+    CONE = 0.0; RLAMBDA = 0.0
 
     ! Grid size of L shell
     DL1 = (RadiusMax - RadiusMin)/(nR - 1)
-    IF ((MOD(DL1,0.25_8).NE.0).and.(DoUsePlane_SCB)) THEN
-      write(*,*) MOD(DL1,0.25_8)
-      WRITE(6,*) 'RAM: Error : DL is not a multiple of 0.25 '
-      STOP
-    END IF
+    !IF ((MOD(DL1,0.25).NE.0).and.(DoUsePlane_SCB)) THEN
+    !  write(*,*) MOD(DL1,0.25_8)
+    !  WRITE(6,*) 'RAM: Error : DL is not a multiple of 0.25 '
+    !  STOP
+    !END IF
 
     degrad=pi/180.
     amla(1)=0. ! Magnetic latitude grid in degrees
@@ -311,15 +300,15 @@ END SUBROUTINE ram_init
 
     ! Calculate Kinetic Energy EKEV [keV] at cent, RW depends on NE
     ELB=EnergyMin ! Lower limit of energy in keV
-    IF (ELB.EQ.0.01) THEN
+    IF (abs(ELB-0.01).le.1e-9) THEN
       WE(1)=2.8E-3 !  |_._|___.___|____.____|______.______|
       RW=1.36 !    .     <   DE   >    <      WE     >
     END IF                  !   EKEV                EBND
-    IF (ELB.EQ.0.1) THEN ! relativistic
+    IF (abs(ELB-0.1).le.1e-9) THEN ! relativistic
       WE(1)=3E-2
       RW=1.27
     END IF
-    IF (ELB.EQ.1) THEN
+    IF (abs(ELB-1.0).le.1e-9) THEN
       WE(1)=0.31
       RW=1.16
     END IF
@@ -410,8 +399,8 @@ END SUBROUTINE ram_init
           DO IP=1,NPA
              spa=SQRT(SIND(PAbn(ip))**2*BE(i,iml)/BE(i,1))
              IF (spa.GT.1.0) spa=1.0
-                ZRpabn(i,ip,iml)=ASIN(spa)
-             IF (spa.EQ.1.0) THEN
+             ZRpabn(i,ip,iml)=ASIN(spa)
+             IF (abs(spa-1.0).le.1e-9) THEN
                 ZRpabn(i,ip,iml)=-1.0
              END IF
           ENDDO
@@ -449,17 +438,12 @@ END SUBROUTINE ram_init
 !==============================================================================
 SUBROUTINE init_input
   !!!! Module Variables
-  use ModRamMain,      ONLY: Real8_, S, PathRamIn, nIter
-  use ModRamParams,    ONLY: IsRestart, IsStarttimeSet, electric, IsComponent, &
+  use ModRamMain,      ONLY: nIter
+  use ModRamParams,    ONLY: IsRestart, IsStarttimeSet, &
                              DoUsePlane_SCB, HardRestart
-  use ModRamGrids,     ONLY: NR, NT, NE, NPA, NL, NLT
-  use ModRamTiming,    ONLY: DtEfi, T, TimeRamNow, TimeRamElapsed, TOld
-  use ModRamVariables, ONLY: F2, XNN, XND, ENERD, ENERN, FNHS, Kp, F107, TOLV, &
-                             NECR
-  use ModScbGrids,     ONLY: nthe, npsi, nzeta
-  use ModScbVariables, ONLY: xpsiin, xpsiout, psiVal, alphaVal, f, fp, fzet, &
-                             fzetp, xzero3, constZ, psiin, psiout, psitot
-  use ModScbParams,    ONLY: method
+  use ModRamGrids,     ONLY: NL, NLT
+  use ModRamTiming,    ONLY: DtEfi, TimeRamNow, TimeRamElapsed
+  use ModRamVariables, ONLY: Kp, F107, TOLV, NECR
   !!!! Module Subroutines/Functions
   use ModRamRun,       ONLY: ANISCH
   use ModRamBoundary,  ONLY: get_boundary_flux
@@ -475,19 +459,12 @@ SUBROUTINE init_input
   !!!! Share Modules
   use ModIOUnit,      ONLY: UNITTMP_
   use ModTimeConvert, ONLY: TimeType
-  !!!!
-  use nrtype, ONLY: twopi_d
-
 
   implicit none
 
-  integer :: iS, i, j, k, l, ik, N, methodTemp
-  integer :: iR, iT, iE, iPA
-  real(kind=Real8_) :: F2r(NR,NT,36,NPA)
-  real(kind=Real8_) :: xpsitot, psis, xpl, phi, dphi
+  integer :: i, j
 
   character(len=100) :: HEADER
-  character(len=200) :: fileName
 
   character(len=*), parameter :: NameSub='init_input'
 

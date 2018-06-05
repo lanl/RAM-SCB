@@ -6,7 +6,7 @@ subroutine IM_set_parameters
 
 !!!!! Module Variables
   use ModRamMain,    ONLY: PathRestartIn, nIter
-  use ModRamGrids,   ONLY: NEL, NTL, NR, NT, NE, NPA, EnergyMin
+  use ModRamGrids,   ONLY: NEL, NTL, NR, NT, NE, NPA
   use ModRamTiming,  ONLY: TimeRamElapsed, TimeRamStart, TimeRamRealStart, &
                            TimeRamNow, DtLogFile, DtRestart, DtsMax, TimeMax, &
                            TimeRestart, MaxIter, Dt_hI, Dt_bc, DtEfi, DtW_hI, &
@@ -522,7 +522,6 @@ subroutine IM_set_parameters
   ! Calculate TimeMax
   if (StopCommand)   TimeMax = TimeRamElapsed + TimeMax
   If (IsStopTimeSet) TimeMax = TimeRamFinish%Time-TimeRamStart%Time
-  If (TimeMax.eq.0) call con_stop('No stop time specified in PARAM.in! Use &
-                                  either #STOP or #STOPTIME')
+  If (abs(TimeMax).le.1e-9) call con_stop('No stop time specified in PARAM.in! Use either #STOP or #STOPTIME')
 
 end subroutine IM_set_parameters

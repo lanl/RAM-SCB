@@ -17,10 +17,10 @@ module ModRamTiming
 
   real(DP) :: TimeRestart    = 0.0, &
               TimeRamElapsed = 0.0, &
-              TOld           = 0.0
+              TOld           = 0.0, &
+              TimeMax        = 0.0 ! Simulation max in seconds
 
-  integer :: TimeMax = 0, &  ! Simulation max in seconds.
-             MaxIter     ! Simulation max iterations
+  integer :: MaxIter     ! Simulation max iterations
 
   !!!!! TEMPORAL GRIDS
   real(DP) :: DTs          = 5.0,    &  ! Variable that stores the current time step (changes during run)
@@ -105,12 +105,12 @@ module ModRamTiming
     ! Update timing metrics (only efficiency so far...)
     Efficiency = (TimeRamElapsed-TimeRestart)/SysTimeNow
 
-    if(DoWriteEffFile .and. (mod(TimeRamElapsed, dtEffFile) .eq. 0) ) &
+    if(DoWriteEffFile .and. (abs(mod(TimeRamElapsed, dtEffFile)) .le. 1e-9) ) &
          write(iUnitEffFile, '(2(f12.2, 1x), f12.8)') &
          SysTimeNow, TimeRamElapsed, Efficiency
 
     ! Write timing report.
-    if(mod(TimeRamElapsed, dtPrintTiming) .eq. 0) then
+    if(abs(mod(TimeRamElapsed, dtPrintTiming)) .le. 1e-9) then
 !       call write_prefix
        write(*,'(a, f12.2, a, f12.2, a, f10.6, a)') &
             'Simulated ', TimeRamElapsed, 's in ', SysTimeNow, &

@@ -11,18 +11,16 @@ MODULE ModRamDrift
   use ModRamGrids,     ONLY: nR, nE, nPA
   use ModRamVariables, ONLY: FracCFL, DtDriftR, DtDriftP, DtDriftE, DtDriftMu
 
-
   implicit none
 
   integer :: QS
   real(kind=Real8_), ALLOCATABLE :: VR(:), P1(:), P2(:,:), MUDOT(:,:), EDOT(:,:), &
-                                    CDriftR(:,:,:,:), CDriftP(:,:,:,:), CDriftE(:,:,:,:), &
-                                    CDriftMu(:,:,:,:)
+                                    CDriftR(:,:,:,:), CDriftP(:,:,:,:), &
+                                    CDriftE(:,:,:,:), CDriftMu(:,:,:,:)
 
   contains
 !==============================================================================
   SUBROUTINE DRIFTEND
-
 
     implicit none
     
@@ -36,9 +34,9 @@ MODULE ModRamDrift
 !**************************************************************************
   SUBROUTINE DRIFTPARA(S)
 
-    use ModRamMain,      ONLY: Real8_
+    use ModRamMain,      ONLY: DP
     use ModRamConst,     ONLY: PI
-    use ModRamGrids,     ONLY: NS, NR, NT, NE, NPA
+    use ModRamGrids,     ONLY: NR, NT, NE, NPA
     use ModRamTiming,    ONLY: Dts
     use ModRamVariables, ONLY: RLZ, MDR, DPHI, EKEV, GREL, WMU, EBND, GRBND, &
                                PHIOFS, MU
@@ -46,7 +44,7 @@ MODULE ModRamDrift
     implicit none
 
     integer, intent(in) :: S
-    real(kind=Real8_) :: MUBOUN!, RA(NS)
+    real(DP) :: MUBOUN!, RA(NS)
     integer :: i, j, k, l
 
     ALLOCATE(VR(nR), P1(nR), P2(nR,nE), EDOT(nR,nE), MUDOT(nR,nPA))
@@ -94,9 +92,9 @@ MODULE ModRamDrift
 !************************************************************************
   SUBROUTINE DRIFTR(S)
 
-    use ModRamMain,      ONLY: Real8_
+    use ModRamMain,      ONLY: DP
     use ModRamGrids,     ONLY: NR, NT, NE, NPA
-    use ModRamTiming,    ONLY: Dts, DtsNext, DtsMin
+    use ModRamTiming,    ONLY: Dts
     use ModRamParams,    ONLY: BetaLim
     use ModRamVariables, ONLY: F2, BNES, FNIS, FNHS, MDR, EKEV, GREL, DPHI, &
                                RLZ, CONF1, CONF2, FGEOS, VT, EIP
@@ -106,9 +104,8 @@ MODULE ModRamDrift
     integer, intent(in) :: S
     integer :: UR, i, j, j0, j1, k, l, n
     integer, ALLOCATABLE :: sgn(:,:)
-    real(kind=Real8_) :: p4, x, fup, r, corr, cgr1, cgr2, cgr3, ctemp, &
-                         CGR,LIMITER, DtTemp
-    real(kind=Real8_), ALLOCATABLE :: F(:),FBND(:), CR(:,:)
+    real(DP) :: p4, x, fup, r, corr, cgr1, cgr2, cgr3, ctemp, CGR,LIMITER
+    real(DP), ALLOCATABLE :: F(:),FBND(:), CR(:,:)
 
     ALLOCATE(sgn(nR,nT),CR(nR,nT),F(NR+2),FBND(nR))
     sgn = 1; CR = 0.0; F = 0.0; FBND = 0.0
@@ -147,7 +144,7 @@ MODULE ModRamDrift
                    ctemp = max(abs(CDriftR(I,J,K,L)),1E-10)
                    DTDriftR(S) = min( DTDriftR(S), FracCFL*DTs/ctemp)
                    sgn(i,j) = 1
-                   IF (CDriftR(i,J,K,L).NE.ABS(CDriftR(i,J,K,L))) sgn(i,j)=-1
+                   if (CDriftR(I,J,K,L).lt.0) sgn(i,j) = -1
                 endif
              END DO
              IF (sgn(nR,j).EQ.1) THEN
@@ -202,20 +199,19 @@ MODULE ModRamDrift
 !************************************************************************
   SUBROUTINE DRIFTP(S)
 
-    use ModRamMain,      ONLY: Real8_
+    use ModRamMain,      ONLY: DP
     use ModRamParams,    ONLY: BetaLim
     use ModRamGrids,     ONLY: NR, NT, NE, NPA
-    use ModRamTiming,    ONLY: DtsNext, Dts, DtsMin
+    use ModRamTiming,    ONLY: Dts
     use ModRamVariables, ONLY: F2, FNIS, FNHS, BNES, VT, EIR, RLZ, MDR, DPHI
-
 
     implicit none
 
     integer, intent(in) :: S
     integer :: i, sgn, j, j1, k, l, n
-    real(kind=Real8_) :: x, fup, r, corr, ome, ctemp, GPA1,GPA2,LIMITER
-    real(kind=Real8_), ALLOCATABLE :: FBND(:),F(:)
-    
+    real(DP) :: x, fup, r, corr, ome, ctemp, GPA1,GPA2,LIMITER
+    real(DP), ALLOCATABLE :: FBND(:),F(:)
+
     ALLOCATE(FBND(nT),F(nT))
     FBND = 0.0; F = 0.0
 
@@ -241,8 +237,8 @@ MODULE ModRamDrift
                                      +BNES(I,J1))+OME*DTs/DPHI
                    ctemp = max(abs(CDriftP(I,J,K,L)),1E-10)
                    DtDriftP(S) = min(DtDriftP(S), FracCFL*DTs/ctemp)
-                   sgn=1
-                   IF (CDriftP(I,J,K,L).NE.ABS(CDriftP(I,J,K,L))) sgn=-1
+                   sgn = 1
+                   if (CDriftP(I,J,K,L).lt.0) sgn = -1
                    X=F(J1)-F(J)
                    FUP=0.5*(F(J)+F(J1)-sgn*X)
                    IF (ABS(X).LE.1.E-27) FBND(J)=FUP
@@ -290,24 +286,23 @@ MODULE ModRamDrift
 !**************************************************************************
   SUBROUTINE DRIFTE(S)
 
-    use ModRamMain,      ONLY: Real8_
+    use ModRamMain,      ONLY: DP
     use ModRamConst,     ONLY: CS, Q
     use ModRamParams,    ONLY: BetaLim
     use ModRamGrids,     ONLY: NR, NT, NE, NPA, nS
-    use ModRamTiming,    ONLY: DtsNext, Dts, DtsMin
+    use ModRamTiming,    ONLY: Dts
     use ModRamVariables, ONLY: F2, BNES, FNIS, FNHS, dBdt, dIdt, EKEV, WE, RMAS, &
                                DPHI, RLZ, MDR, EBND, GREL, GRBND, DE, VT, EIR, EIP
-
 
     implicit none
 
     integer, intent(in) :: S
     integer :: i, sgn, j, j0, j2, k, l, n
-    real(kind=Real8_) :: ezero,gpa,gpr1,gpr2,gpr3,gpp1,gpp2,edt1, &
-                         drdt, dpdt, dbdt1, didt1, x, fup, r, corr, ome, &
-                         DRD1,DPD1,DRD2,DPD2, ctemp, LIMITER
-    real(kind=Real8_), ALLOCATABLE :: FBND(:),F(:),GRZERO(:)
-    
+    real(DP) :: ezero,gpa,gpr1,gpr2,gpr3,gpp1,gpp2,edt1, &
+                drdt, dpdt, dbdt1, didt1, x, fup, r, corr, ome, &
+                DRD1,DPD1,DRD2,DPD2, ctemp, LIMITER
+    real(DP), ALLOCATABLE :: FBND(:),F(:),GRZERO(:)
+
     ALLOCATE(GRZERO(nS),FBND(nE),F(0:nE+2))
     GRZERO = 0.0; FBND = 0.0; F = 0.0
 
@@ -353,8 +348,8 @@ MODULE ModRamDrift
                    CDriftE(I,J,K,L) = EDOT(I,K)*((GPR1+GPR2+GPR3)*DRDT+(GPP1+GPP2)*DPDT+dBdt1+dIdt1)
                    ctemp = max(abs(CDriftE(I,J,K,L)),1E-10)
                    DtDriftE(S) = min(DtDriftE(S), FracCFL*DTs*DE(K)/ctemp)
-                   sgn=1
-                   IF(CDriftE(I,J,K,L).NE.ABS(CDriftE(I,J,K,L))) sgn=-1
+                   sgn = 1
+                   if (CDriftE(I,J,K,L).lt.0) sgn = -1
                    X=F(K+1)-F(K)
                    FUP=0.5*(F(K)+F(K+1)-sgn*X)
                    IF (ABS(X).LE.1.E-27) FBND(K)=FUP
@@ -392,10 +387,10 @@ MODULE ModRamDrift
 !**************************************************************************
   SUBROUTINE DRIFTMU(S)
 
-    use ModRamMain,      ONLY: Real8_
+    use ModRamMain,      ONLY: DP
     use ModRamParams,    ONLY: BetaLim
     use ModRamGrids,     ONLY: NR, NT, NE, NPA
-    use ModRamTiming,    ONLY: DtsNext, Dts, DtsMin
+    use ModRamTiming,    ONLY: Dts
     use ModRamVariables, ONLY: F2, BNES, BOUNIS, BOUNHS, FNHS, dBdt, dIbndt, &
                                RLZ, DPHI, MDR, GREL, EKEV, DMU, WMU, MU, &
                                VT, EIP, EIR
@@ -404,10 +399,10 @@ MODULE ModRamDrift
 
     integer, intent(in) :: S
     integer :: i, j, j0, j1, k, l, n, ISGM
-    real(kind=Real8_) :: gmr1, gmr2, gmr3, gmp1, gmp2, drdm, dpdm, dbdt2, dibndt2, &
-                         x, fup, r, corr, ome, CMUDOT,EDT,DRM2,DPM2,DRM1,DPM1, &
-                         ctemp, LIMITER
-    real(kind=Real8_), ALLOCATABLE :: FBND(:),F(:)
+    real(DP) :: gmr1, gmr2, gmr3, gmp1, gmp2, drdm, dpdm, dbdt2, dibndt2, &
+                x, fup, r, corr, ome, CMUDOT,EDT,DRM2,DPM2,DRM1,DPM1, &
+                ctemp, LIMITER
+    real(DP), ALLOCATABLE :: FBND(:),F(:)
 
     ALLOCATE(FBND(nPa),F(nPa))
     FBND = 0.0; F = 0.0
@@ -449,8 +444,8 @@ MODULE ModRamDrift
                    CDriftMu(I,J,K,L) = -CMUDOT*((GMR1+GMR2+GMR3)*DRDM+(GMP1+GMP2)*DPDM+dBdt2+dIbndt2)
                    ctemp = max(abs(CDriftMu(I,J,K,L)),1E-32)
                    DtDriftMu(S)=min(DtDriftMu(S),FracCFL*DTs*DMU(L)/ctemp)
-                   ISGM=1
-                   IF(CDriftMu(I,J,K,L).NE.ABS(CDriftMu(I,J,K,L))) ISGM=-1
+                   ISGM = 1
+                   if (CDriftMu(I,J,K,L).lt.0.0) ISGM = -1
                    if (L.LE.NPA-2) then
                       X=F(L+1)-F(L)
                       FUP=0.5*(F(L)+F(L+1)-ISGM*X)

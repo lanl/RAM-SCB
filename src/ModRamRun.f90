@@ -21,29 +21,25 @@ MODULE ModRamRun
                                DoUsePlane_SCB
     use ModRamConst,     ONLY: RE
     use ModRamGrids,     ONLY: NR, NE, NT, NPA
-    use ModRamTiming,    ONLY: UTs, T, DtEfi, Dt_hI, DtsMin, DtsNext, TimeRamNow, &
-                               Dts
-    use ModRamVariables, ONLY: Kp, VT, VTOL, VTN, TOLV, LZ, PHI, PHIOFS, MU, &
-                               WMU, FFACTOR, FLUX, FNHS, DtDriftR, DtDriftP, &
+    use ModRamTiming,    ONLY: UTs, T, DtEfi, DtsMin, DtsNext, TimeRamNow, Dts
+    use ModRamVariables, ONLY: Kp, VT, VTOL, VTN, TOLV, LZ, PHI, PHIOFS, &
+                               FFACTOR, FLUX, FNHS, DtDriftR, DtDriftP, &
                                DtDriftE, DtDriftMu, NECR, F107, RZ, IG, rsn, &
                                IAPO, LSDR, ELORC, LSCHA, LSWAE, LSATM, PPerT, &
                                PParT, PPerO, PParO, PPerH, PParH, PPerE, PParE, &
                                PPerHe, PParHe, F2
     !!!! Module Subroutines/Functions
-    use ModRamDrift, ONLY: DRIFTPARA, DRIFTR, DRIFTP, DRIFTE, DRIFTMU, DRIFTEND, &
-                           CDriftR, CDriftP, CDriftE, CDriftMu
+    use ModRamDrift, ONLY: DRIFTPARA, DRIFTR, DRIFTP, DRIFTE, DRIFTMU, DRIFTEND
     use ModRamLoss,  ONLY: CEPARA, CHAREXCHANGE, ATMOL
     use ModRamWPI,   ONLY: WAPARA_KP, WPADIF, WAVELO
     !!!! Share Modules
     use ModTimeConvert, ONLY: TimeType
 
-
     implicit none
 
-    real(DP)  :: AVS, lambda
-    integer :: i, j, k, l, jw ! Iterators
-    integer :: IS ! Species to advect.
-    integer :: DAY, nmonth
+    real(DP) :: AVS, DAY
+    integer  :: i, j, k, l, nmonth
+    integer  :: IS ! Species to advect.
 
     AVS=7.05E-6/(1.-0.159*KP+0.0093*KP**2)**3/RE  ! Voll-Stern parameter
     DO I=1,NR+1
@@ -67,6 +63,7 @@ MODULE ModRamRun
        CALL PLANE(TimeRamNow%iYear,DAY,T,KP,IAPO(2),RZ(3),F107,2.*DTs,NECR,VT/1e3)
     END IF
 
+  !OMP PARALLEL DO
     do iS=1,4
        !   calls for given species S:
        CALL CEPARA(iS)
@@ -134,6 +131,7 @@ MODULE ModRamRun
        ! Routines needed to clear allocated variables for use with OpenMP
        CALL DRIFTEND
     end do
+  !OMP END PARALLEL DO
 
     DtsNext = min(minval(DtDriftR), minval(DtDriftP), minval(DtDriftE), minval(DtDriftMu))
     DtsNext = max(DtsNext, DtsMin)
@@ -204,9 +202,9 @@ MODULE ModRamRun
     use ModRamMain,      ONLY: DP
     use ModRamConst,     ONLY: CS, PI, Q
     use ModRamParams,    ONLY: DoUseWPI, DoUsePlane_SCB, DoUseBASdiff
-    use ModRamGrids,     ONLY: NR, NT, NPA, ENG, SLEN, NCO, NCF, Nx, Ny, NE
+    use ModRamGrids,     ONLY: NR, NT, NPA, ENG, SLEN, NCO, NCF, Ny, NE
     use ModRamTiming,    ONLY: Dt_bc, T
-    use ModRamVariables, ONLY: IP1, UPA, WMU, FFACTOR, MU, EKEV, LZ, PHI, MLT,  &
+    use ModRamVariables, ONLY: IP1, UPA, WMU, FFACTOR, MU, EKEV, LZ, MLT,  &
                                PAbn, RMAS, GREL, IR1, EPP, ERNH, CDAAR, BDAAR,  &
                                ENOR, NDAAJ, fpofc, Kp, BOUNHS, FNHS, BNES, XNE, &
                                NECR, PPerT, PParT, F2, ATAW, ATAW_emic, ATAC
@@ -217,17 +215,16 @@ MODULE ModRamRun
     implicit none
 
     integer, intent(in) :: S
-    integer :: i, iwa, j, k, klo, l, iz, ier, kn, i1, j1, GSLerr, u
+    integer :: i, iwa, j, k, klo, l, iz, kn, i1, j1, GSLerr, u
     real(DP) :: cv, rfac, rnhtt, edent, pper, ppar, rnht, Y, &
-                eden,sume,suma,sumn,ernm,epma,epme,anis,epar,taudaa,taudea,taudee, &
-                gausgam,anist,epart,fnorm,xfrl,Bw,esu,omega,er1,dx
-    real(DP) :: MUBOUN,KEVERG,DN(2,25),EPO(2,25),AII(2,25)
+                eden,sume,suma,sumn,ernm,epma,epme,anis,epar,taudaa, &
+                gausgam,anist,epart,fnorm,xfrl,Bw,esu,omega,er1
+    real(DP) :: MUBOUN
     real(DP), ALLOCATABLE :: DWAVE(:),CMRA(:),BWAVE(:,:),AVDAA(:),TAVDAA(:),&
                              DAA(:,:,:),DUMP(:,:),XFR(:,:),XFRe(:),ALENOR(:),&
                              DUME(:,:),DVV(:,:,:),AVDVV(:),TAVDVV(:),WCDT(:,:),&
                              XFRT(:,:),PA(:),DAMR(:,:),DAMR1(:),GREL_new(:)
     INTEGER :: KHI(5)
-    character(len=80) HEADER
     DATA khi/6, 10, 25, 30, 35/ ! ELB=0.1 keV -> 0.4,1,39,129,325 keV 
 
     ALLOCATE(DWAVE(NPA),CMRA(SLEN),BWAVE(NR,NT),AVDAA(NPA),TAVDAA(NPA), &
@@ -246,9 +243,9 @@ MODULE ModRamRun
     khi(5)=NE
     ! calculate ring current parameters
     DO I=2,NR
-      I1=(I-2)*IR1+3
+      I1=int((I-2)*IR1+3,kind=4)
       DO J=1,NT
-        J1=(J-1)*IP1
+        J1=int((J-1)*IP1,kind=4)
         IF (DoUsePlane_SCB) THEN
           XNE(I,J)=NECR(I1,J1)
         ELSE
@@ -269,7 +266,7 @@ MODULE ModRamRun
             SUME=0.
             SUMA=0.
             SUMN=0.
-            u = UPA(I)-1
+            u = int(UPA(I)-1,kind=4)
             DO L=1,u
               ERNM=WMU(L)/FFACTOR(S,I,K,L)/FNHS(I,J,L)
               EPMA=ERNM*MU(L)*MU(L)

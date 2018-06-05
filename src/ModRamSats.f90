@@ -112,7 +112,7 @@ module ModRamSats
     integer :: iTime_I(7), MaxPoint
     real(DP) :: Xyz_D(3), DateTime
     real(DP), allocatable :: Time_I(:), Xyz_DI(:,:)
-    character(len=100):: NameFile
+    character(len=200):: NameFile
 
     character(len=*), parameter :: NameSub = NameMod // '::read_sat_input'
 
@@ -282,8 +282,7 @@ module ModRamSats
 
     implicit none
 
-    character(len=200) :: FileName
-    character(len=100) :: SatFileName
+    character(len=200) :: SatFileName
     integer :: i
 
     logical :: DoTest, DoTestMe
@@ -307,7 +306,7 @@ module ModRamSats
 
     use netcdf
     use ModTimeConvert
-    use ModRamTiming,    ONLY: TimeRamStart, DtWriteSat
+    use ModRamTiming,    ONLY: DtWriteSat
     use ModRamGrids,     ONLY: NE, NPA
     use ModRamVariables, ONLY: EKEV, WE, WMU, MU
 
@@ -317,11 +316,10 @@ module ModRamSats
 
     character(len=200), intent(in) :: FileNameIn
 
-    integer :: i, iFileID, iStatus, iTimeDim, iEnDim, iPaDim, iXyzDim, iBoundDim
+    integer :: iFileID, iStatus, iTimeDim, iEnDim, iPaDim, iXyzDim, iBoundDim
     integer :: iTimeVar, iXyzVar, iBVar, iEgridVar, iEwidVar, iPgridVar, iBeVar
-    integer :: iHVar, iHeVar, iOVar, ieVar, iStartVar, iDtVar, iEcVar, &
-         iEiVar, iPwidVar, ioHVar, ioHeVar, ioOVar, ioeVar, iFlagVar, &
-         iXYZnear, iBnear
+    integer :: iHVar, iHeVar, iOVar, ieVar, iDtVar, iEcVar, &
+               iPwidVar, ioHVar, ioHeVar, ioOVar, ioeVar, iFlagVar !, iEiVar 
 
     logical :: DoTest, DoTestMe
     character(len=100) :: NameSub = NameMod // '::create_sat_file'
@@ -513,8 +511,7 @@ module ModRamSats
     use ModCoordTransform
     use ModConst,        ONLY: cPi
     use ModRamFunctions
-    use ModRamMain,      ONLY: PathRamOut
-    use ModRamTiming,    ONLY: TimeRamElapsed, TimeRamNow, TimeRamStart
+    use ModRamTiming,    ONLY: TimeRamElapsed
     use ModRamGrids,     ONLY: nE, nPa, nS
     use ModScbGrids,     ONLY: nthe, npsi, nzeta
     use ModRamVariables, ONLY: WMU
@@ -528,18 +525,14 @@ module ModRamSats
     use ModTimeConvert,  ONLY: time_real_to_int, TimeType
 
     implicit none
-    type(TimeType) :: TimeRamRestart
     integer :: GSLerr, i, iPa, iTime, iSat, iLoc(27), jLoc(27), kLoc(27), iTemp(3), &
-               Pai, ix, ii, ij, ik, iS, iE, iT, iA(3), ierror
+               Pai, ix, ii, ij, ik, iS, iE, iT, iA(3)
     real(DP) :: xSat(3), dTime, xNear(27), yNear(27), zNear(27), BtNear(3,27), &
-                BeNear(3,27), EcNear(3,27), xyzNear(3,27), rSat, pSat, tSat, &
-                rLoc, pLoc, tLoc, EiNear(3,27), xNearT(27), yNearT(27), zNearT(27), &
-                rNear, SatB(6), SatEc(3), SatEi(3)
-    real(DP), parameter :: MaxDist = 0.25
+                BeNear(3,27), EcNear(3,27), xyzNear(3,27), &
+                xNearT(27), yNearT(27), zNearT(27), &
+                rNear, SatB(6), SatEc(3) !, SatEi(3), EiNear(3,27)
     real(DP), ALLOCATABLE :: distance(:,:,:), SatFlux(:,:,:), OmnFlux(:,:), &
                              SatFluxNear(:,:,:,:)
-    character(len=200) :: FileName
-    character(len=100) :: SatFileName
 
     logical :: DoTest, DoTestMe
     character(len=*), parameter :: NameSub = NameMod // '::fly_sats'
@@ -640,7 +633,9 @@ module ModRamSats
                    EcNear(1,iT) = EXConv(iLoc(iT), jLoc(iT), kLoc(iT))
                    EcNear(2,iT) = EYConv(iLoc(iT), jLoc(iT), kLoc(iT))
                    EcNear(3,iT) = EZConv(iLoc(iT), jLoc(iT), kLoc(iT))
-                   if (((xNear(iT).eq.0).and.(yNear(iT).eq.0).and.(zNear(iT).eq.0)) &
+                   if (((abs(xNear(iT)).le.1e-9).and.&
+                        (abs(yNear(iT)).le.1e-9).and.&
+                        (abs(zNear(iT)).le.1e-9)) &
                        .or.(rNear.lt.2.0).or.(rNear.gt.6.75)) then
                       iT = iT
                    else
@@ -761,9 +756,7 @@ module ModRamSats
       real(DP), ALLOCATABLE :: Flux(:,:,:), OmFx(:,:)
       integer :: iStatus, iFileID, iStart1D(1), iStart2D(2), iStart3D(3)
       integer :: iTimeVar, iXyzVar, iBVar, iHVar, iHeVar, iOVar, ieVar, &
-                 iEcVar, iBeVar, ioHVar, ioHeVar, ioOVar, ioeVar, iBnear, &
-                 iXYZnear, iXYZnear2, iBnear2, iBVar2, iBeVar2, iEcVar2, &
-                 iXgrid, iYgrid, iZgrid !, iEiVar
+                 iEcVar, iBeVar, ioHVar, ioHeVar, ioOVar, ioeVar !, iEiVar
 
       logical :: DoTest, DoTestMe
       character(len=100) :: NameSubSub = NameSub // '::append_sat_record'

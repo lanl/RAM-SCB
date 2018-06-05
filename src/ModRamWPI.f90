@@ -21,7 +21,6 @@ MODULE ModRamWPI
     use ModRamGrids,     ONLY: NE, NR
     use ModRamVariables, ONLY: EKEV, LZ, WALOS1
 
-
     implicit none
 
     integer :: i, ii, j, k
@@ -354,7 +353,7 @@ MODULE ModRamWPI
 
     implicit none
 
-    integer :: i,j,k,l,IER,nkp,nloop
+    integer :: i,j,k,l,nkp,nloop
     character(len=32) :: H1,H2,H3,nchar
     character(len=64) :: fname
     real(DP), ALLOCATABLE :: Dxx_hold(:,:,:), PA(:)
@@ -447,10 +446,10 @@ MODULE ModRamWPI
     IF (KP.GE.4.0) Bw=100.                                 ! pT
     Kpmax=KP  ! need Kpmax from previous 12 hrs, TO FIX!!!
     DO J=1,NT
-      J1=(J-1)*IP1
+      J1=int((J-1)*IP1,kind=4)
       RLpp(J)=5.39-0.382*KPmax  ! PP from Moldwin et al. [2002]
       DO I=2,NR
-        I1=(I-2)*IR1+3
+        I1=int((I-2)*IR1+3,kind=4)
         IF (DoUsePlane_SCB.and.NECR(I1,J1).gt.50.) RLpp(J)=LZ(I)
       ENDDO
     ENDDO

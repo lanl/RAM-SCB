@@ -4,7 +4,6 @@ module ModRamFunctions
 !    All rights reserved.
 !=============================================================================
 
-
   implicit none
   
   contains
@@ -52,7 +51,6 @@ module ModRamFunctions
     ! Factor2 includes conversions and factor of 1.3.
     real(kind=Real8_)           :: sumEnergy, factor2
     integer                     :: i, j, k, l, s
-    character(len=*), parameter :: NameSub = 'get_ramdst'
     !------------------------------------------------------------------------
     sumEnergy = 0.0
     dstOut = 0.0
@@ -413,18 +411,17 @@ module ModRamFunctions
     ! of the first nearest neighbor, while x(4) should correspond to the
     ! fourth nearest neighbor, etc.
 
-    use ModRamMain, ONLY: Real8_
+    use ModRamMain, ONLY: DP
 
     implicit none
 
     ! Output value:
-    real(kind=Real8_) :: Newtfit
+    real(DP) :: Newtfit
     ! Input Values:
-    real(kind=Real8_), intent(in) :: x(4), y(4), z(4), u(4), xnew(3)
+    real(DP), intent(in) :: x(4), y(4), z(4), u(4), xnew(3)
     ! Local variables:
-    real(kind=Real8_) :: xi, yi, zi
-    real(kind=Real8_) :: f0, f1, f2, f3, D10, D12, D20, D30, D31, D32, &
-         A1, A2, A3, dv0, dv1, dv2, dv3
+    real(DP) :: xi, yi, zi
+    real(DP) :: D10, D12, D20, D30, D31, D32, A1, A2, A3, dv0, dv1, dv2, dv3
     !-----------------------------------------------------------------------
     xi = xnew(1); yi = xnew(2); zi = xnew(3)
     D10=SQRT( (x(2)-x(1))**2 + (y(2)-y(1))**2 + (z(2)-z(1))**2 )

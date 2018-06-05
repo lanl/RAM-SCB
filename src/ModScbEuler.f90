@@ -15,8 +15,8 @@ MODULE ModScbEuler
   SUBROUTINE mapTheta
     !!!! Module Variables
     USE ModScbParams,    ONLY: psiChange, theChange
-    USE ModScbGrids,     ONLY: nthe, nthem, npsi, nzeta, nzetap, ny
-    USE ModScbVariables, ONLY: diffmx, rjac, nisave,  x, y, z, sumb, sumdb, chiVal
+    USE ModScbGrids,     ONLY: nthe, npsi, nzeta
+    USE ModScbVariables, ONLY: x, y, z, chiVal
 
     !!!! Module Subroutines/Functions
     use ModRamGSL, ONLY: GSL_Interpolation_1D
@@ -59,9 +59,9 @@ MODULE ModScbEuler
     x(:,:,1) = x(:,:,nzeta)
     y(:,:,1) = y(:,:,nzeta)
     z(:,:,1) = z(:,:,nzeta)
-    x(:,:,nzetap) = x(:,:,2)
-    y(:,:,nzetap) = y(:,:,2)
-    z(:,:,nzetap) = z(:,:,2)
+    x(:,:,nzeta+1) = x(:,:,2)
+    y(:,:,nzeta+1) = y(:,:,2)
+    z(:,:,nzeta+1) = z(:,:,2)
 
     DEALLOCATE(xOld,yOld,zOld,distance,chiValOld)
     RETURN
@@ -75,15 +75,14 @@ MODULE ModScbEuler
   SUBROUTINE alfges
     !   initial guess of alpha 
 
-    use ModScbMain,      ONLY: DP  
-    use ModScbGrids,     ONLY: nthe, npsi, nzeta, nzetap, nthem
+    use ModScbGrids,     ONLY: nthe, npsi, nzeta
     use ModScbVariables, ONLY: alfa, alphaVal
  
     implicit none
 
-    INTEGER :: i, j, k
+    INTEGER :: k
   
-    DO k = 1, nzetap
+    DO k = 1, nzeta+1
        alfa(1:nthe,1:npsi,k) = alphaval(k)
     END DO
 
@@ -94,17 +93,14 @@ MODULE ModScbEuler
     ! new cubic GSL interpolation, without involving linear distance calculation
     USE ModScbMain,      ONLY: DP
     USE ModScbParams,    ONLY: psiChange, theChange
-    USE ModScbGrids,     ONLY: nthe, npsi, nzeta, ny, nthem, nzetap
-    USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, alfaPrev, &
-                               left, right, alfa, alphaVal
+    USE ModScbGrids,     ONLY: nthe, npsi, nzeta
+    USE ModScbVariables, ONLY: x, y, z, alfa, alphaVal
   
     USE ModRamGSL, ONLY: GSL_Interpolation_1D
   
-    use nrtype, ONLY: pi_d
-  
     implicit none
   
-    INTEGER :: i, j, k, GSLerr
+    INTEGER :: i, j, GSLerr
     REAL(DP), ALLOCATABLE :: xOld(:), yOld(:), zOld(:), alfaOld(:)
 
     ALLOCATE(xOld(nzeta+1),yOld(nzeta+1),zOld(nzeta+1),alfaOld(nzeta+1))
@@ -132,9 +128,9 @@ MODULE ModScbEuler
     x(:,:,1) = x(:,:,nzeta)
     y(:,:,1) = y(:,:,nzeta)
     z(:,:,1) = z(:,:,nzeta)
-    x(:,:,nzetap) = x(:,:,2)
-    y(:,:,nzetap) = y(:,:,2)
-    z(:,:,nzetap) = z(:,:,2)
+    x(:,:,nzeta+1) = x(:,:,2)
+    y(:,:,nzeta+1) = y(:,:,2)
+    z(:,:,nzeta+1) = z(:,:,2)
 
     call alfges
  
@@ -158,51 +154,45 @@ MODULE ModScbEuler
 
     use ModRamParams,    ONLY: verbose  
     USE ModScbMain,      ONLY: nimax
-    use ModScbParams,    ONLY: isSORDetailNeeded, iWantAlphaExtrapolation, &
-                               InConAlpha
+    use ModScbParams,    ONLY: InConAlpha
     USE ModScbGrids,     ONLY: nthe, nthem, npsi, nzeta, nzetap, ny
-    USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, vecd, vec1, vec2, &
+    USE ModScbVariables, ONLY: nisave, sumb, sumdb, vecd, vec1, vec2, &
                                vec3, vec4, vec6, vec7, vec8, vec9, vecx, &
-                               left, right, SORFail, alfa, alphaVal, diffmx, &
-                               blendAlpha
+                               SORFail, alfa, alphaVal, diffmx, blendAlpha
 
     use ModScbFunctions, ONLY: extap
   
     use nrtype, ONLY: DP, pi_d
   
-
     implicit none
  
-    INTEGER :: j, i, ict, jz, izmx, jzmx, kmx, ierr, nratio, myPsiBegin, myPsiEnd, &
-               my_array_type2, psiRangeDiff, resultInt, loc(3)
-    REAL(DP) :: anorm, diff, rjac, anormaverage, dyDummy, anormResid, anormError, &
-                anormf, omegaOpt
+    INTEGER :: j, i, jz
+    REAL(DP) :: rjac, omegaOpt
 
     INTEGER, ALLOCATABLE :: ni(:)
-    REAL(DP), ALLOCATABLE :: alfaPrev(:,:,:), alfaPrevTemp(:,:,:), om(:), resid(:,:,:)
+    REAL(DP), ALLOCATABLE :: alfaPrev(:,:,:), om(:), resid(:,:,:)
     
     INTEGER, SAVE :: k, kp, km, iz, im, ip
     !$OMP THREADPRIVATE(k,kp,km,iz,im,ip)
   
-    ALLOCATE(alfaprev(nthe,npsi,nzeta+1), STAT = ierr)
-    ALLOCATE(alfaPrevTemp(nthe,npsi,nzeta+1), STAT = ierr)
-    ALLOCATE(resid(nthe,npsi,nzeta+1), STAT = ierr)
+    ALLOCATE(alfaprev(nthe,npsi,nzeta+1))
+    ALLOCATE(resid(nthe,npsi,nzeta+1))
     ALLOCATE(ni(npsi), om(ny))
-    alfaprev = 0.0; alfaPrevTemp = 0.0; resid = 0.0; ni = 0.0; om = 0.0
+    alfaprev = 0._dp; resid = 0._dp; ni = 0.0; om = 0._dp
 
-    rjac = 1._dp - 2._dp*pi_d*pi_d / (REAL(nzeta,dp)*REAL(nzeta,dp) + REAL(nthe,dp)*REAL(nthe,dp))  ! Radius of convergence for the Jacobi method, can be used
-    ! to find optimal SOR omega
+    rjac = 1._dp - 2._dp*pi_d*pi_d / (REAL(nzeta,dp)*REAL(nzeta,dp) + REAL(nthe,dp)*REAL(nthe,dp))  
+    ! Radius of convergence for the Jacobi method, can be used to find optimal SOR omega
   
     om = 1._dp
     !omegaOpt = 2._dp / (1._dp + pi_d/REAL(nzeta+nthe, DP))
     omegaOpt = 2._dp / (1._dp + SQRT(1._dp - rjac*rjac))
-  
-    alfaPrev = alfa
+
+    alfaPrev(:,:,:) = alfa(:,:,:)
     ni = 0
     resid = 0
 
 !$OMP PARALLEL DO
-    psiloop: DO  jz = left+1, right-1
+    psiloop: DO  jz = 2, npsi-1
        ni(jz) = 1
   
        Iterations: DO WHILE (ni(jz) <= nimax)
@@ -224,14 +214,14 @@ MODULE ModScbEuler
                                  + vec9(iz,jz,k)*alfa(ip,jz,kp) &
                                  - vecx(iz,jz,k)
                 alfa(iz,jz,k) = alfa(iz,jz,k) + om(jz) * (resid(iz,jz,k) / vecd(iz,jz,k))
-                if (alfa(iz,jz,k).ne.alfa(iz,jz,k)) then
+                if (isnan(alfa(iz,jz,k))) then
                    if (verbose) write(*,*) iz,jz,k,alfa(iz,jz,k), resid(iz,jz,k), vecd(iz,jz,k)
                    if (verbose) write(*,*) 'NaN encountered in ModScbEuler iterateAlpha'
                    alfa(iz,jz,k) = alfaprev(iz,jz,k)
                    resid(iz,jz,k) = 0._dp
                    SORFail = .true.
                    EXIT Iterations
-                elseif (alfa(iz,jz,k)+1.0.eq.alfa(iz,jz,k)) then
+                elseif (alfa(iz,jz,k).ge.1e10) then
                    if (verbose) write(*,*) iz,jz,k,alfa(iz,jz,k), resid(iz,jz,k), vecd(iz,jz,k)
                    if (verbose) write(*,*) 'Large number encountered in ModScbEuler iterateAlpha'
                    alfa(iz,jz,k) = alfaprev(iz,jz,k)
@@ -256,9 +246,9 @@ MODULE ModScbEuler
 !$OMP END PARALLEL DO
 
     nisave = maxval(ni)
-    sumdb = SUM(ABS(alfa(2:nthem,2:npsi-1,2:nzeta) - alfaprev(2:nthem,2:npsi-1,2:nzeta)))
-    sumb = SUM(ABS(alfa(2:nthem,2:npsi-1,2:nzeta)))
-    diffmx = maxval(abs(resid(2:nthem,2:npsi-1,2:nzeta)))
+    sumdb = SUM(ABS(alfa(2:nthe-1,2:npsi-1,2:nzeta) - alfaprev(2:nthe-1,2:npsi-1,2:nzeta)))
+    sumb = SUM(ABS(alfa(2:nthe-1,2:npsi-1,2:nzeta)))
+    diffmx = maxval(abs(resid(2:nthe-1,2:npsi-1,2:nzeta)))
 
     !...  set "blending" in alpha for outer iteration loop
     DO j = 1, npsi
@@ -282,7 +272,7 @@ MODULE ModScbEuler
        !ENDDO
     ENDDO
 
-    DEALLOCATE(alfaPrev,alfaPrevTemp,resid)
+    DEALLOCATE(alfaPrev,resid)
     DEALLOCATE(ni,om)
  
     RETURN
@@ -294,7 +284,6 @@ MODULE ModScbEuler
 !================================================!
   SUBROUTINE psiFunctions
   
-    USE ModScbMain,      ONLY: DP
     USE ModScbGrids,     ONLY: npsi
     use ModScbVariables, ONLY: rhoVal, f, fp, psival
  
@@ -302,7 +291,7 @@ MODULE ModScbEuler
   
     implicit none
   
-    INTEGER :: j, GSLerr
+    INTEGER :: GSLerr
   
     CALL GSL_Derivs(rhoVal(1:npsi), psival(1:npsi), f(1:npsi), GSLerr)
     CALL GSL_Derivs(rhoVal(1:npsi), f(1:npsi), fp(1:npsi), GSLerr)
@@ -316,8 +305,7 @@ MODULE ModScbEuler
     !!!! Module Variables
     USE ModScbParams,    ONLY: iAzimOffset, psiChange
     USE ModScbGrids,     ONLY: npsi, nzeta
-    use ModScbVariables, ONLY: x, y, nThetaEquator, nZetaMidnight, psiVal, kmax, &
-                               radEqmidNew
+    use ModScbVariables, ONLY: x, y, nThetaEquator, psiVal, kmax, radEqmidNew
     !!!! Module Subroutines/Functions
     USE ModRamGSL, ONLY: GSL_Interpolation_1D
     !!!! NR Modules
@@ -325,7 +313,7 @@ MODULE ModScbEuler
 
     implicit none
 
-    INTEGER :: ialloc, ierr, j, k, GSLerr
+    INTEGER :: j, k, GSLerr
     REAL(DP) :: deltaR, distConsecFluxSqOld, distConsecFluxSq
     REAL(DP), ALLOCATABLE :: radEqmid(:), psiVal1D(:), radius(:)
 
@@ -373,7 +361,7 @@ MODULE ModScbEuler
     USE ModScbGrids,     ONLY: npsi
     use ModScbVariables, ONLY: psival, psi
   
-    INTEGER :: i, j, k
+    INTEGER :: j
   
     !     initial guess for psi
     DO j=1,npsi
@@ -390,15 +378,14 @@ MODULE ModScbEuler
     ! first and last flux surface remain unchanged
     USE ModScbMain,      ONLY: DP
     USE ModScbParams,    ONLY: psiChange, theChange
-    USE ModScbGrids,     ONLY: nthe, nthem, npsi, npsim, nzeta, nzetap, na
-    USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, left, right, &
-                               psi, psiVal
+    USE ModScbGrids,     ONLY: nthe, npsi, nzeta
+    USE ModScbVariables, ONLY: x, y, z, psi, psiVal
  
     use ModRamGSL, ONLY: GSL_Interpolation_1D 
   
     implicit none
   
-    INTEGER :: k, i, j, GSLerr, i1, i2
+    INTEGER :: k, i, GSLerr, i1, i2
     REAL(DP), ALLOCATABLE :: xOld(:), yOld(:), zOld(:), psiOld(:)
 
     ALLOCATE(xOld(npsi), yOld(npsi), zOld(npsi), psiOld(npsi))
@@ -423,9 +410,9 @@ MODULE ModScbEuler
     x(:,:,1) = x(:,:,nzeta)
     y(:,:,1) = y(:,:,nzeta)
     z(:,:,1) = z(:,:,nzeta)
-    x(:,:,nzetap) = x(:,:,2)
-    y(:,:,nzetap) = y(:,:,2)
-    z(:,:,nzetap) = z(:,:,2)
+    x(:,:,nzeta+1) = x(:,:,2)
+    y(:,:,nzeta+1) = y(:,:,2)
+    z(:,:,nzeta+1) = z(:,:,2)
   
     call psiges
 
@@ -449,11 +436,11 @@ MODULE ModScbEuler
 
     use ModRamParams,    ONLY: verbose  
     USE ModScbMain,      ONLY: DP, nimax
-    use ModScbParams,    ONLY: isSORDetailNeeded, InConPsi
+    use ModScbParams,    ONLY: InConPsi
     USE ModScbGrids,     ONLY: nthe, nthem, npsi, npsim, nzeta, nzetap, na
-    USE ModScbVariables, ONLY: nisave, x, y, z, sumb, sumdb, vecd, vec1, vec2, &
+    USE ModScbVariables, ONLY: nisave, sumb, sumdb, vecd, vec1, vec2, &
                                vec3, vec4, vec6, vec7, vec8, vec9, vecr, &
-                               left, right, SORFail, psi, psiVal, blendPsi, diffmx
+                               SORFail, psi, psiVal, blendPsi, diffmx
 
     use ModScbFunctions, ONLY: extap
   
@@ -461,23 +448,20 @@ MODULE ModScbEuler
   
     implicit none
  
-    REAL(DP) :: omegaOpt, omc, anorm, anormf, diff, ano, sumbtest, anormResid, &
-                anormError, rjac
-    REAL(DP), ALLOCATABLE :: psiPrev(:,:,:), psiPrevTemp(:,:,:), resid(:,:,:), om(:)
+    REAL(DP) :: omegaOpt, rjac
+    REAL(DP), ALLOCATABLE :: psiPrev(:,:,:), resid(:,:,:), om(:)
     INTEGER, ALLOCATABLE :: ni(:)
-    INTEGER :: j, k, i, ierr, ict, nratio, myAlphaBegin, &
-               myAlphaEnd, my_array_type_psi2, alphaRangeDiff, resultInt, loc(3)
+    INTEGER :: j, k, i
 
     INTEGER, SAVE :: jz, jp, jm, iz, im, ip
     !$OMP THREADPRIVATE(jz,jp,jm,iz,im,ip)
 
     !     perform SOR iteration
     !..   choose for inner iteration loop  
-    ALLOCATE(psiPrevTemp(nthe,npsi,nzeta+1), STAT = ierr)
-    ALLOCATE(psiPrev(nthe,npsi,nzeta+1), STAT = ierr)
-    ALLOCATE(resid(nthe,npsi,nzeta+1), STAT = ierr)
+    ALLOCATE(psiPrev(nthe,npsi,nzeta+1))
+    ALLOCATE(resid(nthe,npsi,nzeta+1))
     ALLOCATE(ni(nzeta), om(na))
-    psiPrevTemp = 0.0; psiPrev = 0.0; resid = 0.0; ni = 0.0; om = 0.0
+    psiPrev = 0.0; resid = 0.0; ni = 0.0; om = 0.0
 
     rjac = 1._dp - 2._dp*pi_d*pi_d / (REAL(nthe,dp)*REAL(nthe,dp) + REAL(npsi,dp)*REAL(npsi,dp)) ! Radius of conv. of Jacobi iteration,
     ! could be used to find omega optimal in SOR
@@ -496,7 +480,7 @@ MODULE ModScbEuler
   
        Iterations: DO WHILE (ni(k) <= nimax)
           !anormResid = 0._dp
-          jLoop: DO jz = left+1, right-1
+          jLoop: DO jz = 2, npsi-1
              jp = jz + 1
              jm = jz - 1
              iLoop: DO  iz = 2, nthe-1
@@ -514,14 +498,14 @@ MODULE ModScbEuler
                         + vec9(iz,jz,k)*psi(ip,jp,k) &
                         - vecr(iz,jz,k)
                 psi(iz,jz,k) = psi(iz,jz,k) + om(k)*resid(iz,jz,k)/vecd(iz,jz,k)
-                if (psi(iz,jz,k).ne.psi(iz,jz,k)) then
+                if (isnan(psi(iz,jz,k))) then
                    if (verbose) write(*,*) iz,jz,k,psi(iz,jz,k), resid(iz,jz,k), vecd(iz,jz,k)
                    if (verbose) write(*,*) 'NaN encountered in ModScbEuler iteratePsi'
                    psi(iz,jz,k) = psiprev(iz,jz,k)
                    resid(iz,jz,k) = 0._dp
                    SORFail = .true.
                    EXIT Iterations
-                elseif (psi(iz,jz,k)+1.0.eq.psi(iz,jz,k)) then
+                elseif (psi(iz,jz,k).ge.1e10) then
                    if (verbose) write(*,*) iz,jz,k,psi(iz,jz,k), resid(iz,jz,k), vecd(iz,jz,k)
                    if (verbose) write(*,*) 'Large number encountered in ModScbEuler iteratePsi'
                    psi(iz,jz,k) = psiprev(iz,jz,k)
@@ -577,7 +561,6 @@ MODULE ModScbEuler
     psi(:,:,nzetap) = psi(:,:,2)
 
 
-    IF (ALLOCATED(psiPrevTemp))  DEALLOCATE(psiPrevTemp)
     IF (ALLOCATED(psiPrev)) DEALLOCATE(psiPrev)
     IF (ALLOCATED(resid)) DEALLOCATE(resid)
     DEALLOCATE(ni, om)

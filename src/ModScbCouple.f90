@@ -12,20 +12,19 @@ Module ModScbCouple
                           nLinesSWMF
 
   implicit none
-  save
 
   ! Copied from the old Module_points (now removed)
   INTEGER :: last
   INTEGER :: ilat, ilon
   REAL(DP) :: xx01(100000), yy01(100000), zz01(100000)
   REAL(DP), ALLOCATABLE :: xTsyg(:,:,:), yTsyg(:,:,:), zTsyg(:,:,:), &
-        xTsygNew(:,:,:), yTsygNew(:,:,:), zTsygNew(:,:,:)
+                           xTsygNew(:,:,:), yTsygNew(:,:,:), zTsygNew(:,:,:)
 
-  INTEGER        :: nthe, ntheOld, iQuiet, iDay, iTime
-  REAL(DP)       :: rlatval(500), rlonval(500), psival(500), rlon(500), &
-       rlat(500), funcModBeta(500), funcModBetaLarge(5000)
+  INTEGER  :: nthe, ntheOld, iQuiet, iDay, iTime
+  REAL(DP) :: rlatval(500), rlonval(500), psival(500), rlon(500), &
+              rlat(500), funcModBeta(500), funcModBetaLarge(5000)
   ! Modifies the alpha Euler potential
-  REAL(DP)       :: radiusStart
+  REAL(DP) :: radiusStart
 
   REAL(DP) :: xpsiin ,xpsiout
 
@@ -51,28 +50,21 @@ subroutine build_scb_init
   ! time (cZ) and equatorial plane (cTheta)
   INTEGER :: GSLerr
   REAL(DP), PARAMETER   :: constZ = 0.0_dp, constTheta = 0.25_dp  ! For domains for inner mag. modeling
-  INTEGER, PARAMETER :: noHrs = 24*30-1 ! Number of hours (snapshots) ! For Nov. 2002 run
   CHARACTER(LEN = 10) :: statusBound ! "open  " or "closed"
-  CHARACTER(LEN = 8) :: pdyn_char, byimf_char, bzimf_char, dst_char, r00_char, xpsiin_char, &
-       xpsiout_char, constz_char, consttheta_char, nthe_char, npsi_char, nzeta_char
-  CHARACTER(LEN = 4) :: time_char
-  REAL(DP)           :: step, r00, tilt, alat, alon, rtilt, x0, y0, z0, &
-       xstop, ystop, zstop, dd, stepMinim, stepMaxim
+  CHARACTER(LEN = 8) :: nthe_char, npsi_char, nzeta_char
+  REAL(DP) :: step, r00, tilt, alat, alon, xstop, ystop, zstop, dd, stepMinim, stepMaxim
   REAL(DP), ALLOCATABLE :: alatMod(:,:), aLonVal(:,:)
-  INTEGER :: nlat, nlon, halfLon, i, j, k, netcdfId, nMid
-  REAL(DP) :: start_time, end_time
-  REAL(DP) :: tailMin, tailMax, tailMpause, aMajor, eccent, radius
-  REAL(DP) :: Lat, LatSphere, Lon, minLat, maxLat, rSphere
-  REAL(DP) :: distMax(150),  rlonval2Eq(5000), distance2derivs(5000)
+  INTEGER :: nlat, nlon, halfLon, i, j, k, nMid
+  REAL(DP) :: tailMin, tailMax, tailMpause
+  REAL(DP) :: Lat, Lon, minLat, maxLat
+  REAL(DP) :: distMax(150),  rlonval2Eq(5000)
   real(dp), dimension(1:5000) :: rlonval2Iono, lontwice, betatwice
   REAL(DP) :: magFlux(5000)
   REAL(DP) :: alpha
-  REAL(DP), PARAMETER :: xzero = 6.6_dp, rSuper = 2.0_dp ! Regular ellipse r=2; 2.5_dp
-  REAL(DP) :: rXY, rXYSWMF, rad
-  INTEGER :: ierr, iDebug, iCounter, nlonLarge
+  REAL(DP), PARAMETER :: xzero = 6.6_dp ! Regular ellipse r=2; 2.5_dp
+  INTEGER :: iDebug, iCounter, nlonLarge
   INTEGER, DIMENSION(3) :: dimlens
-  INTEGER, DIMENSION(3) :: dimlens2
-  INTEGER :: indexOuter, iFieldLine, iPoint, iRad, index
+  INTEGER :: indexOuter, iFieldLine, iPoint, index
 
   real(DP), dimension(nLinesSWMF,200) :: x, y, z
 
@@ -111,7 +103,7 @@ subroutine build_scb_init
   nlonLarge = nLonSWMF
   DO k = 1, nLonSWMF
      indexOuter = 2*(nRadSWMF*(k-1) + nRadSWMFVar)-1 ! Index for outer perimeter (ellipse) on equatorial plane
-     rlonval2Eq(k) = DATAN2(y(indexOuter,1),x(indexOuter,1)) * 180._dp/pi_d 
+     rlonval2Eq(k) = ATAN2(y(indexOuter,1),x(indexOuter,1)) * 180._dp/pi_d 
      IF (rlonval2Eq(k) < 0._dp) rlonval2Eq(k) = rlonval2Eq(k) + 360.
      ! Debug print out for this section:
      !PRINT*, 'k, x, y, rad, rlonval2: ', k, REAL(x(indexOuter,1),sp), REAL(y(indexOuter,1),sp), &
@@ -177,7 +169,6 @@ subroutine build_scb_init
      ! Not necessary the "midnight" distance, it can be noon 
      !if the distance on the dayside is small (e.g. eccentric ellipse)
   END DO Longitudes_loop_equator
-25 CONTINUE      
 
   !     rlonval2Iono(nlonLarge+1) = rlonval2Iono(1) + 360._dp
 
@@ -262,8 +253,8 @@ subroutine build_scb_init
   yTsyg = 0._dp
   zTsyg = 0._dp
   
-  IF (.NOT. ALLOCATED(alatMod)) ALLOCATE(alatMod(nlat, nlon), STAT = ierr)
-  IF (.NOT. ALLOCATED(aLonVal)) ALLOCATE(aLonVal(nlat, nlon), STAT = ierr)
+  IF (.NOT. ALLOCATED(alatMod)) ALLOCATE(alatMod(nlat, nlon))
+  IF (.NOT. ALLOCATED(aLonVal)) ALLOCATE(aLonVal(nlat, nlon))
   
   Latitudes_loop: do  ilat = 1, nlat
      alat = rlatVal(ilat) ! Magnetic latitude of the nMid line
@@ -282,9 +273,9 @@ subroutine build_scb_init
   END DO Latitudes_loop
 
   ! Rearrange SWMF (+ extra) points so far so that they are equidistant along a field line
-  IF (.NOT. ALLOCATED(xSWMF)) ALLOCATE(xSWMF(nthe,nRadSWMF,nlonSWMF-1), stat = ierr)
-  IF (.NOT. ALLOCATED(ySWMF)) ALLOCATE(ySWMF(nthe,nRadSWMF,nlonSWMF-1), stat = ierr)
-  IF (.NOT. ALLOCATED(zSWMF)) ALLOCATE(zSWMF(nthe,nRadSWMF,nlonSWMF-1), stat = ierr)
+  IF (.NOT. ALLOCATED(xSWMF)) ALLOCATE(xSWMF(nthe,nRadSWMF,nlonSWMF-1))
+  IF (.NOT. ALLOCATED(ySWMF)) ALLOCATE(ySWMF(nthe,nRadSWMF,nlonSWMF-1))
+  IF (.NOT. ALLOCATED(zSWMF)) ALLOCATE(zSWMF(nthe,nRadSWMF,nlonSWMF-1))
   xSWMF = 99.
   ySWMF = 99.
   zSWMF = 99.
@@ -407,22 +398,22 @@ subroutine build_scb_init
 END subroutine build_scb_init
 
 !==============================================================================
-LOGICAL FUNCTION isNaN(a) 
-  USE nrtype, ONLY : SP, DP
-  REAL(SP) :: a 
-  IF (a.NE.a .OR. a*0._dp.NE.0._dp) THEN 
-     isnan = .TRUE. 
-  ELSE 
-     isnan = .FALSE. 
-  END IF
-  RETURN 
-END FUNCTION isnan
+!LOGICAL FUNCTION isNaN(a) 
+!  USE nrtype, ONLY : SP, DP
+!  REAL(SP) :: a 
+!  IF (a.NE.a .OR. a*0._dp.NE.0._dp) THEN 
+!     isnan = .TRUE. 
+!  ELSE 
+!     isnan = .FALSE. 
+!  END IF
+!  RETURN 
+!END FUNCTION isnan
 
 !==============================================================================
 SUBROUTINE latitudes(min_lat, max_lat)
   ! const_Z is doing AMR in zeta
 
-  use ModScbGrids, ONLY: npsi, nzeta
+  use ModScbGrids, ONLY: npsi
 
   USE nrtype, ONLY : DP, PI_D
 
@@ -432,10 +423,9 @@ SUBROUTINE latitudes(min_lat, max_lat)
   INTEGER :: nc, j
   REAL(DP), PARAMETER :: pow = 1.0_dp
   REAL(DP), EXTERNAL :: ftor
-  REAL(DP) :: xzero3, re, bi, psibc
-  REAL(DP) :: xzero, bnormal, &
-       psiin, psiout, aa, bb, psitot, xpsiin1, xpsiout1, &
-       xpsitot, psis, xpl, cost, cost2, thet
+  REAL(DP) :: xzero3, re, psibc
+  REAL(DP) :: xzero, bnormal, psiin, psiout, aa, bb, psitot, xpsiin1, xpsiout1, &
+              xpsitot, psis, xpl, cost, cost2, thet
 
   !NAMELIST/eqdat/nthe,npsi,nzeta,xpsiin,xpsiout
 
@@ -517,10 +507,10 @@ SUBROUTINE mapthe1d(const_theta)
 
   INTEGER :: GSLerr
   REAL(DP), INTENT(IN)   :: const_theta
-  REAL(DP), DIMENSION(:), ALLOCATABLE :: distance, xOld, yOld, zOld, distance2derivsX, &
-                                         distance2derivsY, distance2derivsZ
-  REAL(DP), DIMENSION(:), ALLOCATABLE :: theval, thetaVal, chiVal
-  REAL(DP), DIMENSION(:,:), ALLOCATABLE :: lonSWMFEarth
+  REAL(DP), ALLOCATABLE :: distance(:), xOld(:), yOld(:), zOld(:), distance2derivsX(:), &
+                           distance2derivsY(:), distance2derivsZ(:)
+  REAL(DP), ALLOCATABLE :: theval(:), thetaVal(:), chiVal(:)
+  REAL(DP), ALLOCATABLE :: lonSWMFEarth(:,:)
   INTEGER :: ierr, i, ii, j, k
   LOGICAL, EXTERNAL :: isNaN
 
@@ -536,14 +526,18 @@ SUBROUTINE mapthe1d(const_theta)
   ALLOCATE(theval(nthe))
   ALLOCATE(thetaVal(nthe))
   ALLOCATE(chiVal(nthe))
+  distance = 0.0; xOld = 0.0; yOld = 0.0; zOld = 0.0
+  distance2derivsX = 0.0; distance2derivsY = 0.0; distance2derivsZ = 0.0
+  theVal = 0.0; thetaVal = 0.0; chiVal = 0.0
 
   ierr = 0
 
   ! print*, 'mapthe1d: nthe = ', nthe
 
-  IF (.NOT. ALLOCATED(LatSWMF)) ALLOCATE(LatSWMF(nRadSWMF,nLonSWMF), stat = ierr)
-  IF (.NOT. ALLOCATED(LonSWMF)) ALLOCATE(LonSWMF(nRadSWMF,nLonSWMF), stat = ierr)
-  IF (.NOT. ALLOCATED(LonSWMFEarth)) ALLOCATE(LonSWMFEarth(nRadSWMF,nLonSWMF), stat = ierr)
+  IF (.NOT. ALLOCATED(LatSWMF)) ALLOCATE(LatSWMF(nRadSWMF,nLonSWMF))
+  IF (.NOT. ALLOCATED(LonSWMF)) ALLOCATE(LonSWMF(nRadSWMF,nLonSWMF))
+  IF (.NOT. ALLOCATED(LonSWMFEarth)) ALLOCATE(LonSWMFEarth(nRadSWMF,nLonSWMF))
+  LatSWMF = 0.0; LonSWMF = 0.0; LonSWMFEarth = 0.0
 
   DO k = 1, nLonSWMF-1
      DO j = 1, nRadSWMF

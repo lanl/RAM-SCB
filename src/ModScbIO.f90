@@ -21,17 +21,14 @@ MODULE ModScbIO
   subroutine computational_domain
     !!!! Module Variables  
     USE ModRamVariables, ONLY: Kp
-    use ModRamConst,     ONLY: Re
-    use ModRamParams,    ONLY: IsComponent, NameBoundMag, boundary, verbose
+    use ModRamParams,    ONLY: IsComponent, NameBoundMag, verbose
     use ModRamTiming,    ONLY: TimeRamNow
-    USE ModScbMain,      ONLY: PathScbIn, blendInitial, tsygcorrect
     USE ModScbParams,    ONLY: Symmetric
     USE ModScbGrids,     ONLY: npsi, nthe, nzeta
-    USE ModScbVariables, ONLY: by_imf, bz_imf, dst_global, p_dyn, wTsyg, tilt, constZ, &
-                               constTheta, xpsiin, xpsiout, r0Start, byimfglobal, &
-                               bzimfglobal, pdynglobal, blendGlobal, blendGlobalInitial, &
-                               x, y, z, rhoVal, thetaVal, zetaVal, left, right, chiVal, &
-                               kmax, nThetaEquator, nZetaMidnight, xzero3, f, fzet, fp, &
+    USE ModScbVariables, ONLY: constZ, &
+                               constTheta, xpsiin, xpsiout, r0Start, &
+                               x, y, z, thetaVal, zetaVal, left, right, chiVal, &
+                               kmax, nZetaMidnight, xzero3, f, fzet, fp, &
                                fzetp, psiVal, alphaVal, psiin, psiout, psitot
     !!!! Module Subroutines/Functions
     use ModRamGSL,       ONLY: GSL_Interpolation_1D
@@ -43,22 +40,20 @@ MODULE ModScbIO
     use ModTimeConvert, ONLY: n_day_of_year
     USE ModIoUnit, ONLY: UNITTMP_
     !!!! NR Modules
-    use nrtype, ONLY: DP, SP, pi_d, twopi_d
+    use nrtype, ONLY: DP, pi_d, twopi_d
 
     implicit none
 
     INTEGER :: i, j, k, scanLeft, scanRight, GSLerr
 
     REAL(DP) :: dphi, phi, psis, xpsitot, xpl
-    REAL(DP) :: ratioFl=1, r0, t0, t1, tt, zt, b, rr, rt, psitemp
+    REAL(DP) :: r0, t0, t1, tt, zt, b, rr, rt, psitemp
     REAL(DP) :: Pdyn, Dst, ByIMF, BzIMF, G(3), W(6)
-    REAL(DP), DIMENSION(1000) :: distance, xx, yy, zz, distance2derivsX, &
-                                 distance2derivsY, distance2derivsZ, xxGSW, &
-                                 yyGSW, zzGSW, bx, by, bz
-    INTEGER :: LMAX = 2000
+    REAL(DP), DIMENSION(1000) :: distance, xx, yy, zz, bx, by, bz
+    INTEGER :: LMAX = 1000
     INTEGER :: LOUT, iYear, iMonth, iDay, iHour, iMin, iSec, ifail
-    REAL(DP) :: ER, DSMAX, RLIM, xf, yf, zf, xf2, yf2, zf2, DIR
-    REAL(DP) :: x0, y0, z0, XGSW, YGSW, ZGSW, xfGSW, yfGSW, zfGSW, RIN
+    REAL(DP) :: ER, DSMAX, RLIM, xf, yf, zf, DIR
+    REAL(DP) :: x0, y0, z0
     REAL(DP) :: AA, SPS, CPS, PS, AB, dut
     COMMON /GEOPACK1/ AA(10),SPS,CPS,AB(3),PS
 
@@ -86,16 +81,16 @@ MODULE ModScbIO
           do j=1,npsi
              r0 = xpsiin + REAL(j-1, DP)/REAL(npsi-1, DP)*(xpsiout-xpsiin)
              rr = (2-b*cos(zetaVal(k)))/(1+b*cos(zetaVal(k)))
-             t0 = pi_d-dasin((1.0/r0)**(1./rr))
-             t1 = dasin((1.0/r0)**(1./rr))
+             t0 = pi_d-asin((1.0/r0)**(1./rr))
+             t1 = asin((1.0/r0)**(1./rr))
              do i=1,nthe
                 tt = t0 + REAL(i-1,DP)/REAL(nthe-1,DP)*(t1-t0)
                 tt = tt + constTheta * SIN(2._dp*tt)
                 zt = zetaVal(k)+constZ*SIN(zetaVal(k))
-                rt = r0*dsin(tt)**rr
-                x(i,j,k) = (rt)*dcos(zt)*dsin(tt)
-                y(i,j,k) = (rt)*dsin(zt)*dsin(tt)
-                z(i,j,k) = (rt)*dcos(tt)
+                rt = r0*sin(tt)**rr
+                x(i,j,k) = (rt)*cos(zt)*sin(tt)
+                y(i,j,k) = (rt)*sin(zt)*sin(tt)
+                z(i,j,k) = (rt)*cos(tt)
              enddo
           enddo
        enddo
@@ -188,8 +183,8 @@ MODULE ModScbIO
        scanLeft  = nZetaMidnight/2
        scanRight = nZetaMidnight + scanLeft
        do k = scanLeft,scanRight
-          x0 = 8._dp*dcos(zetaVal(k))
-          y0 = 8._dp*dsin(zetaVal(k))
+          x0 = 8._dp*cos(zetaVal(k))
+          y0 = 8._dp*sin(zetaVal(k))
           z0 = 0._dp
           call trace(x0,y0,z0,DIR,DSMAX,ER,RLIM,1._dp,IOPT,PARMOD, &
                      xf,yf,zf,xx(:),yy(:),zz(:),LOUT,LMAX,bx,by,bz)
@@ -220,12 +215,12 @@ MODULE ModScbIO
        do k=2,nzeta
           do j=1,npsi
              r0 = xpsiin + REAL(j-1,DP)/REAL(npsi-1,DP)*(xpsiout-xpsiin)
-             tt = pi_d-asin(dsqrt(1.0/r0))
-             rt = r0*dsin(tt)**2
+             tt = pi_d-asin(sqrt(1.0/r0))
+             rt = r0*sin(tt)**2
              zt = zetaVal(k)!+constZ*sin(zetaVal(k))
-             x0 = rt*dcos(zt)*dsin(tt)
-             y0 = rt*dsin(zt)*dsin(tt)
-             z0 = rt*dcos(tt)
+             x0 = rt*cos(zt)*sin(tt)
+             y0 = rt*sin(zt)*sin(tt)
+             z0 = rt*cos(tt)
              CALL trace(x0,y0,z0,DIR,DSMAX,ER,RLIM,-1._dp,IOPT,PARMOD, &
                         xf,yf,zf,xx(:),yy(:),zz(:),LOUT,LMAX,bx,by,bz)
              distance(1) = 0._dp
@@ -319,13 +314,12 @@ MODULE ModScbIO
     !!! Module Variables
     use ModRamParams,    ONLY: NameBoundMag
     use ModRamTiming,    ONLY: TimeRamNow
-    use ModRamVariables, ONLY: Kp
     use ModScbGrids,     ONLY: nthe, npsi, nzeta
     use ModScbVariables, ONLY: x, y, z, psiVal, alphaVal, psi, psiin, psiout, &
                                psitot, xpsiin, xpsiout, f, fp, nThetaEquator, &
-                               constZ, fzet, fzetp, thetaVal, constTheta, alfa, &
+                               fzet, fzetp, thetaVal, constTheta, &
                                xzero3, kmax, zetaVal, nZetaMidnight, chiVal, &
-                               left, right, SORFail
+                               SORFail
     !!! Module Subroutines/Functions
     use ModRamGSL,       ONLY: GSL_Interpolation_1D
     use ModRamFunctions, ONLY: RamFileName
@@ -343,23 +337,20 @@ MODULE ModScbIO
 
     LOGICAL, INTENT(OUT) :: updated
     LOGICAL :: outside
-    INTEGER :: i, j, k, L, n, GSLerr, i1, i2, jout, ktemp
+    INTEGER :: i, j, k, GSLerr, i1, i2, jout, ktemp
     INTEGER, ALLOCATABLE :: outer(:,:)
-    REAL(DP) :: xpsitot, xpl, psis, ag, psitemp, adif, xpsitemp, rtest, dout, &
-                xratio, yratio, zratio, psiRatio, xi, yi, zi, r1, r2, rLeft, &
-                rMidd, rRight
+    REAL(DP) :: xpsitot, xpl, psis, psitemp, xpsitemp, rtest, dout, psiRatio
     REAL(DP), ALLOCATABLE :: xOldTheta(:), yOldTheta(:), zOldTheta(:), chiValOld(:), &
                              radius(:), xOldPsi(:), yOldPsi(:), zOldPsi(:), psiOld(:), &
                              xtemp(:), ytemp(:), ztemp(:), psiValTemp(:), rtemp(:), dj(:), &
                              xatemp(:), yatemp(:), zatemp(:), phi(:), xPhi(:), yPhi(:), &
-                             zPhi(:), xout(:,:), yout(:,:), zout(:,:), rout(:,:), &
+                             zPhi(:), xout(:,:), yout(:,:), zout(:,:), rout(:,:), cVal(:), &
                              xmid(:,:), ymid(:,:), zmid(:,:), rmid(:,:), rold(:,:,:)
 
     ! Variables for tracing
     REAL(DP) :: Pdyn, Dst, ByIMF, BzIMF, G(3), W(6)
     REAL(DP) :: x0, y0, z0, xf, yf, zf, r0, rt, tt, zt, dut
     REAL(DP), DIMENSION(1000) :: xx, yy, zz, bx, by, bz, distance
-    REAL(DP), DIMENSION(nthe) :: tVal, cVal
     INTEGER :: LMAX = 1000, LOUT, scanLeft, scanRight
     INTEGER :: iYear, iMonth, iDay, iHour, iMin, iSec, ifail
     REAL(DP) :: ER, DSMAX, RLIM, DIR
@@ -389,14 +380,14 @@ MODULE ModScbIO
              xtemp(npsi+1),ytemp(npsi+1),ztemp(npsi+1),psiValTemp(npsi+1),rtemp(npsi+1),&
              dj(npsi+1),xatemp(nzeta-1),yatemp(nzeta-1),zatemp(nzeta-1),phi(nzeta+1),&
              xPhi(nzeta+1),yPhi(nzeta+1),zPhi(nzeta+1),xout(nthe,nzeta+1),yout(nthe,nzeta+1),&
-             zout(nthe,nzeta+1),rout(nthe,nzeta+1),xmid(nthe,npsi),ymid(nthe,npsi),&
+             zout(nthe,nzeta+1),rout(nthe,nzeta+1),xmid(nthe,npsi),ymid(nthe,npsi),cVal(nthe),&
              zmid(nthe,npsi),rmid(nthe,npsi),rold(nthe,npsi,nzeta),outer(nthe,nzeta))
     xOldTheta = 0.0; yOldTheta = 0.0; zOldTheta = 0.0; chiValOld = 0.0; radius = 0.0
     xOldPsi = 0.0; yOldPsi = 0.0; zOldPsi = 0.0; psiOld = 0.0; xtemp = 0.0; ytemp = 0.0
     ztemp = 0.0; psiValTemp = 0.0; rtemp = 0.0; dj = 0.0; xatemp = 0.0; yatemp = 0.0
     zatemp = 0.0; phi = 0.0; xPhi = 0.0; yPhi = 0.0; zPhi = 0.0; xout = 0.0; yout = 0.0
     zout = 0.0; rout = 0.0; xmid = 0.0; ymid = 0.0; zmid = 0.0; rmid = 0.0; rold = 0.0
-    outer = 0
+    outer = 0; cVal = 0.0
 
     DIR = -1.0
     DSMAX = 0.1
@@ -454,8 +445,8 @@ MODULE ModScbIO
     scanLeft  = nZetaMidnight/2
     scanRight = nZetaMidnight + scanLeft
     do k = scanLeft,scanRight
-       x0 = 8._dp*dcos(zetaVal(k))
-       y0 = 8._dp*dsin(zetaVal(k))
+       x0 = 8._dp*cos(zetaVal(k))
+       y0 = 8._dp*sin(zetaVal(k))
        z0 = 0._dp
        call trace(x0,y0,z0,DIR,DSMAX,ER,RLIM,1._dp,IOPT,PARMOD, &
                   xf,yf,zf,xx(:),yy(:),zz(:),LOUT,LMAX,bx,by,bz)
@@ -493,12 +484,12 @@ MODULE ModScbIO
     rtest = 0._dp
     do k=1,nzeta
        r0 = xpsiout
-       tt = pi_d-asin(dsqrt(1.0/r0))
-       rt = r0*dsin(tt)**2
+       tt = pi_d-asin(sqrt(1.0/r0))
+       rt = r0*sin(tt)**2
        zt = zetaVal(k)
-       x0 = rt*dcos(zt)*dsin(tt)
-       y0 = rt*dsin(zt)*dsin(tt)
-       z0 = rt*dcos(tt)
+       x0 = rt*cos(zt)*sin(tt)
+       y0 = rt*sin(zt)*sin(tt)
+       z0 = rt*cos(tt)
        CALL trace(x0,y0,z0,DIR,DSMAX,ER,RLIM,1._dp,IOPT,PARMOD, &
                   xf,yf,zf,xx(:),yy(:),zz(:),LOUT,LMAX,bx,by,bz)
        distance(1) = 0._dp
@@ -637,7 +628,7 @@ MODULE ModScbIO
              DEALLOCATE(xOldTheta,yOldTheta,zOldTheta,chiValOld,radius,xOldPsi,yOldPsi, &
                         zOldPsi,psiOld,xtemp,ytemp,ztemp,psiValTemp,rtemp,dj,xatemp,yatemp, &
                         zatemp,phi,xPhi,yPhi,zPhi,xout,yout,zout,rout,xmid,ymid,zmid,rmid, &
-                        rold,outer)
+                        rold,outer,cVal)
              return
           endif
        enddo
@@ -646,7 +637,7 @@ MODULE ModScbIO
     DEALLOCATE(xOldTheta,yOldTheta,zOldTheta,chiValOld,radius,xOldPsi,yOldPsi, &
                zOldPsi,psiOld,xtemp,ytemp,ztemp,psiValTemp,rtemp,dj,xatemp,yatemp, &
                zatemp,phi,xPhi,yPhi,zPhi,xout,yout,zout,rout,xmid,ymid,zmid,rmid, &
-               rold,outer)
+               rold,outer,cVal)
     return
 
   end subroutine update_domain
@@ -749,6 +740,10 @@ MODULE ModScbIO
     integer :: iopt
     real(DP) :: parmod(10), x, y, z, bxgsw, bygsw, bzgsw, psi
 
+    IOPT = IOPT
+    PARMOD = PARMOD
+    PSI = PSI
+    X = X; Y = Y; Z = Z
     BXGSW = 0.0
     BYGSW = 0.0
     BZGSW = 0.0
@@ -834,7 +829,7 @@ MODULE ModScbIO
        call time_int_to_real((/iYear,iMonth,iDay,iHour,iMinute,iSecond,0/),nSeconds(i))
        if (nSeconds(i).ge.TimeRamNow%Time) then  ! Check that we are on or past the time we want
           dsA = nSeconds(i) - TimeRamNow%Time
-          if (dsA.eq.0) then                     ! Check if we are exactly on the time or past
+          if (abs(dsA).le.1e-9) then                     ! Check if we are exactly on the time or past
              BufferA(i,:) = Buffer(i,:)
           else
              if (i.eq.1) then                    ! Check if we are on the first time step
@@ -906,7 +901,7 @@ SUBROUTINE Write_ionospheric_potential
 
   use ModScbMain,      ONLY: prefixOut
   use ModScbGrids,     ONLY: npsi, nzeta
-  use ModScbVariables, ONLY: x, y, z, PhiIono, dPhiIonodAlpha, dPhiIonodBeta, &
+  use ModScbVariables, ONLY: x, y, PhiIono, dPhiIonodAlpha, dPhiIonodBeta, &
                              alphaVal, psiVal, nThetaEquator, bnormal
 
   USE nrtype
@@ -921,8 +916,8 @@ SUBROUTINE Write_ionospheric_potential
              dphiionodbetaid, timevarid, ncid
 
   integer :: START(1), COUNT(1)
-  integer :: START1D(2), COUNT1D(2)
-  INTEGER :: START2D(3), COUNT2D(3) ! For 2-D arrays (+ time)
+  integer :: START1D(2)
+  INTEGER :: START2D(3) ! For 2-D arrays (+ time)
 
   INTEGER, SAVE :: iCALLIP = 0
 
@@ -1040,12 +1035,11 @@ END SUBROUTINE Write_ionospheric_potential
   !!!! Module Variables
   use ModRamTiming,    ONLY: TimeRamNow
   use ModScbMain,      ONLY: prefixOut
-  use ModScbParams,    ONLY: isotropy
-  USE ModScbGrids,     ONLY: nthe, npsi, nzeta, dt, dr, dpPrime
+  USE ModScbGrids,     ONLY: nthe, npsi, nzeta
   USE ModScbVariables, ONLY: x, y, z, bf, bnormal, Jx, Jy, Jz, Bx, By, Bz, &
                              GradPx, GradPy, GradPz, JCrossB, GradP, &
                              vecd, vec1, vec2, vec3, vec4, vec6, vec7, vec8, &
-                             vec9, vecr, vecx, alfa, psi, fp, alphaVal, psiVal, &
+                             vec9, vecr, vecx, alfa, psi, &
                              pnormal, bnormal, pjconst
   !!!! Module Subroutine/Function
   use ModRamFunctions, ONLY: RamFileName
@@ -1058,7 +1052,7 @@ END SUBROUTINE Write_ionospheric_potential
 
   implicit none
 
-  INTEGER :: i, j, k, id, ierr, idealerr, GSLerr
+  INTEGER :: i, j, k
   CHARACTER(len=200) :: FileName
 
   REAL(DP), ALLOCATABLE :: xRHS(:,:,:), xLHS(:,:,:), rRHS(:,:,:), rLHS(:,:,:)
