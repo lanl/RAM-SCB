@@ -42,6 +42,7 @@ void ramgsl_initialization_c(int a)
              = debug_handler(reason, file, line, gsl_errno)
       }
 */
+      a = 0;
       gsl_set_error_handler_off();
       return;
    }
@@ -132,10 +133,10 @@ void interpolation_smooth_c(int i1, int i2,
                             double *xb, double *fb, int *status)
    {
       int err;
-      const size_t n = i1;
-      const size_t ncoeffs = 24;
-      const size_t nbreak = ncoeffs-2;
-      size_t i, j;
+      const int n = i1;
+      const int ncoeffs = 24;
+      const int nbreak = ncoeffs-2;
+      int i, j;
       gsl_bspline_workspace *bw;
       gsl_vector *B;
       gsl_vector *c;
@@ -223,14 +224,14 @@ void interpolation_2d_c(int i1, int j1, int i2, int j2,
 
 /*===============================================================================================*/
 /* Interpolate in 3D and return interpolated values and derivatives */
-void interpolation_3d_c(int i1, int j1, int k1, int i2, int j2, int k2,
-                        double *xa, double *ya, double *za, double *fa,
-                        double *xb, double *yb, double *zb, double *fb,
-                        double *dx, double *dy, double *dz, int *status)
-   {
-      return;
-   }
-
+//void interpolation_3d_c(int i1, int j1, int k1, int i2, int j2, int k2,
+//                        double *xa, double *ya, double *za, double *fa,
+//                        double *xb, double *yb, double *zb, double *fb,
+//                        double *dx, double *dy, double *dz, int *status)
+//   {
+//      return;
+//   }
+//
 /*===============================================================================================*/
 /* Return 1D derivatives */
 void interpolation_derivs_c(int i1, double *xa, double *fa, double *dx, int *status)
@@ -276,7 +277,7 @@ void integral_interpolate(int i1,
                           double *xa, double *fa,
                           double *xb, double *fb, int *status)
    {
-      int i, err;
+      int err;
       const gsl_interp_type *t;
 
       gsl_interp_accel *acc = gsl_interp_accel_alloc ();
@@ -288,7 +289,7 @@ void integral_interpolate(int i1,
       err = gsl_spline_eval_e(spline, xb[0], acc, &fb[0]);
       if (err) {
          if (err == GSL_EDOM) {
-            printf("integral_interpolate warning, GSL_EDOM: x is outside range of xa, x=%f, xa[0]=%f, xa[-1]=%f\n",xb[i],xa[0],xa[i1-1]);
+            printf("integral_interpolate warning, GSL_EDOM: x is outside range of xa, x=%f, xa[0]=%f, xa[-1]=%f\n",xb[0],xa[0],xa[i1-1]);
          } else {
             printf("integral_interpolate failed: Generic failure\n");
          }
@@ -306,7 +307,7 @@ void integral_interpolate(int i1,
 void integrate_i_c(int i1, double a, double b, double *cVal, double *bf,
                    double mirror, double *result, double *error, int *status)
    {
-      struct f_params { int i; double *theta; double *field; double bmirror };
+      struct f_params { int i; double *theta; double *field; double bmirror; };
       struct f_params params = { i1, cVal, bf, mirror};
 
       double f_i(double thetaLocal, void * p)
@@ -322,7 +323,7 @@ void integrate_i_c(int i1, double a, double b, double *cVal, double *bf,
                return sqrt(params->bmirror - bLocal);
             }
          }
-      int nevals;
+      unsigned long int nevals = 0;
       gsl_integration_cquad_workspace *w
          = gsl_integration_cquad_workspace_alloc(100);
 
@@ -330,7 +331,7 @@ void integrate_i_c(int i1, double a, double b, double *cVal, double *bf,
       F.function = &f_i;
       F.params = &params;
 
-      int err = gsl_integration_cquad(&F, a, b, 1e-3, 1e-3, w, &result[0], &error[0], nevals);
+      int err = gsl_integration_cquad(&F, a, b, 1e-3, 1e-3, w, &result[0], &error[0], &nevals);
 
       gsl_integration_cquad_workspace_free(w);
 
@@ -369,7 +370,7 @@ void integrate_i_c(int i1, double a, double b, double *cVal, double *bf,
 void integrate_h_c(int i1, double a, double b, double *cVal, double *bf,
                    double mirror, double *result, double *error, int *status)
    {
-      struct f_params { int i; double *theta; double *field; double bmirror };
+      struct f_params { int i; double *theta; double *field; double bmirror; };
       struct f_params params = { i1, cVal, bf, mirror};
 
       double f_h(double thetaLocal, void * p)
@@ -386,7 +387,7 @@ void integrate_h_c(int i1, double a, double b, double *cVal, double *bf,
                return sqrt(1.0/(params->bmirror - bLocal));
             }
          }
-      int nevals;
+      unsigned long int nevals = 0;
       gsl_integration_cquad_workspace *w
          = gsl_integration_cquad_workspace_alloc(100);
 
@@ -394,7 +395,7 @@ void integrate_h_c(int i1, double a, double b, double *cVal, double *bf,
       F.function = &f_h;
       F.params = &params;
 
-      int err = gsl_integration_cquad(&F, a, b, 1e-3, 1e-3, w, &result[0], &error[0], nevals);
+      int err = gsl_integration_cquad(&F, a, b, 1e-3, 1e-3, w, &result[0], &error[0], &nevals);
 
       gsl_integration_cquad_workspace_free(w);
 /*
@@ -432,7 +433,7 @@ void integrate_h_c(int i1, double a, double b, double *cVal, double *bf,
 void integrate_hdens_c(int i1, double a, double b, double *cVal, double *bf,
                        double mirror, double *dist, double *result, double *error, int *status)
    {
-      struct f_params { int i; double *theta; double *field; double bmirror; double *distance};
+      struct f_params { int i; double *theta; double *field; double bmirror; double *distance; };
       struct f_params params = { i1, cVal, bf, mirror, dist};
 
       double f_hdens(double thetaLocal, void * p)
@@ -462,7 +463,7 @@ void integrate_hdens_c(int i1, double a, double b, double *cVal, double *bf,
                return rairden(radius)*sqrt(1.0/(params->bmirror - bLocal));
             }
          }
-      int nevals;
+      unsigned long int nevals = 0;
       gsl_integration_cquad_workspace *w
          = gsl_integration_cquad_workspace_alloc(100);
 
@@ -470,7 +471,7 @@ void integrate_hdens_c(int i1, double a, double b, double *cVal, double *bf,
       F.function = &f_hdens;
       F.params = &params;
 
-      int err = gsl_integration_cquad(&F, a, b, 1e-3, 1e-3, w, &result[0], &error[0], nevals);
+      int err = gsl_integration_cquad(&F, a, b, 1e-3, 1e-3, w, &result[0], &error[0], &nevals);
 
       gsl_integration_cquad_workspace_free(w);
 /*
@@ -506,16 +507,10 @@ void integrate_hdens_c(int i1, double a, double b, double *cVal, double *bf,
 void integrator_c(int nT, int nPa, double *mirror, double *cVal, double *bf,
                   double *dist, double *yI, double *yH, double *yD)
     {
-        const int N=500;
-        int err, i, L,tid;
+        int err, i, L;
         int LH[nPa], RH[nPa];
         double a[nPa], b[nPa];
         double error;
-        double theta[N], field[N], distance[N];
-
-        // First we perform a smoothing spline on the data
-        //interpolation_smooth_c(nT, N, cVal, bf, theta, field, &err);
-        //interpolation_smooth_c(nT, N, cVal, dist, theta, distance, &err);
 
         // Compute mirror points without relying on a strictly increasing B field
         for (L=1; L<nPa-1; L++) {

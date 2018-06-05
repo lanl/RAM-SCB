@@ -7,7 +7,7 @@ module ModScbParams
 
   use ModScbMain, ONLY: DP
 
-  implicit none; save
+  implicit none
 
   character(len=200) :: QinDentonPath = 'IM/input_scb/'
   character(len=200) :: TS07Path = 'NONE'
@@ -20,8 +20,8 @@ module ModScbParams
   character(len=3) :: PressMode = 'SKD'
   character(len=3) :: Isotropic = 'RAM'
 
-  integer :: psiChange = 1
-  integer :: theChange = 1
+  integer :: psiChange = 0
+  integer :: theChange = 0
 
   integer :: iDumpRAMFlux = 0 ! Writes RAM flux mapped along 3D field lines in NetCDF format
   integer :: MinSCBIterations = 5

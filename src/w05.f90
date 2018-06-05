@@ -4,7 +4,8 @@
 !------------------------------------------------------------------------------
 module w05
   use nrtype
-  implicit none; save
+
+  implicit none
 
 !
 ! Data read from W05scEpot.dat or W05scBpot.dat:
@@ -39,7 +40,8 @@ module w05
 !-----------------------------------------------------------------------
   subroutine setmodel05(by,bz,tilt,swvel,swden)
 
-    implicit none; save
+
+    implicit none
 
     real(dp),intent(in) :: by,bz,tilt,swvel,swden
     integer :: i,j
@@ -90,7 +92,8 @@ module w05
 !-----------------------------------------------------------------------
   subroutine setboundary05(angle,bt,tilt,swvel,swden)
 
-    implicit none; save
+
+    implicit none
 
     real(dp),intent(in) :: angle,bt,tilt,swvel,swden
     integer :: i
@@ -132,11 +135,12 @@ module w05
 !-----------------------------------------------------------------------
   subroutine epotval05(lat,mlt,fill,epot)
 
-    implicit none; save
+
+    implicit none
 
     real(dp),intent(in) :: lat,mlt,fill
     real(dp),intent(out) :: epot
-    integer :: inside,j,m,mm,skip
+    integer :: inside,j,m,skip
     real(dp) :: z,phir,plm,colat,nlm
     real(dp) :: phim(2),cospm(2),sinpm(2)
 !
@@ -188,21 +192,22 @@ module w05
 !-----------------------------------------------------------------------
   real(dp) function scplm05(index,colat,nlm)
 
-    implicit none; save
+
+    implicit none
 
     integer,intent(in) :: index
     real(dp),intent(in) :: colat
     real(dp),intent(out) :: nlm
 
-    integer :: istat,i,j,l,m,skip
-    real(dp) :: th0,out(1),colata(1),plm1
+    integer :: i,j,l,m,skip
+    real(dp) :: th0,out(1),colata(1)
     real(dp) :: cth(mxtablesize)
     real(dp),save :: prevth0=1.e36
     integer,save :: tablesize
 
     scplm05 = 0.
     th0 = bndyfitr
-    if (prevth0 /= th0) then
+    if (abs(prevth0-th0) > 1e-9) then
       tablesize = 3*nint(th0)
       if (tablesize > mxtablesize) then 
         write(6,"('>>> tablesize > mxtablesize: tablesize=',i5,&
@@ -249,14 +254,15 @@ module w05
   end function scplm05
 !-----------------------------------------------------------------------
   subroutine pm_n05(m,r,cth,plmtable,tablesize)
-    implicit none; save
+
+    implicit none
 
     integer,intent(in) :: m,tablesize
     real(dp),intent(in) :: r
     real(dp),intent(in) :: cth(tablesize)
     real(dp),intent(out) :: plmtable(tablesize)
 
-    integer :: i,k,ii
+    integer :: i,k
     real(dp) :: rm,rk,div,ans,xn
     real(dp),dimension(tablesize) :: a,x,tmp,table
 !
@@ -297,11 +303,11 @@ module w05
   end subroutine pm_n05
 !-----------------------------------------------------------------------
   real(dp) function km_n05(m,rn)
-    implicit none; save
+
+    implicit none
 
     integer,intent(in) :: m
     real(dp),intent(in) :: rn
-    integer :: i,n
     real(dp) :: rm
 
     if (m == 0) then 
@@ -316,7 +322,8 @@ module w05
 !-----------------------------------------------------------------------
   real(dp) function nkmlookup05(k,m,th0)
 
-    implicit none; save
+
+    implicit none
 !
 ! Args:
     integer,intent(in) :: k,m
@@ -326,7 +333,7 @@ module w05
     integer :: kk,mm
     real(dp) :: th0a(1),out(1)
 
-    if (th0 == 90.) then
+    if (abs(th0-90.0) <= 1e-9) then
       nkmlookup05 = float(k)
       return
     endif
@@ -356,7 +363,8 @@ module w05
   end function nkmlookup05
 !-----------------------------------------------------------------------
   subroutine checkinputs05(lat,mlt,inside,phir,colat)
-    implicit none; save
+
+    implicit none
 !
 ! Args:
     real(dp),intent(in) :: lat,mlt
@@ -377,7 +385,8 @@ module w05
   end subroutine checkinputs05
 !-----------------------------------------------------------------------
   subroutine dorotation05(latin,lonin,latout,lonout)
-    implicit none; save
+
+    implicit none
 !
 ! Args:
     real(dp),intent(in) :: latin,lonin
@@ -418,7 +427,8 @@ module w05
 !
 ! f90 translation of IDL function interpol(v,x,u,/quadratic)
 !
-    implicit none; save
+
+    implicit none
 !
 ! Args:
     real(dp),intent(in) :: v(:),x(:),u(:)
@@ -460,7 +470,8 @@ module w05
 ! Return index i into vec for which vec(i) <= val >= vec(i+1)
 ! Input vec must be monotonically increasing
 !
-    implicit none; save
+
+    implicit none
 !
 ! Args:
     real(dp),intent(in) :: vec(:),val
@@ -489,7 +500,8 @@ real(dp) function lngamma05(xx)
 ! This is an f90 translation from C code copied from 
 ! www.fizyka.umk.pl/nrbook/c6-1.pdf (numerical recipes gammln)
 !
-  implicit none; save
+
+  implicit none
   real(dp),intent(in) :: xx
   real(dp) :: x,y,tmp,ser
   real(dp) :: cof(6) = (/76.18009172947146, -86.50532032941677, 24.01409824083091,&
@@ -509,7 +521,8 @@ real(dp) function lngamma05(xx)
 end function lngamma05
 !-----------------------------------------------------------------------
 real(dp) function factorial05(n)
-  implicit none; save
+
+  implicit none
   integer,intent(in) :: n
   integer :: m
   if (n <= 0) then
@@ -531,7 +544,8 @@ subroutine read_potential_coeff05(infile)
   use ModIoUnit,      ONLY: UnitTmp_
   ! read three data files combined from W04scEpot.dat, SCHAtable.data, 
   ! and W05scBndy.data
-  implicit none; save
+
+  implicit none
 
 ! Args:
   character(len=*),intent(in) :: infile 

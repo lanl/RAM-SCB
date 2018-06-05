@@ -8,7 +8,7 @@ MODULE ModRamBoundary
 
   use ModRamVariables, ONLY: FGEOS
 
-  implicit none; save
+  implicit none
 
   contains
 
@@ -20,7 +20,8 @@ subroutine get_boundary_flux
   use ModRamTiming, ONLY: TimeRamElapsed
   use ModRamParams, ONLY: BoundaryFiles
 
-  implicit none; save
+
+  implicit none
  
   integer :: iS
 
@@ -39,30 +40,31 @@ end subroutine get_boundary_flux
 subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
 
 !!!! Module Variables
-  use ModRamMain,      ONLY: Real8_, S
-  use ModRamTiming,    ONLY: TimeRamNow, TimeRamElapsed, TimeRamStart, Dt_bc
+  use ModRamMain,      ONLY: DP
+  use ModRamTiming,    ONLY: TimeRamNow, TimeRamElapsed, TimeRamStart
   use ModRamParams,    ONLY: electrons
   use ModRamGrids,     ONLY: NT, NE, NEL, NEL_prot, NBD, NTL
-  use ModRamVariables, ONLY: EKEV, MLT, FGEOS, timeOffset, StringFileDate,  &
-                             flux_SIII, fluxLast_SII, eGrid_SI, avgSats_SI, &
+  use ModRamVariables, ONLY: EKEV, MLT, timeOffset, StringFileDate,  &
+                             flux_SIII, fluxLast_SII, eGrid_SI, &
                              lGrid_SI, tGrid_SI
 
 !!!! Module Subroutines and Functions
   use ModRamGSL, ONLY: GSL_Interpolation_1D
   use ModRamIO,  ONLY: read_geomlt_file
 
-  implicit none; save
+
+  implicit none
 
   integer :: GSLerr
   character(len=4), intent(in) :: NameParticleIn
-  real(kind=Real8_),intent(out):: fluxOut_II(nT, nE)
+  real(DP),intent(out):: fluxOut_II(nT, nE)
 
   character(len=8) :: StringDate
   integer :: iTime1, iTime2, iSpec, NEL_
   integer :: i, j, k
   integer :: lE, rE, pE
-  real(kind=Real8_) :: y, my_var
-  real(kind=Real8_), allocatable :: flux_II(:,:),logFlux_II(:,:),logELan(:),logERam(:),intFlux(:,:)
+  real(DP) :: y
+  real(DP), allocatable :: flux_II(:,:),logFlux_II(:,:),logELan(:),logERam(:)
 
   ! Usual debug variables.
   logical :: DoTest, DoTestMe, IsInitialized=.true.
@@ -112,12 +114,13 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   if (eGrid_SI(iSpec,NEL_).lt.EkeV(nE)) rE = 1
   pE = rE + lE
   allocate(flux_II(0:NTL,NEL_+pE), logFlux_II(nT,NEL_+pE), logELan(NEL_+pE), logERam(nE))
+  flux_II = 0.0; logFlux_II = 0.0; logELan = 0.0; logERam = 0.0
 
   ! Get closest times and interpolate
   iTime1 = 0
   iTime2 = 0
   do i=1,NBD
-     if (TimeRamElapsed.eq.tGrid_SI(iSpec,i)) then
+     if (abs(TimeRamElapsed-tGrid_SI(iSpec,i)).le.1e-9) then
         iTime2 = i
         iTime1 = i
         exit  
@@ -225,32 +228,26 @@ end subroutine get_geomlt_flux
   SUBROUTINE GEOSB
 
 !!!! Module Variables
-    use ModRamMain,      ONLY: Real8_, S, PathSwmfOut, PathRamOut
+    use ModRamMain,      ONLY: DP, S
     use ModRamParams,    ONLY: DoAnisoPressureGMCoupling, IsComponent, boundary, &
-                               DoMultiBcsFile, BoundaryFiles
+                               BoundaryFiles
     use ModRamGrids,     ONLY: NTL, NEL, NT, NE, NR
-    use ModRamTiming,    ONLY: TimeRamElapsed, TimeRamNow, TimeRamStart
-    use ModRamVariables, ONLY: FFACTOR, UPA, EKEV, Kp, F107
-    use ModRamCouple,    ONLY: FluxBats_IIS, generate_flux, TypeMHD, MhdDensPres_VII, &
-                               FluxBats_anis
+    use ModRamTiming,    ONLY: TimeRamElapsed
+    use ModRamVariables, ONLY: FFACTOR, UPA, Kp, F107
+    use ModRamCouple,    ONLY: FluxBats_IIS, generate_flux, FluxBats_anis
 
 !!!! Module Subroutines and Functions
     use ModRamIO, ONLY: write_dsbnd
 
-!!!! External Modules (share/Library)
-    use ModIoUnit, ONLY: UNITTMP_
-    USE ModConst,  ONLY: cProtonMass
+    implicit none
 
-    implicit none; save
-
-    integer             :: ij, ik, j, jw, k, l, nLines,u
-    real(kind=Real8_)   :: bexp, ahe0, ahe1, gexp, doy, azir, &
+    integer             :: ij, ik, l, u
+    real(DP)   :: bexp, ahe0, ahe1, gexp, &
                            fracComposition, T
-    character(len=200)  :: NameFluxFile
-    character(len=90)   :: HEADER
-    real(kind=Real8_), ALLOCATABLE :: RELAN(:,:),FLAN(:,:),FluxLanl(:,:)
+    real(DP), ALLOCATABLE :: RELAN(:,:),FLAN(:,:),FluxLanl(:,:)
 
     ALLOCATE(RELAN(NTL,NEL),FLAN(NT,NEL),FluxLanl(nT,nE))
+    RELAN = 0.0; FLAN = 0.0; FluxLanl = 0.0
     T = TimeRamElapsed
 
     ! Create Young et al. composition ratios.
@@ -288,7 +285,7 @@ end subroutine get_geomlt_flux
       FluxLanl=FluxLanl*fracComposition
       do ik=1,NE
         do ij=1,nT
-          u = upa(nR)-1
+          u = int(upa(nR)-1,kind=4)
           do L=2,u
             FGEOS(s,iJ,iK,L)=FluxLanl(iJ,iK) * FFACTOR(S,NR,IK,L)
             !if (FGEOS(s,iJ,iK,L).gt.1e8) FGEOS(s,iJ,iK,L) = 1e8
@@ -301,7 +298,7 @@ end subroutine get_geomlt_flux
         write(*,*) 'RAM_SCB: Getting flux from BATS-R-US'
         do iK=1, nE
           do iJ=1,nT
-            u = UPA(NR)-1
+            u = int(UPA(NR)-1,kind=4)
             do L=2,u
               if (.not.DoAnisoPressureGMCoupling) then
                 FGEOS(s,iJ,iK,L)=FluxBats_IIS(iK,iJ,s)*FFACTOR(S,NR,IK,L)

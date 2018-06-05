@@ -7,7 +7,7 @@ MODULE ModRamLoss
 ! Contains subroutines for calculating particle loss and loss rates
 ! currently contains charge exchange and atmospheric loss
 
-  implicit none; save
+  implicit none
 
   contains
 
@@ -17,16 +17,16 @@ MODULE ModRamLoss
 !**************************************************************************
   SUBROUTINE CEPARA(S)
     !!!! Module Variables
-    use ModRamMain,      ONLY: Real8_
+    use ModRamMain,      ONLY: DP
     use ModRamGrids,     ONLY: NE, NR, NT, NPA
     use ModRamTiming,    ONLY: DTs
     use ModRamVariables, ONLY: EKEV, V, RLZ, HDNS, CHARGE, ATLOS
 
-    implicit none; save
+    implicit none
 
     integer, intent(in) :: S
     integer :: l, k, i, j
-    real(kind=Real8_) :: x, y, alpha, taub
+    real(DP) :: x, y, alpha, taub
 
     ! Calculate charge exchange crosss-section of ring species S with H
     ! and then the charge exchange decay rate ACHAR
@@ -97,7 +97,7 @@ MODULE ModRamLoss
     use ModRamGrids,     ONLY: NE, NT, NR, NPA
     use ModRamVariables, ONLY: F2, CHARGE
 
-    implicit none; save
+    implicit none
 
     integer, intent(in) :: S
     integer :: i, j, k, l
@@ -125,7 +125,7 @@ MODULE ModRamLoss
     use ModRamGrids,     ONLY: NE, NT, NR, NPA
     use ModRamVariables, ONLY: F2, FNHS, UPA, ATLOS
 
-    implicit none; save
+    implicit none
 
     integer, intent(in) :: S
     integer :: i, j, k, l, u
@@ -133,7 +133,7 @@ MODULE ModRamLoss
     DO K=2,NE
        DO J=1,NT
           DO I=2,NR
-             u = UPA(I)
+             u = int(UPA(I),kind=4)
              DO L=u,NPA
                 F2(S,I,J,K,L)=F2(S,I,J,K,L)*ATLOS(S,I,K)**(1/FNHS(I,J,L))
              ENDDO

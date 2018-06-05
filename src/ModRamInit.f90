@@ -6,18 +6,17 @@
 MODULE ModRamInit
 ! Contains subroutines for initialization of RAM
 
-  use ModRamVariables
-
-  implicit none; save
+  implicit none
 
   contains
 !==============================================================================
 subroutine ram_allocate
 
-  use ModRamGrids,     ONLY: RadiusMax, RadiusMin, nR, nRExtend, nT, nE, nPa, &
+  use ModRamVariables ! Need to allocate and initialize all the variables
+  use ModRamGrids,     ONLY: nR, nRExtend, nT, nE, nPa, &
                              Slen, ENG, NCF, NL, nS, nX
 
-  implicit none; save
+  implicit none
 
   nRExtend = NR + 3
   nX = NPA
@@ -30,33 +29,51 @@ subroutine ram_allocate
            PParT(NS,NR,NT), FNHS(NR+1,NT,NPA), FNIS(NR+1,NT,NPA), BOUNHS(NR+1,NT,NPA), &
            BOUNIS(NR+1,NT,NPA), dIdt(NR+1,NT,NPA), dBdt(NR+1,NT), dIbndt(NR+1,NT,NPA), &
            HDNS(NR+1,NT,NPA), BNES(NR+1,NT))
+  F2 = 0.0; FLUX = 0.0; PPerH = 0.0; PParH = 0.0; PPerE = 0.0; PParE = 0.0; PPerO = 0.0
+  PParO = 0.0; PPerHe = 0.0; PParHe = 0.0; PAllSum = 0.0; PParSum = 0.0; PPerT = 0.0
+  PParT = 0.0; FNHS = 0.0; FNIS = 0.0; BOUNHS = 0.0; BOUNIS = 0.0; dIdt = 0.0
+  dBdt = 0.0; dIbndt = 0.0; HDNS = 0.0; BNES = 0.0
 ! ModRamInit Variables
   ALLOCATE(RMAS(NS), V(NS,NE), VBND(NS,NE), GREL(NS,NE), GRBND(NS,NE), FACGR(NS,NE), &
            EPP(NS,NE), ERNH(NS,NE), UPA(NR), WE(NE), DE(NE), EKEV(NE), EBND(NE), &
            PHI(NT), LT(NT), MLT(NT), MU(NPA), DMU(NPA), WMU(NPA), PAbn(NPA), LZ(NR+1), &
            RLZ(NR+1), AMLA(Slen), BE(NR+1,Slen), GridExtend(NRExtend), ZRPabn(NR,NPA,Slen), &
            FFACTOR(NS,NR,NE,NPA), PA(NPA))
+  RMAS = 0.0; V = 0.0; VBND = 0.0; GREL = 0.0; GRBND = 0.0; FACGR = 0.0; EPP = 0.0
+  ERNH = 0.0; UPA = 0.0; WE = 0.0; DE = 0.0; EKEV = 0.0; EBND = 0.0; PHI = 0.0
+  LT = 0.0; MLT = 0.0; MU = 0.0; DMU = 0.0; WMU = 0.0; PAbn = 0.0; LZ = 0.0; PA = 0.0
+  RLZ = 0.0; AMLA = 0.0; BE = 0.0; GridExtend = 0.0; ZrPabn = 0.0; FFACTOR = 0.0
 ! ModRamWPI Variables
   ALLOCATE(WALOS1(NR,NE), WALOS2(NR,NE), WALOS3(NR,NE), fpofc(NCF), NDVVJ(NR,ENG,NPA,NCF), &
            NDAAJ(NR,ENG,NPA,NCF), ENOR(ENG), ECHOR(ENG), BDAAR(NR,NT,ENG,NPA), &
            CDAAR(NR,NT,NE,NPA))
+  WALOS1 = 0.0; WALOS2 = 0.0; WALOS3 = 0.0; fpofc = 0.0; NDVVJ = 0.0; NDAAJ = 0.0
+  ENOR = 0.0; ECHOR = 0.0; BDAAR = 0.0; CDAAR = 0.0
 ! ModRamLoss Variables
   ALLOCATE(ATLOS(nS,NR,NE), CHARGE(nS,NR,NT,NE,NPA))
+  ATLOS = 0.0; CHARGE = 0.0
 ! ModRamEField Variables
   ALLOCATE(VT(NR+1,NT), EIR(NR+1,NT), EIP(NR+1,NT), VTOL(NR+1,NT), VTN(NR+1,NT))
+  VT = 0.0; EIR = 0.0; EIP = 0.0; VTOL = 0.0; VTN = 0.0
 ! ModRamBoundary Variables
   ALLOCATE(FGEOS(NS,NT,NE,NPA))
+  FGEOS = 0.0
 ! ModRamDrift Variables
 !  ALLOCATE(P1(NR), VR(NR), P2(NR,NE), EDOT(NR,NE), MUDOT(NR,NPA), CDriftR(NR,NT,NE,NPA), &
 !           sgnDriftR(NR,NT,NE,NPA), CDriftP(NR,NT,NE,NPA), CDriftE(NR,NT,NE,NPA), &
 !           CDriftMu(NR,NT,NE,NPA))
   ALLOCATE(DtDriftR(nS), DtDriftP(nS), DtDriftE(nS), DtDriftMu(nS))
+  DtDriftR = 0.0; DtDriftP = 0.0; DtDriftE = 0.0; DtDriftMu = 0.0
 ! ModRamRun Variables
   ALLOCATE(SETRC(NS), ELORC(NS), LSDR(NS), LSCHA(NS), LSATM(NS), LSCOE(NS), &
            LSCSC(NS), LSWAE(NS), XNN(NS,NR), XND(NS,NR), LNCN(NS,NR), LNCD(NS,NR), &
            LECN(NS,NR), LECD(NS,NR), ENERN(NS,NR), ENERD(NS,NR), ATEW(NR,NT,NE,NPA), &
            ATAW(NR,NT,NE,NPA), ATAC(NR,NT,NE,NPA), ATEC(NR,NT,NE,NPA), XNE(NR,NT), &
            ATMC(NR,NT,NE,NPA), ATAW_emic(NR,NT,NE,NPA), NECR(NL,0:48))
+  SETRC = 0.0; ELORC = 0.0; LSDR = 0.0; LSCHA = 0.0; LSATM = 0.0; LSCOE = 0.0
+  LSCSC = 0.0; LSWAE = 0.0; XNN = 0.0; XND = 0.0; LNCN = 0.0; LNCD = 0.0
+  LECN = 0.0; LECD = 0.0; ENERN = 0.0; ENERD = 0.0; ATEW = 0.0; ATAW = 0.0
+  ATAC = 0.0; ATEC = 0.0; XNE = 0.0; ATMC = 0.0; ATAW_emic = 0.0; NECR = 0.0
 !!!!!!!!!
 
 end subroutine ram_allocate
@@ -64,7 +81,9 @@ end subroutine ram_allocate
 !==============================================================================
 subroutine ram_deallocate
 
-  implicit none; save
+  use ModRamVariables ! Need to deallocate all variables
+
+  implicit none
 
 !!!!!!!! Deallocate Arrays
 ! Main RAM Variables
@@ -100,12 +119,13 @@ end subroutine ram_deallocate
 SUBROUTINE ram_init
   !!!! Module Variables
   use ModRamParams,    ONLY: DoUseWPI, DoUseBASDiff
-  use ModRamMain,      ONLY: Real8_, S
+  use ModRamMain,      ONLY: DP, S
   use ModRamTiming,    ONLY: TimeRamStart, TimeMax, TimeRamRealStart, TimeRamNow
   use ModRamGrids,     ONLY: RadiusMax, RadiusMin, nR, nRExtend, nT
   use ModRamVariables, ONLY: PParH, PPerH, PParHe, PPerHe, PParO, PPerO, PParE, &
                              PPerE, LSDR, LSCHA, LSATM, LSCOE, LSCSC, LSWAE, ELORC, &
-                             SETRC, XNN, XND, ENERN, ENERD, LNCN, LNCD, LECN, LECD
+                             SETRC, XNN, XND, ENERN, ENERD, LNCN, LNCD, LECN, LECD, &
+                             Lz, GridExtend, Phi, kp, F107
   !!!! Modules Subroutines/Functions
   use ModRamWPI,     ONLY: WAPARA_HISS, WAPARA_BAS, WAPARA_CHORUS, WAVEPARA1, WAVEPARA2
   use ModRamIndices, ONLY: init_indices, get_indices
@@ -113,22 +133,13 @@ SUBROUTINE ram_init
   use ModTimeConvert, ONLY: TimeType, time_real_to_int
   use ModNumConst,    ONLY: cTwoPi
 
-  implicit none; save
+  implicit none
 
-  character(len=8)   :: StringSysDate
-  character(len=10)  :: StringSysTime
-  character(len=200) :: NameEFile
+  type(timetype) :: TimeRamStop
 
-  type(timetype) :: TimeRamStop, TimeNext
+  real(DP) :: dR, dPh
 
-  real(kind=Real8_) :: WEIGHT, dR, dPh
-
-  integer :: iR, iPhi, iS
-  integer :: nFive, nFiveDay, nHour
-  integer :: I, J, K, L, IK
-
-  character (len=*), parameter :: NameSub='init_ram'
-  logical                      :: DoTest, DoTestMe
+  integer :: iR, iPhi
 !------------------------------------------------------------------------------
   TimeRamStop%Time = TimeRamStart%Time + TimeMax
   call time_real_to_int(TimeRamStop)
@@ -137,34 +148,34 @@ SUBROUTINE ram_init
 
 !!!!!!!!! Zero Values
   ! Initialize Pressures.
-  PPerH  = 0
-  PParH  = 0
-  PPerO  = 0
-  PParO  = 0
-  PPerHe = 0
-  PParHe = 0
-  PPerE  = 0
-  PParE  = 0
+  PPerH  = 0.0
+  PParH  = 0.0
+  PPerO  = 0.0
+  PParO  = 0.0
+  PPerHe = 0.0
+  PParHe = 0.0
+  PPerE  = 0.0
+  PParE  = 0.0
 
   ! Initial loss is zero
-  LNCN  = 0.
-  LNCD  = 0.
-  LECN  = 0.
-  LECD  = 0.
-  LSDR  = 0.
-  LSCHA = 0.
-  LSATM = 0.
-  LSCOE = 0.
-  LSCSC = 0.
-  LSWAE = 0.
-  ELORC = 0.
-  SETRC = 0.
+  LNCN  = 0.0
+  LNCD  = 0.0
+  LECN  = 0.0
+  LECD  = 0.0
+  LSDR  = 0.0
+  LSCHA = 0.0
+  LSATM = 0.0
+  LSCOE = 0.0
+  LSCSC = 0.0
+  LSWAE = 0.0
+  ELORC = 0.0
+  SETRC = 0.0
 
   ! Initial energy and density
-  XNN   = 0
-  XND   = 0
-  ENERN = 0
-  ENERD = 0
+  XNN   = 0.0
+  XND   = 0.0
+  ENERN = 0.0
+  ENERD = 0.0
 !!!!!!!!!
 
 !!!!!!!!!! Initialize grid.
@@ -216,33 +227,37 @@ END SUBROUTINE ram_init
 !**************************************************************************
   SUBROUTINE ARRAYS
     !!!! Module Variables
-    use ModRamMain,  ONLY: Real8_, S
-    use ModRamConst, ONLY: RE, PI, M1, MP, CS, Q, HMIN
-    use ModRamGrids, ONLY: RadiusMax, RadiusMin, NR, NPA, Slen, NT, NE, &
-                           NS, NLT, EnergyMin
-    use ModRamParams, ONLY: DoUsePlane_SCB
+    use ModRamMain,      ONLY: DP, S
+    use ModRamConst,     ONLY: RE, PI, M1, MP, CS, Q, HMIN
+    use ModRamGrids,     ONLY: RadiusMax, RadiusMin, NR, NPA, Slen, NT, NE, &
+                               NLT, EnergyMin
+    use ModRamParams,    ONLY: DoUsePlane_SCB
+    use ModRamVariables, ONLY: amla, DL1, Lz, RLz, IR1, EKEV, Mu, WMu, DMu, &
+                               RMAS, WE, DE, EBND, GRBND, V, Pa, Pabn, UPA, &
+                               FFACTOR, GREL, ZrPabn, VBND, PHI, BE, MLT, &
+                               ERNH, EPP, FACGR, CONF1, CONF2, DPHI, IP1, &
+                               MDR, RFACTOR
     !!!! Module Subroutines/Functions
     use ModRamFunctions, ONLY: ACOSD, ASIND, COSD, SIND
 
-    implicit none; save
+    implicit none
 
-    real(kind=Real8_) :: degrad, camlra, elb, rw, rwu
-    real(kind=Real8_) :: clc, spa, MUBOUN
-    real(kind=Real8_), ALLOCATABLE :: CONE(:),RLAMBDA(:)
+    real(DP) :: degrad, camlra, elb, rw, rwu
+    real(DP) :: clc, spa, MUBOUN
+    real(DP), ALLOCATABLE :: CONE(:),RLAMBDA(:)
 
     integer :: i, j, k, l, iml, ic, ip
 
-    character(len=80) TITLE
-
     ALLOCATE(CONE(NR+4),RLAMBDA(NPA))
+    CONE = 0.0; RLAMBDA = 0.0
 
     ! Grid size of L shell
     DL1 = (RadiusMax - RadiusMin)/(nR - 1)
-    IF ((MOD(DL1,0.25_8).NE.0).and.(DoUsePlane_SCB)) THEN
-      write(*,*) MOD(DL1,0.25_8)
-      WRITE(6,*) 'RAM: Error : DL is not a multiple of 0.25 '
-      STOP
-    END IF
+    !IF ((MOD(DL1,0.25).NE.0).and.(DoUsePlane_SCB)) THEN
+    !  write(*,*) MOD(DL1,0.25_8)
+    !  WRITE(6,*) 'RAM: Error : DL is not a multiple of 0.25 '
+    !  STOP
+    !END IF
 
     degrad=pi/180.
     amla(1)=0. ! Magnetic latitude grid in degrees
@@ -285,15 +300,15 @@ END SUBROUTINE ram_init
 
     ! Calculate Kinetic Energy EKEV [keV] at cent, RW depends on NE
     ELB=EnergyMin ! Lower limit of energy in keV
-    IF (ELB.EQ.0.01) THEN
+    IF (abs(ELB-0.01).le.1e-9) THEN
       WE(1)=2.8E-3 !  |_._|___.___|____.____|______.______|
       RW=1.36 !    .     <   DE   >    <      WE     >
     END IF                  !   EKEV                EBND
-    IF (ELB.EQ.0.1) THEN ! relativistic
+    IF (abs(ELB-0.1).le.1e-9) THEN ! relativistic
       WE(1)=3E-2
       RW=1.27
     END IF
-    IF (ELB.EQ.1) THEN
+    IF (abs(ELB-1.0).le.1e-9) THEN
       WE(1)=0.31
       RW=1.16
     END IF
@@ -384,8 +399,8 @@ END SUBROUTINE ram_init
           DO IP=1,NPA
              spa=SQRT(SIND(PAbn(ip))**2*BE(i,iml)/BE(i,1))
              IF (spa.GT.1.0) spa=1.0
-                ZRpabn(i,ip,iml)=ASIN(spa)
-             IF (spa.EQ.1.0) THEN
+             ZRpabn(i,ip,iml)=ASIN(spa)
+             IF (abs(spa-1.0).le.1e-9) THEN
                 ZRpabn(i,ip,iml)=-1.0
              END IF
           ENDDO
@@ -423,17 +438,12 @@ END SUBROUTINE ram_init
 !==============================================================================
 SUBROUTINE init_input
   !!!! Module Variables
-  use ModRamMain,      ONLY: Real8_, S, PathRamIn, nIter
-  use ModRamParams,    ONLY: IsRestart, IsStarttimeSet, electric, IsComponent, &
+  use ModRamMain,      ONLY: nIter
+  use ModRamParams,    ONLY: IsRestart, IsStarttimeSet, &
                              DoUsePlane_SCB, HardRestart
-  use ModRamGrids,     ONLY: NR, NT, NE, NPA, NL, NLT
-  use ModRamTiming,    ONLY: DtEfi, T, TimeRamNow, TimeRamElapsed, TOld
-  use ModRamVariables, ONLY: F2, XNN, XND, ENERD, ENERN, FNHS, Kp, F107, TOLV, &
-                             NECR
-  use ModScbGrids,     ONLY: nthe, npsi, nzeta
-  use ModScbVariables, ONLY: xpsiin, xpsiout, psiVal, alphaVal, f, fp, fzet, &
-                             fzetp, xzero3, constZ, psiin, psiout, psitot
-  use ModScbParams,    ONLY: method
+  use ModRamGrids,     ONLY: NL, NLT
+  use ModRamTiming,    ONLY: DtEfi, TimeRamNow, TimeRamElapsed
+  use ModRamVariables, ONLY: Kp, F107, TOLV, NECR
   !!!! Module Subroutines/Functions
   use ModRamRun,       ONLY: ANISCH
   use ModRamBoundary,  ONLY: get_boundary_flux
@@ -445,22 +455,16 @@ SUBROUTINE init_input
   use ModScbRun,       ONLY: scb_run, pressure
   use ModScbEuler,     ONLY: psiges, alfges
   use ModScbIO,        ONLY: computational_domain
-  use ModScbCompute,   ONLY: computeBandJacob_Initial, compute_convergence
+  use ModScbCompute,   ONLY: computeBandJacob, compute_convergence
   !!!! Share Modules
   use ModIOUnit,      ONLY: UNITTMP_
   use ModTimeConvert, ONLY: TimeType
-  !!!!
-  use nrtype, ONLY: twopi_d
 
-  implicit none; save
+  implicit none
 
-  integer :: iS, i, j, k, l, ik, N, methodTemp
-  integer :: iR, iT, iE, iPA
-  real(kind=Real8_) :: F2r(NR,NT,36,NPA)
-  real(kind=Real8_) :: xpsitot, psis, xpl, phi, dphi
+  integer :: i, j
 
   character(len=100) :: HEADER
-  character(len=200) :: fileName
 
   character(len=*), parameter :: NameSub='init_input'
 
@@ -488,8 +492,7 @@ SUBROUTINE init_input
         call computehI(0)
         call compute3DFlux
      else
-        methodTemp = method
-        call ComputeBandJacob_Initial
+        call ComputeBandJacob
         call compute3DFlux
      endif
 

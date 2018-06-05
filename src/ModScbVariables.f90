@@ -5,7 +5,7 @@
 Module ModScbVariables
   use nrtype, ONLY: DP
 
-  implicit none; save
+  implicit none
 
   integer :: left, right, nFail = 0
   logical :: SORFail = .false., hICalc = .true.
@@ -57,25 +57,42 @@ Module ModScbVariables
               psiout, psitot, bzero, constZ, constTheta, pressurequot, re1, &
               xpsiin, xpsiout, r0Start, byimfglobal, bzimfglobal, pdynglobal, &
               blendGlobal, blendGlobalInitial
-  REAL(DP) :: p_dyn                = 0._dp, &
-              by_imf               = 0._dp, &
-              bz_imf               = 0._dp, &
-              dst_global           = 0._dp, &
-              wTsyg(1:6)           = 0._dp, &
-              tilt                 = 0._dp
+  REAL(DP) :: p_dyn      = 0._dp, &
+              by_imf     = 0._dp, &
+              bz_imf     = 0._dp, &
+              dst_global = 0._dp, &
+              wTsyg(1:6) = 0._dp, &
+              tilt       = 0._dp
   integer :: nZetaMidnight, nThetaEquator, nMaximum
 !
 
+! Convergence Variables
+  REAL(DP), ALLOCATABLE :: Jx(:,:,:), Jy(:,:,:), Jz(:,:,:), GradPx(:,:,:), GradPy(:,:,:), &
+                           GradPz(:,:,:), JxBx(:,:,:), JxBy(:,:,:), JxBz(:,:,:), &
+                           JCrossB(:,:,:), GradP(:,:,:), jGradRho(:,:,:), jGradZeta(:,:,:), &
+                           jGradTheta(:,:,:)
+!
+! Derivative Variables
+  REAL(DP), ALLOCATABLE :: gradRhoSq(:,:,:), gradZetaSq(:,:,:), gradRhoGradZeta(:,:,:), &
+                           gradRhoGradTheta(:,:,:), gradThetaGradZeta(:,:,:), gradThetaSq(:,:,:), &
+                           gradRhoX(:,:,:), gradZetaX(:,:,:), gradThetaX(:,:,:), &
+                           gradRhoY(:,:,:), gradZetaY(:,:,:), gradThetaY(:,:,:), &
+                           gradRhoZ(:,:,:), gradZetaZ(:,:,:), gradThetaZ(:,:,:), &
+                           derivXRho(:,:,:), derivXZeta(:,:,:), derivXTheta(:,:,:), &
+                           derivYRho(:,:,:), derivYZeta(:,:,:), derivYTheta(:,:,:), &
+                           derivZRho(:,:,:), derivZZeta(:,:,:), derivZTheta(:,:,:)
+!
+
 ! ModScbRun Variables
-  REAL(DP), ALLOCATABLE :: radEqMidNew(:), gradRhoSq(:,:,:), gradZetaSq(:,:,:), gradRhoGradZeta(:,:,:), &
-                           gradRhoGradTheta(:,:,:), gradThetaGradZeta(:,:,:), gradPsiGradAlpha(:,:,:), &
-                           dPperdAlpha(:,:,:), dBBdAlpha(:,:,:), dBBdPsi(:,:,:), dPPerdPsi(:,:,:), &
-                           dPPardAlpha(:,:,:), dPPardPsi(:,:,:), dPPerdTheta(:,:,:), dPPerdRho(:,:,:), &
-                           dPPerdZeta(:,:,:), dBsqdAlpha(:,:,:), dBsqdPsi(:,:,:), dBsqdTheta(:,:,:), &
-                           gradThetaSq(:,:,:), bfInitial(:,:,:), pressure3D(:,:,:), bj(:,:,:), &
-                           phij(:,:,:), ppar(:,:,:), pper(:,:,:), tau(:,:,:), sigma(:,:,:), &
-                           dPdAlpha(:,:,:), dPdPsi(:,:,:), dSqPdAlphaSq(:,:,:), dSqPdPsiSq(:,:,:), &
-                           dBsqdRho(:,:,:), dBsqdZeta(:,:,:)
+  REAL(DP), ALLOCATABLE :: radEqMidNew(:), gradPsiGradAlpha(:,:,:), &
+                           dPperdAlpha(:,:,:), dBBdAlpha(:,:,:), dBBdPsi(:,:,:), &
+                           dPPerdPsi(:,:,:), dPPardAlpha(:,:,:), dPPardPsi(:,:,:), &
+                           dPPerdTheta(:,:,:), dPPerdRho(:,:,:), dPPerdZeta(:,:,:), &
+                           dBsqdAlpha(:,:,:), dBsqdPsi(:,:,:), dBsqdTheta(:,:,:), &
+                           bfInitial(:,:,:), pressure3D(:,:,:), bj(:,:,:), phij(:,:,:), &
+                           ppar(:,:,:), pper(:,:,:), tau(:,:,:), sigma(:,:,:), &
+                           dPdAlpha(:,:,:), dPdPsi(:,:,:), dSqPdAlphaSq(:,:,:), &
+                           dSqPdPsiSq(:,:,:), dBsqdRho(:,:,:), dBsqdZeta(:,:,:)
   REAL(DP) :: DstDPS, DstDPSInsideGeo, DstBiot, DstBiotInsideGeo
   INTEGER :: kmax, nisave, nitry, iteration, iConvGlobal, lconv
 !

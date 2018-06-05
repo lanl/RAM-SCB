@@ -6,8 +6,8 @@
 module ModRamParams
 
   use ModRamMain, ONLY: Real8_
-  implicit none; save
-  save
+
+  implicit none
 
  !!!! PARAM Variables
   logical :: DoUseRAM = .true.

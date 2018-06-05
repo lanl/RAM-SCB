@@ -5,8 +5,8 @@
 
 MODULE ModScbFunctions
   ! Contains various functions and subroutines for performing calculations in SCB
-  
-  implicit none; save; save
+
+  implicit none
   
   contains
 !==============================================================================
@@ -16,6 +16,7 @@ MODULE ModScbFunctions
     REAL(DP), INTENT(IN)     :: x1, x2, x3
     REAL(DP), INTENT(OUT)    :: x4
     REAL(DP)                 :: ddx1, ddx2, ddx, pm
+    x4 = 0.0; ddx = 0.0; ddx2 = 0.0; ddx = 0.0; pm = 0.0
   
     x4 = 3. * x3 - 3. * x2 + x1
     ddx1 = x3 - x2
@@ -23,8 +24,8 @@ MODULE ModScbFunctions
     ddx = x4 - x3
     pm = ddx * ddx1
     IF(pm > 0.) RETURN
-    IF(ddx2 == 0) x4 = 2. * x3 - x2
-    IF(ddx2 == 0) RETURN
+    IF(abs(ddx2) <= 1e-9) x4 = 2. * x3 - x2
+    IF(abs(ddx2) <= 1e-9) RETURN
     ddx = (ddx1 * ddx1) / ddx2
     x4 = x3 + ddx
     RETURN
@@ -52,9 +53,9 @@ FUNCTION locate(xx,x)
         ju=jm
      END IF
   END DO
-  IF (x == xx(1)) THEN
+  IF (abs(x-xx(1)) <= 1e-9) THEN
      locate=1
-  ELSE IF (x == xx(n)) THEN
+  ELSE IF (abs(x-xx(n)) <= 1e-9) THEN
      locate=n-1
   ELSE
      locate=jl
@@ -66,7 +67,7 @@ END FUNCTION locate
     IMPLICIT NONE
     REAL :: x
     radFunc = 10. - 5. ! This will ensure the DIERCKX spline is defined up to R=10 RE
-  
+    x = x 
   END FUNCTION radFunc
   
 !==============================================================================
@@ -100,7 +101,7 @@ END FUNCTION locate
     REAL(DP), DIMENSION(SIZE(pres,1),SIZE(pres,2)) :: SavGol7, pres0, pres1, pres2
     REAL(DP) :: BSav(7,7)
   
-    INTEGER :: ier, iPass, j, k, nrad, nphi
+    INTEGER :: iPass, j, k, nrad, nphi
   
     nrad = SIZE(pres,1)
     nphi = SIZE(pres,2)

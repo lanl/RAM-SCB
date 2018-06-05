@@ -21,7 +21,7 @@ SEARCH_EXTRA = -I${NETCDF_PATH} -I${GSL_PATH}
 INCL_EXTRA   = -I${NETCDF_PATH} -I${GSL_PATH}
 
 # Keep RAM_SCB in single precision.
-PRECISION = -frecord-marker=4 -fdefault-real-8 -fdefault-double-8 -fall-intrinsics
+PRECISION = -frecord-marker=4 -fdefault-real-8 -fdefault-double-8 -fall-intrinsics -finit-local-zero
 
 # List of fortran object files:
 RAM_OBJECTS=                  \
@@ -97,7 +97,7 @@ EXT_OBJECTS=       \
 	mpi.o      \
 	ModRamMpi.o 
 
-OBJECTS = ${RAM_OBJECTS} ${SCB_OBJECTS} ${CPL_OBJECTS} ${EXT_OBJECTS} ${GSL_OBJECTS} ${PLE_OBJECTS}
+OBJECTS = ${RAM_OBJECTS} ${SCB_OBJECTS} ${EXT_OBJECTS} ${GSL_OBJECTS} ${CPL_OBJECTS} ${PLE_OBJECTS}
 
 # List of objects required for executable:
 OBJECTS_EXE = Main.o

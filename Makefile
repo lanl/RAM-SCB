@@ -112,8 +112,7 @@ test:
 	@(make test4)
 
 testTravis:
-	@(make test1)
-	@(make test2)
+	@(make test3)
 
 test_help:
 	@echo "Preceed all commands with 'make'..."
@@ -319,7 +318,7 @@ test3_check:
 	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                             \
 		${TESTDIR3}/output_ram/pressure_d20130317_t001500.dat  \
 		${IMDIR}/output/test3/pressure.ref      	       \
-		> test3.diff
+		> test3.diff                                           
 	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9			       \
 		${TESTDIR3}/output_scb/hI_output_d20130317_t001500.dat \
 		${IMDIR}/output/test3/hI.ref 		 	       \

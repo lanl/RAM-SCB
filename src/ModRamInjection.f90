@@ -5,7 +5,7 @@
 
 Module ModRamInjection
 
-  implicit none; save
+  implicit none
 
   contains
 !==============================================================================
@@ -18,7 +18,8 @@ Module ModRamInjection
 !    use ModRamFunctions, ONLY: ram_sum_pressure
 !    use ModScbRun,       ONLY: scb_run
 !    use ModRamScb,       ONLY: computehI
-!    implicit none; save
+
+!    implicit none
 !
     integer, intent(in) :: iCal
 !    integer :: iS, I, J, K, L, R
@@ -26,23 +27,23 @@ Module ModRamInjection
 !
 !    R = 1
 !    M = 2.0
-!    if (iCal.eq.100) then
-!return
+    if (iCal.eq.100) then
+return
 !       R = 1
 !       M = 2.0
-!    elseif (iCal.eq.500) then
-!return
+    elseif (iCal.eq.500) then
+return
 !       R = 3
 !       M = 2.0
-!    elseif (iCal.eq.1200) then
-!return
+    elseif (iCal.eq.1200) then
+return
 !       R = 1
 !       M = 1.0
-!    elseif (iCal.eq.2000) then
-!return
+    elseif (iCal.eq.2000) then
+return
 !       R = 2
 !       M = 2.0
-!    endif
+    endif
 !
 !    write(*,*) '!!!! INJECTION !!!!'
 !    do iS=1,4

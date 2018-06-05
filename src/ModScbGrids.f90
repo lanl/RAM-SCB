@@ -6,8 +6,8 @@
 Module ModScbGrids
 
   use nrtype, ONLY: DP, pi_d
-  
-  implicit none; save
+
+  implicit none
   
   !!! SCB Grids
   ! Must match the computational boundary input file (*.cdf)
