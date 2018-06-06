@@ -13,10 +13,11 @@ MODULE ModRamDrift
 
   implicit none
 
-  integer :: QS
-  real(kind=Real8_), ALLOCATABLE :: VR(:), P1(:), P2(:,:), MUDOT(:,:), EDOT(:,:), &
-                                    CDriftR(:,:,:,:), CDriftP(:,:,:,:), &
-                                    CDriftE(:,:,:,:), CDriftMu(:,:,:,:)
+  integer, save :: QS
+  real(kind=Real8_), save, ALLOCATABLE :: VR(:), P1(:), P2(:,:), MUDOT(:,:), EDOT(:,:), &
+                                          CDriftR(:,:,:,:), CDriftP(:,:,:,:), &
+                                          CDriftE(:,:,:,:), CDriftMu(:,:,:,:)
+  !$OMP THREADPRIVATE(QS,VR,P1,P2,MUDOT,EDOT,CDriftR,CDriftP,CDriftE,CDriftMu)
 
   contains
 !==============================================================================

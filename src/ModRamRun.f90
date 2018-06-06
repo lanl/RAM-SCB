@@ -63,7 +63,7 @@ MODULE ModRamRun
        CALL PLANE(TimeRamNow%iYear,DAY,T,KP,IAPO(2),RZ(3),F107,2.*DTs,NECR,VT/1e3)
     END IF
 
-  !OMP PARALLEL DO
+  !$OMP PARALLEL DO
     do iS=1,4
        !   calls for given species S:
        CALL CEPARA(iS)
@@ -131,7 +131,7 @@ MODULE ModRamRun
        ! Routines needed to clear allocated variables for use with OpenMP
        CALL DRIFTEND
     end do
-  !OMP END PARALLEL DO
+  !$OMP END PARALLEL DO
 
     DtsNext = min(minval(DtDriftR), minval(DtDriftP), minval(DtDriftE), minval(DtDriftMu))
     DtsNext = max(DtsNext, DtsMin)
