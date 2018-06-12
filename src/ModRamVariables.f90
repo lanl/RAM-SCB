@@ -9,6 +9,8 @@ Module ModRamVariables
 
   implicit none
 
+  integer, allocatable :: outsideMGNP(:,:)
+
 ! UNKNOWN VARIABLES
   real(DP), ALLOCATABLE :: XNE(:,:)
 !

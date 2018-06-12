@@ -21,9 +21,13 @@ MODULE ModScbEquation
     USE ModScbMain,      ONLY: DP
     USE ModScbGrids,     ONLY: nthe, npsi, nzeta, rdt, rdp, rdt4, rdp4, &
                                rdr2, rdp2, rdt2, rdpsq, rdtsq, rdpdt4, rdr4
-    use ModScbVariables, ONLY: x, y, z, jacobian, vecd, vec1, vec2, vec3, &
-                               vec4, vec6, vec7, vec8, vec9
-  
+    use ModScbVariables, ONLY: x, y, z, vecd, vec1, vec2, vec3, &
+                               vec4, vec6, vec7, vec8, vec9, &
+                               GradRhoSq, GradThetaSq, GradZetaSq, &
+                               GradRhoGradTheta, GradRhoGradZeta, &
+                               GradThetaGradZeta, jacobian, chiVal, &
+                               rhoVal, zetaVal
+
     use ModRamGSL, ONLY: GSL_Derivs
   
     implicit none
@@ -43,7 +47,25 @@ MODULE ModScbEquation
                 grgpd, grgpe, gpgta, gpgtb, gpgtc, gpgtd, gpgte, gtgra, gtgrb, &
                 gtgrc, gtgrd, gtgre, v1a, v1b, v1c, v2a, v2b, v2c, v2d, v3b, &
                 v3c, v3d
-  
+
+    !INTEGER :: GSLerr
+    !REAL(DP), ALLOCATABLE :: A(:,:,:), B(:,:,:), C(:,:,:), dAdT(:,:,:), dAdR(:,:,:), &
+    !                         dAdZ(:,:,:), dBdT(:,:,:), dBdR(:,:,:), dBdZ(:,:,:), &
+    !                         dCdT(:,:,:), dCdR(:,:,:), dCdZ(:,:,:)
+    !ALLOCATE(A(nthe,npsi,nzeta), B(nthe,npsi,nzeta), C(nthe,npsi,nzeta), &
+    !         dAdT(nthe,npsi,nzeta), dAdR(nthe,npsi,nzeta), dAdZ(nthe,npsi,nzeta), &
+    !         dBdT(nthe,npsi,nzeta), dBdR(nthe,npsi,nzeta), dBdZ(nthe,npsi,nzeta), &
+    !         dCdT(nthe,npsi,nzeta), dCdR(nthe,npsi,nzeta), dCdZ(nthe,npsi,nzeta))
+    !A = (GradRhoSq*GradThetaSq-GradRhoGradTheta*GradRhoGradTheta)*jacobian 
+    !B = (GradRhoSq*GradThetaGradZeta-GradRhoGradZeta*GradRhoGradTheta)*jacobian
+    !C = (GradRhoSq*GradZetaSq-GradRhoGradZeta*GradRhoGradZeta)*jacobian
+    !CALL GSL_Derivs(chiVal, rhoVal, zetaVal, A(1:nthe,1:npsi,1:nzeta), &
+    !                dAdT, dAdR, dAdZ, GSLerr)
+    !CALL GSL_Derivs(chiVal, rhoVal, zetaVal, B(1:nthe,1:npsi,1:nzeta), &
+    !                dBdT, dBdR, dBdZ, GSLerr)
+    !CALL GSL_Derivs(chiVal, rhoVal, zetaVal, C(1:nthe,1:npsi,1:nzeta), &
+    !                dCdT, dCdR, dCdZ, GSLerr)
+
     vecd = 0._dp
     vec1 = 0._dp
     vec2 = 0._dp
@@ -57,7 +79,18 @@ MODULE ModScbEquation
     DO j=2,npsi-1
        DO k=2,nzeta
           DO i=2,nthe-1
-  
+             !! Keeping the old variable vec names                            ! Translation to letters in Sorin's Thesis
+             !vecd(i,j,k) = 2*(A(i,j,k)*rdtsq + C(i,j,k)*rdpsq)               ! a
+             !vec1(i,j,k) = B(i,j,k)*rdt*rdp2                                 ! b
+             !vec2(i,j,k) = C(i,j,k)*rdpsq - (dBdT(i,j,k) + dCdZ(i,j,k))*rdp2 ! h
+             !vec3(i,j,k) = -B(i,j,k)*rdt*rdp2                                ! c
+             !vec4(i,j,k) = A(i,j,k)*rdtsq - (dAdT(i,j,k) + dBdZ(i,j,k))*rdt2 ! d
+             !!vec5(i,j,k)                                                    ! There is no vec5
+             !vec6(i,j,k) = A(i,j,k)*rdtsq + (dAdT(i,j,k) + dBdZ(i,j,k))*rdt2 ! f
+             !vec7(i,j,k) = -B(i,j,k)*rdt*rdp2                                ! e
+             !vec8(i,j,k) = C(i,j,k)*rdpsq + (dBdT(i,j,k) + dCdZ(i,j,k))*rdp2 ! k
+             !vec9(i,j,k) = B(i,j,k)*rdt*rdp2                                 ! g
+
              xa = .5*(x(i,j,k)+x(i+1,j,k))
              xb = .5*(x(i,j,k)+x(i,j,k+1))
              xc = .5*(x(i,j,k)+x(i-1,j,k))
@@ -134,13 +167,6 @@ MODULE ModScbEquation
                   +xpe*(yte*zre-yre*zte)  &
                   +xte*(yre*zpe-ype*zre)
   
-             IF (aje < 0._dp) THEN
-                jacobian(i,j,k) = aje
-                if (verbose) PRINT*, 'metrica: J < 0; i, j, k = ', i, j, k
-                if (verbose) write(*,*) jacobian(i,j,k)
-                return
-             END IF
-  
              grxa = (ypa*zta-yta*zpa)/aja
              grya = (zpa*xta-zta*xpa)/aja
              grza = (xpa*yta-xta*ypa)/aja
@@ -156,7 +182,6 @@ MODULE ModScbEquation
              grxe = (ype*zte-yte*zpe)/aje
              grye = (zpe*xte-zte*xpe)/aje
              grze = (xpe*yte-xte*ype)/aje
-  
   
              gpxa = (yta*zra-yra*zta)/aja
              gpya = (zta*xra-zra*xta)/aja
@@ -248,7 +273,8 @@ MODULE ModScbEquation
           END DO
        END DO
     END DO
-  
+
+    !DEALLOCATE(A, B, C, dAdT, dAdR, dAdZ, dBdT, dBdR, dBdZ, dCdT, dCdR, dCdZ)
     RETURN
   
   END SUBROUTINE metrica
@@ -260,8 +286,12 @@ MODULE ModScbEquation
     USE ModScbMain,      ONLY: DP
     USE ModScbGrids,     ONLY: nthe, npsi, nzeta, rdr, rdt, rdt4, rdp4, rdr2, &
                                rdr4, rdp2, rdt2, rdtsq, rdrsq, rdtdr4
-    use ModScbVariables, ONLY: x, y, z, jacobian, vecd, vec1, vec2, vec3, &
-                               vec4, vec6, vec7, vec8, vec9
+    use ModScbVariables, ONLY: x, y, z, vecd, vec1, vec2, vec3, &
+                               vec4, vec6, vec7, vec8, vec9, &
+                               GradRhoSq, GradThetaSq, GradZetaSq, &
+                               GradRhoGradTheta, GradRhoGradZeta, &
+                               GradThetaGradZeta, jacobian, chiVal, &
+                               rhoVal, zetaVal
   
     use ModRamGSL, ONLY: GSL_Derivs
   
@@ -282,8 +312,25 @@ MODULE ModScbEquation
                 grgpd, grgpe, gpgta, gpgtb, gpgtc, gpgtd, gpgte, gtgra, gtgrb, &
                 gtgrc, gtgrd, gtgre, v1a, v1b, v1c, v2a, v2b, v2c, v2d, v3b, &
                 v3c, v3d
-  
-    !jacobian = 0._dp
+
+    !INTEGER :: GSLerr
+    !REAL(DP), ALLOCATABLE :: A(:,:,:), B(:,:,:), C(:,:,:), dAdT(:,:,:), dAdR(:,:,:), &
+    !                         dAdZ(:,:,:), dBdT(:,:,:), dBdR(:,:,:), dBdZ(:,:,:), &
+    !                         dCdT(:,:,:), dCdR(:,:,:), dCdZ(:,:,:)
+    !ALLOCATE(A(nthe,npsi,nzeta), B(nthe,npsi,nzeta), C(nthe,npsi,nzeta), &
+    !         dAdT(nthe,npsi,nzeta), dAdR(nthe,npsi,nzeta), dAdZ(nthe,npsi,nzeta), &
+    !         dBdT(nthe,npsi,nzeta), dBdR(nthe,npsi,nzeta), dBdZ(nthe,npsi,nzeta), &
+    !         dCdT(nthe,npsi,nzeta), dCdR(nthe,npsi,nzeta), dCdZ(nthe,npsi,nzeta))
+    !A = (GradThetaGradZeta*GradThetaGradZeta-GradZetaSq*GradThetaSq)*jacobian
+    !B = (GradRhoGradZeta*GradThetaGradZeta-GradZetaSq*GradRhoGradTheta)*jacobian
+    !C = (GradRhoGradZeta*GradRhoGradZeta-GradRhoSq*GradZetaSq)*jacobian
+    !CALL GSL_Derivs(chiVal, rhoVal, zetaVal, A(1:nthe,1:npsi,1:nzeta), &
+    !                dAdT, dAdR, dAdZ, GSLerr)
+    !CALL GSL_Derivs(chiVal, rhoVal, zetaVal, B(1:nthe,1:npsi,1:nzeta), &
+    !                dBdT, dBdR, dBdZ, GSLerr)
+    !CALL GSL_Derivs(chiVal, rhoVal, zetaVal, C(1:nthe,1:npsi,1:nzeta), &
+    !                dCdT, dCdR, dCdZ, GSLerr)
+
     vecd = 0._dp
     vec1 = 0._dp
     vec2 = 0._dp
@@ -293,11 +340,22 @@ MODULE ModScbEquation
     vec7 = 0._dp
     vec8 = 0._dp
     vec9 = 0._dp
-  
+
     DO j=2,npsi-1
        DO k=2,nzeta
           DO i=2,nthe-1
-  
+             !! Keeping the old variable vec names                            ! Translation to letters in Sorin's Thesis
+             !vecd(i,j,k) = 2*(A(i,j,k)*rdtsq + C(i,j,k)*rdrsq)               ! a
+             !vec1(i,j,k) = B(i,j,k)*rdt*rdr2                                 ! b
+             !vec2(i,j,k) = C(i,j,k)*rdrsq - (dCdR(i,j,k) + dBdT(i,j,k))*rdr2 ! h
+             !vec3(i,j,k) = -B(i,j,k)*rdt*rdr2                                ! c
+             !vec4(i,j,k) = A(i,j,k)*rdtsq - (dAdT(i,j,k) + dBdR(i,j,k))*rdt2 ! d
+             !!vec5(i,j,k)                                                    ! There is no vec5
+             !vec6(i,j,k) = A(i,j,k)*rdtsq + (dAdT(i,j,k) + dBdR(i,j,k))*rdt2 ! f
+             !vec7(i,j,k) = -B(i,j,k)*rdt*rdr2                                ! e
+             !vec8(i,j,k) = C(i,j,k)*rdrsq + (dCdR(i,j,k) + dBdT(i,j,k))*rdr2 ! k
+             !vec9(i,j,k) = B(i,j,k)*rdt*rdr2                                 ! g
+ 
              xa = .5*(x(i,j,k)+x(i+1,j,k))
              xb = .5*(x(i,j,k)+x(i,j+1,k))
              xc = .5*(x(i,j,k)+x(i-1,j,k))
@@ -368,13 +426,6 @@ MODULE ModScbEquation
              aje = xre*(ype*zte-yte*zpe)  &
                   +xpe*(yte*zre-yre*zte)  &
                   +xte*(yre*zpe-ype*zre)
-  
-             IF (aje < 0._dp) THEN
-                jacobian(i,j,k) = aje
-                if (verbose) PRINT*, 'metric: J < 0; i, j, k = ', i, j, k
-                if (verbose) PRINT*, jacobian(i,j,k)
-                return
-             END IF
   
              grxa = (ypa*zta-yta*zpa)/aja
              grya = (zpa*xta-zta*xpa)/aja
@@ -481,7 +532,9 @@ MODULE ModScbEquation
           END DO
        END DO
     END DO
-  
+
+    !DEALLOCATE(A, B, C, dAdT, dAdR, dAdZ, dBdT, dBdR, dBdZ, dCdT, dCdR, dCdZ)
+ 
     RETURN
   
   END SUBROUTINE metric

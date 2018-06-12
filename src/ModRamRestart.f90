@@ -21,9 +21,9 @@ module ModRamRestart
                                BNES, HDNS, EIR, EIP, dBdt, dIdt, dIbndt, VTN, &
                                VTOL, VT, EIR, EIP
     use ModScbGrids,     ONLY: nthe, npsi, nzeta, nzetap
-    use ModScbVariables, ONLY: x, y, z, alphaVal, psiVal, &
-                               chiVal, xpsiout, xpsiin, constZ,    &
-                               constTheta, kmax, thetaVal, f, fzet, &
+    use ModScbParams,    ONLY: constZ, constTheta
+    use ModScbVariables, ONLY: x, y, z, alphaVal, psiVal, chiVal, xpsiout, &
+                               xpsiin, kmax, thetaVal, f, fzet, &
                                zetaVal, rhoVal
     !!!! Module Subroutines/Functions
     use ModRamNCDF, ONLY: ncdf_check, write_ncdf_globatts
@@ -417,10 +417,10 @@ module ModRamRestart
                                VTOL, VT, EIR, EIP, PParH, PPerH, PParO, &
                                PPerO, PParHe, PPerHe, PParE, PPerE
     use ModScbGrids,     ONLY: npsi
-    use ModScbVariables, ONLY: x, y, z, alphaVal, psiVal, &
-                               chiVal, xpsiout, xpsiin, left, right, constZ,    &
-                               constTheta, kmax, thetaVal, f, fp, fzet, &
-                               fzetp, zetaVal, rhoVal
+    use ModScbParams,    ONLY: constTheta, constZ
+    use ModScbVariables, ONLY: x, y, z, alphaVal, psiVal, chiVal, xpsiout, &
+                               xpsiin, left, right, kmax, thetaVal, f, fp, &
+                               fzet, fzetp, zetaVal, rhoVal
     !!!! Module Subroutines/Functions
     use ModRamNCDF, ONLY: ncdf_check, write_ncdf_globatts
     !!!! NetCdf Modules

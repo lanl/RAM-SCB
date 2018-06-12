@@ -47,6 +47,9 @@ T			DoVarDt			! If set to T RAM will adjust its time step based on the current f
 300.0			BCTimeStep		! Amount of time (in seconds) between reading boundary flux files (or from SWMF). If set to 1.0 will update on every RAM time step
 300.0			EFTimeStep		! Amount of time (in seconds) between updating electric fields. If set to 1.0 it will update every RAM time step
 
+! If this is present then the SCBTimeStep will be read as number of RAM iterations to do, not seconds
+#TIE_SCB_TO_RAM
+			
 ***********************************************
 
 *************** COMPONENT BLOCK ***************
@@ -95,6 +98,13 @@ F			DoUsePlane_SCB		! Whether to include the plasmasphere
 0.2                     blendPsiInit
 0.01                    blendMin
 0.5                     blendMax
+
+#SCB_CONVERGENCE
+0.9			ConvergenceDistance	! Minimum accuracy that needs to be reached regardless of other factors
+
+#SCB_FIELD
+0.0			ConstZ
+0.0			ConstTheta
 
 #SCBSETTINGS
 1			MinSCBIterations	! Minimum number of outer SOR Iterations performed by SCB
@@ -157,6 +167,9 @@ IM/input_ram/		InitializationPath	! Location where the RAM Initialization.nc fil
 #SAVERESTART
 3600.0			DtSaveRestart		! How often a restart file should be written (in seconds), -1.0 will disable restart files
 T			DoSaveFinalRestart	! Whether a restart file should be written on RAM finishing
+
+#TIMEDRESTART
+F			TimedRestartFiles	! Whether to time stamp the restart files. If F only one restart file will be made and it will be overwritten
 
 #LOGFILE
 60.0			DtLogFileWrite		! How often the log file should be appended (in seconds).

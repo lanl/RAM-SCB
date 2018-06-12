@@ -18,7 +18,7 @@ MODULE ModRamRun
     !!!! Module Variables
     use ModRamMain,      ONLY: DP
     use ModRamParams,    ONLY: electric, DoUseWPI, DoUseBASdiff, DoUseKpDiff, &
-                               DoUsePlane_SCB
+                               DoUsePlane_SCB, verbose
     use ModRamConst,     ONLY: RE
     use ModRamGrids,     ONLY: NR, NE, NT, NPA
     use ModRamTiming,    ONLY: UTs, T, DtEfi, DtsMin, DtsNext, TimeRamNow, Dts
@@ -27,7 +27,7 @@ MODULE ModRamRun
                                DtDriftE, DtDriftMu, NECR, F107, RZ, IG, rsn, &
                                IAPO, LSDR, ELORC, LSCHA, LSWAE, LSATM, PPerT, &
                                PParT, PPerO, PParO, PPerH, PParH, PPerE, PParE, &
-                               PPerHe, PParHe, F2
+                               PPerHe, PParHe, F2, outsideMGNP
     !!!! Module Subroutines/Functions
     use ModRamDrift, ONLY: DRIFTPARA, DRIFTR, DRIFTP, DRIFTE, DRIFTMU, DRIFTEND
     use ModRamLoss,  ONLY: CEPARA, CHAREXCHANGE, ATMOL
@@ -133,7 +133,16 @@ MODULE ModRamRun
     end do
   !$OMP END PARALLEL DO
 
+    !!!! For now set the flux to 0 outside magnetopause.
+    DO I = 1, nR
+       DO J = 1, nT
+          if (outsideMGNP(I,J) == 1) F2(:,I,J,:,:) = 1.d-31
+       ENDDO
+    ENDDO
+    !!!!
+
     DtsNext = min(minval(DtDriftR), minval(DtDriftP), minval(DtDriftE), minval(DtDriftMu))
+    if (verbose) write(*,*) minval(DtDriftR), minval(DtDriftP), minval(DtDriftE), minval(DtDriftMu)
     DtsNext = max(DtsNext, DtsMin)
 
     ! Update flux and pressure totals
@@ -295,8 +304,8 @@ MODULE ModRamRun
         enddo
         ANIST=PPERT(S,I,J)/PPART(S,I,J)-1.
         EPART=PPART(S,I,J)/RNHTT
-     ENDDO
-  ENDDO
+      ENDDO
+    ENDDO
 
     IF (MOD(INT(T),INT(Dt_bc)).EQ.0.and.DoUseWPI.and.S.eq.1) THEN
          ! zero PA diffusion coefficients

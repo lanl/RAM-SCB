@@ -100,7 +100,8 @@ MODULE ModScbEuler
   
     implicit none
   
-    INTEGER :: i, j, GSLerr
+    INTEGER :: i, j, k, GSLerr, ii, jj
+    REAL(DP) :: temp
     REAL(DP), ALLOCATABLE :: xOld(:), yOld(:), zOld(:), alfaOld(:)
 
     ALLOCATE(xOld(nzeta+1),yOld(nzeta+1),zOld(nzeta+1),alfaOld(nzeta+1))
@@ -112,6 +113,15 @@ MODULE ModScbEuler
           yOld(1:nzeta+1) = y(i,j,1:nzeta+1)
           zOld(1:nzeta+1) = z(i,j,1:nzeta+1)
           alfaOld(1:nzeta+1) = alfa(i,j,1:nzeta+1)
+          !do ii = 1, nzeta+1
+          !   do jj = ii, nzeta+1
+          !      if (alfaOld(ii) > alfaOld(jj)) then
+          !         temp = alfaOld(jj)
+          !         alfaOld(jj)=alfaOld(ii)
+          !         alfaOld(ii) = temp
+          !      endif
+          !   enddo
+          !enddo
           !DO k = 2,nzeta+1
           !   if (alfaOld(k).lt.alfaOld(k-1)) then
           !      alfaOld(k) = alfaOld(k-1)+1E-6
@@ -154,7 +164,7 @@ MODULE ModScbEuler
 
     use ModRamParams,    ONLY: verbose  
     USE ModScbMain,      ONLY: nimax
-    use ModScbParams,    ONLY: InConAlpha
+    use ModScbParams,    ONLY: InConAlpha, psiChange, theChange
     USE ModScbGrids,     ONLY: nthe, nthem, npsi, nzeta, nzetap, ny
     USE ModScbVariables, ONLY: nisave, sumb, sumdb, vecd, vec1, vec2, &
                                vec3, vec4, vec6, vec7, vec8, vec9, vecx, &
@@ -250,6 +260,21 @@ MODULE ModScbEuler
     sumb = SUM(ABS(alfa(2:nthe-1,2:npsi-1,2:nzeta)))
     diffmx = maxval(abs(resid(2:nthe-1,2:npsi-1,2:nzeta)))
 
+    DO k = 2, nzeta
+       if (psiChange == 0) then
+          DO i = 2,nthe-1
+             CALL extap(alfa(i,npsi-3,k),alfa(i,npsi-2,k),alfa(i,npsi-1,k),alfa(i,npsi,k))
+             CALL extap(alfa(i,4,k),alfa(i,3,k),alfa(i,2,k),alfa(i,1,k))
+          ENDDO
+       endif
+       if (theChange == 0) then
+          DO j = 1,npsi
+             CALL extap(alfa(nthe-3,j,k),alfa(nthe-2,j,k),alfa(nthe-1,j,k),alfa(nthe,j,k))
+             CALL extap(alfa(4,j,k),alfa(3,j,k),alfa(2,j,k),alfa(1,j,k))
+          ENDDO
+       endif
+    ENDDO
+
     !...  set "blending" in alpha for outer iteration loop
     DO j = 1, npsi
        DO i = 1, nthe
@@ -260,17 +285,6 @@ MODULE ModScbEuler
           alfa(i,j,nzetap) = alfa(i,j,2) + 2._dp * pi_d
        END DO
     END DO
-
-    DO k = 2, nzeta
-       DO i = 2,nthe-1
-          CALL extap(alfa(i,npsi-3,k),alfa(i,npsi-2,k),alfa(i,npsi-1,k),alfa(i,npsi,k))
-          CALL extap(alfa(i,4,k),alfa(i,3,k),alfa(i,2,k),alfa(i,1,k))
-       ENDDO
-       !DO j = 1,npsi
-       !   CALL extap(alfa(nthe-3,j,k),alfa(nthe-2,j,k),alfa(nthe-1,j,k),alfa(nthe,j,k))
-       !   CALL extap(alfa(4,j,k),alfa(3,j,k),alfa(2,j,k),alfa(1,j,k))
-       !ENDDO
-    ENDDO
 
     DEALLOCATE(alfaPrev,resid)
     DEALLOCATE(ni,om)
@@ -385,7 +399,8 @@ MODULE ModScbEuler
   
     implicit none
   
-    INTEGER :: k, i, GSLerr, i1, i2
+    INTEGER :: k, i, j, GSLerr, i1, i2, ii, jj
+    REAL(DP) :: temp
     REAL(DP), ALLOCATABLE :: xOld(:), yOld(:), zOld(:), psiOld(:)
 
     ALLOCATE(xOld(npsi), yOld(npsi), zOld(npsi), psiOld(npsi))
@@ -397,6 +412,20 @@ MODULE ModScbEuler
           yOld(1:npsi) = y(i,1:npsi,k)
           zOld(1:npsi) = z(i,1:npsi,k)
           psiOld(1:npsi) = psi(i,1:npsi,k)
+          !do ii = 1, npsi
+          !   do jj = ii, npsi
+          !      if (psiOld(ii) > psiOld(jj)) then
+          !         temp = psiOld(jj)
+          !         psiOld(jj) = psiOld(ii)
+          !         psiOld(ii) = temp
+          !      endif
+          !   enddo
+          !enddo
+          !DO j = 2,npsi
+          !   if (psiOld(j).lt.psiOld(j-1)) then
+          !      psiOld(j) = psiOld(j-1)+1E-6
+          !   endif
+          !ENDDO
 
           i1 = 1 + psiChange
           i2 = npsi - psiChange
@@ -436,7 +465,7 @@ MODULE ModScbEuler
 
     use ModRamParams,    ONLY: verbose  
     USE ModScbMain,      ONLY: DP, nimax
-    use ModScbParams,    ONLY: InConPsi
+    use ModScbParams,    ONLY: InConPsi, psiChange, theChange
     USE ModScbGrids,     ONLY: nthe, nthem, npsi, npsim, nzeta, nzetap, na
     USE ModScbVariables, ONLY: nisave, sumb, sumdb, vecd, vec1, vec2, &
                                vec3, vec4, vec6, vec7, vec8, vec9, vecr, &
@@ -534,32 +563,31 @@ MODULE ModScbEuler
     sumb = SUM(ABS(psi(2:nthem,2:npsim,2:nzeta)))
     diffmx = maxval(abs(resid(2:nthem,2:npsi-1,2:nzeta)))
 
+    DO k = 2, nzeta
+       if (psiChange == 0) then
+          DO i = 2,nthe-1
+             CALL extap(psi(i,npsi-3,k),psi(i,npsi-2,k),psi(i,npsi-1,k),psi(i,npsi,k))
+             CALL extap(psi(i,4,k),psi(i,3,k),psi(i,2,k),psi(i,1,k))
+          ENDDO
+       endif
+       if (theChange == 0) then
+          DO j = 1,npsi
+             CALL extap(psi(nthe-3,j,k),psi(nthe-2,j,k),psi(nthe-1,j,k),psi(nthe,j,k))
+             CALL extap(psi(4,j,k),psi(3,j,k),psi(2,j,k),psi(1,j,k))
+          ENDDO
+       endif
+    ENDDO
+
     ! Set blend for outer iteration loop, and apply periodic boundary conditions
     DO j = 1, npsi
        DO i = 1, nthe
           DO k = 2,nzeta
              psi(i,j,k) = psi(i,j,k) * blendPsi + psival(j) * (1._dp - blendPsi)
-             !if ((j.gt.2).and.(psi(i,j,k).lt.psi(i,j-1,k))) then
-             !   psi(i,j,k) = psi(i,j-1,k) + 1E-6
-             !endif
           END DO
        END DO
     END DO
-
-    DO k = 2, nzeta
-       DO i = 2,nthe-1
-          CALL extap(psi(i,npsi-3,k),psi(i,npsi-2,k),psi(i,npsi-1,k),psi(i,npsi,k))
-          CALL extap(psi(i,4,k),psi(i,3,k),psi(i,2,k),psi(i,1,k))
-       ENDDO
-       !DO j = 1,npsi
-       !   CALL extap(psi(nthe-3,j,k),psi(nthe-2,j,k),psi(nthe-1,j,k),psi(nthe,j,k))
-       !   CALL extap(psi(4,j,k),psi(3,j,k),psi(2,j,k),psi(1,j,k))
-       !ENDDO
-    ENDDO
-
     psi(:,:,1) = psi(:,:,nzeta)
     psi(:,:,nzetap) = psi(:,:,2)
-
 
     IF (ALLOCATED(psiPrev)) DEALLOCATE(psiPrev)
     IF (ALLOCATED(resid)) DEALLOCATE(resid)

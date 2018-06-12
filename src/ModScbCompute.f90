@@ -425,6 +425,7 @@ MODULE ModScbCompute
 !==============================================================================
   SUBROUTINE computeBandJacob
     !!!! Module Variables
+    use ModRamParams,    ONLY: verbose
     USE ModScbGrids,     ONLY: nthe, npsi, nzeta
     use ModScbVariables, ONLY: x, y, z, bf, bsq, Bx, By, Bz, jacobian, SORFail, &
                                f, fzet, rhoVal,thetaVal, zetaVal, bfInitial, &
@@ -451,6 +452,16 @@ MODULE ModScbCompute
                     derivYTheta, derivYRho, derivYZeta, GSLerr)
     CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, z(1:nthe, 1:npsi, 1:nzeta), &
                     derivZTheta, derivZRho, derivZZeta, GSLerr)
+
+    derivXTheta(:,:,1) = derivXTheta(:,:,nzeta)
+    derivXRho(:,:,1)   = derivXRho(:,:,nzeta)
+    derivXZeta(:,:,1)  = derivXZeta(:,:,nzeta)
+    derivYTheta(:,:,1) = derivYTheta(:,:,nzeta)
+    derivYRho(:,:,1)   = derivYRho(:,:,nzeta)
+    derivYZeta(:,:,1)  = derivYZeta(:,:,nzeta)
+    derivZTheta(:,:,1) = derivZTheta(:,:,nzeta)
+    derivZRho(:,:,1)   = derivZRho(:,:,nzeta)
+    derivZZeta(:,:,1)  = derivZZeta(:,:,nzeta)
 
     jacobian = derivXRho   * (derivYZeta  * derivZTheta - derivYTheta * derivZZeta)  &
              + derivXZeta  * (derivYTheta * derivZRho   - derivYRho   * derivZTheta) &
@@ -489,11 +500,13 @@ MODULE ModScbCompute
              bfInitial(i,j,k) = SQRT(bsq(i,j,k))
              bf(i,j,k) = bfInitial(i,j,k)
              if (isnan(bf(i,j,k))) then
+                if (verbose) write(*,*) 'NaN Detected in ComputeBandJacob'
                 SORFail = .true.
+                return
              endif
-             IF (ABS(bsq(i,j,k)) < 1e-30_dp) THEN
-                SORFail = .true.
-             END IF
+             !IF (ABS(bsq(i,j,k)) < 1e-30_dp) THEN
+             !   SORFail = .true.
+             !END IF
           END DO
        END DO
     END DO
@@ -736,8 +749,8 @@ MODULE ModScbCompute
     !Jx = Jx * pjconst*6.4
     !Jy = Jy * pjconst*6.4
     !Jz = Jz * pjconst*6.4
-    jCrossB = jCrossB*bnormal*pjconst/(10**6)
-    GradP   = GradP*pnormal/(6.4E6)
+    jCrossB = jCrossB*bnormal*pjconst!/(1E6)
+    GradP   = GradP*pnormal/6.4!/(1E6)
     jCrossBMinusGradPMod = jCrossB-GradP
 
     normDiff = 0.0_dp
@@ -745,8 +758,8 @@ MODULE ModScbCompute
     normJxB  = 0.0_dp
     normGradP = 0.0_dp
     volume   = 0.0_dp
-    DO i = 5, nthe-4
-       DO j = 2, npsi
+    DO i = 2, nthe-1
+       DO j = 2, npsi-1
           DO k = 2, nzeta
              !IF (2.*pper(i,j,k) > 1.E-2*bsq(i,j,k)) THEN
                 ! In regions of low plasma beta, the pressure does not change the magnetic field
@@ -762,13 +775,16 @@ MODULE ModScbCompute
   
     ! Normalize to total computational volume
     normDiff = normDiff/volume
+    normDiffRel = normDiffRel/volume
     normJxB = normJxB/volume
     normGradP = normGradP/volume
-  
+ 
     !  Norms of |jxB-grad P|,      |jxB|,      |gradP| 
-    if (verbose) WRITE(*, *) normDiff, normJxB, normGradP, normJxB/normGradP, normGradP/normJxB
+    if (verbose) WRITE(*, *) sum(jCrossB(2:nthe-1,2:npsi-1,2:nzeta)/GradP(2:nthe-1,2:npsi-1,2:nzeta))/(npsi*nthe*nzeta), &
+                             maxval(abs(jCrossB(2:nthe-1,2:npsi-1,2:nzeta)/GradP(2:nthe-1,2:npsi-1,2:nzeta)))
+!normDiffRel, normDiff, normJxB, normGradP, normJxB/normGradP, normGradP/normJxB
     if (isnan(normDiff).or.isnan(normJxB).or.isnan(normGradP)) then
-     !call con_stop('NaN encountered in ModScbIO.write_convergence subroutine')
+     if (verbose) write(*,*) 'NaN detected in Compute_Convergence'
      SORFail = .true.
     endif
 

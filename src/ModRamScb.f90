@@ -178,10 +178,10 @@ Module ModRamScb
   
     use ModRamVariables, ONLY: FNHS, FNIS, BNES, HDNS, dBdt, &
                                dIdt, dIbndt, BOUNHS, BOUNIS, EIR, EIP, &
-                               LZ, MU, MLT, PAbn, PA, DL1
+                               LZ, MU, MLT, PAbn, PA, DL1, outsideMGNP
     use ModRamTiming,    ONLY: TimeRamElapsed, TOld
     use ModRamConst,     ONLY: b0dip
-    use ModRamParams,    ONLY: NameBoundMag
+    use ModRamParams,    ONLY: NameBoundMag, verbose, checkMGNP
     use ModRamGrids,     ONLY: nR, nT, nPa, radout
   
     use ModScbGrids,     ONLY: nthe, npsi, nzeta
@@ -237,42 +237,42 @@ Module ModRamScb
   
     integer, save :: i, k, L
     !$OMP THREADPRIVATE(i, k, L)
-  
+
+    ! Don't need to run if using Dipole magnetic field boundary
+    ! unless it is run from the initialization step
+    if ((NameBoundMag.eq.'DIPL').and.(iter.ne.0)) return
+
     clock_rate = 1000
     clock_max = 100000
     LMAX = 200
   
+    !!! Initialize Allocatable Arrays
     ALLOCATE(length(npsi,nzeta+1), r0(npsi,nzeta+1), BeqDip(npsi,nzeta+1))
-    length = 0.0; r0 = 0.0; BEqDip = 0.0
     ALLOCATE(distance(nthe,npsi,nzeta))
-    distance = 0.0
     ALLOCATe(H_value(npsi,nzeta,NPA), I_value(npsi,nzeta,NPA), HDens_value(npsi,nzeta,NPA), &
              yI(npsi,nzeta,NPA), yH(npsi,nzeta,NPA), yD(npsi,nzeta,NPA), bfmirror(npsi,nzeta,NPA))
-    H_value = 0.0; I_value = 0.0; HDens_Value = 0.0; yI = 0.0; yH = 0.0; yD = 0.0
-    bfMirror = 0.0
     ALLOCATE(BeqDip_Cart(nR))
-    BEqDip_Cart = 0.0
     ALLOCATE(ScaleAt(nT))
-    ScaleAt = 0
     ALLOCATE(bfMirror_RAM(nPa), yI_RAM(nPA), yH_RAM(nPA), yD_RAM(nPA))
-    bfMirror_RAM = 0.0; yI_RAM = 0.0; yH_RAM = 0.0; yD_RAM = 0.0
     ALLOCATE(bbx(nthe), bby(nthe), bbz(nthe), bb(nthe), dd(nthe), cVal(nthe), &
              xx(nthe), yy(nthe), zz(nthe))
-    bbx = 0.0; bby = 0.0; bbz = 0.0; bb = 0.0; dd = 0.0; cVal = 0.0
-    xx = 0.0; yy = 0.0; zz = 0.0
     ALLOCATE(BzeqDiff_Cart(nR,nT))
-    BzEqDiff_Cart = 0.0
     ALLOCATE(BNESPrev(nR+1,nT))
-    BNESPrev = 0.0
     ALLOCATE(FNISPrev(nR+1,nT,nPa),BOUNISPrev(nR+1,nT,nPa))
-    FNISPrev = 0.0; BOUNISPrev = 0.0
-  
+    length = 0._dp; r0 = 0._dp; BEqDip = 0._dp; distance = 0._dp
+    H_value = 0._dp; I_value = 0._dp; HDens_Value = 0._dp; yI = 0._dp; yH = 0._dp; yD = 0._dp
+    bfMirror = 0._dp; BEqDip_Cart = 0._dp; bfMirror_RAM = 0._dp; yI_RAM = 0._dp
+    yH_RAM = 0._dp; yD_RAM = 0._dp; bbx = 0._dp; bby = 0._dp; bbz = 0._dp; bb = 0._dp
+    dd = 0._dp; cVal = 0._dp; xx = 0._dp; yy = 0._dp; zz = 0._dp; BzEqDiff_Cart = 0._dp
+    BNESPrev = 0._dp; FNISPrev = 0._dp; BOUNISPrev = 0._dp
+    ScaleAt = 0
+    !!!
+
     h_Cart = 0._dp
     I_Cart = 0._dp
     bZEq_Cart = 0._dp
     flux_vol_Cart = 0._dp
-    bZEqDiff_Cart = 0._dp
-  
+    bZEqDiff_Cart = 0._dp  
     h_value = 0._dp
     hdens_value = 0._dp
     I_value = 0._dp
@@ -286,9 +286,6 @@ Module ModRamScb
   
     Operational_or_research: SELECT CASE (NameBoundMag)
     CASE('DIPL') ! Dipole without SCB calculation
-       ! If this is the first iteration we need to populate the h and I integrals
-       if (iter.ne.0) return
-  
        ! Start RAM Timing
        call system_clock(time1,clock_rate,clock_max)
        starttime=time1/real(clock_rate,dp)
@@ -361,58 +358,10 @@ Module ModRamScb
   
        ! Make sure all H and I integrals have been filled in correctly
        IF (MINVAL(h_Cart) < 0._dp .OR. MINVAL(I_Cart)<0._dp) THEN
-          PRINT*, 'computehI: minval(h) = ', MINVAL(h_Cart)
-          PRINT*, 'computehI: minval(I) = ', MINVAL(I_Cart)
+          if (verbose) PRINT*, 'computehI: minval(h) = ', MINVAL(h_Cart)
+          if (verbose) PRINT*, 'computehI: minval(I) = ', MINVAL(I_Cart)
           !   STOP
        END IF
-  
-       DO I=2,NR+1
-          DO J=1,NT
-             DO L=1,NPA
-                ! SCB Variables -> RAM Variables
-                FNHS(I,J,L)   = h_Cart(I-1,J,L)
-                FNIS(I,J,L)   = i_Cart(I-1,J,L)
-                BNES(I,J)     = bZEq_Cart(I-1,J)
-                HDNS(I,J,L)   = hdens_Cart(I-1,J,L)
-                BOUNHS(I,J,L) = h_Cart_interp(I-1,J,L)
-                BOUNIS(I,J,L) = i_Cart_interp(I-1,J,L)
-                !
-                dIdt(I,J,L)   = 0._dp
-                dIbndt(I,J,L) = 0._dp
-             ENDDO
-             IF (J.LT.8.or.J.GT.18) THEN
-                DO L=15,2,-1
-                   if (FNHS(I,J,L-1).gt.FNHS(I,J,L)) then
-                      FNHS(I,J,L-1)=0.99*FNHS(I,J,L)
-                   endif
-                ENDDO
-             ENDIF
-             BNES(I,J)=BNES(I,J)/1e9 ! to convert in [T]
-             dBdt(I,J) = 0._dp
-          ENDDO
-       ENDDO
-       DO J=1,NT ! use dipole B at I=1
-          BNES(1,J)=0.32/LZ(1)**3/1.e4
-          dBdt(1,J) = 0.
-          EIR(1,J) = 0.
-          EIP(1,J) = 0.
-          DO L=1,NPA
-             FNHS(1,J,L) = FUNT(MU(L))
-             FNIS(1,J,L) = FUNI(MU(L))
-             BOUNHS(1,J,L)=FUNT(COSD(PAbn(L)))
-             BOUNIS(1,J,L)=FUNI(COSD(PAbn(L)))
-             HDNS(1,J,L)=HDNS(2,J,L)
-             dIdt(1,J,L)=0.
-             dIbndt(1,J,L)=0.
-          ENDDO
-       ENDDO
-  
-       DEALLOCATE(length,r0,BeqDip,distance,H_value,I_value,HDens_value,yI,yH,yD, &
-                  bfmirror,BeqDip_Cart,bfMirror_RAM,yI_RAM,yH_RAM,yD_RAM,bbx,bby, &
-                  bbz,bb,dd,cVal,xx,yy,zz,BzeqDiff_Cart,BNESPrev,FNISPrev,ScaleAt,&
-                  BOUNISPrev)
-  
-       RETURN 
   
     CASE default  ! Regular calculation of h, I, bounce-averaged charge xchange etc.
   !!!!! BEGIN SCB INTEGRAl CALCULATION
@@ -492,6 +441,7 @@ Module ModRamScb
        beqdip_Cart(1:nR) = b0dip/radRaw(1:nR)**3
   
        ! Loop over RAM grid
+       outsideMGNP = 0
        do j = 1,nT
           do i = 1,nR
              xo = radRaw(i) * COS(azimRaw(j)*2._dp*pi_d/24._dp - pi_d)
@@ -534,11 +484,13 @@ Module ModRamScb
                 Pdyn = PARMOD(1)
                 BzIMF = PARMOD(4)
                 call SHUETAL_MGNP_08(PDyn,-1.0_dp,BzIMF,xo,yo,0.0_dp,XMGNP,YMGNP,ZMGNP,DIST,ID)
-                if ((ID.lt.0).or.(DIST.lt.DL1)) then
-                   bZEq_Cart(i,j) = -1.0
-                   I_cart(i,j,:) = 1.0
-                   H_cart(i,j,:) = 1.0
-                   HDens_cart(i,j,:) = 1.0
+                if ((CheckMGNP).and.((ID.lt.0).or.(DIST.lt.DL1))) then
+                   if (verbose) write(*,*) 'Point outside magnetopause', xo, yo, DIST
+                   outsideMGNP(i,j) = 1
+                   bZEq_Cart(i,j) = bZEq_Cart(i-1,j)
+                   I_cart(i,j,:) = I_cart(i-1,j,:)
+                   H_cart(i,j,:) = H_cart(i-1,j,:)
+                   HDens_cart(i,j,:) = HDens_Cart(i-1,j,:)
                 else
                    ! Calculate h and I at RAM grid point
                    !! Get equatorial point
@@ -665,9 +617,9 @@ Module ModRamScb
        ! Make sure all H and I integrals have been filled in correctly
        !! First Check for Negatives
        IF (MINVAL(h_Cart) < 0._dp .OR. MINVAL(I_Cart)<0._dp .OR. MINVAL(HDens_Cart)<0._dp) THEN
-          PRINT*, 'computehI: minval(h) = ', MINVAL(h_Cart), minloc(H_Cart)
-          PRINT*, 'computehI: minval(I) = ', MINVAL(I_Cart), minloc(I_Cart)
-          print*, 'computehI: minval(D) = ', MINVAL(HDens_Cart), minloc(HDens_Cart)
+          if (verbose) PRINT*, 'computehI: minval(h) = ', MINVAL(h_Cart), minloc(H_Cart)
+          if (verbose) PRINT*, 'computehI: minval(I) = ', MINVAL(I_Cart), minloc(I_Cart)
+          if (verbose) print*, 'computehI: minval(D) = ', MINVAL(HDens_Cart), minloc(HDens_Cart)
           do j = 1, nT
              do i = 2, nR
                 do L = 1, nPa
@@ -677,14 +629,14 @@ Module ModRamScb
                 enddo
              enddo
           enddo
-          PRINT*, 'computehI: minval(h) = ', MINVAL(h_Cart), minloc(H_Cart)
-          PRINT*, 'computehI: minval(I) = ', MINVAL(I_Cart), minloc(I_Cart)
-          print*, 'computehI: minval(D) = ', MINVAL(HDens_Cart), minloc(HDens_Cart)
+          if (verbose) PRINT*, 'computehI: minval(h) = ', MINVAL(h_Cart), minloc(H_Cart)
+          if (verbose) PRINT*, 'computehI: minval(I) = ', MINVAL(I_Cart), minloc(I_Cart)
+          if (verbose) print*, 'computehI: minval(D) = ', MINVAL(HDens_Cart), minloc(HDens_Cart)
        END IF
        !! Now check for bad integrals
        IF (MAXVAL(h_Cart) > 3._dp) THEN
-          PRINT*, 'computehI: maxval(h) = ', MAXVAL(h_Cart), maxloc(H_Cart)
-          PRINT*, 'computehI: maxval(I) = ', MAXVAL(I_Cart), maxloc(I_Cart)
+          if (verbose) PRINT*, 'computehI: maxval(h) = ', MAXVAL(h_Cart), maxloc(H_Cart)
+          if (verbose) PRINT*, 'computehI: maxval(I) = ', MAXVAL(I_Cart), maxloc(I_Cart)
           do j = 1, nT
              do i = 1, nR
                 do L = 2, nPa
@@ -703,12 +655,12 @@ Module ModRamScb
              CALL GSL_Interpolation_1D('Cubic',PA(NPA:1:-1),h_Cart(i,j,NPA:1:-1),&
                                        PAbn(NPA-1:2:-1),h_Cart_interp(i,j,NPA-1:2:-1),GSLerr)
              if (GSLerr.ne.0) then
-                write(*,*) "  ModRamScb: Issue calculating BOUNHS; i,j = ", i, j
+                if (verbose) write(*,*) "  ModRamScb: Issue calculating BOUNHS; i,j = ", i, j
              endif
              CALL GSL_Interpolation_1D('Cubic',PA(NPA:1:-1),I_Cart(i,j,NPA:1:-1),&
                                        PAbn(NPA-1:2:-1),I_Cart_interp(i,j,NPA-1:2:-1),GSLerr)
              if (GSLerr.ne.0) then
-                write(*,*) "  ModRamScb: Issue calculating BOUNIS; i,j = ", i, j
+                if (verbose) write(*,*) "  ModRamScb: Issue calculating BOUNIS; i,j = ", i, j
              endif
              ! Do not do the NPA inclusive in the not-a-knot interpolation above -> can lead to negative h,I(NPA)
              h_Cart_interp(i,j,NPA) = h_Cart_interp(i,j,NPA-1)
@@ -717,82 +669,70 @@ Module ModRamScb
              I_Cart_interp(i,j,1) = I_Cart_interp(i,j,2)
           END DO
        END DO
-  
-       ! Update h and I values for RAM (note that the output of the hI files
-       ! now uses RAM variables so the numbers will be different
-       DthI = TimeRamElapsed-TOld
-       DO I=2,NR+1
-          DO J=1,NT
-             BNESPrev(I,J)=BNES(I,J)
-             if (bZEq_Cart(I-1,J).lt.0) then
-                FNIS(I-1,J,:) = -1.0
-                FNHS(I-1,J,:) = -1.0
-                HDNS(I-1,J,:) = -1.0
-                BOUNHS(I-1,J,:) = -1.0
-                BOUNIS(I-1,J,:) = -1.0
-                dIdt(I,J,:) = -1.0
-                dIbndt(I,J,:) = -1.0
-                BNES(I,J) = -1.0
-                dBdt(I,J) = -1.0
+ 
+    END SELECT Operational_or_research
+ 
+    ! Update h and I values for RAM (note that the output of the hI files
+    ! now uses RAM variables so the numbers will be different
+    DthI = TimeRamElapsed-TOld
+    DO I=2,NR+1
+       DO J=1,NT
+          BNESPrev(I,J)=BNES(I,J)
+          DO L=1,NPA
+             FNISPrev(I,J,L)=FNIS(I,J,L)
+             BOUNISPrev(I,J,L)=BOUNIS(I,J,L)
+             ! SCB Variables -> RAM Variables
+             FNHS(I,J,L)   = h_Cart(I-1,J,L)
+             FNIS(I,J,L)   = i_Cart(I-1,J,L)
+             BNES(I,J)     = bZEq_Cart(I-1,J)
+             HDNS(I,J,L)   = hdens_Cart(I-1,J,L)
+             BOUNHS(I,J,L) = h_Cart_interp(I-1,J,L)
+             BOUNIS(I,J,L) = i_Cart_interp(I-1,J,L)
+             !
+             if (abs(DthI).le.1e-9) then
+                dIdt(I,J,L)   = 0._dp
+                dIbndt(I,J,L) = 0._dp
              else
-                DO L=1,NPA
-                   FNISPrev(I,J,L)=FNIS(I,J,L)
-                   BOUNISPrev(I,J,L)=BOUNIS(I,J,L)
-                   ! SCB Variables -> RAM Variables
-                   FNHS(I,J,L)   = h_Cart(I-1,J,L)
-                   FNIS(I,J,L)   = i_Cart(I-1,J,L)
-                   BNES(I,J)     = bZEq_Cart(I-1,J)
-                   HDNS(I,J,L)   = hdens_Cart(I-1,J,L)
-                   BOUNHS(I,J,L) = h_Cart_interp(I-1,J,L)
-                   BOUNIS(I,J,L) = i_Cart_interp(I-1,J,L)
-                   !
-                   if ((abs(DthI).le.1e-9).or.(FNISPrev(I,J,L).lt.0)) then
-                      dIdt(I,J,L)   = 0._dp
-                      dIbndt(I,J,L) = 0._dp
-                   else
-                      dIdt(I,J,L)   = (FNIS(I,J,L)-FNISPrev(I,J,L))/DThI
-                      dIbndt(I,J,L) = (BOUNIS(I,J,L)-BOUNISPrev(I,J,L))/DThI
-                   endif
-                ENDDO
-                IF (J.LT.8.or.J.GT.18) THEN
-                   DO L=15,2,-1
-                      if (FNHS(I,J,L-1).gt.FNHS(I,J,L)) then
-                         FNHS(I,J,L-1)=0.99*FNHS(I,J,L)
-                      endif
-                   ENDDO
-                ENDIF
-                BNES(I,J)=BNES(I,J)/1e9 ! to convert in [T]
-                if ((abs(DthI).le.1e-9).or.(BNESPrev(I,J).lt.0)) then
-                   dBdt(I,J) = 0._dp
-                else
-                   dBdt(I,J) = (BNES(I,J)-BNESPrev(I,J))/DThI
-                endif
+                dIdt(I,J,L)   = (FNIS(I,J,L)-FNISPrev(I,J,L))/DThI
+                dIbndt(I,J,L) = (BOUNIS(I,J,L)-BOUNISPrev(I,J,L))/DThI
              endif
           ENDDO
+          IF (J.LT.8.or.J.GT.18) THEN
+             DO L=15,2,-1
+                if (FNHS(I,J,L-1).gt.FNHS(I,J,L)) then
+                   FNHS(I,J,L-1)=0.99*FNHS(I,J,L)
+                endif
+             ENDDO
+          ENDIF
+          BNES(I,J)=BNES(I,J)/1e9 ! to convert in [T]
+          if (abs(DthI).le.1e-9) then
+             dBdt(I,J) = 0._dp
+          else
+             dBdt(I,J) = (BNES(I,J)-BNESPrev(I,J))/DThI
+          endif
        ENDDO
-       DO J=1,NT ! use dipole B at I=1
-          BNES(1,J)=0.32/LZ(1)**3/1.e4
-          dBdt(1,J) = 0.
-          EIR(1,J) = 0.
-          EIP(1,J) = 0.
-          DO L=1,NPA
-             FNHS(1,J,L) = FUNT(MU(L))
-             FNIS(1,J,L) = FUNI(MU(L))
-             BOUNHS(1,J,L)=FUNT(COSD(PAbn(L)))
-             BOUNIS(1,J,L)=FUNI(COSD(PAbn(L)))
-             HDNS(1,J,L)=HDNS(2,J,L)
-             dIdt(1,J,L)=0.
-             dIbndt(1,J,L)=0.
-          ENDDO
+    ENDDO
+    DO J=1,NT ! use dipole B at I=1
+       BNES(1,J)=0.32/LZ(1)**3/1.e4
+       dBdt(1,J) = 0._dp
+       EIR(1,J) = 0._dp
+       EIP(1,J) = 0._dp
+       DO L=1,NPA
+          FNHS(1,J,L) = FUNT(MU(L))
+          FNIS(1,J,L) = FUNI(MU(L))
+          BOUNHS(1,J,L)=FUNT(COSD(PAbn(L)))
+          BOUNIS(1,J,L)=FUNI(COSD(PAbn(L)))
+          HDNS(1,J,L)=HDNS(2,J,L)
+          dIdt(1,J,L)=0._dp
+          dIbndt(1,J,L)=0._dp
        ENDDO
-       TOld = TimeRamElapsed
-  
-       DEALLOCATE(length,r0,BeqDip,distance,H_value,I_value,HDens_value,yI,yH,yD, &
-                  bfmirror,BeqDip_Cart,bfMirror_RAM,yI_RAM,yH_RAM,yD_RAM,bbx,bby, &
-                  bbz,bb,dd,cVal,xx,yy,zz,BzeqDiff_Cart,BNESPrev,FNISPrev,ScaleAt,&
-                  BOUNISPrev)
-  
-    END SELECT Operational_or_research
+    ENDDO
+    TOld = TimeRamElapsed
+
+    DEALLOCATE(length,r0,BeqDip,distance,H_value,I_value,HDens_value,yI,yH,yD, &
+               bfmirror,BeqDip_Cart,bfMirror_RAM,yI_RAM,yH_RAM,yD_RAM,bbx,bby, &
+               bbz,bb,dd,cVal,xx,yy,zz,BzeqDiff_Cart,BNESPrev,FNISPrev,ScaleAt,&
+               BOUNISPrev)
   
     RETURN
   

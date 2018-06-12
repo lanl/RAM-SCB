@@ -247,7 +247,7 @@ subroutine read_geomlt_file(NameParticle)
         write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a)') trim(BoundaryPath)//'/', &
               TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay, &
               '_ptm_', NameParticle, '_geomlt_5-min.txt'
-     case('QDMKP')
+     case('QDKP')
         write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a)') trim(BoundaryPath)//'/', &
               TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay, &
               '_qdm-kp_', NameParticle, '_geomlt_5-min.txt'

@@ -80,6 +80,9 @@ subroutine IM_set_parameters
      case('#USERAM')
         call read_var('DoUseRAM', DoUseRAM)
 
+     case('#CHECK_MAGNETOPAUSE')
+        checkMGNP = .true.
+
      case('#USEPLANE')
         call read_var('DoUsePlane_SCB', DoUsePlane_SCB)
 
@@ -116,15 +119,22 @@ subroutine IM_set_parameters
      case('#RESET')
         reset=.true.
 
+     case('#SCB_FIELD')
+        call read_var('constZ',constZ)
+        call read_var('constTheta', constTheta)
+
+     case('#SCB_CONVERGENCE')
+        call read_var('ConvergenceDistance',convergence)
+
      case('#SCBSMOOTHING')
         call read_var('PressureSmoothing', iSm2)
         call read_var('SavitzkyGolayIterations', SavGolIters)
 
      case('#SCBBOUNDARY')
         call read_var('FixedOuterShell', TempLogical)
-        if (.not.TempLogical) psiChange = 0
+        if (TempLogical) psiChange = 1
         call read_var('FixedFootPoints', TempLogical)
-        if (.not.TempLogical) theChange = 0
+        if (TempLogical) theChange = 1
 
      case('#SCBSETTINGS')
         call read_var('MinSCBIterations', MinSCBIterations)
@@ -389,10 +399,10 @@ subroutine IM_set_parameters
   case('PTM')
      NEL = 36
      NTL = 25
-  case('QDMKP')
+  case('QDKP')
      NEL = 36
      NTL = 25
-  case('QDMVBZ')
+  case('QDBZ')
      NEL = 36
      NTL = 25
   case default

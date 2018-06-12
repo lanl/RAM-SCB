@@ -98,7 +98,7 @@ MODULE ModRamDrift
     use ModRamTiming,    ONLY: Dts
     use ModRamParams,    ONLY: BetaLim
     use ModRamVariables, ONLY: F2, BNES, FNIS, FNHS, MDR, EKEV, GREL, DPHI, &
-                               RLZ, CONF1, CONF2, FGEOS, VT, EIP
+                               RLZ, CONF1, CONF2, FGEOS, VT, EIP, outsideMGNP
 
     implicit none
 
@@ -133,20 +133,18 @@ MODULE ModRamDrift
              J1=J+1
              IF (J.EQ.NT) J1=2
              DO I=1,NR
-                if ((FNIS(I,J0,L).ge.0).or.(FNIS(I+1,J0,L).ge.0).or. &
-                   (FNIS(I,J1,L).ge.0).or.(FNIS(I+1,J1,L).ge.0).or. &
-                   (FNIS(I,J,L).ge.0).or.(FNIS(I+1,J,L).ge.0)) then
-                   CGR1=FNIS(I+1,J1,L)+FNIS(I,J1,L)-FNIS(I+1,J0,L)-FNIS(I,J0,L)
-                   CGR2=BNES(I+1,J1)+BNES(I,J1)-BNES(I+1,J0)-BNES(I,J0)
-                   CGR3=CGR1+(FNIS(I+1,J,L)+FNIS(I,J,L)-2*FNHS(I+1,J,L) &
-                        -2*FNHS(I,J,L))*CGR2/2./(BNES(I+1,J)+BNES(I,J))
-                   CGR=CGR3/(FNHS(I,J,L)+FNHS(I+1,J,L))*P4/2./(BNES(I,J)+BNES(I+1,J))/(RLZ(I)+0.5*MDR)
-                   CDriftR(I,J,K,L)=CR(I,J)+CGR
+                CGR1=FNIS(I+1,J1,L)+FNIS(I,J1,L)-FNIS(I+1,J0,L)-FNIS(I,J0,L)
+                CGR2=BNES(I+1,J1)+BNES(I,J1)-BNES(I+1,J0)-BNES(I,J0)
+                CGR3=CGR1+(FNIS(I+1,J,L)+FNIS(I,J,L)-2*FNHS(I+1,J,L) &
+                     -2*FNHS(I,J,L))*CGR2/2./(BNES(I+1,J)+BNES(I,J))
+                CGR=CGR3/(FNHS(I,J,L)+FNHS(I+1,J,L))*P4/2./(BNES(I,J)+BNES(I+1,J))/(RLZ(I)+0.5*MDR)
+                CDriftR(I,J,K,L)=CR(I,J)+CGR
+                if (outsideMGNP(i,j) == 0) then
                    ctemp = max(abs(CDriftR(I,J,K,L)),1E-10)
                    DTDriftR(S) = min( DTDriftR(S), FracCFL*DTs/ctemp)
-                   sgn(i,j) = 1
-                   if (CDriftR(I,J,K,L).lt.0) sgn(i,j) = -1
                 endif
+                sgn(i,j) = 1
+                if (CDriftR(I,J,K,L).lt.0) sgn(i,j) = -1
              END DO
              IF (sgn(nR,j).EQ.1) THEN
                 FBND(1)=0.
@@ -155,8 +153,13 @@ MODULE ModRamDrift
              ELSE
                 FBND(1)=F(2)
                 UR=NR
-                F(NR+1)=FGEOS(S,J,K,L)*CONF1*max(FNHS(NR,J,L),0.0)
-                F(NR+2)=FGEOS(S,J,K,L)*CONF2*max(FNHS(NR,J,L),0.0)
+                if (outsideMGNP(nR,j) == 1) then
+                   F(nR+1) = 0._dp
+                   F(nR+2) = 0._dp
+                else
+                   F(NR+1)=FGEOS(S,J,K,L)*CONF1*FNHS(NR,J,L)
+                   F(NR+2)=FGEOS(S,J,K,L)*CONF2*FNHS(NR,J,L)
+                endif
              END IF
              DO I=2,UR
                 X=F(I+1)-F(I)
@@ -175,15 +178,9 @@ MODULE ModRamDrift
              END DO
              ! update the solution for next time step
              DO I=2,NR
-                if ((FNIS(I,J0,L).ge.0).or.(FNIS(I+1,J0,L).ge.0).or. &
-                   (FNIS(I,J1,L).ge.0).or.(FNIS(I+1,J1,L).ge.0).or. &
-                   (FNIS(I,J,L).ge.0).or.(FNIS(I+1,J,L).ge.0)) then
-                   F2(S,I,J,K,L)=F2(S,I,J,K,L)-CDriftR(I,J,K,L)*FBND(I)+CDriftR(I-1,J,K,L)*FBND(I-1)
-                   if (f2(s,i,j,k,l).lt.0) then
-                      f2(S,i,j,k,l)=1E-15
-                   endif
-                else
-                   F2(S,I,J,K,L) = 0.0
+                F2(S,I,J,K,L)=F2(S,I,J,K,L)-CDriftR(I,J,K,L)*FBND(I)+CDriftR(I-1,J,K,L)*FBND(I-1)
+                if (f2(s,i,j,k,l).lt.0) then
+                   f2(S,i,j,k,l)=1E-15
                 endif
              END DO
           END DO
@@ -204,7 +201,8 @@ MODULE ModRamDrift
     use ModRamParams,    ONLY: BetaLim
     use ModRamGrids,     ONLY: NR, NT, NE, NPA
     use ModRamTiming,    ONLY: Dts
-    use ModRamVariables, ONLY: F2, FNIS, FNHS, BNES, VT, EIR, RLZ, MDR, DPHI
+    use ModRamVariables, ONLY: F2, FNIS, FNHS, BNES, VT, EIR, RLZ, MDR, DPHI, &
+                               outsideMGNP
 
     implicit none
 
@@ -225,51 +223,43 @@ MODULE ModRamDrift
              DO J=2,NT
                 J1=J+1
                 IF (J.EQ.NT) J1=2
-                if ((FNIS(I-1,J,L).ge.0).or.(FNIS(I-1,J1,L).ge.0).or. &
-                   (FNIS(I,J1,L).ge.0).or.(FNIS(I+1,J1,L).ge.0).or. &
-                   (FNIS(I,J,L).ge.0).or.(FNIS(I+1,J,L).ge.0)) then
-                   GPA1 = FNIS(I,J,L)+FNIS(I,J1,L)+(FNIS(I+1,J1,L)+FNIS(I+1,J,L)-FNIS(I-1,J,L) &
-                         -FNIS(I-1,J1,L))*RLZ(I)/2./MDR
-                   GPA2 = RLZ(I)/4./MDR*(FNIS(I,J,L)+FNIS(I,J1,L)-2*FNHS(I,J,L)-2*FNHS(I,J1,L)) &
-                         *(BNES(I+1,J1)+BNES(I+1,J)-BNES(I-1,J)-BNES(I-1,J1))/(BNES(I,J)+BNES(I,J1))
-                   CDriftP(I,J,K,L) = ((VT(I+1,J)+VT(I+1,J1)-VT(I-1,J)-VT(I-1,J1))*P1(I) &
-                                     -P2(I,K)*(GPA1+GPA2)/(FNHS(I,J,L)+FNHS(I,J1,L)) &
-                                     -(EIR(I,J1)+EIR(I,J))/RLZ(I)*DTs/DPHI)/(BNES(I,J) &
-                                     +BNES(I,J1))+OME*DTs/DPHI
+                GPA1 = FNIS(I,J,L)+FNIS(I,J1,L)+(FNIS(I+1,J1,L)+FNIS(I+1,J,L)-FNIS(I-1,J,L) &
+                      -FNIS(I-1,J1,L))*RLZ(I)/2./MDR
+                GPA2 = RLZ(I)/4./MDR*(FNIS(I,J,L)+FNIS(I,J1,L)-2*FNHS(I,J,L)-2*FNHS(I,J1,L)) &
+                      *(BNES(I+1,J1)+BNES(I+1,J)-BNES(I-1,J)-BNES(I-1,J1))/(BNES(I,J)+BNES(I,J1))
+                CDriftP(I,J,K,L) = ((VT(I+1,J)+VT(I+1,J1)-VT(I-1,J)-VT(I-1,J1))*P1(I) &
+                                  -P2(I,K)*(GPA1+GPA2)/(FNHS(I,J,L)+FNHS(I,J1,L)) &
+                                  -(EIR(I,J1)+EIR(I,J))/RLZ(I)*DTs/DPHI)/(BNES(I,J) &
+                                  +BNES(I,J1))+OME*DTs/DPHI
+                if (outsideMGNP(i,j) == 0) then
                    ctemp = max(abs(CDriftP(I,J,K,L)),1E-10)
                    DtDriftP(S) = min(DtDriftP(S), FracCFL*DTs/ctemp)
-                   sgn = 1
-                   if (CDriftP(I,J,K,L).lt.0) sgn = -1
-                   X=F(J1)-F(J)
-                   FUP=0.5*(F(J)+F(J1)-sgn*X)
-                   IF (ABS(X).LE.1.E-27) FBND(J)=FUP
-                   IF (ABS(X).GT.1.E-27) THEN
-                      N=J+1-sgn
-                      IF (N.GT.NT) N=N-NT+1
-                      R=(F(N)-F(N-1))/X
-                      IF (R.LE.0) FBND(J)=FUP
-                      IF (R.GT.0) THEN
-                         LIMITER=MAX(MIN(BetaLim*R,1.),MIN(R,BetaLim))
-                         CORR=-0.5*(CDriftP(I,J,K,L)-sgn)*X
-                         FBND(J)=FUP+LIMITER*CORR
-                      END IF
-                   END IF
                 endif
+                sgn = 1
+                if (CDriftP(I,J,K,L).lt.0) sgn = -1
+                X=F(J1)-F(J)
+                FUP=0.5*(F(J)+F(J1)-sgn*X)
+                IF (ABS(X).LE.1.E-27) FBND(J)=FUP
+                IF (ABS(X).GT.1.E-27) THEN
+                   N=J+1-sgn
+                   IF (N.GT.NT) N=N-NT+1
+                   R=(F(N)-F(N-1))/X
+                   IF (R.LE.0) FBND(J)=FUP
+                   IF (R.GT.0) THEN
+                      LIMITER=MAX(MIN(BetaLim*R,1.),MIN(R,BetaLim))
+                      CORR=-0.5*(CDriftP(I,J,K,L)-sgn)*X
+                      FBND(J)=FUP+LIMITER*CORR
+                   END IF
+                END IF
              END DO
              CDriftP(I,1,K,L)=CDriftP(I,NT,K,L)
              FBND(1)=FBND(NT)
              DO J=2,NT
                 J1=J+1
                 IF (J.EQ.NT) J1=2
-                if ((FNIS(I-1,J,L).ge.0).or.(FNIS(I-1,J1,L).ge.0).or. &
-                   (FNIS(I,J1,L).ge.0).or.(FNIS(I+1,J1,L).ge.0).or. &
-                   (FNIS(I,J,L).ge.0).or.(FNIS(I+1,J,L).ge.0)) then
-                   F2(S,I,J,K,L)=F2(S,I,J,K,L)-CDriftP(I,J,K,L)*FBND(J)+CDriftP(I,J-1,K,L)*FBND(J-1)
-                   if (f2(s,i,j,k,l).lt.0) then
-                      f2(S,i,j,k,l)=1E-15
-                   endif
-                else
-                   F2(S,I,J,K,L) = 0.0
+                F2(S,I,J,K,L)=F2(S,I,J,K,L)-CDriftP(I,J,K,L)*FBND(J)+CDriftP(I,J-1,K,L)*FBND(J-1)
+                if (f2(s,i,j,k,l).lt.0) then
+                   f2(S,i,j,k,l)=1E-15
                 endif
              END DO
              F2(S,I,1,K,L)=F2(S,I,NT,K,L)
@@ -293,7 +283,8 @@ MODULE ModRamDrift
     use ModRamGrids,     ONLY: NR, NT, NE, NPA, nS
     use ModRamTiming,    ONLY: Dts
     use ModRamVariables, ONLY: F2, BNES, FNIS, FNHS, dBdt, dIdt, EKEV, WE, RMAS, &
-                               DPHI, RLZ, MDR, EBND, GREL, GRBND, DE, VT, EIR, EIP
+                               DPHI, RLZ, MDR, EBND, GREL, GRBND, DE, VT, EIR, &
+                               EIP, outsideMGNP
 
     implicit none
 
@@ -324,56 +315,52 @@ MODULE ModRamDrift
           DRD1=(EIP(I,J)*RLZ(I)-(VT(I,J2)-VT(I,J0))/2./DPHI)/BNES(I,J)
           DPD1=OME*RLZ(I)+((VT(I+1,J)-VT(I-1,J))/2/MDR-EIR(I,J))/BNES(I,J)
           DO L=2,NPA
-             if ((FNIS(I,J0,L).ge.0).or.(FNIS(I+1,J0,L).ge.0).or.(FNIS(I-1,J0,L).ge.0).or. &
-                (FNIS(I,J2,L).ge.0).or.(FNIS(I+1,J2,L).ge.0).or.(FNIS(I-1,J2,L).ge.0).or. &
-                (FNIS(I,J,L).ge.0).or.(FNIS(I+1,J,L).ge.0).or.(FNIS(I-1,J,L).ge.0)) then
-                GPA  = (1.-FNIS(I,J,L)/2./FNHS(I,J,L))/BNES(I,J)
-                GPR1 = GPA*(BNES(I+1,J)-BNES(I-1,J))/2./MDR
-                GPR2 = -FNIS(I,J,L)/FNHS(I,J,L)/RLZ(I)
-                GPR3 = -(FNIS(I+1,J,L)-FNIS(I-1,J,L))/2./MDR/FNHS(I,J,L)
-                GPP1 = GPA*(BNES(I,J2)-BNES(I,J0))/2./DPHI
-                GPP2 = -(FNIS(I,J2,L)-FNIS(I,J0,L))/2./DPHI/FNHS(I,J,L)
-                DRD2 = (FNIS(I,J2,L)-FNIS(I,J0,L))/2./DPHI &
-                      +(FNIS(I,J,L)-2*FNHS(I,J,L))*(BNES(I,J2)-BNES(I,J0))/4/BNES(I,J)/DPHI
-                DPD2 = FNIS(I,J,L)+(FNIS(I+1,J,L)-FNIS(I-1,J,L))*RLZ(I)/2/MDR &
-                      +RLZ(I)*(FNIS(I,J,L)-2*FNHS(I,J,L))/4/MDR*(BNES(I+1,J)-BNES(I-1,J))/BNES(I,J)
-                F(1:NE) = F2(S,I,J,:,L)
-                F(1) = F(2)*GREL(S,1)/GREL(S,2)*SQRT((GREL(S,2)**2-1)/(GREL(S,1)**2-1))
-                F(0) = F(1)*GRZERO(S)/GREL(S,1)*SQRT((GREL(S,1)**2-1)/(GRZERO(S)**2-1))
-                DO K=1,NE
-                   EDT1  = EBND(K)*1e3*(GRBND(S,K)+1)/2/GRBND(S,K)/FNHS(I,J,L)/RLZ(I)/BNES(I,J)/QS
-                   DRDT  = DRD1+EDT1*DRD2*RLZ(I)
-                   DPDT  = DPD1-EDT1*DPD2
-                   dBdt1 = dBdt(I,J)*(1.-FNIS(I,J,L)/2./FNHS(I,J,L))*RLZ(I)/BNES(I,J)
-                   dIdt1 = -dIdt(I,J,L)*RLZ(I)/FNHS(I,J,L)
-                   CDriftE(I,J,K,L) = EDOT(I,K)*((GPR1+GPR2+GPR3)*DRDT+(GPP1+GPP2)*DPDT+dBdt1+dIdt1)
+             GPA  = (1.-FNIS(I,J,L)/2./FNHS(I,J,L))/BNES(I,J)
+             GPR1 = GPA*(BNES(I+1,J)-BNES(I-1,J))/2./MDR
+             GPR2 = -FNIS(I,J,L)/FNHS(I,J,L)/RLZ(I)
+             GPR3 = -(FNIS(I+1,J,L)-FNIS(I-1,J,L))/2./MDR/FNHS(I,J,L)
+             GPP1 = GPA*(BNES(I,J2)-BNES(I,J0))/2./DPHI
+             GPP2 = -(FNIS(I,J2,L)-FNIS(I,J0,L))/2./DPHI/FNHS(I,J,L)
+             DRD2 = (FNIS(I,J2,L)-FNIS(I,J0,L))/2./DPHI &
+                   +(FNIS(I,J,L)-2*FNHS(I,J,L))*(BNES(I,J2)-BNES(I,J0))/4/BNES(I,J)/DPHI
+             DPD2 = FNIS(I,J,L)+(FNIS(I+1,J,L)-FNIS(I-1,J,L))*RLZ(I)/2/MDR &
+                   +RLZ(I)*(FNIS(I,J,L)-2*FNHS(I,J,L))/4/MDR*(BNES(I+1,J)-BNES(I-1,J))/BNES(I,J)
+             F(1:NE) = F2(S,I,J,:,L)
+             F(1) = F(2)*GREL(S,1)/GREL(S,2)*SQRT((GREL(S,2)**2-1)/(GREL(S,1)**2-1))
+             F(0) = F(1)*GRZERO(S)/GREL(S,1)*SQRT((GREL(S,1)**2-1)/(GRZERO(S)**2-1))
+             DO K=1,NE
+                EDT1  = EBND(K)*1e3*(GRBND(S,K)+1)/2/GRBND(S,K)/FNHS(I,J,L)/RLZ(I)/BNES(I,J)/QS
+                DRDT  = DRD1+EDT1*DRD2*RLZ(I)
+                DPDT  = DPD1-EDT1*DPD2
+                dBdt1 = dBdt(I,J)*(1.-FNIS(I,J,L)/2./FNHS(I,J,L))*RLZ(I)/BNES(I,J)
+                dIdt1 = -dIdt(I,J,L)*RLZ(I)/FNHS(I,J,L)
+                CDriftE(I,J,K,L) = EDOT(I,K)*((GPR1+GPR2+GPR3)*DRDT+(GPP1+GPP2)*DPDT+dBdt1+dIdt1)
+                if (outsideMGNP(i,j) == 0) then
                    ctemp = max(abs(CDriftE(I,J,K,L)),1E-10)
                    DtDriftE(S) = min(DtDriftE(S), FracCFL*DTs*DE(K)/ctemp)
-                   sgn = 1
-                   if (CDriftE(I,J,K,L).lt.0) sgn = -1
-                   X=F(K+1)-F(K)
-                   FUP=0.5*(F(K)+F(K+1)-sgn*X)
-                   IF (ABS(X).LE.1.E-27) FBND(K)=FUP
-                   IF (ABS(X).GT.1.E-27) THEN
-                      N=K+1-sgn
-                      R=(F(N)-F(N-1))/X
-                      IF (R.LE.0) FBND(K)=FUP
-                      IF (R.GT.0) THEN
-                         LIMITER=MAX(MIN(BetaLim*R,1.),MIN(R,BetaLim))
-                         CORR=-0.5*(CDriftE(I,J,K,L)/DE(K)-sgn)*X
-                         FBND(K)=FUP+LIMITER*CORR
-                      END IF
+                endif
+                sgn = 1
+                if (CDriftE(I,J,K,L).lt.0) sgn = -1
+                X=F(K+1)-F(K)
+                FUP=0.5*(F(K)+F(K+1)-sgn*X)
+                IF (ABS(X).LE.1.E-27) FBND(K)=FUP
+                IF (ABS(X).GT.1.E-27) THEN
+                   N=K+1-sgn
+                   R=(F(N)-F(N-1))/X
+                   IF (R.LE.0) FBND(K)=FUP
+                   IF (R.GT.0) THEN
+                      LIMITER=MAX(MIN(BetaLim*R,1.),MIN(R,BetaLim))
+                      CORR=-0.5*(CDriftE(I,J,K,L)/DE(K)-sgn)*X
+                      FBND(K)=FUP+LIMITER*CORR
                    END IF
-                END DO
-                DO K=2,NE
-                   F2(S,I,J,K,L)=F2(S,I,J,K,L)-CDriftE(I,J,K,L)/WE(K)*FBND(K)+CDriftE(I,J,K-1,L)/WE(K)*FBND(K-1)
-                   if (f2(s,i,j,k,l).lt.0) then
-                      f2(S,i,j,k,l)=1E-15
-                   endif
-                END DO
-             else
-                F2(S,I,J,:,L) = 0.0
-             endif
+                END IF
+             END DO
+             DO K=2,NE
+                F2(S,I,J,K,L)=F2(S,I,J,K,L)-CDriftE(I,J,K,L)/WE(K)*FBND(K)+CDriftE(I,J,K-1,L)/WE(K)*FBND(K-1)
+                if (f2(s,i,j,k,l).lt.0) then
+                   f2(S,i,j,k,l)=1E-15
+                endif
+             END DO
           END DO
        END DO
     END DO
@@ -394,7 +381,7 @@ MODULE ModRamDrift
     use ModRamTiming,    ONLY: Dts
     use ModRamVariables, ONLY: F2, BNES, BOUNIS, BOUNHS, FNHS, dBdt, dIbndt, &
                                RLZ, DPHI, MDR, GREL, EKEV, DMU, WMU, MU, &
-                               VT, EIP, EIR
+                               VT, EIP, EIR, outsideMGNP
 
     implicit none
 
@@ -419,63 +406,59 @@ MODULE ModRamDrift
           J1=J+1
           IF (J.EQ.NT) J1=2
           DO I=2,NR
-             if ((BNES(I,J0).ge.0).or.(BNES(I+1,J0).ge.0).or.(BNES(I-1,J0).ge.0).or. &
-                (BNES(I,J1).ge.0).or.(BNES(I+1,J1).ge.0).or.(BNES(I-1,J1).ge.0).or. &
-                (BNES(I,J).ge.0).or.(BNES(I+1,J).ge.0).or.(BNES(I-1,J).ge.0)) then
-                F(:) = F2(S,I,J,K,:)
-                F(1) = F(2)
-                DRM1 = (EIP(I,J)*RLZ(I)-(VT(I,J1)-VT(I,J0))/2/DPHI)/BNES(I,J)
-                DPM1 = OME*RLZ(I)+((VT(I+1,J)-VT(I-1,J))/2/MDR-EIR(I,J))/BNES(I,J)
-                DO L=2,NPA
-                   CMUDOT = MUDOT(I,L)*BOUNIS(I,J,L)/BOUNHS(I,J,L)
-                   GMR1 = (BNES(I+1,J)-BNES(I-1,J))/4/MDR/BNES(I,J)
-                   GMR2 = 1/RLZ(I)
-                   GMR3 = (BOUNIS(I+1,J,L)-BOUNIS(I-1,J,L))/2/MDR/BOUNIS(I,J,L)
-                   GMP1 = (BNES(I,J1)-BNES(I,J0))/4/DPHI/BNES(I,J)
-                   GMP2 = (BOUNIS(I,J1,L)-BOUNIS(I,J0,L))/2/DPHI/BOUNIS(I,J,L)
-                   EDT  = EKEV(K)*1e3*(GREL(S,K)+1)/2/GREL(S,K)/BOUNHS(I,J,L)/RLZ(I)/BNES(I,J)/QS
-                   DRM2 = (BOUNIS(I,J1,L)-BOUNIS(I,J0,L))/2/DPHI+(BOUNIS(I,J,L)-2*BOUNHS(I,J,L)) &
-                         *(BNES(I,J1)-BNES(I,J0))/4/BNES(I,J)/DPHI
-                   DPM2 = BOUNIS(I,J,L)+(BOUNIS(I+1,J,L)-BOUNIS(I-1,J,L))*RLZ(I)/2/MDR &
-                         +(BOUNIS(I,J,L)-2*BOUNHS(I,J,L))*RLZ(I)/4/MDR*(BNES(I+1,J)-BNES(I-1,J))/BNES(I,J)
-                   DRDM = DRM1+EDT*DRM2*RLZ(I)
-                   DPDM = DPM1-EDT*DPM2
-                   dBdt2   = dBdt(I,J)/2./BNES(I,J)*RLZ(I)
-                   dIbndt2 = dIbndt(I,J,L)*RLZ(I)/BOUNIS(I,J,L)
-                   CDriftMu(I,J,K,L) = -CMUDOT*((GMR1+GMR2+GMR3)*DRDM+(GMP1+GMP2)*DPDM+dBdt2+dIbndt2)
+             F(:) = F2(S,I,J,K,:)
+             F(1) = F(2)
+             DRM1 = (EIP(I,J)*RLZ(I)-(VT(I,J1)-VT(I,J0))/2/DPHI)/BNES(I,J)
+             DPM1 = OME*RLZ(I)+((VT(I+1,J)-VT(I-1,J))/2/MDR-EIR(I,J))/BNES(I,J)
+             DO L=2,NPA
+                CMUDOT = MUDOT(I,L)*BOUNIS(I,J,L)/BOUNHS(I,J,L)
+                GMR1 = (BNES(I+1,J)-BNES(I-1,J))/4/MDR/BNES(I,J)
+                GMR2 = 1/RLZ(I)
+                GMR3 = (BOUNIS(I+1,J,L)-BOUNIS(I-1,J,L))/2/MDR/BOUNIS(I,J,L)
+                GMP1 = (BNES(I,J1)-BNES(I,J0))/4/DPHI/BNES(I,J)
+                GMP2 = (BOUNIS(I,J1,L)-BOUNIS(I,J0,L))/2/DPHI/BOUNIS(I,J,L)
+                EDT  = EKEV(K)*1e3*(GREL(S,K)+1)/2/GREL(S,K)/BOUNHS(I,J,L)/RLZ(I)/BNES(I,J)/QS
+                DRM2 = (BOUNIS(I,J1,L)-BOUNIS(I,J0,L))/2/DPHI+(BOUNIS(I,J,L)-2*BOUNHS(I,J,L)) &
+                      *(BNES(I,J1)-BNES(I,J0))/4/BNES(I,J)/DPHI
+                DPM2 = BOUNIS(I,J,L)+(BOUNIS(I+1,J,L)-BOUNIS(I-1,J,L))*RLZ(I)/2/MDR &
+                      +(BOUNIS(I,J,L)-2*BOUNHS(I,J,L))*RLZ(I)/4/MDR*(BNES(I+1,J)-BNES(I-1,J))/BNES(I,J)
+                DRDM = DRM1+EDT*DRM2*RLZ(I)
+                DPDM = DPM1-EDT*DPM2
+                dBdt2   = dBdt(I,J)/2./BNES(I,J)*RLZ(I)
+                dIbndt2 = dIbndt(I,J,L)*RLZ(I)/BOUNIS(I,J,L)
+                CDriftMu(I,J,K,L) = -CMUDOT*((GMR1+GMR2+GMR3)*DRDM+(GMP1+GMP2)*DPDM+dBdt2+dIbndt2)
+                if (outsideMGNP(i,j) == 0) then
                    ctemp = max(abs(CDriftMu(I,J,K,L)),1E-32)
                    DtDriftMu(S)=min(DtDriftMu(S),FracCFL*DTs*DMU(L)/ctemp)
-                   ISGM = 1
-                   if (CDriftMu(I,J,K,L).lt.0.0) ISGM = -1
-                   if (L.LE.NPA-2) then
-                      X=F(L+1)-F(L)
-                      FUP=0.5*(F(L)+F(L+1)-ISGM*X)
-                      IF (ABS(X).LE.1.E-27) FBND(L)=FUP
-                      IF (ABS(X).GT.1.E-27) THEN
-                         N=L+1-ISGM
-                         R=(F(N)-F(N-1))/X
-                         IF (R.LE.0) FBND(L)=FUP
-                         IF (R.GT.0) THEN
-                            LIMITER=MAX(MIN(BetaLim*R,1.),MIN(R,BetaLim))
-                            CORR=-0.5*(CDriftMu(I,J,K,L)/DMU(L)-ISGM)*X
-                            FBND(L)=FUP+LIMITER*CORR
-                         END IF
+                endif
+                ISGM = 1
+                if (CDriftMu(I,J,K,L).lt.0.0) ISGM = -1
+                if (L.LE.NPA-2) then
+                   X=F(L+1)-F(L)
+                   FUP=0.5*(F(L)+F(L+1)-ISGM*X)
+                   IF (ABS(X).LE.1.E-27) FBND(L)=FUP
+                   IF (ABS(X).GT.1.E-27) THEN
+                      N=L+1-ISGM
+                      R=(F(N)-F(N-1))/X
+                      IF (R.LE.0) FBND(L)=FUP
+                      IF (R.GT.0) THEN
+                         LIMITER=MAX(MIN(BetaLim*R,1.),MIN(R,BetaLim))
+                         CORR=-0.5*(CDriftMu(I,J,K,L)/DMU(L)-ISGM)*X
+                         FBND(L)=FUP+LIMITER*CORR
                       END IF
-                   endif
-                END DO
-                CDriftMu(I,J,K,1)=0.
-                FBND(1)     = 0.
-                FBND(NPA-1) = F(NPA)
-                DO L=2,NPA-1
-                   F2(S,I,J,K,L)=F2(S,I,J,K,L)-CDriftMu(I,J,K,L)/WMU(L)*FBND(L)+CDriftMu(I,J,K,L-1)/WMU(L)*FBND(L-1)
-                   if (f2(s,i,j,k,l).lt.0) then
-                      f2(S,i,j,k,l)=1E-15
-                   endif
-                END DO
-                F2(S,I,J,K,NPA)=F2(S,I,J,K,NPA-1)*FNHS(I,J,NPA)*MU(NPA)/FNHS(I,J,NPA-1)/MU(NPA-1)
-             else
-                F2(S,I,J,K,:) = 0.0
-             endif
+                   END IF
+                endif
+             END DO
+             CDriftMu(I,J,K,1)=0.
+             FBND(1)     = 0.
+             FBND(NPA-1) = F(NPA)
+             DO L=2,NPA-1
+                F2(S,I,J,K,L)=F2(S,I,J,K,L)-CDriftMu(I,J,K,L)/WMU(L)*FBND(L)+CDriftMu(I,J,K,L-1)/WMU(L)*FBND(L-1)
+                if (f2(s,i,j,k,l).lt.0) then
+                   f2(S,i,j,k,l)=1E-15
+                endif
+             END DO
+             F2(S,I,J,K,NPA)=F2(S,I,J,K,NPA-1)*FNHS(I,J,NPA)*MU(NPA)/FNHS(I,J,NPA-1)/MU(NPA-1)
           END DO
        END DO
     END DO

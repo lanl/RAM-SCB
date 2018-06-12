@@ -16,7 +16,7 @@ use ModRamParams,    ONLY: DoSaveFinalRestart, DoVarDt, IsComponent, &
 use ModRamTiming,    ONLY: DtsFramework, DtsMax, DtsMin, DtsNext, Dts, Dt_hI, &
                            TimeRamStart, TimeRamNow, TimeMax, TimeRamElapsed, &
                            UTs, Dt_bc, DtEfi
-use ModRamVariables, ONLY: Kp, F107
+use ModRamVariables, ONLY: Kp, F107, dBdt, dIdt, dIbndt
 use ModScbVariables, ONLY: hICalc, SORFail
 use ModScbParams,    ONLY: method
 
@@ -174,7 +174,13 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
          FLUSH(6)
 
          ! Couple SCB -> RAM
-         if ((hICalc).and.(method.ne.3)) call computehI(nIter)
+         if ((hICalc).and.(method.ne.3)) then ! Calculate full h's and I's if SCB was successful
+            call computehI(nIter)
+         else                                 ! If SCB wasn't successful use previous h's and I's
+            dBdt = 0._dp                      ! which implies dXdt = 0
+            dIdt = 0._dp
+            dIbndt = 0._dp
+         endif
          call compute3DFlux
          FLUSH(6)
 
@@ -226,7 +232,7 @@ end if
 call MPI_Finalize(iError)
 
 end program ram_scb
-!==============================================================================
+!==================================================================================================
   subroutine write_prefix
 
     use ModRamParams, ONLY: IsComponent
@@ -241,7 +247,7 @@ end program ram_scb
    
   end subroutine write_prefix
 
-!============================================================================
+!==================================================================================================
 subroutine CON_stop(String)
   ! "Safely" stop RAM-SCB on all nodes.
   use ModScbGrids,     ONLY: nthe, npsi, nzeta
@@ -259,8 +265,7 @@ subroutine CON_stop(String)
 
   integer :: i, j, k
 
-  write(*,*)'Stopping execution! at time=',TimeRamElapsed,&
-       ' with msg:'
+  write(*,*)'Stopping execution! at time=',TimeRamElapsed,' with msg:'
   write(*,*)String
 
   FileName = RamFileName('MAGxyz2','dat',TimeRamNow)
@@ -278,7 +283,7 @@ subroutine CON_stop(String)
   stop
 end subroutine CON_stop
 
-!============================================================================
+!==================================================================================================
 
 subroutine CON_set_do_test(String,DoTest,DoTestMe)
   ! Replaces the SWMF testing routine.
@@ -293,7 +298,7 @@ subroutine CON_set_do_test(String,DoTest,DoTestMe)
   DoTest   = i_sub_string(' '//StringTest,' '//String//' ')>0
   DoTestMe = DoTest !.and. i_proc()==iProcTest
 contains
-  !===========================================================================
+  !================================================================================================
   integer function i_sub_string(StringA,StringB)
 
     ! This is needed to avoid some SGI f90 compiler bug 
@@ -314,4 +319,4 @@ contains
 
 end subroutine CON_set_do_test
 
-!============================================================================
+!==================================================================================================

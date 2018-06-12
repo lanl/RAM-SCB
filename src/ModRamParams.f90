@@ -17,6 +17,7 @@ module ModRamParams
   logical :: Reset = .false.
   logical :: SCBonRAMTime = .false.
   integer :: RAMTie = 300
+  logical :: checkMGNP = .false.
  
   ! Standalone or Component (default = standalone)  logical :: IsComponent = .false.
   logical :: IsComponent = .false.

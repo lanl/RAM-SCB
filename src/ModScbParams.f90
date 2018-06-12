@@ -35,7 +35,10 @@ module ModScbParams
               blendMin             = 0.01,  &
               blendMax             = 1.0,   &
               InConAlpha           = 1e-9,  &
-              InConPsi             = 1e-7
+              InConPsi             = 1e-7,  &
+              convergence          = 0.9,   &
+              constTheta           = 0.0,   &
+              constZ               = 0.0
 
  !integer  :: method = 1 ! Direct matrix inversion calculation of Euler Potentials
   integer  :: method = 2 ! Iterative SOR calculation of Euler Potentials

@@ -23,10 +23,9 @@ MODULE ModScbIO
     USE ModRamVariables, ONLY: Kp
     use ModRamParams,    ONLY: IsComponent, NameBoundMag, verbose
     use ModRamTiming,    ONLY: TimeRamNow
-    USE ModScbParams,    ONLY: Symmetric
+    USE ModScbParams,    ONLY: Symmetric, constZ, constTheta
     USE ModScbGrids,     ONLY: npsi, nthe, nzeta
-    USE ModScbVariables, ONLY: constZ, &
-                               constTheta, xpsiin, xpsiout, r0Start, &
+    USE ModScbVariables, ONLY: xpsiin, xpsiout, r0Start, &
                                x, y, z, thetaVal, zetaVal, left, right, chiVal, &
                                kmax, nZetaMidnight, xzero3, f, fzet, fp, &
                                fzetp, psiVal, alphaVal, psiin, psiout, psitot
@@ -69,8 +68,6 @@ MODULE ModScbIO
        ! For generating x, y, and z arrays using analytic dipole and analytic compressed dipole
        ! the variable b controls the compression with 0 being no compression
        Symmetric = .false.
-       constZ = 0.0
-       constTheta = 0.0
        xpsiin = 1.75
        xpsiout = 7.50
        b = 0.0
@@ -210,8 +207,6 @@ MODULE ModScbIO
 
        ! Calculate dipole starting points for given xpsiin and xpsiout
        ! in chosen field and perform nzeta*npsi traces to create grid
-       constZ = 0.0
-       constTheta = 0.3
        do k=2,nzeta
           do j=1,npsi
              r0 = xpsiin + REAL(j-1,DP)/REAL(npsi-1,DP)*(xpsiout-xpsiin)
@@ -292,17 +287,17 @@ MODULE ModScbIO
     END DO
     call alfges
 
-    !! For outputing the magnetic field
-    open(UNITTMP_,FILE=RamFileName('ComputeDomain','dat',TimeRamNow))
-    write(UNITTMP_,*) nthe, npsi, nzeta
-    do i = 1,nthe
-     do j = 1,npsi
-      do k = 1,nzeta
-       write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
-      enddo
-     enddo
-    enddo
-    close(UNITTMP_)
+    !! For outputing the magnetic field for testing
+    !open(UNITTMP_,FILE=RamFileName('ComputeDomain','dat',TimeRamNow))
+    !write(UNITTMP_,*) nthe, npsi, nzeta
+    !do i = 1,nthe
+    ! do j = 1,npsi
+    !  do k = 1,nzeta
+    !   write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
+    !  enddo
+    ! enddo
+    !enddo
+    !close(UNITTMP_)
 
     return
 
@@ -312,14 +307,15 @@ MODULE ModScbIO
   subroutine update_domain(updated)
 
     !!! Module Variables
-    use ModRamParams,    ONLY: NameBoundMag
+    use ModRamParams,    ONLY: NameBoundMag, verbose
     use ModRamTiming,    ONLY: TimeRamNow
+    use ModRamVariables, ONLY: Kp
     use ModScbGrids,     ONLY: nthe, npsi, nzeta
+    use ModScbParams,    ONLY: constTheta, constZ
     use ModScbVariables, ONLY: x, y, z, psiVal, alphaVal, psi, psiin, psiout, &
                                psitot, xpsiin, xpsiout, f, fp, nThetaEquator, &
-                               fzet, fzetp, thetaVal, constTheta, &
-                               xzero3, kmax, zetaVal, nZetaMidnight, chiVal, &
-                               SORFail
+                               fzet, fzetp, thetaVal, xzero3, kmax, zetaVal, &
+                               nZetaMidnight, chiVal, SORFail
     !!! Module Subroutines/Functions
     use ModRamGSL,       ONLY: GSL_Interpolation_1D
     use ModRamFunctions, ONLY: RamFileName
@@ -368,31 +364,10 @@ MODULE ModScbIO
     call write_prefix
     write(*,*) "Updating SCB Boundary Conditions"
 
-    ! Since T89 tracing is so quick, just retrace everything
-    ! this is helpful because T89 jumps are very large
-    IF ((NameBoundMag.eq.'T89I').or.(NameBoundMag.eq.'T89D')) THEN
-       call Computational_Domain
-       return
-    ENDIF
-
-    ALLOCATE(xOldTheta(nthe),yOldTheta(nthe),zOldTheta(nthe),chiValOld(nthe),&
-             radius(npsi),xOldPsi(npsi),yOldPsi(npsi),zOldPsi(npsi),psiOld(npsi),&
-             xtemp(npsi+1),ytemp(npsi+1),ztemp(npsi+1),psiValTemp(npsi+1),rtemp(npsi+1),&
-             dj(npsi+1),xatemp(nzeta-1),yatemp(nzeta-1),zatemp(nzeta-1),phi(nzeta+1),&
-             xPhi(nzeta+1),yPhi(nzeta+1),zPhi(nzeta+1),xout(nthe,nzeta+1),yout(nthe,nzeta+1),&
-             zout(nthe,nzeta+1),rout(nthe,nzeta+1),xmid(nthe,npsi),ymid(nthe,npsi),cVal(nthe),&
-             zmid(nthe,npsi),rmid(nthe,npsi),rold(nthe,npsi,nzeta),outer(nthe,nzeta))
-    xOldTheta = 0.0; yOldTheta = 0.0; zOldTheta = 0.0; chiValOld = 0.0; radius = 0.0
-    xOldPsi = 0.0; yOldPsi = 0.0; zOldPsi = 0.0; psiOld = 0.0; xtemp = 0.0; ytemp = 0.0
-    ztemp = 0.0; psiValTemp = 0.0; rtemp = 0.0; dj = 0.0; xatemp = 0.0; yatemp = 0.0
-    zatemp = 0.0; phi = 0.0; xPhi = 0.0; yPhi = 0.0; zPhi = 0.0; xout = 0.0; yout = 0.0
-    zout = 0.0; rout = 0.0; xmid = 0.0; ymid = 0.0; zmid = 0.0; rmid = 0.0; rold = 0.0
-    outer = 0; cVal = 0.0
-
     DIR = -1.0
     DSMAX = 0.1
-    ER = 0.0001
-    RLIM = 20.0
+    ER = 0.001
+    RLIM = 30.0
     IOPT = 1
     PARMOD = (/1._dp,1._dp,1._dp,1._dp,1._dp,1._dp,1._dp,1._dp,1._dp,1._dp/)
     iYear  = TimeRamNow%iYear
@@ -411,14 +386,15 @@ MODULE ModScbIO
     ! Get correct model inputs and place them in cooresponding variables
     call get_model_inputs(Pdyn,Dst,ByIMF,BzIMF,G,W)
 
-    open(UNITTMP_,FILE=RamFileName('ShueMGNP','dat',TimeRamNow))
-    do j=1,201
-       tempy = -10.0+0.1*(j-1)
-       call SHUETAL_MGNP_08(PDyn,-1.0_dp,BzIMF,6.0_dp,tempy,0.0_dp,XMGNP,YMGNP,ZMGNP,DIST,ID)
-       write(UNITTMP_,*) XMGNP, YMGNP, ZMGNP
-    enddo
-    close(UNITTMP_)
+    !open(UNITTMP_,FILE=RamFileName('ShueMGNP','dat',TimeRamNow))
+    !do j=1,201
+    !   tempy = -10.0+0.1*(j-1)
+    !   call SHUETAL_MGNP_08(PDyn,-1.0_dp,BzIMF,6.0_dp,tempy,0.0_dp,XMGNP,YMGNP,ZMGNP,DIST,ID)
+    !   write(UNITTMP_,*) XMGNP, YMGNP, ZMGNP
+    !enddo
+    !close(UNITTMP_)
 
+    IOPT = min(floor(Kp+0.5),6)+1
     PARMOD(1) = Pdyn
     PARMOD(2) = Dst
     PARMOD(3) = ByIMF
@@ -456,8 +432,31 @@ MODULE ModScbIO
           ktemp = k
        endif
     enddo
+    if (verbose) write(*,*) 'Psiout = ',xpsiout, 'PsioutPrev = ',xpsitemp
+    if ((abs(xpsiout-xpsitemp).le.1e-9).or.(xpsitemp.eq.-1._dp)) return
 
-    !if ((xpsiout.eq.xpsitemp).or.(xpsitemp.eq.-1._dp)) return
+    ! Since T89 tracing is so quick, just retrace everything
+    ! this is helpful because T89 jumps are very large
+    IF ((NameBoundMag.eq.'T89I').or.(NameBoundMag.eq.'T89D')) THEN
+       call Computational_Domain
+       return
+    ENDIF
+
+    Updated = .true.
+
+    ALLOCATE(xOldTheta(nthe),yOldTheta(nthe),zOldTheta(nthe),chiValOld(nthe),&
+             radius(npsi),xOldPsi(npsi),yOldPsi(npsi),zOldPsi(npsi),psiOld(npsi),&
+             xtemp(npsi+1),ytemp(npsi+1),ztemp(npsi+1),psiValTemp(npsi+1),rtemp(npsi+1),&
+             dj(npsi+1),xatemp(nzeta-1),yatemp(nzeta-1),zatemp(nzeta-1),phi(nzeta+1),&
+             xPhi(nzeta+1),yPhi(nzeta+1),zPhi(nzeta+1),xout(nthe,nzeta+1),yout(nthe,nzeta+1),&
+             zout(nthe,nzeta+1),rout(nthe,nzeta+1),xmid(nthe,npsi),ymid(nthe,npsi),cVal(nthe),&
+             zmid(nthe,npsi),rmid(nthe,npsi),rold(nthe,npsi,nzeta),outer(nthe,nzeta))
+    xOldTheta = 0.0; yOldTheta = 0.0; zOldTheta = 0.0; chiValOld = 0.0; radius = 0.0
+    xOldPsi = 0.0; yOldPsi = 0.0; zOldPsi = 0.0; psiOld = 0.0; xtemp = 0.0; ytemp = 0.0
+    ztemp = 0.0; psiValTemp = 0.0; rtemp = 0.0; dj = 0.0; xatemp = 0.0; yatemp = 0.0
+    zatemp = 0.0; phi = 0.0; xPhi = 0.0; yPhi = 0.0; zPhi = 0.0; xout = 0.0; yout = 0.0
+    zout = 0.0; rout = 0.0; xmid = 0.0; ymid = 0.0; zmid = 0.0; rmid = 0.0; rold = 0.0
+    outer = 0; cVal = 0.0
 
     ! Now move points radially to match the new xpsiout value
     ! Get the new psi values
@@ -609,8 +608,6 @@ MODULE ModScbIO
     x(:,:,nzeta+1) = x(:,:,2)
     y(:,:,nzeta+1) = y(:,:,2)
     z(:,:,nzeta+1) = z(:,:,2)
-
-    Updated = .true.
 
     ! For outputing the magnetic field
     !call Write_MAGxyz
@@ -1125,15 +1122,15 @@ END SUBROUTINE Write_ionospheric_potential
                               jCrossB(i,j,k), gradP(i,j,k),    &
                               rLHS(i,j,k), rRHS(i,j,k),        &
                               xLHS(i,j,k), xRHS(i,j,k),        &
-                              Jx(i,j,k)*pjconst*6.4, &
-                              Jy(i,j,k)*pjconst*6.4, &
-                              Jz(i,j,k)*pjconst*6.4, &
+                              Jx(i,j,k)*pjconst, &
+                              Jy(i,j,k)*pjconst, &
+                              Jz(i,j,k)*pjconst, &
                               Bx(i,j,k)*bnormal, &
                               By(i,j,k)*bnormal, &
                               Bz(i,j,k)*bnormal, &
-                              GradPx(i,j,k)*2*pnormal, &
-                              GradPy(i,j,k)*2*pnormal, &
-                              GradPz(i,j,k)*2*pnormal
+                              GradPx(i,j,k)*pnormal/6.4, &
+                              GradPy(i,j,k)*pnormal/6.4, &
+                              GradPz(i,j,k)*pnormal/6.4
         END DO
      END DO
   END DO
