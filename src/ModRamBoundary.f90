@@ -199,6 +199,7 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   do j=1,nT
      do k=1,nE
         CALL GSL_Interpolation_1D('Steffen',logELan, logFlux_II(j,:), logERam(k), y, GSLerr)
+        ! Moved this check to GEOSB
         !if (y.gt.8)  then
         !   y=8
         !   write(*,*) ' in ModRamBoundary: limit flux to 1e8'
@@ -288,7 +289,8 @@ end subroutine get_geomlt_flux
           u = int(upa(nR)-1,kind=4)
           do L=2,u
             FGEOS(s,iJ,iK,L)=FluxLanl(iJ,iK) * FFACTOR(S,NR,IK,L)
-            if (FGEOS(s,iJ,iK,L).gt.1e10) FGEOS(s,iJ,iK,L) = 1e10
+            if ((S.eq.1).and.(FGEOS(s,iJ,iK,L).gt.1e10)) FGEOS(s,iJ,iK,L) = 1e10
+            if ((S.ne.1).and.(FGEOS(s,iJ,iK,L).gt.1e8)) FGEOS(s,iJ,iK,L) = 1e8
           end do
         end do
       end do
