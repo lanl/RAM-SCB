@@ -260,6 +260,17 @@ MODULE ModScbEuler
     sumb = SUM(ABS(alfa(2:nthe-1,2:npsi-1,2:nzeta)))
     diffmx = maxval(abs(resid(2:nthe-1,2:npsi-1,2:nzeta)))
 
+    !...  set "blending" in alpha for outer iteration loop
+    DO j = 1, npsi
+       DO i = 1, nthe
+          DO k = 2, nzeta
+             alfa(i,j,k) = alfa(i,j,k) * blendAlpha + alphaVal(k) * (1._dp - blendAlpha)
+          END DO
+          alfa(i,j,1) = alfa(i,j,nzeta) - 2._dp * pi_d
+          alfa(i,j,nzetap) = alfa(i,j,2) + 2._dp * pi_d
+       END DO
+    END DO
+
     DO k = 2, nzeta
        if (psiChange == 0) then
           DO i = 2,nthe-1
@@ -274,17 +285,6 @@ MODULE ModScbEuler
           ENDDO
        endif
     ENDDO
-
-    !...  set "blending" in alpha for outer iteration loop
-    DO j = 1, npsi
-       DO i = 1, nthe
-          DO k = 2, nzeta
-             alfa(i,j,k) = alfa(i,j,k) * blendAlpha + alphaVal(k) * (1._dp - blendAlpha)
-          END DO
-          alfa(i,j,1) = alfa(i,j,nzeta) - 2._dp * pi_d
-          alfa(i,j,nzetap) = alfa(i,j,2) + 2._dp * pi_d
-       END DO
-    END DO
 
     DEALLOCATE(alfaPrev,resid)
     DEALLOCATE(ni,om)
@@ -563,6 +563,17 @@ MODULE ModScbEuler
     sumb = SUM(ABS(psi(2:nthem,2:npsim,2:nzeta)))
     diffmx = maxval(abs(resid(2:nthem,2:npsi-1,2:nzeta)))
 
+    ! Set blend for outer iteration loop, and apply periodic boundary conditions
+    DO j = 1, npsi
+       DO i = 1, nthe
+          DO k = 2,nzeta
+             psi(i,j,k) = psi(i,j,k) * blendPsi + psival(j) * (1._dp - blendPsi)
+          END DO
+       END DO
+    END DO
+    psi(:,:,1) = psi(:,:,nzeta)
+    psi(:,:,nzetap) = psi(:,:,2)
+
     DO k = 2, nzeta
        if (psiChange == 0) then
           DO i = 2,nthe-1
@@ -577,17 +588,6 @@ MODULE ModScbEuler
           ENDDO
        endif
     ENDDO
-
-    ! Set blend for outer iteration loop, and apply periodic boundary conditions
-    DO j = 1, npsi
-       DO i = 1, nthe
-          DO k = 2,nzeta
-             psi(i,j,k) = psi(i,j,k) * blendPsi + psival(j) * (1._dp - blendPsi)
-          END DO
-       END DO
-    END DO
-    psi(:,:,1) = psi(:,:,nzeta)
-    psi(:,:,nzetap) = psi(:,:,2)
 
     IF (ALLOCATED(psiPrev)) DEALLOCATE(psiPrev)
     IF (ALLOCATED(resid)) DEALLOCATE(resid)
