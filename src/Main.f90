@@ -36,6 +36,7 @@ use ModRamEField,    ONLY: get_electric_field
 use ModScbInit,      ONLY: scb_allocate, scb_init, scb_deallocate
 use ModScbRun,       ONLY: scb_run
 use ModScbIO,        ONLY: computational_domain
+use ModSceInit,      ONLY: sce_allocate, sce_init, sce_deallocate
 use ModRamScb,       ONLY: ramscb_allocate, computehI, ramscb_deallocate, compute3DFlux
 
 !!!! External Modules (share/Library/src)
@@ -78,10 +79,12 @@ call ram_allocate
 call RAMCouple_Allocate
 call scb_allocate
 call ramscb_allocate
+call sce_allocate
 
 ! Initialize RAM_SCB
 call ram_init
 call scb_init
+call sce_init
 call GSL_Initialize
 
 ! Initialize planet and axes if in stand-alone mode.
@@ -224,6 +227,7 @@ if ((.not.IsComponent)) then
      call RAMCouple_deallocate
      call scb_deallocate
      call ramscb_deallocate
+     call sce_deallocate
 
      write(*,*) &
           '==============================================================='

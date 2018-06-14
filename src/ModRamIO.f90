@@ -627,17 +627,14 @@ end subroutine read_geomlt_file
     NameFileOut=trim(PathRamOut)//RamFileName('efield','in',TimeRamNow)
     OPEN(UNIT=UNITTMP_,FILE=NameFileOut,STATUS='UNKNOWN')
     WRITE(UNITTMP_,*)'UT(hr)    Kp   F107   VTmax   VTmin   Date=',StringDate
-    WRITE(UNITTMP_,31) T/3600.,KP,F107,maxval(VT)/1e3,minval(VT)/1e3
+    WRITE(UNITTMP_,*) T/3600.,KP,F107,maxval(VT)/1e3,minval(VT)/1e3
     WRITE(UNITTMP_,*) ' L     MLT        Epot(kV)'
     DO I=1,NR+1
       DO J=1,NT
-        WRITE (UNITTMP_,22) LZ(I),MLT(J),VT(I,J)/1e3
+        WRITE (UNITTMP_,*) LZ(I),MLT(J),VT(I,J)/1e3
       END DO
     END DO
     CLOSE(UNITTMP_)
-
-22  FORMAT(F5.2,F10.6,E13.4)
-31  FORMAT(F6.2,1X,F6.2,2X,F6.2,1X,F7.2,1X,F7.2,1X,1PE11.3)
 
     RETURN
 

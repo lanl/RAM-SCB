@@ -53,7 +53,7 @@ subroutine get_electric_field
 
   ! Set time of "old" file for interpolation:
   TOLV=TimeRamElapsed
-  if (IsComponent .OR. electric=='WESC' .or. electric=='W5SC') then
+  if (electric=='IESC' .OR. electric=='WESC' .or. electric=='W5SC') then
      VTOL = SwmfPot_II
      VTN  = SwmfPot_II
   endif
@@ -193,26 +193,26 @@ subroutine ram_get_electric(NextEfile, EOut_II)
      Epot_Cart(0,:) = Epot_Cart(1,:) ! 3Dcode domain only extends to 2 RE; at 1.75 RE the potential is very small anyway
 
      SWMF_electric_potential:  IF (electric=='IESC') THEN
-           NameFileOut=trim(prefixOut)//trim(RamFileName('IE_SCB','in',TimeRamNow))
-           PRINT*, 'Writing to file ', NameFileOut
-           OPEN(UNITTMP_, file = NameFileOut, &
-                action = 'write', status = 'unknown')
-           ! Write header to file.  
-           WRITE(UNITTMP_, '(A, i4.4)') ' DOM   UT      Kp   F107   Ap   Rs PHIOFS, Year ', TimeRamNow%iYear
-           WRITE(UNITTMP_, '(f5.0, 2x, f6.3, 2x, f4.2, 2x, f5.1, 2x, 2(f4.1,2x), f3.1)') &
-                REAL(TimeRamNow%iDay), REAL(TimeRamNow%iHour) + &
-                REAL(TimeRamNow%iMinute)/60.0, kp, f107, 0.0, 0.0, 0.0
-           WRITE(UNITTMP_, '(A)') 'SWMF ionospheric potential mapped along SCB lines'
-           WRITE(UNITTMP_, '(A)') 'L     PHI       Epot(kV)'
-           DO i = 0, nR
-              DO j = 1, nT
-                 WRITE(UNITTMP_, 22) radRaw(i), azimRaw(j)*2.*pi_d/24., Epot_Cart(i,j)
-              END DO
-           END DO
-           CLOSE(UNITTMP_)
+           !NameFileOut=trim(prefixOut)//trim(RamFileName('IE_SCB','in',TimeRamNow))
+           !PRINT*, 'Writing to file ', NameFileOut
+           !OPEN(UNITTMP_, file = NameFileOut, &
+           !     action = 'write', status = 'unknown')
+           !! Write header to file.  
+           !WRITE(UNITTMP_, '(A, i4.4)') ' DOM   UT      Kp   F107   Ap   Rs PHIOFS, Year ', TimeRamNow%iYear
+           !WRITE(UNITTMP_, '(f5.0, 2x, f6.3, 2x, f4.2, 2x, f5.1, 2x, 2(f4.1,2x), f3.1)') &
+           !     REAL(TimeRamNow%iDay), REAL(TimeRamNow%iHour) + &
+           !     REAL(TimeRamNow%iMinute)/60.0, kp, f107, 0.0, 0.0, 0.0
+           !WRITE(UNITTMP_, '(A)') 'SWMF ionospheric potential mapped along SCB lines'
+           !WRITE(UNITTMP_, '(A)') 'L     PHI       Epot(kV)'
+           !DO i = 0, nR
+           !   DO j = 1, nT
+           !      WRITE(UNITTMP_, 22) radRaw(i), azimRaw(j)*2.*pi_d/24., Epot_Cart(i,j)
+           !   END DO
+           !END DO
+           !CLOSE(UNITTMP_)
 
            ! Save traced potential to ModRamCouple::SwmfPot_II
-           IF(IsComponent) SwmfPot_II(1:nR+1,1:nT) = Epot_Cart(0:nR,  1:nT)
+           SwmfPot_II(1:nR+1,1:nT) = Epot_Cart(0:nR,  1:nT)
      END IF SWMF_electric_potential
 22   FORMAT(F4.2, 2X, F8.6, 2X, E11.4)
 
@@ -222,61 +222,7 @@ subroutine ram_get_electric(NextEfile, EOut_II)
            endif
            print*, 'SwmfPot_II here SwmfPot_II mm', maxval(swmfpot_II), minval(swmfpot_ii)
      END IF Weimer_electric_potential_along_SCB
-
-     DEALLOCATE(Epot_Cart, xo, yo)
-     RETURN
   END IF
-
-  call write_prefix
-  write(*,*) 'Reading EFile ', trim(NextEFile)
-  write(*,'(a,f10.1)')'          at Sim Time', TimeRamElapsed
-
-  !\
-  ! Read first file and indices.
-  !/
-  open(file=NextEfile, unit=UNITTMP_, status='OLD', &
-       action='READ', IOSTAT=ierror)
-
-  if(ierror .ne. 0) &
-       call CON_stop(NameSub//': ERROR opening file '//trim(NextEfile))
-
-  ! Read header, get Kp and F107 (skip the other crap)
-  read(UNITTMP_,'(a)') StringHeader
-  read(UNITTMP_,*) day, tth, KpOut, f107Out, ap, rsun, phiofs
-  read(UNITTMP_,'(a)') StringHeader
-  read(UNITTMP_,'(a)') StringHeader
-
-  ! If coupled to SWMF IE, first E-field is zero.
-  if(IsComponent .and. electric .eq. 'IESC') then 
-     close(UNITTMP_)
-     DEALLOCATE(Epot_Cart, xo, yo)
-     return
-  endif
-
-  do i=1,nR+1
-     if (electric.EQ.'IESC') then
-        do JW=1,NT
-           read(UNITTMP_,*) RRL,PH,WEP(JW) ! conv potential in kV
-        enddo
-     else
-        do JW=1,49
-           read(UNITTMP_,*) RRL,PH,WEP(JW) ! conv potential in kV
-        enddo
-     end if
-     do J=1,NT
-        if(NT.EQ.49 .OR. electric.EQ.'IESC') JW=J
-        if(NT.EQ.25 .AND. electric.NE.'IESC') JW=2*J-1
-        EOut_II(I,J)=WEP(JW)*1e3 ! to convert in [V]
-     enddo
-  enddo
-
-  close(UNITTMP_)
-
-  do J=1,NT
-     do I=NR,1,-1
-        if (abs(EOut_II(I,J)).le.1e-9) EOut_II(I,J) = EOut_II(I+1,J)/2
-     enddo
-  enddo
 
   DEALLOCATE(Epot_Cart, xo, yo)
   RETURN
@@ -286,16 +232,19 @@ end subroutine ram_get_electric
 !============================================================================
 SUBROUTINE ionospheric_potential
   !!!! Module Variables
-  use ModRamTiming,    ONLY: TimeRamNow
+  use ModRamTiming,    ONLY: TimeRamNow, TimeRamElapsed
   use ModRamParams,    ONLY: IsComponent, electric, UseSWMFFile, NameOmniFile
   use ModRamCouple,    ONLY: SwmfIonoPot_II, nIePhi, nIeTheta
   use ModScbMain,      ONLY: iConvE
   use ModScbGrids,     ONLY: npsi, nzeta, nzetap
   use ModScbVariables, ONLY: phiiono, x, y, z, r0Start, dPhiIonodAlpha, &
                              dPhiIonodBeta, f, fzet, zetaVal, rhoVal, tilt
+  use ModSceGrids,     ONLY: Iono_nTheta, Iono_nPsi
+  use ModSceVariables, ONLY: IONO_NORTH_Phi
   !!!! Module Subroutine/Functions
   use ModRamGSL,    ONLY: GSL_Interpolation_2D, GSL_Derivs
   use ModScbIO,     ONLY: Write_Ionospheric_Potential
+  use ModSceRun,    ONLY: sce_run
   !!!! Share Modules
   use ModTimeConvert, ONLY: n_day_of_year
   use ModIOUnit, ONLY: UNITTMP_
@@ -373,22 +322,22 @@ SUBROUTINE ionospheric_potential
         ! We now return you to your regularly scheduled 3DEQ code.
         ! Potential from self-consistent electric field calculated in the ionosphere
         ! Yu. 2016 August
-!        if(.not. allocated(PhiIonoRaw)) &
-!             allocate(PhiIonoRaw(IONO_nTheta, IONO_nPsi))
-!        if(.not. allocated(colat) .and. .not. allocated(lon)) then
-!           allocate(colat(IONO_nTheta), lon(IONO_nPsi))
-!           colat = 0.0
-!           lon   = 0.0
-!           do i=2, IONO_nPsi ! Longitude goes from 0 to 360.
-!              lon(i) = lon(i-1) + 2.0_dp*pi_d/real(IONO_nPsi-1)
-!           end do
-!           do i=2, IONO_nTheta ! Colat goes from 0 to 90.
-!              colat(i) = colat(i-1) +  0.5*pi_d/real(IONO_nTheta-1)
-!           end do
-!        end if
-!        ! Plug self-consisent/IE potential into PhiIonoRaw (only northern)
-!        CALL IE_Run(TimeRamElapsed, TimeRamNow%Time)
-!        PhiIonoRaw = Iono_North_Phi
+        if(.not. allocated(PhiIonoRaw)) &
+             allocate(PhiIonoRaw(IONO_nTheta, IONO_nPsi))
+        if(.not. allocated(colat) .and. .not. allocated(lon)) then
+           allocate(colat(IONO_nTheta), lon(IONO_nPsi))
+           colat = 0.0
+           lon   = 0.0
+           do i=2, IONO_nPsi ! Longitude goes from 0 to 360.
+              lon(i) = lon(i-1) + 2.0_dp*pi_d/real(IONO_nPsi-1)
+           end do
+           do i=2, IONO_nTheta ! Colat goes from 0 to 90.
+              colat(i) = colat(i-1) +  0.5*pi_d/real(IONO_nTheta-1)
+           end do
+        end if
+        ! Plug self-consisent/IE potential into PhiIonoRaw (only northern)
+        CALL sce_run
+        PhiIonoRaw = Iono_North_Phi
      end if
 
      ! Now there should be no difference between what 

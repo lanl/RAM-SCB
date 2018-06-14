@@ -383,11 +383,15 @@ MODULE ModScbCompute
            END IF
         END DO
      END DO
+     paraj(:,1) = paraj(:,nzeta+1)
+     parajDirect(:,1) = parajDirect(:,nzeta+1)
 
      ! Express physical quantities (use normalization constants)
      bj = bj * pjconst
      jParDirect = jParDirect * pjconst
      phij = phij * pjconst
+     paraj = paraj * pjconst
+     parajDirect = parajDirect * pjconst
 
      region1FAC = region1FAC * pjconst * 6.371**2    ! in MA; 6.371**2 is R_E**2
      region2FAC = region2FAC * pjconst * 6.371**2    ! in MA

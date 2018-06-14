@@ -207,10 +207,6 @@ test1_run:
 	cd ${TESTDIR1}; ${MPIRUN} ./ram_scb.exe | tee runlog
 
 test1_check:
-	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9 			        \
-		${TESTDIR1}/output_ram/Dsbnd/ds_h_d20130317_t001000.dat \
-		${IMDIR}/output/test1/dsbnd.ref                         \
-		> test1.diff
 	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9	                        \
 		${TESTDIR1}/output_ram/pressure_d20130317_t001500.dat   \
 		${IMDIR}/output/test1/pressure.ref                      \

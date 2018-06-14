@@ -439,9 +439,9 @@ MODULE ModRamInit
     use ModRamMain,      ONLY: nIter
     use ModRamParams,    ONLY: IsRestart, IsStarttimeSet, &
                                DoUsePlane_SCB, HardRestart
-    use ModRamGrids,     ONLY: NL, NLT
+    use ModRamGrids,     ONLY: NL, NLT, nR, nT
     use ModRamTiming,    ONLY: DtEfi, TimeRamNow, TimeRamElapsed
-    use ModRamVariables, ONLY: Kp, F107, TOLV, NECR
+    use ModRamVariables, ONLY: Kp, F107, TOLV, NECR, IP1, IR1, XNE
     !!!! Module Subroutines/Functions
     use ModRamRun,       ONLY: ANISCH
     use ModRamBoundary,  ONLY: get_boundary_flux
@@ -460,7 +460,7 @@ MODULE ModRamInit
   
     implicit none
   
-    integer :: i, j
+    integer :: i, j, j1, i1
   
     character(len=100) :: HEADER
   
@@ -515,19 +515,26 @@ MODULE ModRamInit
   
        ! Couple SCB -> RAM
        call computehI(0)
-  
+
        call compute3DFlux
   
        call write_prefix
        write(*,*) 'Finished 3D Equilibrium code.'
   
-       if (DoUsePlane_SCB) then
-          write(*,*) "Reading in initial plasmasphere density model"
+       !if (DoUsePlane_SCB) then
+       !   write(*,*) "Reading in initial plasmasphere density model"
           OPEN(UNITTMP_,FILE='ne_full.dat',STATUS='OLD') ! Kp=1-2 (quiet)
           READ(UNITTMP_,'(A)') HEADER
           READ(UNITTMP_,*) ((NECR(I,J),I=1,NL),J=0,NLT)  ! L= 1.5 to 10
           CLOSE(UNITTMP_)
-       endif
+       !endif
+       DO I=2,NR
+         I1=int((I-2)*IR1+3,kind=4)
+         DO J=1,NT
+           J1=int((J-1)*IP1,kind=4)
+           XNE(I,J)=NECR(I1,J1)
+         ENDDO
+       ENDDO
     end if
   !!!!!!!!
   
