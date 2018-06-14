@@ -240,21 +240,14 @@ void interpolation_derivs_c(int i1, double *xa, double *fa, double *dx, int *sta
       const gsl_interp_type *t;
 
       gsl_interp_accel *acc = gsl_interp_accel_alloc ();
-      if (fa[0] == fa[i1-1]) {
-         t = gsl_interp_cspline_periodic;
-      } else { 
-         t = gsl_interp_cspline;
-      }
-      t = gsl_interp_linear;
-      //t = gsl_interp_steffen;
+      t = gsl_interp_steffen;
       gsl_spline *spline = gsl_spline_alloc (t, i1);
       err = gsl_spline_init (spline, xa, fa, i1);
       if (err) { printf("deriv error %f %f %f %f %f %f\n",xa[0],xa[1],xa[2],xa[i1-3],xa[i1-2],xa[i1-1]); }
 
-      xa[0] = xa[0] + 1e-10;
-      xa[i1-1] = xa[i1-1] - 1e-10;
       for ( i = 0; i<i1; i++ ) {
          err = gsl_spline_eval_deriv_e(spline,xa[i],acc,&dx[i]);
+         if (dx[i]==0.0) { dx[i] = dx[i] + 0.00001; }
          if (err) {
             if (err == GSL_EDOM) {
                printf("interpolation_derivs_c warning, GSL_EDOM: x is outside range of xa, x=%f, xa[0]=%f, xa[-1]=%f\n",xa[i],xa[0],xa[i1-1]);
