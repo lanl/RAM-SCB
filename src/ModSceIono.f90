@@ -1,6 +1,11 @@
 MODULE ModSceIono
 
+  use nrtype, ONLY: DP
+
   implicit none
+
+  real(DP), allocatable :: x(:), y(:), rhs(:), b(:), Bnd_I(:), d_I(:), e_I(:), &
+                           f_I(:), e1_I(:), f1_I(:)
 
   contains
 !==================================================================================================
@@ -508,7 +513,7 @@ MODULE ModSceIono
 
     use nrtype, ONLY: DP, pio2_d, pi_d, cRadtoDeg
 
-    use ModLinearSolver, ONLY: gmres, bicgstab
+    use ModLinearSolver, ONLY: gmres, bicgstab, prehepta, Uhepta, Lhepta
 
     implicit none
  
@@ -525,14 +530,12 @@ MODULE ModSceIono
     real(DP) :: TermTheta2, TermTheta1, TermPsi2, TermPsi1, sn, cs, sn2, Residual, &
                 PhiMax, PhiMin
 
-    real(DP), allocatable :: lat_weimer(:,:), mlt_weimer(:,:), mlt_tmp(:,:), &
+    real(DP), allocatable :: lat_weimer(:,:), mlt_weimer(:,:), & 
                              dTheta2(:), dPsi2(:), SinTheta_I(:), CosTheta_I(:)
-    real(DP), allocatable :: x(:), y(:), rhs(:), b(:), Bnd_I(:), d_I(:), e_I(:), &
-                             f_I(:), e1_I(:), f1_I(:)
 
     logical :: DoTest, DoTestMe
     !-------------------------------------------------------------------------
-    allocate(lat_weimer(0:nTheta+1,nPsi), mlt_weimer(0:ntheta+1,nPsi), mlt_tmp(0:ntheta+1,nPsi), &
+    allocate(lat_weimer(nTheta,nPsi), mlt_weimer(ntheta,nPsi), & 
              dTheta2(nTheta), dPsi2(nPsi), SinTheta_I(nTheta), CosTheta_I(nTheta))
 
     if (north) iBlock = 1
@@ -559,14 +562,14 @@ MODULE ModSceIono
     elsewhere
        mlt_weimer = mlt_weimer - 12  
     end where
-  
+
     ! symmetric for southern/northern hemisphere: lat_weimer is positive.
     call iono_potential_weimer(abs(lat_weimer(1:nTheta,1:nPsi-1)), &
                                    mlt_weimer(1:nTheta,1:nPsi-1), &
                                    PhiIono_weimer(1:nTheta,1:nPsi-1))
     PhiIono_weimer(:,nPsi) = PhiIono_weimer(:,1)
     write(*,*)'max min(weimer):',maxval(PhiIono_weimer), minval(PhiIono_weimer)
-  
+
     ! Calculate (Delta Psi)^2 (note that dPsi = 2 Delta Psi)
     dPsi2 = (dPsi/2.0)**2
   
@@ -610,7 +613,6 @@ MODULE ModSceIono
              C_C(i,j) =         TermTheta2 + TermTheta1
              C_D(i,j) =         TermPsi2   - TermPsi1
              C_E(i,j) =         TermPsi2   + TermPsi1        
-  
           end if
        end do
     enddo
@@ -634,17 +636,27 @@ MODULE ModSceIono
           if(j == nPsiUsed) f1_I(iI) = 0.0
        end do
     end do
-  
+ 
     ! Save original RHS for checking b = 0 !!! test for zero RHS
     Rhs = b
   
     ! move nonlinear part of operator to RHS
     x = 0.0
     UseWeimer = .True.
+    DoPrecond = .False.
     call matvec_ionosphere(x, Bnd_I, nX)
     b = b - Bnd_I
     UseWeimer = .False.
-  
+
+    DoPrecond = .False.
+    if(DoPrecond)then
+       ! A -> LU
+       call prehepta(nX,1,nThetaSolver,nX,real(-0.5,kind=8),d_I,e_I,f_I,e1_I,f1_I)
+       ! rhs'=U^{-1}.L^{-1}.rhs
+       call Lhepta(       nX,1,nThetaSolver,nX,b,d_I,e_I,e1_I)
+       call Uhepta(.true.,nX,1,nThetaSolver,nX,b,f_I,f1_I)
+    end if
+ 
     ! Solve A'.x = rhs'
     Residual = Tolerance
     if(UseInitialGuess) then
@@ -671,7 +683,7 @@ MODULE ModSceIono
     !end select
   
     ! Phi_C is the solution within the solved region
-    Phi_C(:,:) = 0.0
+    Phi_C(1:iMin,:) = PhiIono_Weimer(1:iMin,:)
     iI = 0
     do j=1, nPsiUsed
        do i = iMin, iMax
@@ -679,6 +691,7 @@ MODULE ModSceIono
           if (i>=iHighBnd(j)) Phi_C(i,j) = x(iI)     
        end do
     end do
+    Phi_C(iMin,:) = PhiIono_Weimer(iMin,:)
 
     ! Apply periodic boundary condition in Psi direction
     Phi_C(:,nPsi) = Phi_C(:,1)
@@ -698,7 +711,7 @@ MODULE ModSceIono
     cpcp_north = (PhiMax - PhiMin)/1000.0
 
     deallocate(x, y, b, rhs,Bnd_I, d_I, e_I, f_I, e1_I, f1_I)
-    deallocate(lat_weimer, mlt_weimer, mlt_tmp, dTheta2, dPsi2, SinTheta_I, CosTheta_I)
+    deallocate(lat_weimer, mlt_weimer, dTheta2, dPsi2, SinTheta_I, CosTheta_I)
     return  
   end subroutine ionosphere_solver
 
@@ -709,7 +722,9 @@ MODULE ModSceIono
     use ModSceGrids, ONLY: Iono_nTheta, Iono_nPsi
     use ModSceVariables, ONLY: HighLatBoundary, nThetaSolver, PhiIono_Weimer, &
                                iHighBnd, C_A, C_B, C_C, C_D, C_E, UseWeimer, &
-                               nThetaUsed
+                               nThetaUsed, DoPrecond
+
+    use ModLinearsolver, ONLY: Uhepta, Lhepta
 
     implicit none
   
@@ -742,7 +757,7 @@ MODULE ModSceIono
        enddo
     enddo
   
-    if(UseWeimer)then ! apply the boundary condition at high latitude
+    if (UseWeimer) then ! apply the boundary condition at high latitude
        do j=1, nPsi-1
           x_G(iMin-1:iHighBnd(j), j) = PhiIono_Weimer(iMin-1:iHighBnd(j),j)
        end do
@@ -778,7 +793,13 @@ MODULE ModSceIono
           end do
        end do
     end if
-  
+
+    ! Preconditioning: y'= U^{-1}.L^{-1}.y
+    if (DoPrecond) then
+       call Lhepta(       n,1,nThetaSolver,n,y_I,d_I,e_I,e1_I)
+       call Uhepta(.true.,n,1,nThetaSolver,n,y_I,    f_I,f1_I)
+    end if
+
     deallocate(x_G)
     return
 
@@ -789,7 +810,10 @@ MODULE ModSceIono
   
     use ModRamTiming,    ONLY: TimeRamNow 
     use ModRamParams,    ONLY: UseSWMFFIle, NameOmniFile
+    use ModRamVariables, ONLY: Kp
+    use ModRamConst,     ONLY: RE
     use ModScbVariables, ONLY: tilt
+    use ModSceVariables, ONLY: IONO_NORTH_Theta, IONO_NORTH_Psi
     use ModSceGrids,     ONLY: Iono_nTheta, Iono_nPsi
 
     use w05
@@ -808,7 +832,7 @@ MODULE ModSceIono
     integer :: doy, ierr, iYear_l, iDoy_l, iHour_l, iMin_l, iLines, isec_l, &
                imsec_l, imonth_l, iday_l, AL_l, SymH_l
     REAL(DP) :: radius, angle, bzimf_l, bndylat, byimf_l, pdyn_l, Nk_l, &
-                Vk_l, bTot_l, bximf_l, vx_l, vy_l, vz_l, t_l
+                Vk_l, bTot_l, bximf_l, vx_l, vy_l, vz_l, t_l, V, AVS
     CHARACTER(LEN = 100) :: header
     !---------------------------------------------------------------------
     OPEN(UNITTMP_, FILE=NameOmniFile, status = 'UNKNOWN', action = 'READ')
@@ -858,11 +882,14 @@ MODULE ModSceIono
     CALL SetModel05(byimf_l, bzimf_l, tilt, Vk_l, Nk_l)
 
     ! calculate weimer potential from w05 for the high-latitude potential used in the solver
+    AVS=7.05E-6/(1.-0.159*KP+0.0093*KP**2)**3/RE  ! Voll-Stern parameter
     DO j = 1, Iono_nPsi-1
        DO i = 1, Iono_nTheta
+          V = -AVS*((1/sin(IONO_NORTH_Theta(i,j))**2)*RE)**2*SIN(IONO_NORTH_Psi(i,j)) ! [V]
           ! use the weimer 2005 model
           call EpotVal05(lat(i,j), mlt(i,j), 0.0_dp, PhiWeimer(i,j))
           PhiWeimer(i,j) = PhiWeimer(i,j) * 1.0e3 ! in Volts
+          !if (abs(PhiWeimer(i,j)).lt.1.0_dp) PhiWeimer(i,j) = V + 1.0_DP
        END DO
     END DO
 
