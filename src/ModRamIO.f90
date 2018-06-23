@@ -560,15 +560,15 @@ end subroutine read_geomlt_file
           angleGrid(:,j) = MLT(j)*2*PI_d/24
        ENDDO
        do iS=1,4
-          CALL GSL_Interpolation_2D(iLz, iMLT, iPParT(iS,:,:), radGrid(1:nR,:), &
+          CALL GSL_Interpolation_2D(iLz(1:iR), iMLT, iPParT(iS,:,:), radGrid(1:nR,:), &
                                     angleGrid(1:nR,:), PParT(iS,:,:), GSLerr)
-          CALL GSL_Interpolation_2D(iLz, iMLT, iPPerT(iS,:,:), radGrid(1:nR,:), & 
+          CALL GSL_Interpolation_2D(iLz(1:iR), iMLT, iPPerT(iS,:,:), radGrid(1:nR,:), & 
                                     angleGrid(1:nR,:), PPerT(iS,:,:), GSLerr)
        enddo
        do l=1,nPa
           do k=1,nE
              do iS=1,4
-                CALL GSL_Interpolation_2D(iLz, iMLT, iF2(iS,:,:,k,l), radGrid(1:nR,:), &
+                CALL GSL_Interpolation_2D(iLz(1:iR), iMLT, iF2(iS,:,:,k,l), radGrid(1:nR,:), &
                                           angleGrid(1:nR,:), F2(iS,1:nR,:,k,l), GSLerr)
              enddo
           enddo

@@ -59,16 +59,12 @@ allclean:
 rundir: 
 	mkdir -p ${RUNDIR}/IM/output
 	cp input/RamIndices.txt ${RUNDIR}/
-#	cp input/apf107.dat ${RUNDIR}/
-#	cp input/ig_rz.dat ${RUNDIR}/
+	cp input/apf107.dat ${RUNDIR}/
+	cp input/ig_rz.dat ${RUNDIR}/
 	cp input/newtau.dat ${RUNDIR}/
 	cp input/ne_full.dat ${RUNDIR}/
 	cp input/initialization.nc ${RUNDIR}/IM/
 	cp input/QinDenton_20130317_1min.txt ${RUNDIR}/IM/
-#	cp input/dgrf*.dat ${RUNDIR}/
-#	cp input/igrf*.dat ${RUNDIR}/
-#	cp input/ccir*.asc ${RUNDIR}/
-#	cp input/ursi*.asc ${RUNDIR}/
 	cd ${RUNDIR}; \
 	ln -s ../input/bav_diffcoef_chorus_rpa_Kp*.PAonly.dat .
 	cd ${RUNDIR}/IM/output; \
@@ -77,14 +73,11 @@ rundir:
 		mkdir input_ram input_scb output_swmf;    \
 		mkdir restartIN restartOUT;               \
 		tar xzf ${IMDIR}/input/ramscb_inputs.tgz; \
-		mv Input_git/w2k.dat ../;			  \
-		mv Input_git/W05_coeff.dat ../;			\
-		mv Input_git/omni.txt ../;			  \
-		mv Input_git/f2ini* Input_git/*geomlt*.txt input_ram/;	  \
-		mv Input_git/hI_output_0000.dat input_scb/;         \
-		mv Input_git/hI_dipole.dat input_scb/;	          \
-		mv Input_git/dipole_config.cdf Input_git/t89*.cdf input_scb/; \
-                mv initialization.nc input_ram/;                              \
+		mv Input_git/w2k.dat ../;		  \
+		mv Input_git/W05_coeff.dat ../;		    \
+		mv Input_git/omni.txt ../;		    \
+		mv Input_git/*geomlt*.txt input_ram/; \
+                mv initialization.nc input_ram/;            \
 		mv QinDenton_20130317_1min.txt input_scb/;
 	@(if [ "$(STANDALONE)" != "NO" ]; then \
 		cd ${RUNDIR} ; \

@@ -95,14 +95,13 @@ GSL_OBJECTS=		\
 	RamGSL.o
 
 CPL_OBJECTS=            \
-        ModRamCouple.o  \
         ModRamScb.o     \
         ModRamSce.o     \
-        ModScbCouple.o
 
-EXT_OBJECTS=       \
-	nrtype.o   \
-	mpi.o      \
+EXT_OBJECTS=              \
+        gaussian_filter.o \
+	nrtype.o          \
+	mpi.o             \
 	ModRamMpi.o 
 
 OBJECTS = ${RAM_OBJECTS} ${SCB_OBJECTS} ${SCE_OBJECTS} ${EXT_OBJECTS} ${GSL_OBJECTS} ${CPL_OBJECTS} ${PLE_OBJECTS}

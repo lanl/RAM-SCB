@@ -23,7 +23,6 @@ use ModScbParams,    ONLY: method
 !!!! Module Subroutines and Functions
 use ModRamGSL,       ONLY: GSL_Initialize
 use ModRamInjection, ONLY: injection
-use ModRamCouple,    ONLY: RAMCouple_Allocate, RAMCouple_Deallocate
 use ModRamFunctions, ONLY: ram_sum_pressure, RamFileName
 use ModRamIndices,   ONLY: get_indices
 use ModRamTiming,    ONLY: max_output_timestep, init_timing, finalize_timing, do_timing
@@ -76,7 +75,6 @@ call IM_set_parameters
 
 ! Allocate Arrays
 call ram_allocate
-call RAMCouple_Allocate
 call scb_allocate
 call ramscb_allocate
 call sce_allocate
@@ -224,7 +222,6 @@ if ((.not.IsComponent)) then
 
      ! Deallocate arrays
      call ram_deallocate
-     call RAMCouple_deallocate
      call scb_deallocate
      call ramscb_deallocate
      call sce_deallocate

@@ -255,6 +255,12 @@ subroutine IM_set_parameters
         call read_var('DtMAGxyzWrite', DtW_MAGxyz)
         if (DtW_MAGxyz.lt.1.0) DtW_MAGxyz = 9999999999.9
 
+     case('#WRITE_BOUNDARY')
+        WriteBoundary = .true.
+
+     case('#WRITE_POTENTIAL')
+        WritePotential = .true.
+
      case('#SATELLITE')
         call read_sat_params()
         call read_var('DoUseVAPini',DoUseVAPini)

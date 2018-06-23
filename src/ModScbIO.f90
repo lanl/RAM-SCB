@@ -32,7 +32,6 @@ MODULE ModScbIO
     !!!! Module Subroutines/Functions
     use ModRamGSL,       ONLY: GSL_Interpolation_1D
     use ModRamFunctions, ONLY: RamFileName
-    use ModScbCouple,    ONLY: build_scb_init
     use ModScbEuler,     ONLY: psiges, alfges, InterpolatePsiR, mappsi, maptheta, &
                                psifunctions
     !!!! Share Modules
@@ -105,7 +104,6 @@ MODULE ModScbIO
 ! This needs to be modified to actually place the x,y,z into the correct arrays,
 ! no more of this write to file then immediatly read from file. -ME
        CALl CON_Stop('SWMF Magnetic Boundary not currently working, need to modify ModScbCouple')
-       call build_scb_init
     else
        ! For generating x, y, and z arrays using field line tracing
        !! Define the inputs needed for the magnetic field models for the tracing
@@ -610,7 +608,7 @@ MODULE ModScbIO
     z(:,:,nzeta+1) = z(:,:,2)
 
     ! For outputing the magnetic field
-    !call Write_MAGxyz
+    call Write_MAGxyz
 
     SORFail = .false.
     call ComputeBandJacob
@@ -784,7 +782,7 @@ MODULE ModScbIO
     IF (.not.LExist) then
        QDFile = trim(QinDentonPath)//StringFileFolder//'/QinDenton_'//StringFileDate//'_1min.txt'
     ENDIF
-    write(*,*) 'Reading File: ', QDFile
+    write(*,*) 'Reading File: ', trim(QDFile)
     open(unit=UNITTMP_, file=QDFile, status='OLD', iostat=iError)
     if(iError/=0) call CON_stop('get_model_inputs: Error opening file '//trim(QDFile))
     FileIndexStart = 0

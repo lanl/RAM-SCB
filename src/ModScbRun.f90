@@ -147,6 +147,7 @@
     else
        blendInitial = 0.20
     endif
+    blendInitial = 0.5
     blendAlpha = blendInitial
     blendPsi = blendInitial
 
@@ -334,8 +335,9 @@
        END DO Move_points_in_psi_theta
  
        if (verbose) then
-          WRITE(*,*) ' itout ',' blendAlpha ',' blendPsi ',' itAlpha ',' diffAlpha ',' errorAlpha ',&
-                     ' itPsi ',' diffPsi ',' errorPsi '
+          if (iteration == 1) WRITE(*,*) ' itout ',' blendAlpha ',' blendPsi ',' itAlpha ', &
+                                         ' diffAlpha ',' errorAlpha ', ' itPsi ',' diffPsi ', &
+                                         ' errorPsi '
           WRITE(*,*) iteration, blendAlpha, blendPsi, nisave1,sumdb1,errorAlpha/twopi_d, &
                      nisave,sumdb,errorPsi/MAXVAL(ABS(psival))
        endif
@@ -753,6 +755,7 @@ SUBROUTINE pressure
                                GSL_Smooth_1D
     USE ModSCBIO,        ONLY: write_scb_pressure
     USE ModScbFunctions, ONLY: SavGol7, pRoeRad, extap
+    use gaussian_filter, only: gaussian_kernel, convolve
     !!!! NR Modules
     use nrtype, ONLY: DP, pi_d, twopi_d
 
@@ -776,8 +779,10 @@ SUBROUTINE pressure
                              pressHeliumParRaw(:,:), pressPerRaw(:,:), pressParRaw(:,:), &
                              pressEleParRaw(:,:), pressElePerRaw(:,:), radRaw_local(:), &
                              ratioRaw(:,:)
-    REAL(DP), ALLOCATABLE :: pressPerRawExt(:,:), pressParRawExt(:,:), &
-                             radRawExt(:), azimRawExt(:)
+    REAL(DP), ALLOCATABLE :: pressPerRawExt(:,:), pressParRawExt(:,:), outputPer(:,:), &
+                             outputPar(:,:), radRawExt(:), azimRawExt(:)
+
+    real, dimension(:,:), allocatable :: kernelPer, kernelPar
 
     iCountPressureCall = iCountPressureCall + 1 ! global variable, counts how many times pressure is called
 
@@ -794,7 +799,8 @@ SUBROUTINE pressure
              pressEleParRaw(nXRaw,nYRaw), pressElePerRaw(nXRaw,nYRaw), &
              radRaw_local(nXRaw), ratioRaw(nXRaw,nYRaw))
     ALLOCATE(dipoleFactorMid(nthe,npsi),dipoleFactorNoo(nthe,npsi))
-    ALLOCATE(pressPerRawExt(nXRawExt,nAzimRAM), pressParRawExt(nXRawExt,nAzimRAM))
+    ALLOCATE(pressPerRawExt(nXRawExt,nAzimRAM), pressParRawExt(nXRawExt,nAzimRAM), &
+             outputPer(nXRawExt,nAzimRAM), outputPar(nXRawExt,nAzimRAM))
     ALLOCATE(radRawExt(nXRawExt), azimRawExt(nAzimRAM))
     pressPerRawExt = 0.0; pressParRawExt = 0.0; radRawExt = 0.0; azimRawExt = 0.0
     press = 0.0; dPresdRho = 0.0; dPresdZeta = 0.0; xEq = 0.0; yEq = 0.0; aratio = 0.0; aratioOld = 0.0
@@ -928,7 +934,22 @@ SUBROUTINE pressure
              CALL GSL_Smooth_1D(radRawExt(1:nXRawExt),pressParRawExt(1:nXRawExt,k),aTemp(1:500),bTemp(1:500),GSLerr)
              CALL GSL_Interpolation_1D('Cubic',aTemp(1:500),bTemp(1:500),radRawExt(1:nXRawExt),pressParRawExt(1:nXRawExt,k),GSLerr)
           ENDDO
-       !ELSEIF (iSm2 == 3) THEN ! Moving Average Filter
+       ELSEIF (iSm2 == 3) THEN ! Moving Average Filter
+          call gaussian_kernel(1.0, kernelPer)
+          call convolve(PressPerRawExt, kernelPer, outputPer)
+          PressPerRawExt = outputPer
+          call gaussian_kernel(1.0, kernelPar)
+          call convolve(PressParRawExt, kernelPar, outputPar)
+          PressParRawExt = outputPar
+       ELSEIF (iSm2 == 4) THEN
+          pressPerRawExt(1:nXRawExt,1:nAzimRAM) = SavGol7(pressPerRawExt(1:nXRawExt,1:nAzimRAM))
+          pressParRawExt(1:nXRawExt,1:nAzimRAM) = SavGol7(pressParRawExt(1:nXRawExt,1:nAzimRAM))
+          call gaussian_kernel(1.0, kernelPer)
+          call convolve(PressPerRawExt, kernelPer, outputPer)
+          PressPerRawExt = outputPer
+          call gaussian_kernel(1.0, kernelPar)
+          call convolve(PressParRawExt, kernelPar, outputPar)
+          PressParRawExt = outputPar
        ENDIF
     !endif
 
@@ -1196,7 +1217,8 @@ SUBROUTINE pressure
                pressOxygenParRaw, pressHeliumPerRaw, pressHeliumParRaw, pressPerRaw, &
                pressParRaw, pressEleParRaw, pressElePerRaw, radRaw_local, ratioRaw)
     DEALLOCATE(dipoleFactorMid, dipoleFactorNoo)
-    DEALLOCATE(pressPerRawExt, pressParRawExt, radRawExt, azimRawExt)
+    DEALLOCATE(pressPerRawExt, pressParRawExt, radRawExt, azimRawExt, outputPer, &
+               outputPar)
 
     RETURN
   

@@ -259,7 +259,7 @@ MODULE ModScbEquation
              v3b=(grsb*gpsb-grgpb**2)*ajb*rdpsq
              v3c=(grsc*gpsc-grgpc**2)*ajc*rdpsq
              v3d=(grsd*gpsd-grgpd**2)*ajd*rdpsq
-  
+
              vecd(i,j,k) = (v1a+v1c) + (v3b+v3d)
              vec1(i,j,k) = (v2c+v2d)
              vec2(i,j,k) = (v2c-v2a) + v3d
@@ -519,7 +519,7 @@ MODULE ModScbEquation
              v3b=(grgpb**2-grsb*gpsb)*ajb*rdrsq
              v3c=(grgpc**2-grsc*gpsc)*ajc*rdrsq
              v3d=(grgpd**2-grsd*gpsd)*ajd*rdrsq
-  
+
              vecd(i,j,k) = (v1a+v1c+v3b+v3d)
              vec1(i,j,k) = (v2c+v2d)
              vec2(i,j,k) = ((v2c-v2a)+v3d)
