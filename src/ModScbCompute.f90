@@ -9,7 +9,7 @@ MODULE ModScbCompute
   implicit none
 
   contains
-!==============================================================================
+!==================================================================================================
   SUBROUTINE metrics
     !!!! Module Variables
     use ModRamParams,    ONLY: boundary
@@ -39,8 +39,7 @@ MODULE ModScbCompute
 
     INTEGER :: GSLerr
     INTEGER :: i, j, k, nthe1, id
-    REAL(DP) :: yyp, bju, bjd, region1FAC, & 
-                region2FAC, totalCROSS, dstComputed, EAlpha, EBeta, gradPhiIonoGradAlpha, &
+    REAL(DP) :: yyp, bju, bjd, region1FAC, region2FAC, totalCROSS, EAlpha, EBeta, gradPhiIonoGradAlpha, &
                 gradPhiIonoGradBeta, dipoleFactor, dipoleFactor4RE, factorIncrease, thangle, &
                 thangleOnEarth, rr1, rr2, rr, zangle
     REAL(DP), ALLOCATABLE :: rrx(:,:), rry(:,:), parajDirect(:,:)
@@ -242,18 +241,17 @@ MODULE ModScbCompute
                  bj(i,j,k) = bju * bf(i,j,k) / sigma(i,j,k)
 
                  id = nthe - i + 1
-                 bjd = bjd + 1._dp/(2.*f(j)*fzet(k)) * dt * jacobian(i,j,k) / &
-                      (sigma(i,j,k) * bsq(i,j,k) **2) * &
-                      ((dPperdPsi(i,j,k) + dPpardPsi(i,j,k)) * psiTerm(i,j,k) + &
-                      (dPperdAlpha(i,j,k) + dPpardAlpha(i,j,k)) * alphaTerm(i,j,k))
-                 bj(id,j,k) = bjd * bf(id,j,k) / sigma(i,j,k)
+                 bjd = bjd + 1._dp/(2.*f(j)*fzet(k)) * dt * jacobian(id,j,k) / &
+                      (sigma(id,j,k) * bsq(id,j,k) **2) * &
+                      ((dPperdPsi(id,j,k) + dPpardPsi(id,j,k)) * psiTerm(id,j,k) + &
+                      (dPperdAlpha(id,j,k) + dPpardAlpha(id,j,k)) * alphaTerm(id,j,k))
+                 bj(id,j,k) = bjd * bf(id,j,k) / sigma(id,j,k)
               END DO
            END DO
         END DO
      END IF FAC_Isotropy_Choice
 
-     ! Now compute TOTAL field-aligned current in the Regions 1 and 2 at i =
-     ! nthe - 1
+     ! Now compute TOTAL field-aligned current in the Regions 1 and 2 at i = nthe - 1
      region1FAC = 0._dp
      region2FAC = 0._dp
      DO j = 2, npsi-1
@@ -291,7 +289,6 @@ MODULE ModScbCompute
      DO i = 1, nThetaEquator-1
         jParDirect(i,:,:) = -jParDirect(i,:,:)
      END DO
-
 
      ! Calculating toroidal current when equilibrium has been reached
 
@@ -332,19 +329,6 @@ MODULE ModScbCompute
      ! Multiply by 1.3 to take into account currents induced inside Earth
      dstBiot = 1.3 * dstBiot
      dstBiotInsideGeo = 1.3 * dstBiotInsideGeo
-     dstComputed = 0.0
-
-     DO i = 2, nthe
-        DO j = 2, npsi-1
-           totalCROSS = totalCROSS + jacobian(i,j,nZetaMidnight) * dr * dt * &
-                ABS(SQRT(gradZetaSq(i,j,nZetaMidnight))) * phij(i,j,nZetaMidnight)
-           DO k = 2, nzeta
-              dstComputed = dstComputed + 1.E-7_dp * jacobian(i,j,k)*phij(i,j,k)*pjconst*1E3 / &
-                   (x(i,j,k)**2+y(i,j,k)**2+z(i,j,k)**2) * dr * dt * dpPrime * 6.4E6_DP * &
-                   SQRT(x(i,j,k)**2+y(i,j,k)**2)/SQRT(x(i,j,k)**2+y(i,j,k)**2+z(i,j,k)**2)
-           END DO
-        END DO
-     END DO
 
      DO k = 2, nzeta + 1
         DO j = 1, npsi
@@ -361,8 +345,7 @@ MODULE ModScbCompute
 
            thangleOnEarth = ACOS(SQRT((COS(thangle))**2/r0Start))
 
-           !!  radius that corresponds to polar angle is normalized to 1 for
-           !every 10 degree in 
+           !!  radius that corresponds to polar angle is normalized to 1 for every 10 degree in 
            ! latitude zangle is toroidal angle; zangle = 0 is local noon
            IF (INT(r0Start) /= 1) rr = (90._dp - thangleOnEarth * 360._dp / twopi_d) / 10.0_dp
            IF (INT(r0Start) == 1) rr = (90._dp - thangle * 360._dp / twopi_d) / 10.0_dp
@@ -375,16 +358,16 @@ MODULE ModScbCompute
            factorIncrease = dipoleFactor * r0Start**3 / dipoleFactor4RE
 
            IF (INT(r0Start) /= 1) THEN
-              paraj(j,k) = bj(1,j,k) * factorIncrease
-              parajDirect(j,k) = jParDirect(1,j,k) * factorIncrease
+              paraj(j,k) = bj(i,j,k) * factorIncrease
+              parajDirect(j,k) = jParDirect(i,j,k) * factorIncrease
            ELSE
-              paraj(j,k) = bj(1,j,k)
-              parajDirect(j,k) = jParDirect(1,j,k)
+              paraj(j,k) = bj(i,j,k)
+              parajDirect(j,k) = jParDirect(i,j,k)
            END IF
         END DO
      END DO
-     paraj(:,1) = paraj(:,nzeta+1)
-     parajDirect(:,1) = parajDirect(:,nzeta+1)
+     paraj(:,1) = paraj(:,nzeta)
+     parajDirect(:,1) = parajDirect(:,nzeta)
 
      ! Express physical quantities (use normalization constants)
      bj = bj * pjconst
@@ -486,7 +469,6 @@ MODULE ModScbCompute
     gradRhoSq = gradRhoX**2 + gradRhoY**2 + gradRhoZ**2
     gradRhoGradZeta = gradRhoX * gradZetaX + gradRhoY * gradZetaY + gradRhoZ * gradZetaZ
     gradRhoGradTheta = gradRhoX * gradThetaX + gradRhoY * gradThetaY + gradRhoZ * gradThetaZ
-
     gradThetaSq = gradThetaX**2 + gradThetaY**2 + gradThetaZ**2
     gradThetaGradZeta = gradThetaX * gradZetaX + gradThetaY * gradZetaY + gradThetaZ * gradZetaZ
 
@@ -564,14 +546,14 @@ MODULE ModScbCompute
              jGradThetaPartialZeta(nthe,npsi,nzeta), derivjGradThetaPartialZeta(nthe,npsi,nzeta), &
              derivDiffPTheta(nthe,npsi,nzeta), jCrossBMinusGradPMod(nthe,npsi,nzeta), &
              derivNU1(nthe,npsi,nzeta), derivNU2(nthe,npsi,nzeta))
-    jGradRhoPartialTheta = 0.0; derivjGradRhoPartialTheta = 0.0
-    jGradRhoPartialZeta = 0.0; derivjGradRhoPartialZeta = 0.0
-    jGradZetaPartialRho = 0.0; derivjGradZetaPartialRho = 0.0
-    jGradZetaPartialTheta = 0.0; derivjGradZetaPartialTheta = 0.0
-    jGradThetaPartialRho = 0.0; derivjGradThetaPartialRho = 0.0
-    jGradThetaPartialZeta = 0.0; derivjGradThetaPartialZeta = 0.0
-    derivDiffPTheta = 0.0; jCrossBMinusGradPMod = 0.0
-    derivNU1 = 0.0; derivNU2 = 0.0
+    jGradRhoPartialTheta = 0.0_dp; derivjGradRhoPartialTheta = 0.0_dp
+    jGradRhoPartialZeta = 0.0_dp; derivjGradRhoPartialZeta = 0.0_dp
+    jGradZetaPartialRho = 0.0_dp; derivjGradZetaPartialRho = 0.0_dp
+    jGradZetaPartialTheta = 0.0_dp; derivjGradZetaPartialTheta = 0.0_dp
+    jGradThetaPartialRho = 0.0_dp; derivjGradThetaPartialRho = 0.0_dp
+    jGradThetaPartialZeta = 0.0_dp; derivjGradThetaPartialZeta = 0.0_dp
+    derivDiffPTheta = 0.0_dp; jCrossBMinusGradPMod = 0.0_dp
+    derivNU1 = 0.0_dp; derivNU2 = 0.0_dp
 
     ! j dot gradRho
     !DO j = 1, npsi
@@ -592,23 +574,23 @@ MODULE ModScbCompute
 
     !jGradRho = (derivjGradRhoPartialTheta + derivjGradRhoPartialZeta)/jacobian
 
-     IF (isotropy == 1) THEN 
-        DO j = 1, npsi
-           jGradRho(:,j,1:nzeta) = - 1._dp / f(j) * dpdAlpha(:,j,1:nzeta)
-        END DO
-     ELSE       ! anisotropic pressure case
-        DO i = 1, nthe
-           DO j = 1, npsi
-              DO k = 1, nzeta
-                 jGradRho(i,j,k) = 1._dp / f(j) * (-1./sigma(i,j,k) * dPperdAlpha(i,j,k) &
-                      - 1./(sigma(i,j,k)*bsq(i,j,k)) * f(j)**2 * fzet(k) * (gradRhoSq(i,j,k)* &
-                      gradThetaGradZeta(i,j,k) - gradRhoGradTheta(i,j,k)*gradRhoGradZeta(i,j,k)) * &
-                      (dPperdTheta(i,j,k) + (1.-sigma(i,j,k))*0.5*dBsqdTheta(i,j,k)) - &
-                      (1.-sigma(i,j,k))/sigma(i,j,k)*0.5*dBsqdAlpha(i,j,k))
-              END DO
-           END DO
-        END DO
-     END IF
+    IF (isotropy == 1) THEN 
+       DO j = 1, npsi
+          jGradRho(:,j,1:nzeta) = - 1._dp / f(j) * dpdAlpha(:,j,1:nzeta)
+       END DO
+    ELSE       ! anisotropic pressure case
+       DO i = 1, nthe
+          DO j = 1, npsi
+             DO k = 1, nzeta
+                jGradRho(i,j,k) = 1._dp / f(j) * (-1./sigma(i,j,k) * dPperdAlpha(i,j,k) &
+                     - 1./(sigma(i,j,k)*bsq(i,j,k)) * f(j)**2 * fzet(k) * (gradRhoSq(i,j,k)* &
+                     gradThetaGradZeta(i,j,k) - gradRhoGradTheta(i,j,k)*gradRhoGradZeta(i,j,k)) * &
+                     (dPperdTheta(i,j,k) + (1.-sigma(i,j,k))*0.5*dBsqdTheta(i,j,k)) - &
+                     (1.-sigma(i,j,k))/sigma(i,j,k)*0.5*dBsqdAlpha(i,j,k))
+             END DO
+          END DO
+       END DO
+    END IF
 
     ! j dot gradZeta
     !DO j = 1, npsi
@@ -629,23 +611,23 @@ MODULE ModScbCompute
 
     !jGradZeta = (derivjGradZetaPartialRho + derivjGradZetaPartialTheta)/jacobian
 
-     IF (isotropy == 1) THEN
-        DO k = 1, nzeta
-           jGradZeta(:,:,k) = 1._dp / fzet(k) * dpdPsi(:,:,k)
-        END DO
-     ELSE                    ! anisotropic pressure case
-        DO i = 1, nthe
-           DO j = 1, npsi
-              DO k = 1, nzeta
-                 jGradZeta(i,j,k) = 1._dp/fzet(k) * (1./sigma(i,j,k) * dPperdPsi(i,j,k) &
-                      - 1./(sigma(i,j,k)*bsq(i,j,k)) * f(j) * fzet(k)**2 * (gradRhoGradZeta(i,j,k)* &
-                      gradThetaGradZeta(i,j,k) - gradRhoGradTheta(i,j,k)*gradZetaSq(i,j,k)) * &
-                      (dPperdTheta(i,j,k) + (1.-sigma(i,j,k))*0.5*dBsqdTheta(i,j,k)) + &
-                      (1.-sigma(i,j,k))/sigma(i,j,k)*0.5*dBsqdPsi(i,j,k))
-              END DO
-           END DO
-        END DO
-     END IF
+    IF (isotropy == 1) THEN
+       DO k = 1, nzeta
+          jGradZeta(:,:,k) = 1._dp / fzet(k) * dpdPsi(:,:,k)
+       END DO
+    ELSE                    ! anisotropic pressure case
+       DO i = 1, nthe
+          DO j = 1, npsi
+             DO k = 1, nzeta
+                jGradZeta(i,j,k) = 1._dp/fzet(k) * (1./sigma(i,j,k) * dPperdPsi(i,j,k) &
+                     - 1./(sigma(i,j,k)*bsq(i,j,k)) * f(j) * fzet(k)**2 * (gradRhoGradZeta(i,j,k)* &
+                     gradThetaGradZeta(i,j,k) - gradRhoGradTheta(i,j,k)*gradZetaSq(i,j,k)) * &
+                     (dPperdTheta(i,j,k) + (1.-sigma(i,j,k))*0.5*dBsqdTheta(i,j,k)) + &
+                     (1.-sigma(i,j,k))/sigma(i,j,k)*0.5*dBsqdPsi(i,j,k))
+             END DO
+          END DO
+       END DO
+    END IF
 
     ! j dot gradTheta
     DO j = 1,npsi
@@ -784,9 +766,7 @@ MODULE ModScbCompute
     normGradP = normGradP/volume
  
     !  Norms of |jxB-grad P|,      |jxB|,      |gradP| 
-    if (verbose) WRITE(*, *) sum(jCrossB(2:nthe-1,2:npsi-1,2:nzeta)/GradP(2:nthe-1,2:npsi-1,2:nzeta))/(npsi*nthe*nzeta), &
-                             maxval(abs(jCrossB(2:nthe-1,2:npsi-1,2:nzeta)/GradP(2:nthe-1,2:npsi-1,2:nzeta)))
-!normDiffRel, normDiff, normJxB, normGradP, normJxB/normGradP, normGradP/normJxB
+    if (verbose) WRITE(*, *) normDiff, normJxB, normGradP, normJxB/normGradP, normGradP/normJxB
     if (isnan(normDiff).or.isnan(normJxB).or.isnan(normGradP)) then
      if (verbose) write(*,*) 'NaN detected in Compute_Convergence'
      SORFail = .true.
