@@ -1,59 +1,62 @@
-module ModRamTiming
-!    A module for tracking code efficiency and other timing metrics.
+!============================================================================
 !    Copyright (c) 2016, Los Alamos National Security, LLC
 !    All rights reserved.
+!============================================================================
 
-  use ModRamMain, ONLY: Real8_, niter, PathRamOut
+module ModRamTiming
+!    A module for tracking code efficiency and other timing metrics.
+
+  use ModRamMain,   ONLY: DP, niter, PathRamOut
   use ModRamParams, ONLY: DoSaveRamSats
 
   use ModTimeConvert, ONLY: TimeType
 
   implicit none
-  save
 
   type(TimeType) :: TimeRamNow, TimeRamStart, TimeRamStop, TimeRamRealStart, TimeRamFinish
 
-  real(kind=Real8_) :: TimeRestart    = 0.0, &
-                       TimeRamElapsed = 0.0, &
-                       TOld           = 0.0
+  real(DP) :: TimeRestart    = 0.0, &
+              TimeRamElapsed = 0.0, &
+              TOld           = 0.0, &
+              TimeMax        = 0.0 ! Simulation max in seconds
 
-  integer :: TimeMax = 0, &  ! Simulation max in seconds.
-             MaxIter     ! Simulation max iterations
+  integer :: MaxIter     ! Simulation max iterations
 
   !!!!! TEMPORAL GRIDS
-  real(kind=Real8_) :: DTs          = 5.0,    &  ! Variable that stores the current time step (changes during run)
-                       DTsNext      = 5.0,    &  ! Variable that decides the next time step (changes during run)
-                       DTsMin       = 1.0,    &  ! Minimum time step the code will take (doesn't actually adhear to this)
-                       DTsMax       = 100.0,  &  ! Max time step the code will take (configurable in PARAM)
-                       DTsFramework = 1000.0, &  ! Variable that dictates SWMF time steps (changes during run)
-                       DTOutput     = 3600.0, &  ! How often certain outputs are written
-                       DT_hI        = 300.0,  &  ! How often the SCB calculations are done
-                       DT_bc        = 300.0,  &  ! How often the boundary fluxes are updated
-                       DTEfi        = 300.0,  &  ! How often the electric field is updated
-                       DTRestart    = 3600.0, &  ! How often restart files are written (configurable in PARAM)
-                       DtLogFile    = 60.0,   &  ! How often the log file is written to (configurable in PARAM)
-                       DtWriteSat   = 60.0,   &  ! How often satellite files are written to (configurable in PARAM)
-                       DtW_Pressure = 300.0,  &
-                       DtW_hI       = 300.0,  &
-                       DtW_EField   = 3600.0
-  real(kind=Real8_) :: T, UTs
-  real(kind=Real8_) :: Efficiency = 0.0, SysTimeStart, SysTimeNow
-  real(kind=Real8_) :: dtPrintTiming = 300.0
+  real(DP) :: DTs          = 5.0,    &  ! Variable that stores the current time step (changes during run)
+              DTsNext      = 5.0,    &  ! Variable that decides the next time step (changes during run)
+              DTsMin       = 1.0,    &  ! Minimum time step the code will take (doesn't actually adhear to this)
+              DTsMax       = 100.0,  &  ! Max time step the code will take (configurable in PARAM)
+              DTsFramework = 1000.0, &  ! Variable that dictates SWMF time steps (changes during run)
+              DTOutput     = 3600.0, &  ! How often certain outputs are written
+              DT_hI        = 300.0,  &  ! How often the SCB calculations are done
+              DT_bc        = 300.0,  &  ! How often the boundary fluxes are updated
+              DTEfi        = 300.0,  &  ! How often the electric field is updated
+              DTRestart    = 3600.0, &  ! How often restart files are written (configurable in PARAM)
+              DtLogFile    = 60.0,   &  ! How often the log file is written to (configurable in PARAM)
+              DtWriteSat   = 60.0,   &  ! How often satellite files are written to (configurable in PARAM)
+              DtW_Pressure = 300.0,  &
+              DtW_hI       = 300.0,  &
+              DtW_EField   = 3600.0, &
+              DtW_MAGxyz   = 300.0
+  real(DP) :: T, UTs
+  real(DP) :: Efficiency = 0.0, SysTimeStart, SysTimeNow
+  real(DP) :: dtPrintTiming = 300.0
 
   ! Variables for writing efficiency file:
   logical :: DoWriteEffFile = .true.
   integer :: iUnitEffFile
-  real(kind=Real8_) :: dtEffFile = 300.0
+  real(DP) :: dtEffFile = 300.0
 
   character(len=*), parameter :: NameMod='ModRamTiming'
-  !---------------------------------------------------------------------------
 
-contains
-
-  !===========================================================================
+  contains
+!==================================================================================================
   subroutine init_timing()
 
     use ModIoUnit,  ONLY: io_unit_new
+
+    implicit none
 
     character(len=100) :: NameFile
     integer :: iError
@@ -86,15 +89,15 @@ contains
   !===========================================================================
   subroutine do_timing()
 
-!    use ModRamMpi, ONLY: iProc
-!    use ModRamIO,  ONLY: write_prefix
+    implicit none
 
-    real(kind=Real8_) :: CpuTimeNow
-    integer :: t1, clock_rate = 100, clock_max = 100000
-    !-------------------------------------------------------------------------
+    real(DP) :: CpuTimeNow
+    integer :: t1, clock_rate, clock_max
+
+    clock_rate = 1000
+    clock_max = 100000
+
     ! Update system time.
-!    call cpu_time(CpuTimeNow)
-!    CpuTimeNow = omp_get_wtime()
     call system_clock(t1,clock_rate,clock_max)
     CpuTimeNow = t1/clock_rate
     SysTimeNow = CpuTimeNow - SysTimeStart
@@ -102,12 +105,12 @@ contains
     ! Update timing metrics (only efficiency so far...)
     Efficiency = (TimeRamElapsed-TimeRestart)/SysTimeNow
 
-    if(DoWriteEffFile .and. (mod(TimeRamElapsed, dtEffFile) .eq. 0) ) &
+    if(DoWriteEffFile .and. (abs(mod(TimeRamElapsed, dtEffFile)) .le. 1e-9) ) &
          write(iUnitEffFile, '(2(f12.2, 1x), f12.8)') &
          SysTimeNow, TimeRamElapsed, Efficiency
 
     ! Write timing report.
-    if(mod(TimeRamElapsed, dtPrintTiming) .eq. 0) then
+    if(abs(mod(TimeRamElapsed, dtPrintTiming)) .le. 1e-9) then
 !       call write_prefix
        write(*,'(a, f12.2, a, f12.2, a, f10.6, a)') &
             'Simulated ', TimeRamElapsed, 's in ', SysTimeNow, &
@@ -118,15 +121,22 @@ contains
 
   !===========================================================================
   subroutine finalize_timing()
-    
-!    use ModRamIO, ONLY: write_prefix
 
-    real(kind=Real8_) :: CpuTimeNow
+    implicit none
+
+    real(DP) :: CpuTimeNow
+    integer :: t1, clock_rate, clock_max
     !-------------------------------------------------------------------------
+    clock_rate = 1000
+    clock_max = 100000
+
     close(iUnitEffFile)
 
     ! Update system time.
-    call cpu_time(CpuTimeNow)
+    !call cpu_time(CpuTimeNow)
+    !SysTimeNow = CpuTimeNow - SysTimeStart
+    call system_clock(t1,clock_rate,clock_max)
+    CpuTimeNow = t1/clock_rate
     SysTimeNow = CpuTimeNow - SysTimeStart
 
     ! Update timing metrics (only efficiency so far...)
@@ -149,12 +159,13 @@ contains
     ! Because RAM uses a time-splitting approach, the answer is divided by
     ! two (because each step moves forward in time by Dt twice.)
 
-    ! Arguments:
-    real(kind=Real8_) :: max_output_timestep
-    real(kind=Real8_), intent(in) :: TimeIn
+    implicit none
 
-    real(kind=Real8_) :: DtSatTemp=999999.9
-    real(kind=Real8_) :: hI_temp, bc_temp, ef_temp, rt_temp
+    ! Arguments:
+    real(DP) :: max_output_timestep
+    real(DP), intent(in) :: TimeIn
+
+    real(DP) :: DtSatTemp, hI_temp, bc_temp, ef_temp, rt_temp
 
     logical :: DoTest, DoTestMe
     character(len=*), parameter :: NameSub='max_output_timestep'
@@ -171,6 +182,7 @@ contains
     if (DtRestart.le.1.0) rt_temp = 9999999.9
 
     ! Only include sats if we are writing them.
+    DtSatTemp=999999.9
     if(DoSaveRamSats) DtSatTemp=DtWriteSat
 
     ! Biggest timestep we can take is the smallest difference of the amount
@@ -185,7 +197,8 @@ contains
          rt_temp     -mod(TimeIn, rt_temp     ), &
          DtW_Pressure-mod(TimeIn, DtW_Pressure), &
          DtW_EField  -mod(TimeIn, DtW_EField  ), &
-         DtW_hI      -mod(TimeIn, DtW_hI      )) / 2.0
+         DtW_hI      -mod(TimeIn, DtW_hI      ), &
+         DtW_MAGxyz  -mod(TimeIn, DtW_MAGxyz  )) / 2.0
 
     if(DoTestMe)then
        call write_prefix

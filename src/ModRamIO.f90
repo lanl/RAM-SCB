@@ -1,33 +1,25 @@
 !============================================================================
-module ModRamIO
-!   A set of variables and tools for general I/O handling, file name
-!   creation, etc.
-!   Copyright (c) 2016, Los Alamos National Security, LLC
-!   All rights reserved.
-!******************************************************************************
+!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    All rights reserved.
+!============================================================================
 
-  use ModRamMain,   ONLY: Real8_, S, nIter
-  use ModRamConst,  ONLY: PI
-  use ModRamParams, ONLY: DoSaveRamSats, UseNewFmt
-  use ModRamNCDF,   ONLY: ncdf_check, write_ncdf_globatts
-  use ModRamTiming, ONLY: DtLogFile, DtWriteSat
+module ModRamIO
 
   implicit none
-  save
 
   logical :: IsFramework = .false. 
 
   ! File output names and units
   integer :: iUnitLog ! Logfile IO unit
-  character(len=100) :: NameFileLog, NameFileDst
+  character(len=214) :: NameFileLog, NameFileDst
 
   ! String that contains the date and time for which this simulation
   ! was initialized (used for output metadata.)
   character(len=21) :: StringRunDate
   
-  character(len=10) :: NameMod = 'ModRamMain'
+  character(len=10), parameter :: NameMod = 'ModRamMain'
   
-contains
+  contains
 !============================!
 !===== BASE SUBROUTINES =====!
 !============================!
@@ -38,7 +30,7 @@ contains
     ! PrefixIn and SuffixIn are short, descriptive strings (e.g. 
     ! 'pressure', 'ram_o' for prefixes and 'dat', 'cdf' for suffixes.
 
-    use ModTimeConvert
+    use ModTimeConvert, ONLY: TimeType
 
     implicit none
 
@@ -62,33 +54,35 @@ contains
   subroutine init_output
     ! Initialize any output that requires such action.
 
+    use ModRamTiming, ONLY: TimeRamRealStart
     use ModRamSats,   ONLY: read_sat_input, init_sats
     use ModRamMain,   ONLY: PathRamOut, PathScbOut
+    use ModRamParams, ONLY: DoSaveRamSats
 
     use ModIoUnit,    ONLY: UNITTMP_
 
-    character(len=*), parameter :: NameSub = 'init_output'
+    implicit none
     !------------------------------------------------------------------------
+    if (DoSaveRamSats) then
+       call read_sat_input
+       call init_sats
+    end if
+
     ! Initialize logfile.
-    write(NameFileLog, '(a,i6.6, a)') PathRamOut//'log_n', nIter, '.log'
-    open(UNITTMP_, FILE=NameFileLog, STATUS='REPLACE')
+    NameFileLog = trim(PathRamOut)//RamFileName('log','log',TimeRamRealStart)
+    open(UNITTMP_, FILE=trim(NameFileLog), STATUS='REPLACE')
     write(UNITTMP_,*) 'RAM-SCB Log'
     write(UNITTMP_,*) 'time year mo dy hr mn sc msc dstRam dstBiot ', &
                       'pparh pperh pparo ppero pparhe pperhe ppare ppere'
     close(UNITTMP_)
 
     ! Initialize Dstfile.
-    write(NameFileDst, '(a,i6.6, a)') PathScbOut//'dst_computed_3deq_', nIter, '.txt'
-    open(UNITTMP_, FILE=NameFileDst, STATUS='REPLACE')
+    NameFileDst = trim(PathScbOut)//RamFileName('dst_computed_3deq','txt',TimeRamRealStart)
+    open(UNITTMP_, FILE=trim(NameFileDst), STATUS='REPLACE')
     write(UNITTMP_,*) 'SCB Dst File'
     write(UNITTMP_,*) 'time year mo dy hr mn sc msc dstDPS dstDPSGeo ', &
                       'dstBiot dstBiotGeo'
     close(UNITTMP_)
-
-    if (DoSaveRamSats) then
-       call read_sat_input
-       call init_sats
-    end if
 
   end subroutine init_output
 
@@ -100,9 +94,11 @@ contains
     ! If so, call the proper routines to write the output.
 
     !!!! Module Variables
-    use ModRamParams,    ONLY: DoSaveRamSats
+    use ModRamMain,      ONLY: DP, S
+    use ModRamParams,    ONLY: DoSaveRamSats, NameBoundMag
     use ModRamTiming,    ONLY: Dt_hI, DtRestart, DtWriteSat, TimeRamNow, &
-                               TimeRamElapsed, DtW_Pressure, DtW_hI, DtW_Efield
+                               TimeRamElapsed, DtW_Pressure, DtW_hI, DtW_Efield, &
+                               DtW_MAGxyz, DtLogFile
     use ModRamGrids,     ONLY: NR, NT
     use ModRamVariables, ONLY: PParH, PPerH, PParHe, PPerHe, PParE, PPerE, &
                                PParO, PPerO, VT
@@ -111,14 +107,15 @@ contains
     use ModRamSats,      ONLY: fly_sats
     use ModRamFunctions, ONLY: ram_sum_pressure, get_ramdst
     use ModRamRestart,   ONLY: write_restart
+    use ModScbIO,        ONLY: Write_MAGxyz
     ! Share Modules
     use ModIOUnit, ONLY: UNITTMP_
 
     implicit none
 
-    real(kind=Real8_), intent(in) :: TimeIn
+    real(DP), intent(in) :: TimeIn
 
-    real(kind=Real8_) :: dst
+    real(DP) :: dst
     logical :: DoTest, DoTestMe
     integer :: iS
     character(len=4) :: StrScbIter
@@ -127,7 +124,7 @@ contains
     call CON_set_do_test(NameSub, DoTest, DoTestMe)
 
     ! Write Logfile
-    if(mod(TimeIn, DtLogfile)==0.0)then
+    if(abs(mod(TimeIn, DtLogfile))<=1e-9)then
        ! Get current Dst.
        call get_ramdst(dst)
        open(UNITTMP_, FILE=NameFileLog, POSITION='APPEND')
@@ -141,7 +138,7 @@ contains
     end if
 
     ! Write SCB Dst file
-    if(mod(TimeIn, Dt_hI)==0.0)then
+    if(abs(mod(TimeIn, DtLogfile))<=1e-9)then
        open(UNITTMP_, FILE=NameFileDst, POSITION='APPEND')
        write(UNITTMP_, *) TimeIn, TimeRamNow%iYear, TimeRamNow%iMonth, &
                           TimeRamNow%iDay, TimeRamNow%iHour, TimeRamNow%iMinute, &
@@ -152,26 +149,29 @@ contains
     end if
 
     ! Write Pressure File
-    if (mod(TimeIn, DtW_Pressure)==0.0) then
+    if (abs(mod(TimeIn, DtW_Pressure))<=1e-9) then
        write(StrScbIter,'(I4.4)') int(TimeRamElapsed/Dt_hI)
        call ram_sum_pressure
-       call ram_write_pressure(StrScbIter)
+       call ram_write_pressure
     end if
 
+    ! Write MAGxyz File
+    if ((abs(mod(TimeIn, DtW_MAGxyz))<=1e-9).and.(NameBoundMag.ne.'DIPL')) call Write_MAGxyz
+
     ! Write hI File
-    if (mod(TimeIn, DtW_hI)==0.0) call ram_write_hI
+    if ((abs(mod(TimeIn, DtW_hI))<=1e-9).and.(NameBoundMag.ne.'DIPL')) call ram_write_hI
 
     ! Write efield file
-    if (mod(TimeIn, DtW_Efield).eq.0) call ram_epot_write
+    if (abs(mod(TimeIn, DtW_Efield)).le.1e-9) call ram_epot_write
 
     ! Update Satellite Files
-    if (DoSaveRamSats .and. (mod(TimeRamElapsed,DtWriteSat) .eq. 0)) call fly_sats
+    if (DoSaveRamSats .and. (abs(mod(TimeRamElapsed,DtWriteSat)) .le. 1e-9)) call fly_sats
 
     ! Write restarts.
-    if (mod(TimeIn,DtRestart).eq.0) call write_restart()
+    if (abs(mod(TimeIn,DtRestart)).le.1e-9) call write_restart()
 
     ! Write hourly file
-    if (mod(TimeIn,3600.0).eq.0) then
+    if (abs(mod(TimeIn,3600.0)).le.1e-9) then
        do iS = 1,4
           S = iS
           call ram_hour_write
@@ -187,13 +187,12 @@ contains
 subroutine read_geomlt_file(NameParticle)
 
   !!!! Module Variables
-  use ModRamMain,      ONLY: PathRamIN
-  use ModRamTiming,    ONLY: TimeRamNow, Dt_bc, TimeRamStart
-  use ModRamGrids,     ONLY: NE, NEL, NEL_prot, NTL, NBD
-  use ModRamParams,    ONLY: boundary
-  use ModRamVariables, ONLY: EKEV, FGEOS, IsInitialized, timeOffset, StringFileDate,  &
-                             flux_SIII, fluxLast_SII, eGrid_SI, avgSats_SI, lGrid_SI, &
-                             tGrid_SI
+  use ModRamMain,      ONLY: DP
+  use ModRamTiming,    ONLY: TimeRamNow, TimeRamStart
+  use ModRamGrids,     ONLY: NEL, NEL_prot, NTL, NBD
+  use ModRamParams,    ONLY: boundary, BoundaryPath
+  use ModRamVariables, ONLY: StringFileDate, flux_SIII, fluxLast_SII, eGrid_SI, &
+                             avgSats_SI, lGrid_SI, tGrid_SI
   !!!! Share Modules
   use ModIOUnit,      ONLY: UNITTMP_
   use ModTimeConvert, ONLY: TimeType, time_int_to_real
@@ -203,30 +202,24 @@ subroutine read_geomlt_file(NameParticle)
   character(len=4), intent(in) :: NameParticle
 
   character(len=200) :: NameFileIn, StringHeader
-  integer :: iError, i, j, k, iSpec, NEL_
-
-  ! Buffers to hold read data before placing in correct location.
-  real(kind=Real8_), allocatable :: Buffer_I(:), Buffer_III(:,:,:), Buffer2_I(:)
-  integer, allocatable           :: iBuffer_II(:,:)
+  integer :: iError, i, j, iSpec, NEL_
 
   ! Usual debug variables.
-  logical :: DoTest, DoTestMe, IsOpened
+  logical :: DoTest, DoTestMe
   character(len=*), parameter :: NameSub='read_geomlt_file'
-
-  character(len=99) :: NEL_char
 
   type(TimeType) :: TimeBoundary
 
   integer :: FileIndexStart, FileIndexEnd, FileIndex
   integer :: NTL_
   integer :: year, month, day, hour, minute, second, msec
-  character(len=25) :: ISOString, tempString
-  character(len=3)  :: MLTString, NSCString
-  character(len=1)  :: sa
+  character(len=25)  :: ISOString, tempString
+  character(len=3)   :: MLTString, NSCString
+  character(len=1)   :: sa
 
   character(len=25), allocatable :: TimeBuffer(:)
-  real(kind=Real8_), allocatable :: MLTBuffer(:), EnergyBuffer(:)
-  real(kind=Real8_), allocatable :: NSCBuffer(:,:,:), FluxBuffer(:,:,:)
+  real(DP), allocatable :: MLTBuffer(:), EnergyBuffer(:)
+  real(DP), allocatable :: NSCBuffer(:,:,:), FluxBuffer(:,:,:)
 
   !------------------------------------------------------------------------
   call CON_set_do_test(NameSub, DoTest, DoTestMe)
@@ -247,17 +240,21 @@ subroutine read_geomlt_file(NameParticle)
 
   select case (boundary)
      case('LANL')
-        write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a)') trim(PathRamIn)//'/', &
+        write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a)') trim(BoundaryPath)//'/', &
               TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay, &
               '_mpa-sopa_', NameParticle, '_geomlt_5-min.txt'
      case('PTM')
-        write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a)') trim(PathRamIn)//'/', &
+        write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a)') trim(BoundaryPath)//'/', &
               TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay, &
               '_ptm_', NameParticle, '_geomlt_5-min.txt'
-     case('QDM')
-        write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a)') trim(PathRamIn)//'/', &
+     case('QDKP')
+        write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a)') trim(BoundaryPath)//'/', &
               TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay, &
-              '_qdm_', NameParticle, '_geomlt_5-min.txt'
+              '_qdm-kp_', NameParticle, '_geomlt_5-min.txt'
+     case('QDMVBZ')
+        write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a)') trim(BoundaryPath)//'/', &
+              TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay, &
+              '_qdm-vbz_', NameParticle, '_geomlt_5-min.txt'
   end select
 
   allocate(TimeBuffer(1))
@@ -355,7 +352,7 @@ subroutine read_geomlt_file(NameParticle)
   ! Finally, store last entry into fluxLast_SII.
   fluxLast_SII(iSpec,:,:) = flux_SIII(iSpec,NBD,:,:)
 
-  deallocate(TimeBuffer, MLTBuffer, EnergyBuffer, FluxBuffer)
+  deallocate(TimeBuffer, MLTBuffer, EnergyBuffer, FluxBuffer, NSCBuffer)
 
 11 FORMAT(I4,A,I2,A,I2,A,I2,A,I2,A,I2,A,I3,A)
   return
@@ -364,7 +361,7 @@ end subroutine read_geomlt_file
 !===========================================================================
   subroutine read_hI_file
      !!!! Module Variables
-     use ModRamMain,      ONLY: PathScbIn
+     use ModRamMain,      ONLY: DP,PathScbIn
      use ModRamTiming,    ONLY: TimeRamNow
      use ModRamParams,    ONLY: NameBoundMag, UseEfInd
      use ModRamGrids,     ONLY: NR, NT, NPA
@@ -376,17 +373,17 @@ end subroutine read_geomlt_file
      use ModIoUnit,       ONLY: UNITTMP_
 
      implicit none
-     save
 
-     logical :: THERE=.false.
-     integer :: I, J, K, L
-     integer :: IPA, nFive
+     logical :: THERE
+     integer :: I, J, L
+     integer :: IPA
 
-     real(kind=Real8_) :: RRL, PH
+     real(DP) :: RRL, PH
 
      character(len=100) :: HEADER
-     character(len=200) :: hIFile
+     character(len=213) :: hIFile
 
+     THERE = .false.
      IF (NameBoundMag .EQ. 'DIPL') THEN
         hIfile=trim(PathScbIn)//'hI_dipole.dat'
      ELSE
@@ -451,37 +448,44 @@ end subroutine read_geomlt_file
 !==============================================================================
   subroutine read_initial
 
-    use ModRamMain,      ONLY: Real8_, PathRamIn
+    use ModRamMain,      ONLY: DP
     use ModRamGrids,     ONLY: nR, nT, nE, nPA, RadiusMax, RadiusMin
-    use ModRamVariables, ONLY: F2, FNHS, FNIS, BOUNHS, BOUNIS, BNES, HDNS, EIR, &
-                               EIP, dBdt, dIdt, dIbndt, EkeV, Lz, MLT, Pa
+    use ModRamVariables, ONLY: F2, EkeV, Lz, MLT, Pa, &
+                               PParT, PPerT, PPerO, PParO, PPerE, PParE, &
+                               PPerHe, PParHe, PPerH, PParH
+    use ModRamParams,    ONLY: InitializationPath
+
+    use ModRamGSL, ONLY: GSL_Interpolation_2D
+    use ModRamNCDF, ONLY: ncdf_check
+
     use netcdf
+    use nrtype, ONLY: pi_d
 
     implicit none
 
-    integer :: i, j, k, l, iS
-    integer :: iRDim, iTDim, iEDim, iPaDim, iR, iT, iE, iPa, iError
-    integer :: iFluxEVar, iFluxHVar, iFluxHeVar, iFluxOVar, iHVar, iBHVar, &
-               iIVar, iBIVar, iBNESVar, iHDNSVar, iEIRVar, iEIPVar, &
-               iDBDTVar, iDIDTVar, iDIBNVar, iFileID, iStatus
-   
-    real(kind=Real8_), allocatable :: iF2(:,:,:,:,:), iFNHS(:,:,:), iFNIS(:,:,:), &
-         iBOUNHS(:,:,:), iBOUNIS(:,:,:), iEIR(:,:), iEIP(:,:), iBNES(:,:), &
-         iHDNS(:,:,:), idBdt(:,:), idIdt(:,:,:), idIbndt(:,:,:), iLz(:), iMLT(:), &
-         iEkeV(:), iPaVar(:)
-    real(kind=Real8_) :: DL1, DPHI
+    integer :: i, j, k, l, iS, GSLerr, iRDim, iTDim, iEDim, iPaDim, &
+               iR, iT, iE, iPa
+    integer :: iFluxEVar, iFluxHVar, iFluxHeVar, iFluxOVar, &
+               iFileID, iStatus, iPParTVar, iPPerTVar
+    real(DP), allocatable :: iF2(:,:,:,:,:), iFNHS(:,:,:), iFNIS(:,:,:), iBOUNHS(:,:,:), &
+                             iBOUNIS(:,:,:), iEIR(:,:), iEIP(:,:), iBNES(:,:), &
+                             iHDNS(:,:,:), idBdt(:,:), idIdt(:,:,:), idIbndt(:,:,:), &
+                             iLz(:), iMLT(:), iEkeV(:), iPaVar(:), radGrid(:,:), &
+                             angleGrid(:,:), iPParT(:,:,:), iPPerT(:,:,:)
+    real(DP) :: DL1, DPHI
 
-    character(len=100)             :: NameFile, StringLine
+    character(len=100) :: NameFile
 
-    character(len=*), parameter :: NameSub='read_restart'
+    character(len=*), parameter :: NameSub='read_initial'
     logical :: DoTest, DoTestMe
     !------------------------------------------------------------------------
     call CON_set_do_test(NameSub, DoTest, DoTestMe)
 
     call write_prefix
-    write(*,*) 'Loading initial condition files.'
+    NameFile = trim(InitializationPath)//'/initialization.nc'
+    write(*,*) 'Loading initial condition files '//trim(NameFile)
     ! LOAD INITIAL FILE
-    iStatus = nf90_open(trim(PathRamIn//'/initialization.nc'),nf90_nowrite,iFileID)
+    iStatus = nf90_open(trim(NameFile),nf90_nowrite,iFileID)
     call ncdf_check(iStatus, NameSub)
 
     ! GET DIMENSIONS
@@ -498,7 +502,8 @@ end subroutine read_geomlt_file
     ALLOCATE(iF2(4,iR,iT,iE,iPa), iLz(iR+1), iMLT(iT), iEkeV(iE), iPaVar(iPa))
     ALLOCATE(iFNHS(iR+1,iT,iPa), iBOUNHS(iR+1,iT,iPa), idBdt(iR+1,iT), iHDNS(iR+1,iT,iPa), &
              iFNIS(iR+1,iT,iPa), iBOUNIS(iR+1,iT,iPa), idIdt(iR+1,iT,iPa), iBNES(iR+1,iT), &
-             idIbndt(iR+1,iT,iPa), iEIR(iR+1,iT), iEIP(iR+1,iT))
+             idIbndt(iR+1,iT,iPa), iEIR(iR+1,iT), iEIP(iR+1,iT), iPParT(4,iR,iT), &
+             iPPerT(4,iR,iT))
 
     ! GET VARIABLE IDS
     !! FLUXES
@@ -507,18 +512,9 @@ end subroutine read_geomlt_file
     iStatus = nf90_inq_varid(iFileID, 'FluxHe', iFluxHeVar)
     iStatus = nf90_inq_varid(iFileID, 'FluxO',  iFluxOVar)
 
-    !! hI OUTPUTS
-    iStatus = nf90_inq_varid(iFileID, 'FNHS',   iHVar)
-    iStatus = nf90_inq_varid(iFileID, 'BOUNHS', iBHVar)
-    iStatus = nf90_inq_varid(iFileID, 'FNIS',   iIvar)
-    iStatus = nf90_inq_varid(iFileID, 'BOUNIS', iBIVar)
-    iStatus = nf90_inq_varid(iFileID, 'BNES',   iBNESVar)
-    iStatus = nf90_inq_varid(iFileiD, 'HDNS',   iHDNSVar)
-    iStatus = nf90_inq_varid(iFileID, 'EIR',    iEIRVar)
-    iStatus = nf90_inq_varid(iFileID, 'EIP',    iEIPVar)
-    iStatus = nf90_inq_varid(iFileID, 'dBdt',   iDBDTVar)
-    iStatus = nf90_inq_varid(iFileID, 'dIdt',   iDIDTVar)
-    iStatus = nf90_inq_varid(iFileID, 'dIbndt', iDIBNVar)
+    !! PRESSURES
+    iStatus = nf90_inq_varid(iFileID, 'PParT', iPParTVar)
+    iStatus = nf90_inq_varid(iFileID, 'PPerT', iPPerTVar)
 
     ! READ DATA
     !! FLUXES
@@ -527,18 +523,9 @@ end subroutine read_geomlt_file
     iStatus = nf90_get_var(iFileID, iFluxHeVar, iF2(3,:,:,:,:))
     iStatus = nf90_get_var(iFileID, iFluxOVar,  iF2(4,:,:,:,:))
 
-    !! hI OUTPUTS
-    iStatus = nf90_get_var(iFileID, iHVar,    iFNHS(:,:,:))
-    iStatus = nf90_get_var(iFileID, iBHVar,   iBOUNHS(:,:,:))
-    iStatus = nf90_get_var(iFileID, iIVar,    iFNIS(:,:,:))
-    iStatus = nf90_get_var(iFileID, iBIVar,   iBOUNIS(:,:,:))
-    iStatus = nf90_get_var(iFileID, iBNESVar, iBNES(:,:))
-    iStatus = nf90_get_var(iFileID, iHDNSVar, iHDNS(:,:,:))
-    iStatus = nf90_get_var(iFileID, iEIRVar,  iEIR(:,:))
-    iStatus = nf90_get_Var(iFileID, iEIPVar,  iEIP(:,:))
-    iStatus = nf90_get_var(iFileID, iDBDTVar, idBdt(:,:))
-    iStatus = nf90_get_var(iFileID, iDIDTVar, idIdt(:,:,:))
-    iStatus = nf90_get_var(iFileID, iDIBNVar, idIbndt(:,:,:))
+    !! PRESSURES
+    iStatus = nf90_get_var(iFileID, iPParTVar, iPParT(:,:,:))
+    iStatus = nf90_get_var(iFileID, iPPerTVar, iPPerT(:,:,:))
 
     ! CLOSE INITIALIZATION FILE
     iStatus = nf90_close(iFileID)
@@ -549,9 +536,9 @@ end subroutine read_geomlt_file
       iLz(I)=2.+(I-2)*DL1
     END DO
 
-    DPHI=2.*PI/(iT-1)
+    DPHI=2.*PI_d/(iT-1)
     DO J=1,iT
-      iMLT(J)=(J-1)*DPHI*12./PI
+      iMLT(J)=(J-1)*DPHI
     END DO
 
     iEkeV = EkeV
@@ -559,86 +546,53 @@ end subroutine read_geomlt_file
 
     ! Now we need to check the dimensions of the initialization file and
     ! interpolate if they are different
-    if ((nR.eq.iR).and.(nT.eq.iT).and.(nE.eq.iE).and.(nPa.eq.iPa)) then
-       F2 = iF2
-       FNHS = iFNHS
-       FNIS = iFNIS
-       BOUNHS = iBOUNHS
-       BOUNIS = iBOUNIS
-       BNES = iBNES
-       HDNS = iHDNS
-       EIR = iEIR
-       EIP = iEIP
-       dBdt = idBdt
-       dIdt = idIdt
-       dIbndt = idIbndt
+    if ((nR.eq.iR).and.(nT.eq.iT)) then
+       F2     = iF2
+       PParT  = iPParT
+       PPerT  = iPPerT
     else
        ! Interpolate spatially for each energy and pitch angle (if required)
-       if ((nR.ne.iR).or.(nT.ne.iT)) then
-          do i=1,nR+1
-             do j=1,nT
-                call lintp2(iLz(:),iMLT(:),iBNES(:,:),iR,iT,Lz(i),MLT(j),BNES(i,j),iError)
-                call lintp2(iLz(:),iMLT(:),idBdt(:,:),iR,iT,Lz(i),MLT(j),dBdt(i,j),iError)
-                call lintp2(iLz(:),iMLT(:),iEIP(:,:),iR,iT,Lz(i),MLT(j),EIR(i,j),iError)
-                call lintp2(iLz(:),iMLT(:),iEIR(:,:),iR,iT,Lz(i),MLT(j),EIP(i,j),iError)
-                do l=1,nPa
-                   call lintp2(iLz(:),iMLT(:),iFNHS(:,:,l),iR,iT,Lz(i),MLT(j),FNHS(i,j,l),iError)
-                   call lintp2(iLz(:),iMLT(:),iFNIS(:,:,l),iR,iT,Lz(i),MLT(j),FNIS(i,j,l),iError)
-                   call lintp2(iLz(:),iMLT(:),iHDNS(:,:,l),iR,iT,Lz(i),MLT(j),HDNS(i,j,l),iError)
-                   call lintp2(iLz(:),iMLT(:),idIdt(:,:,l),iR,iT,Lz(i),MLT(j),dIdt(i,j,l),iError)
-                   call lintp2(iLz(:),iMLT(:),iBOUNHS(:,:,l),iR,iT,Lz(i),MLT(j),BOUNHS(i,j,l),iError)
-                   call lintp2(iLz(:),iMLT(:),iBOUNIS(:,:,l),iR,iT,Lz(i),MLT(j),BOUNIS(i,j,l),iError)
-                   call lintp2(iLz(:),iMLT(:),idIbndt(:,:,l),iR,iT,Lz(i),MLT(j),dIbndt(i,j,l),iError)
-                   do k=1,nE
-                      do iS=1,4
-                         if (i.lt.nR+1) call lintp2(iLz(:),iMLT(:),iF2(iS,:,:,k,l),iR,iT,Lz(i),MLT(j),F2(iS,i,j,k,l),iError)
-                      enddo
-                   enddo
-                enddo
+       ALLOCATE(radGrid(nR+1,nT),angleGrid(nR+1,nT))
+       DO i=1,NR+1
+          radGrid(i,:) = Lz(i)
+       ENDDO
+       DO j=1,NT
+          angleGrid(:,j) = MLT(j)*2*PI_d/24
+       ENDDO
+       do iS=1,4
+          CALL GSL_Interpolation_2D(iLz(1:iR), iMLT, iPParT(iS,:,:), radGrid(1:nR,:), &
+                                    angleGrid(1:nR,:), PParT(iS,:,:), GSLerr)
+          CALL GSL_Interpolation_2D(iLz(1:iR), iMLT, iPPerT(iS,:,:), radGrid(1:nR,:), & 
+                                    angleGrid(1:nR,:), PPerT(iS,:,:), GSLerr)
+       enddo
+       do l=1,nPa
+          do k=1,nE
+             do iS=1,4
+                CALL GSL_Interpolation_2D(iLz(1:iR), iMLT, iF2(iS,:,:,k,l), radGrid(1:nR,:), &
+                                          angleGrid(1:nR,:), F2(iS,1:nR,:,k,l), GSLerr)
              enddo
           enddo
-       endif
+       enddo
+       DEALLOCATE(radGrid,angleGrid)
+
        ! Interpolate across pitch angle
-       if (nPa.ne.iPa) then
-          do i=1,nR
-             do j=1,nT
-                do l=1,nPa
-                   call lintp(iPaVar(:),iFNHS(i,j,:),iPa,Pa(l),FNHS(i,j,l),iError)
-                   call lintp(iPaVar(:),iFNIS(i,j,:),iPa,Pa(l),FNIS(i,j,l),iError)
-                   call lintp(iPaVar(:),iHDNS(i,j,:),iPa,Pa(l),HDNS(i,j,l),iError)
-                   call lintp(iPaVar(:),idIdt(i,j,:),iPa,Pa(l),dIdt(i,j,l),iError)
-                   call lintp(iPaVar(:),iBOUNHS(i,j,:),iPa,Pa(l),BOUNHS(i,j,l),iError)
-                   call lintp(iPaVar(:),iBOUNIS(i,j,:),iPa,Pa(l),BOUNIS(i,j,l),iError)
-                   call lintp(iPaVar(:),idIbndt(i,j,:),iPa,Pa(l),dIbndt(i,j,l),iError)
-                   do k=1,nE
-                      do iS=1,4
-                         call lintp(iPaVar(:),iF2(iS,i,j,k,:),iPa,Pa(l),F2(iS,i,j,k,l),iError)
-                      enddo
-                   enddo
-                enddo
-             enddo
-          enddo
-       endif
-       ! Interpolate across energy (F2 only)
-       ! For now just do linear, add linear of log later
-       if (nE.ne.iE) then
-          do iS=1,4
-             do i=1,nR
-                do j=1,nT
-                   do l=1,nPa
-                      do k=1,nE
-                         call lintp(iEkeV(:),iF2(iS,i,j,:,l),iE,EkeV(k),F2(iS,i,j,k,l),iError)
-                      enddo
-                   enddo
-                enddo
-             enddo
-          enddo
+       if ((nPa.ne.iPa).or.(nE.ne.iE)) then
+        call CON_stop('Changing pitch angle and energy resolution not currently supported')
        endif
     endif
 
+    PPerO = PPerT(4,:,:)
+    PParO = PParT(4,:,:)
+    PPerHe = PPerT(3,:,:)
+    PParHe = PParT(3,:,:)
+    PPerE = PPerT(1,:,:)
+    PParE = PParT(1,:,:)
+    PPerH = PPerT(2,:,:)
+    PParH = PParT(2,:,:)
+
     DEALLOCATE(iF2, iEkeV, iMLT, iLz, iPaVar)
     DEALLOCATE(iFNHS, iBOUNHS, iFNIS, iBOUNIS, iBNES, iHDNS, iEIR, iEIP, &
-               idBdt, idIbndt, idIdt)
+               idBdt, idIbndt, idIdt, iPParT, iPPerT)
 
   end subroutine read_initial
 
@@ -648,7 +602,7 @@ end subroutine read_geomlt_file
 !==========================================================================
   subroutine ram_epot_write
 
-    use ModRamMain, ONLY: Real8_, PathRamOut
+    use ModRamMain, ONLY: DP, PathRamOut
     use ModRamTiming, ONLY: TimeRamNow, TimeRamElapsed
     use ModRamGrids, ONLY: nR, nT
     use ModRamVariables, ONLY: Kp, F107, VT, LZ, MLT
@@ -662,28 +616,25 @@ end subroutine read_geomlt_file
     character(len=23)  :: StringDate
     character(len=300) :: NameFileOut
     integer :: i, j
-    real(kind=Real8_) :: T
+    real(DP) :: T
    
     T = TimeRamElapsed
-    write(StringDate,"(i4.4,'-',i2.2,'-',i2.2,'_',i2.2,2(':',i2.2)'.',i3.3)"), TimeRamNow%iYear, &
-          TimeRamNow%iMonth, TimeRamNow%iDay, TimeRamNow%iHour, TimeRamNow%iMinute, &
-          TimeRamNow%iSecond, floor(TimeRamNow%FracSecond*1000.0)
+    write(StringDate,"(i4.4,'-',i2.2,'-',i2.2,'_',i2.2,2(':',i2.2))") &
+          TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay, &
+          TimeRamNow%iHour, TimeRamNow%iMinute, TimeRamNow%iSecond
 
    ! Write the electric potential [kV]
     NameFileOut=trim(PathRamOut)//RamFileName('efield','in',TimeRamNow)
     OPEN(UNIT=UNITTMP_,FILE=NameFileOut,STATUS='UNKNOWN')
     WRITE(UNITTMP_,*)'UT(hr)    Kp   F107   VTmax   VTmin   Date=',StringDate
-    WRITE(UNITTMP_,31) T/3600.,KP,F107,maxval(VT)/1e3,minval(VT)/1e3
+    WRITE(UNITTMP_,*) T/3600.,KP,F107,maxval(VT)/1e3,minval(VT)/1e3
     WRITE(UNITTMP_,*) ' L     MLT        Epot(kV)'
     DO I=1,NR+1
       DO J=1,NT
-        WRITE (UNITTMP_,22) LZ(I),MLT(J),VT(I,J)/1e3
+        WRITE (UNITTMP_,*) LZ(I),MLT(J),VT(I,J)/1e3
       END DO
     END DO
     CLOSE(UNITTMP_)
-
-22  FORMAT(F5.2,F10.6,E13.4)
-31  FORMAT(F6.2,1X,F6.2,2X,F6.2,1X,F7.2,1X,F7.2,1X,1PE11.3)
 
     RETURN
 
@@ -692,33 +643,35 @@ end subroutine read_geomlt_file
 !==========================================================================
   subroutine ram_hour_write !Previously WRESULT in ram_all
 
-    use ModRamMain,      ONLY: Real8_, S, PathRamOut
-    use ModRamConst,     ONLY: pi
+    use ModRamMain,      ONLY: DP, S, PathRamOut
     use ModRamGrids,     ONLY: nR, nE, nPA, nT
     use ModRamVariables, ONLY: F2, FFACTOR, FNHS, WE, WMU, XNN, XND, ENERN,   &
-                               ENERD, EkeV, UPA, LNCN, LNCD, Kp, MLT, MU, LZ, &
-                               VT, F107, LECD, LECN
+                               ENERD, EkeV, UPA, LNCN, LNCD, Kp, MLT, LZ, &
+                               LECD, LECN
     use ModRamTiming,    ONLY: TimeRamNow
 
     use ModRamFunctions
 
     use ModIOUnit, ONLY: UNITTMP_, io_unit_new
+
     implicit none
-    save
+
     integer :: i, j, k, l, jw, iw
-    real(kind=Real8_) :: weight, esum, csum, psum, precfl
-    real(kind=Real8_) :: XNNO(NR),XNDO(NR)
-    real(kind=Real8_) :: F(NR,NT,NE,NPA),NSUM,FZERO(NR,NT,NE),ENO(NR),EDO(NR),AVEFL(NR,NT,NE),BARFL(NE)
+    real(DP) :: weight
+    real(DP), ALLOCATABLE :: XNNO(:),XNDO(:)
+    real(DP), ALLOCATABLE :: F(:,:,:,:),FZERO(:,:,:),ENO(:),EDO(:),AVEFL(:,:,:),BARFL(:)
     character(len=23) :: StringDate
     character(len=2)  :: ST2
-    character(len=100) :: ST4, NameFileOut
+    character(len=214) :: ST4, NameFileOut
     character(len=2), dimension(4) :: speciesString = (/'_e','_h','he','_o'/)
 
+    ALLOCATE(F(NR,NT,NE,NPA),FZERO(NR,NT,NE),ENO(NR),EDO(NR),AVEFL(NR,NT,NE),BARFL(NE))
+    ALLOCATE(XNNO(NR),XNDO(NR))
     ST2 = speciesString(S)
     ST4 =trim(PathRamOut)
-    write(StringDate,"(i4.4,'-',i2.2,'-',i2.2,'_',i2.2,2(':',i2.2)'.',i3.3)"), TimeRamNow%iYear, &
-          TimeRamNow%iMonth, TimeRamNow%iDay, TimeRamNow%iHour, TimeRamNow%iMinute, &
-          TimeRamNow%iSecond, floor(TimeRamNow%FracSecond*1000.0)
+    write(StringDate,"(i4.4,'-',i2.2,'-',i2.2,'_',i2.2,2(':',i2.2))") &
+          TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay, &
+          TimeRamNow%iHour, TimeRamNow%iMinute, TimeRamNow%iSecond
 
     ! Print RAM output at every hour
 
@@ -810,21 +763,17 @@ end subroutine read_geomlt_file
 !      CLOSE(UNITTMP_)
 !    ENDIF
 
-22  FORMAT(F5.2,F10.6,E13.4)
 30  FORMAT(F7.2,72(1PE11.3))
-31  FORMAT(F6.2,1X,F6.2,2X,F6.2,1X,F7.2,1X,F7.2,1X,1PE11.3)
 32  FORMAT(' EKEV/PA, Date=',a,' L=',F6.2,' Kp=',F6.2,' MLT=',F4.1)
-40  FORMAT(20(3X,F8.2))
-70  FORMAT(F5.2,F10.6,E13.4)
-71  FORMAT(2X,3HT =,F8.0,2X,4HKp =,F6.2,2X,'  Total Precip Flux [1/cm2/s]')
-96  FORMAT(2HT=,F6.2,4H Kp=,F5.2,4H AP=,F7.2,4H Rs=,F7.2,7H Date= ,A23,'Plasmasphere e- density [cm-3]')
+
+    DEALLOCATE(F,FZERO,ENO,EDO,AVEFL,BARFL,XNNO,XNDO)
 
     RETURN
-  END
+  END SUBROUTINE ram_hour_write
 
 
 !===========================================================================
-  subroutine ram_write_pressure(StringIter)
+  subroutine ram_write_pressure
 ! Creates RAM pressure files (output_ram/pressure_d{Date and Time}.dat)
     !!!! Module Variables
     use ModRamMain,      ONLY: PathRamOut
@@ -836,10 +785,10 @@ end subroutine read_geomlt_file
     !!!! Share Modules
     use ModIOUnit, ONLY: UNITTMP_
 
+    use nrtype, ONLY: pi_d
     implicit none
 
     character(len=23)            :: StringTime
-    character(len=*), intent(in) :: StringIter
     character(len=*), parameter  :: NameSub = 'ram_write_pressure'
     character(len=200)           :: FileName
     integer                      :: iError, i, j
@@ -850,10 +799,9 @@ end subroutine read_geomlt_file
     if(iError /= 0) call CON_stop(NameSub//' Error opening file '//FileName)
 
     ! Prepare date/time for header.
-    write(StringTime,"(i4.4,'-',i2.2,'-',i2.2,'_',i2.2,2(':',i2.2)'.',i3.3)") &
+    write(StringTime,"(i4.4,'-',i2.2,'-',i2.2,'_',i2.2,2(':',i2.2))") &
              TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay, &
-             TimeRamNow%iHour, TimeRamNow%iMinute, TimeRamNow%iSecond, &
-             floor(TimeRamNow%FracSecond*1000.0)
+             TimeRamNow%iHour, TimeRamNow%iMinute, TimeRamNow%iSecond
 
     ! Write pressure to file.
     write(UNITTMP_,'(a, a, a3,f8.3,2x,a4,f3.1)') 'Date=', StringTime, ' T=', &
@@ -869,11 +817,11 @@ end subroutine read_geomlt_file
     do i=2, NR
        do j=1, NT
           if (.not.DoAnisoPressureGMCoupling) then
-             write(UNITTMP_,*) LZ(I),NINT(PHI(J)*12/PI),PPERH(I,J),PPARH(I,J), &
+             write(UNITTMP_,*) LZ(I),PHI(J)*12/PI_d,PPERH(I,J),PPARH(I,J), &
                                PPERO(I,J),PPARO(I,J), PPERHE(I,J),PPARHE(I,J), &
                                PPERE(I,J),PPARE(I,J),PAllSum(i,j)
           else
-             write(UNITTMP_,*) LZ(I),NINT(PHI(J)*12/PI),PPERH(I,J),PPARH(I,J), &
+             write(UNITTMP_,*) LZ(I),PHI(J)*12/PI_d,PPERH(I,J),PPARH(I,J), &
                                PPERO(I,J),PPARO(I,J),PPERHE(I,J),PPARHE(I,J), &
                                PPERE(I,J),PPARE(I,J),PAllSum(i,j),PparSum(i,j)
           end if
@@ -888,7 +836,7 @@ subroutine ram_write_hI
 
   use ModRamMain,      ONLY: PathScbOut
   use ModRamGrids,     ONLY: nR, nT, nPA
-  use ModRamTiming,    ONLY: TimeRamNow
+  use ModRamTiming,    ONLY: TimeRamNow, TimeRamElapsed
   use ModRamVariables, ONLY: LZ, MLT, FNHS, BOUNHS, FNIS, BOUNIS, BNES, HDNS
 
   use ModIOUnit, ONLY: UNITTMP_
@@ -896,17 +844,21 @@ subroutine ram_write_hI
   implicit none
 
   integer :: i, j, L
-  character(len=200) :: filenamehI
+  character(len=214) :: filenamehI
 
-  filenamehI=trim(PathScbOut)//RamFileName('/hI_output', 'dat', TimeRamNow)
+  if (abs(TimeRamElapsed).le.1e-9) then
+     filenamehI = trim(PathScbOut)//'/hI_output_dipole.dat'
+  else
+     filenamehI=trim(PathScbOut)//RamFileName('/hI_output', 'dat', TimeRamNow)
+  endif
   PRINT*, 'Writing to file ', TRIM(filenamehI)
   OPEN(UNITTMP_, file = TRIM(filenamehI), action = 'write', status = 'unknown')
   WRITE(UNITTMP_, *) '   Lsh        MLT    NPA    h(Lsh,MLT,NPA) hBoun(Lsh,MLT,NPA) '//&
              'I(Lsh,MLT,NPA) IBoun(Lsh,MLT,NPA) Bz(Lsh,MLT) HDENS(Lsh,MLT,NPA)'
-  DO i = 2, nR
+  DO i = 2, nR+1
      DO j = 1, nT
         DO L = 1, NPA
-           WRITE(UNITTMP_, *) LZ(i), NINT(MLT(j)), L, FNHS(i,j,L), BOUNHS(i,j,L), &
+           WRITE(UNITTMP_, *) LZ(i), MLT(j), L, FNHS(i,j,L), BOUNHS(i,j,L), &
                 FNIS(i,j,L), BOUNIS(i,j,L), BNES(i,j), HDNS(i,j,L)
         END DO
      END DO
@@ -931,7 +883,7 @@ subroutine write_dsbnd
   integer :: K, j
   character(len=2), DIMENSION(4) :: ST2 = (/ '_e','_h','he','_o' /)
 
-  character(len=200) :: NameFluxFile
+  character(len=214) :: NameFluxFile
 
   NameFluxFile=trim(PathRamOut)//RamFileName('Dsbnd/ds'//St2(S),'dat',TimeRamNow)
   OPEN(UNIT=UNITTMP_,FILE=NameFluxFile, STATUS='UNKNOWN')
@@ -944,4 +896,5 @@ subroutine write_dsbnd
 end Subroutine write_dsbnd
 
 !==============================================================================
+    
 END MODULE ModRamIO

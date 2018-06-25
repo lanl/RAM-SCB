@@ -4,43 +4,36 @@
 !==============================================================================
 subroutine IM_set_parameters
 
+!!!!! Module Variables
   use ModRamMain,    ONLY: PathRestartIn, nIter
-  use ModRamGrids,   ONLY: NEL, NTL, NR, NT, NE, NPA, EnergyMin
+  use ModRamGrids,   ONLY: NEL, NTL, NR, NT, NE, NPA
   use ModRamTiming,  ONLY: TimeRamElapsed, TimeRamStart, TimeRamRealStart, &
                            TimeRamNow, DtLogFile, DtRestart, DtsMax, TimeMax, &
                            TimeRestart, MaxIter, Dt_hI, Dt_bc, DtEfi, DtW_hI, &
-                           DtW_Pressure, DtW_EField, DtsMin, TOld, TimeRamFinish
-  use ModRamParams
-
+                           DtW_Pressure, DtW_EField, DtsMin, TOld, TimeRamFinish, &
+                           DtW_MAGxyz
   use ModScbGrids, ONLY: nthe, npsi, nzeta
+  use ModRamParams
   use ModScbParams
 
+!!!! Module Subroutines and Functions
   use ModRamSats, ONLY: read_sat_params  
 
-!--- SCE Components
-  use ModRamCouple, ONLY: DoPassJr, DoIEPrecip
-  use ModIE_Interface
-  use ModUtilities, ONLY: fix_dir_name, check_dir, lower_case
-  use ModIonosphere
-  use IE_ModIo
-  use IE_ModMain
-!---
-
+!!!! External Modules (share/Library)
   use ModReadParam
   use ModIOUnit, ONLY: UNITTMP_
   use ModTimeConvert, ONLY: time_real_to_int, time_int_to_real
+
+
   implicit none
 
-  integer :: iPressure, iDomain, iFile, iDebugProc
-  character(len=4) :: sPressure, sDomain
-
-  integer :: iDate, nrIn, ntIn, neIn, npaIn, dummyi
-  logical :: TempLogical, UseStrict = .true.
-  logical :: StopCommand = .false., IsStopTimeSet = .false.
-  character(len=50)  :: plot_string
+  integer :: nrIn, ntIn, neIn, npaIn
+  logical :: TempLogical
+  logical :: StopCommand, IsStopTimeSet
   character(len=100) :: StringLine, NameCommand, RestartFile
   character(len=*), parameter  :: NameSub = 'IM_set_parameters'
-
+  StopCommand = .false.
+  IsStopTimeSet = .false.
   !---------------------------------------------------------------------------
  
   do
@@ -51,8 +44,97 @@ subroutine IM_set_parameters
      !!!!!!!!!!!!!!!!!!!!!!!!!!!!
      !!! RAM-SCB specific Params:
      !!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!! Misc Parameters
      case('#EVENT')
         call read_var('NameEvent', event)
+
+     case('#VERBOSE')
+        verbose = .true.
+
+     !case('#TEST') - Shared with the framework
+     !case('#DESCRIPTION') - Shared with the framework
+
+!!!!!! Timing Parameters
+     !case('#STARTTIME') - Shared with the framework
+     !case('#STOPTIME') - Shared with the framework
+     !case('#STOP') - Shared with the framework
+
+     case('#COMPONENT_TIMESTEPS')
+        call read_var('SCBTimeStep', Dt_hI)
+        call read_var('BCTimeStep',  Dt_bc)
+        call read_var('EFTimeStep',  DtEfi)
+
+     case('#TIE_SCB_TO_RAM')
+        SCBonRAMTime = .true.
+
+     case('#MAXTIMESTEP')
+        call read_var('MaxHalfStep', DtsMax)
+
+     case('#MINTIMESTEP')
+        call read_var('MinHalfStep', DtsMin)
+
+     case('#VARIABLEDT')
+        call read_var('DoVariableDt', DoVarDt)
+
+!!!!!! RAM Parameters
+     case('#USERAM')
+        call read_var('DoUseRAM', DoUseRAM)
+
+     case('#CHECK_MAGNETOPAUSE')
+        checkMGNP = .true.
+
+     case('#USEPLANE')
+        call read_var('DoUsePlane_SCB', DoUsePlane_SCB)
+
+     case('#USEWPI')
+        call read_var('DoUseWPI',     DoUseWPI)
+        call read_var('DoUseBASdiff', DoUseBASdiff)
+        call read_var('DoUseKpDiff',  DoUseKpDiff)
+
+     case('#OUTERBOUNDARY')
+        call read_var('NameBoundPlasma',  boundary)
+        call read_var('NameBoundMag',     NameBoundMag)
+        call read_var('NameDistribution', NameDistrib)
+
+     case('#MULTISPECIESBCS')
+        call read_var('DoMultispeciesBcs', DoMultiBcsFile)
+        call read_var('DoElectrons',       electrons)
+
+     case('#EFIELD')
+        call read_var('NameEfield', electric)
+        call read_var('UseEfind',   UseEfind)
+
+     case('#RAMLIMITER')
+        call read_var('LimiterBeta', BetaLim)
+        if(BetaLim > 2.0) BetaLim=2.0
+        if(BetaLim < 1.0) BetaLim=1.0
+
+     case('#RAMGRID')
+        call read_var('nR',  NR)
+        call read_var('nT',  NT)
+        call read_var('nE',  NE)
+        call read_var('nPa', NPA)
+
+!!!!!! SCB Parameters
+     case('#RESET')
+        reset=.true.
+
+     case('#SCB_FIELD')
+        call read_var('constZ',constZ)
+        call read_var('constTheta', constTheta)
+
+     case('#SCB_CONVERGENCE')
+        call read_var('ConvergenceDistance',convergence)
+
+     case('#SCBSMOOTHING')
+        call read_var('PressureSmoothing', iSm2)
+        call read_var('SavitzkyGolayIterations', SavGolIters)
+
+     case('#SCBBOUNDARY')
+        call read_var('FixedOuterShell', TempLogical)
+        if (TempLogical) psiChange = 1
+        call read_var('FixedFootPoints', TempLogical)
+        if (TempLogical) theChange = 1
 
      case('#SCBSETTINGS')
         call read_var('MinSCBIterations', MinSCBIterations)
@@ -98,8 +180,8 @@ subroutine IM_set_parameters
            else
               iAMR = 0
            endif
- 
-      case('#SCBDETAILS')
+
+     case('#SCBDETAILS')
         call read_var('SORDetail', TempLogical)
            if (TempLogical) then
               isSORDetailNeeded = 1
@@ -118,104 +200,17 @@ subroutine IM_set_parameters
            else
               isFBDetailNeeded = 0
            endif
-
-!     case('#CONSTRAINTS')
-!        call read_var('MinEnergy', EnergyMin)
-
-     case('#FILESOURCE')
-        call read_var('UseSWMFFile',UseSWMFFile)
-
-     case('#RAMGRID')
-        call read_var('nR',  NR)
-        call read_var('nT',  NT)
-        call read_var('nE',  NE)
-        call read_var('nPa', NPA)
+        call read_var('PressureDetail', TempLogical)
+           if (TempLogical) then
+              isPressureDetailNeeded = 1
+           else
+              isPressureDetailNeeded = 0
+           endif
 
      case('#SCBGRID')
         call read_var('nTheta', nthe)
         call read_var('nPsi',   npsi)
         call read_var('nZeta',  nzeta)
-
-     case('#INDICES_FILE')
-        call read_var('NameIndicesFile', NameIndexFile)
-
-     case('#COMPONENT_TIMESTEPS')
-        call read_var('SCBTimeStep', Dt_hI)
-        call read_var('BCTimeStep',  Dt_bc)
-        call read_var('EFTimeStep',  DtEfi)
-
-     case('#OUTPUT_FREQUENCY')
-        call read_var('DtPressureFileWrite', DtW_Pressure)
-        if (DtW_Pressure.lt.1.0) DtW_Pressure = 9999999999.9
-        call read_var('DthIFileWrite',       DtW_hI)
-        if (DtW_hI.lt.1.0) DtW_hI = 9999999999.9
-        call read_var('DtEFieldFileWrite',   DtW_EField)
-        if (DtW_EField.lt.1.0) DtW_EField = 9999999999.9
-
-     case('#USESCB')
-        call read_var('DoUseScb',   DoUseScb)
-        call read_var('DoWriteB',   DoWriteB)
-        call read_var('DoWriteCur', DoWriteCur)
-!        call read_var('DoWritePres', DoWritePres)
-
-     case('#USEPLANE')
-        call read_var('DoUsePlane_SCB', DoUsePlane_SCB)
-
-     case('#USEWPI')
-        call read_var('DoUseWPI',     DoUseWPI)
-        call read_var('DoUseBASdiff', DoUseBASdiff)
-        call read_var('DoUseKpDiff',  DoUseKpDiff)
-
-     case('#OUTERBOUNDARY')
-        call read_var('NameBoundPlasma',  boundary)
-        call read_var('NameBoundMag',     NameBoundMag)
-        call read_var('NameDistribution', NameDistrib)
-
-     case('#MULTISPECIESBCS')
-        call read_var('DoMultispeciesBcs', DoMultiBcsFile)
-        call read_var('DoElectrons',       electrons)
-
-     case('#EFIELD')
-        call read_var('NameEfield', electric)
-        call read_var('UseEfind',   UseEfind)
-
-     case('#SATELLITE')
-        call read_sat_params()
-        call read_var('DoUseVAPini',DoUseVAPini)
-
-     case('#LOGFILE')
-        call read_var('DtWrite', DtLogfile)
-        
-     case('#NAMEFORMAT')
-        call read_var('UseNewFormat', UseNewFmt)
-
-     case('#SAVEFLUX')
-        call read_var('DoSaveFlux',DoWriteFlux)
-
-     case('#DUMP3DFLUX')
-        call read_var('DoDump3dFlux', TempLogical)
-        if(TempLogical) then
-           iDumpRAMFlux=1 
-        else 
-           iDumpRAMFlux=0
-        end if
-
-     case('#OMNIFILE')
-        call read_var('NameOmniFile', NameOmniFile)
-
-     case('#MAXTIMESTEP')
-        call read_var('MaxHalfStep', DtsMax)
-
-     case('#MINTIMESTEP')
-        call read_var('MinHalfStep', DtsMin)
-
-     case('#VARIABLEDT')
-        call read_var('DoVariableDt', DoVarDt)
-
-     case('#RAMLIMITER')
-        call read_var('LimiterBeta', BetaLim)
-        if(BetaLim > 2.0) BetaLim=2.0
-        if(BetaLim < 1.0) BetaLim=1.0
 
      case('#SCBSCHEME')
         call read_var('DecreaseConvAlphaMin', decreaseConvAlphaMin)
@@ -227,14 +222,79 @@ subroutine IM_set_parameters
         call read_var('BlendMin'            , blendMin)
         call read_var('BlendMax'            , blendMax)
 
-     ! Restart commands:
+!!!!!! Input Parameters
+     case('#TS07_DIRECTORY')
+        call read_var('TS07Directory', TS07Path)
+
+     case('#QINDENTON_FILE_PATH')
+        call read_var('QinDentonPath', QinDentonPath)
+
+     case('#BOUNDARY_FILE_PATH')
+        call read_var('BoundaryPath', BoundaryPath)
+
+     case('#INITIALIZATION_FILE_PATH')
+        call read_var('InitializationPath', InitializationPath)
+
+     case('#INDICES_FILE')
+        call read_var('NameIndicesFile', NameIndexFile)
+
+     case('#OMNIFILESOURCE')
+        call read_var('UseSWMFFile',UseSWMFFile)
+
+     case('#OMNIFILE')
+        call read_var('NameOmniFile', NameOmniFile)
+
+!!!!!! Output Parameters
+     case('#OUTPUT_FREQUENCY')
+        call read_var('DtPressureFileWrite', DtW_Pressure)
+        if (DtW_Pressure.lt.1.0) DtW_Pressure = 9999999999.9
+        call read_var('DthIFileWrite',       DtW_hI)
+        if (DtW_hI.lt.1.0) DtW_hI = 9999999999.9
+        call read_var('DtEFieldFileWrite',   DtW_EField)
+        if (DtW_EField.lt.1.0) DtW_EField = 9999999999.9
+        call read_var('DtMAGxyzWrite', DtW_MAGxyz)
+        if (DtW_MAGxyz.lt.1.0) DtW_MAGxyz = 9999999999.9
+
+     case('#WRITE_BOUNDARY')
+        WriteBoundary = .true.
+
+     case('#WRITE_POTENTIAL')
+        WritePotential = .true.
+
+     case('#SATELLITE')
+        call read_sat_params()
+        call read_var('DoUseVAPini',DoUseVAPini)
+
+     case('#LOGFILE')
+        call read_var('DtWrite', DtLogfile)
+
+     case('#NAMEFORMAT')
+        call read_var('UseNewFormat', UseNewFmt)
+
+     case('#SAVEFLUX')
+        call read_var('DoSaveFlux',DoWriteFlux)
+
+     case('#DUMP3DFLUX')
+        call read_var('DoDump3dFlux', TempLogical)
+        if(TempLogical) then
+           iDumpRAMFlux=1
+        else
+           iDumpRAMFlux=0
+        end if
+
+!!!!!! Restart Parameters
      case('#RESTART')
         IsRestart=.true.
      case('#SAVERESTART')
         call read_var('DtSaveRestart', DtRestart)
         call read_var('DoSaveFinalRestart', DoSaveFinalRestart)
+     case('#TIMEDRESTART')
+        call read_var('TimedRestartFiles', TimedRestarts)
+     case('#HARDRESTART')
+        IsRestart=.true.
+        HardRestart = .true.
 
-     ! Activate "SHIELDS-RC" mode?
+!!!!!! Activate "SHIELDS-RC" mode?
      case('#SHIELDSRC')
         IsSHIELDS=.true.  ! "SHIELDS-RC" mode (simpler runs)
 
@@ -303,146 +363,6 @@ subroutine IM_set_parameters
            call read_var('StringTest',StringTest)
         endif
 
-!--- SCE Components
-     !!! IE coupled
-     case("#STRICT")
-        call read_var('UseStrict',UseStrict)
-     case("#SAVEPLOT", "#IE_SAVEPLOT")
-        call read_var('nPlotFile',nFile)
-        if (nFile > MaxFile)call CON_stop(NameSub//&
-             ' IE_ERROR number of ouput files is too large in #IE_SAVEPLOT:'&
-             //' nFile>MaxFile')
-        do iFile=1,nFile
-
-           call read_var('StringPlot',plot_string)
-           call lower_case(plot_string)
-
-           ! Plotting frequency
-           call read_var('DnSavePlot',dn_output(iFile))
-           call read_var('DtSavePlot',dt_output(iFile))
-
-           ! Plot file format
-           if(index(plot_string,'idl')>0)then
-              plot_form(iFile)='idl'
-           elseif(index(plot_string,'tec')>0)then
-              plot_form(iFile)='tec'
-           else
-              call CON_stop(NameSub//&
-                   ' IE_ERROR format (idl,tec) missing from plot_string='&
-                   //plot_string)
-           end if
-           if(index(plot_string,'min')>0)then
-              plot_vars(iFile)='minimum'
-           elseif(index(plot_string,'max')>0)then
-              plot_vars(iFile)='maximum'
-           elseif(index(plot_string,'aur')>0)then
-              plot_vars(iFile)='aur'
-           elseif(index(plot_string,'uam')>0)then
-              plot_vars(iFile)='uam'
-           else
-              call CON_stop(NameSub//&
-                   ' IE_ERROR variable definition missing in #IE_SAVEPLOT'//&
-                   ' from plot_string='//plot_string)
-           end if
-        end do
-     case("#SAVEPLOTNAME")
-        call read_var('IsPlotName_e',IsPlotName_e)
-     case("#SAVELOGNAME")
-        call read_var('IsLogName_e',IsLogName_e)
-     case("#IONOSPHERE")
-        call read_var('iConductanceModel',conductance_model)
-        call read_var('UseFullCurrent' ,UseFullCurrent)
-        call read_var('UseFakeRegion2' ,UseFakeRegion2)
-        call read_var('F10.7 Flux',f107_flux)
-        call read_var('StarLightPedConductance',StarLightPedConductance)
-        call read_var('PolarCapPedConductance',PolarCapPedConductance)
-     case("#IM")
-        call read_var('TypeImCouple',TypeImCouple)
-        call lower_case(TypeImCouple)
-        call read_var('FractionImJr',FractionImJr)
-     case("#BOUNDARY")
-        call read_var('LatBoundary',LatBoundary)
-        LatBoundary = LatBoundary * cDegToRad
-     case("#UA")
-        call read_var('DoCoupleUaCurrent',DoCoupleUaCurrent)
-        if(DoCoupleUaCurrent)then
-           call read_var('LatBoundary',LatBoundary)
-           LatBoundary = LatBoundary * cDegToRad
-        endif
-     case("#SPS")
-        call read_var('UseSPS',UseSPS)
-        IE_NameOfEFieldModel = "SPS"
-        UseGridBasedIE = .true.
-     case("#SOLVER")
-        call read_var('NameSolver',        NameSolver, IsLowerCase=.true.)
-     case("#KRYLOV")
-        call read_var('UsePreconditioner', UsePreconditioner)
-        call read_var('UseInitialGuess',   UseInitialGuess)
-        call read_var('Tolerance',         Tolerance)
-        call read_var('MaxIteration',      MaxIteration)
-     case("#DEBUG")
-        call read_var('iDebugLevel',iDebugLevel)
-        call read_var('iDebugProc',iDebugProc)
-
-
-     case("#BACKGROUND")
-
-        call read_var('NameOfModelDir',IE_NameOfModelDir)
-        call read_var('NameOfEFieldModel',IE_NameOfEFieldModel)
-        call read_var('NameOfAuroralModel',IE_NameOfAuroralModel)
-        call read_var('NameOfSolarModel',IE_NameOfSolarModel)
-
-        if (index(IE_NameOfAuroralModel,'IHP') > 0) &
-             IE_NameOfAuroralModel = 'ihp'
-        if (index(IE_NameOfAuroralModel,'PEM') > 0) &
-             IE_NameOfAuroralModel = 'pem'
-
-        if (index(IE_NameOfEFieldModel,'AMIE') > 0) &
-             IE_NameOfEFieldModel = 'amie'
-
-        if (index(IE_NameOfEFieldModel,'weimer01') > 0) &
-             IE_NameOfEFieldModel = 'weimer01'
-        if (index(IE_NameOfEFieldModel,'Weimer01') > 0) &
-             IE_NameOfEFieldModel = 'weimer01'
-        if (index(IE_NameOfEFieldModel,'WEIMER01') > 0) &
-             IE_NameOfEFieldModel = 'weimer01'
-
-        if (index(IE_NameOfEFieldModel,'weimer') > 0 .and. &
-             index(IE_NameOfEFieldModel,'01') == 0) &
-             IE_NameOfEFieldModel = 'weimer96'
-        if (index(IE_NameOfEFieldModel,'Weimer') > 0 .and. &
-             index(IE_NameOfEFieldModel,'01') == 0) &
-             IE_NameOfEFieldModel = 'weimer96'
-        if (index(IE_NameOfEFieldModel,'WEIMER') > 0 .and. &
-             index(IE_NameOfEFieldModel,'01') == 0) &
-             IE_NameOfEFieldModel = 'weimer96'
-
-        if (index(IE_NameOfEFieldModel,'weimer96') > 0) &
-             IE_NameOfEFieldModel = 'weimer96'
-        if (index(IE_NameOfEFieldModel,'Weimer96') > 0) &
-             IE_NameOfEFieldModel = 'weimer96'
-        if (index(IE_NameOfEFieldModel,'WEIMER96') > 0) &
-             IE_NameOfEFieldModel = 'weimer96'
-
-        if (index(IE_NameOfEFieldModel,'SAMIE') > 0) &
-             IE_NameOfEFieldModel = 'samie'
-
-        UseGridBasedIE = .false.
-
-     case("#SAVELOGFILE")
-        call read_var('DoSaveLogfile',DoSaveLogfile)
-
-     case("#CONDUCTANCE")
-        call read_var('OvalWidthFactor',OvalWidthFactor)
-        call read_var('OvalStrengthFactor',OvalStrengthFactor)
-        if (conductance_model/=4) then
-           write(*,'(a,i4,a)')NameSub//' IE_ERROR at line ',i_line_read(),&
-                ' command '//trim(NameCommand)// &
-                ' can only be used with conductance model 4'
-           if(UseStrict)call CON_stop('Correct PARAM.in!')
-        end if
-!---
-
      !!! Default crash:
      case default
            write(*,*) NameSub // ' WARNING: unknown #COMMAND ' // &
@@ -451,6 +371,11 @@ subroutine IM_set_parameters
 
      end select
   end do
+
+  if (SCBonRAMTime) then
+     RAMTie = floor(Dt_hI)
+     Dt_hI = 9999999999.9
+  endif
 
   ! Check for SHIELDSRC mode.  If True, set SHIELDSRC params.
   if (IsSHIELDS)then
@@ -471,21 +396,19 @@ subroutine IM_set_parameters
   ! Set iPressure and iDomain according to selected BC's
   select case(boundary)
   case('SWMF')
-     iPressure = 5
-     sPressure = 'SWMF'
+     NEL = NEL
+     NTL = NTL
+     BoundaryFiles = .false.
   case('LANL')
-     iPressure = 6
-     sPressure = 'LANL'
      NEL = 36
      NTL = 25
   case('PTM')
-     iPressure = 6
-     sPressure = 'LANL'
      NEL = 36
      NTL = 25
-  case('QDM')
-     iPressure = 6
-     sPressure = 'LANL'
+  case('QDKP')
+     NEL = 36
+     NTL = 25
+  case('QDBZ')
      NEL = 36
      NTL = 25
   case default
@@ -493,22 +416,100 @@ subroutine IM_set_parameters
   end select
 
   select case(NameBoundMag)
-  case('SWMF')
-     iDomain = 20
-     sDomain = 'SWMF'
-  case('DIPL') ! Dipole w/o SCB calculation.
-     iDomain = 4
-     method = 3
-     sDomain = 'DIPL'
-  case('DIPS') ! Dipole w/  SCB calculation.
-     iDomain = 4
-     sDomain = 'DIPS'
-  case('T89C')
-     iDomain = 3
-     sDomain = 'T89C'
-  case default
-     call CON_stop(NameSub//': invalid NameBoundMag='//NameBoundMag)
+     case('SWMF')
+        DoScbCalc = .true.
+        InnerMag  = 'SWMF'
+        OuterMag  = 'SWMF'
+     case('DIPL')
+        DoScbCalc = .false.
+        InnerMag  = 'DIPOLE'
+        OuterMag  = 'NONE'
+     case('DIPS')
+        DoScbCalc = .true.
+        InnerMag  = 'DIPOLE'
+        OuterMag  = 'NONE'
+     case('T89I')
+        DoScbCalc = .true.
+        InnerMag  = 'IGRF'
+        OuterMag  = 'T89'
+     case('T89D')
+        DoScbCalc = .true.
+        InnerMag  = 'DIPOLE'
+        OuterMag  = 'T89'
+     case('T89L')
+        DoScbCalc = .false.
+        InnerMag  = 'DIPOLE'
+        OuterMag  = 'T89'
+        NameBoundMag = 'T89D'
+     case('T96I')
+        DoScbCalc = .true.
+        InnerMag  = 'IGRF'
+        OuterMag  = 'T96'
+     case('T96D')
+        DoScbCalc = .true.
+        InnerMag  = 'DIPOLE'
+        OuterMag  = 'T96'
+     case('T96L')
+        DoScbCalc = .false.
+        InnerMag  = 'DIPOLE'
+        OuterMag  = 'T96'
+        NameBoundMag = 'T96D'
+     case('T02I')
+        DoScbCalc = .true.
+        InnerMag  = 'IGRF'
+        OuterMag  = 'T01S'
+     case('T02D')
+        DoScbCalc = .true.
+        InnerMag  = 'DIPOLE'
+        OuterMag  = 'T01S'
+     case('T02L')
+        DoScbCalc = .false.
+        InnerMag  = 'DIPOLE'
+        OuterMag  = 'T01S'
+        NameBoundMag = 'T02D'
+     case('T04I')
+        DoScbCalc = .true.
+        InnerMag  = 'IGRF'
+        OuterMag  = 'TS05'
+     case('T04D')
+        DoScbCalc = .true.
+        InnerMag  = 'DIPOLE'
+        OuterMag  = 'TS05'
+     case('T04L')
+        DoScbCalc = .false.
+        InnerMag  = 'DIPOLE'
+        OuterMag  = 'TS05'
+        NameBoundMag = 'T04D'
+     case('T07I')
+        DoScbCalc = .true.
+        InnerMag  = 'IGRF'
+        OuterMag  = 'TS07'
+     case('T07D')
+        DoScbCalc = .true.
+        InnerMag  = 'DIPOLE'
+        OuterMag  = 'TS07'
+     case('T07L')
+        DoScbCalc = .false.
+        InnerMag  = 'DIPOLE'
+        OuterMag  = 'TS07'
+        NameBoundMag = 'T07D'
+     case('IGRF')
+        DoScbCalc = .true.
+        InnerMag  = 'IGRF'
+        OuterMag  = 'NONE'
+     case('IGRL')
+        DoScbCalc = .false.
+        InnerMag  = 'IGRF'
+        OuterMag  = 'NONE'
+        NameBoundMag = 'IGRF'
+     case default
+        call CON_stop(NameSub//': invalid NameBoundMag='//NameBoundMag)
   end select
+  if (DoScbCalc) then
+     method = 2
+  else
+     method = 3
+  endif
 
   if (IsRestart) then
      RestartFile=PathRestartIn//'/restart_info.txt'
@@ -537,7 +538,6 @@ subroutine IM_set_parameters
   ! Calculate TimeMax
   if (StopCommand)   TimeMax = TimeRamElapsed + TimeMax
   If (IsStopTimeSet) TimeMax = TimeRamFinish%Time-TimeRamStart%Time
-  If (TimeMax.eq.0) call con_stop('No stop time specified in PARAM.in! Use &
-                                  either #STOP or #STOPTIME')
+  If (abs(TimeMax).le.1e-9) call con_stop('No stop time specified in PARAM.in! Use either #STOP or #STOPTIME')
 
 end subroutine IM_set_parameters

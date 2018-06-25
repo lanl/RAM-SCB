@@ -1,63 +1,70 @@
+!============================================================================
+!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    All rights reserved.
+!============================================================================
+
 MODULE ModRamBoundary
 ! Contains subroutines responsible for calculating the boundary flux for RAM
 
   use ModRamVariables, ONLY: FGEOS
 
   implicit none
-  save
 
   contains
 
 !==============================================================================
 subroutine get_boundary_flux
 
+!!!! Module Variables
   use ModRamMain,   ONLY: S
   use ModRamTiming, ONLY: TimeRamElapsed
-  use ModRamParams, ONLY: boundary
+  use ModRamParams, ONLY: BoundaryFiles
+
 
   implicit none
  
   integer :: iS
-  character(len=4) :: ST7no
+
   ! Update boundary conditions and wave diffusion matrix
   do iS=1,4
      S = iS
      IF (S.EQ.1) THEN
-        if (boundary .EQ. 'LANL') print*, &
-           'RAM: calling GEOSB at time (hr) = ', TimeRamElapsed/3600.
+        if (BoundaryFiles) print*, 'RAM: calling GEOSB at time (hr) = ', TimeRamElapsed/3600.
      ENDIF
      CALL GEOSB
   end do
 
-end subroutine
+end subroutine get_boundary_flux
 
 !==============================================================================
 subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
 
-  use ModRamMain,      ONLY: Real8_, S
-  use ModRamTiming,    ONLY: TimeRamNow, TimeRamElapsed, TimeRamStart, Dt_bc
-  use ModRamParams,    ONLY: electrons, boundary
+!!!! Module Variables
+  use ModRamMain,      ONLY: DP
+  use ModRamTiming,    ONLY: TimeRamNow, TimeRamElapsed, TimeRamStart
+  use ModRamParams,    ONLY: electrons
   use ModRamGrids,     ONLY: NT, NE, NEL, NEL_prot, NBD, NTL
-  use ModRamVariables, ONLY: EKEV, MLT, FGEOS, timeOffset, StringFileDate,  &
-                             flux_SIII, fluxLast_SII, eGrid_SI, avgSats_SI, &
+  use ModRamVariables, ONLY: EKEV, MLT, timeOffset, StringFileDate,  &
+                             flux_SIII, fluxLast_SII, eGrid_SI, &
                              lGrid_SI, tGrid_SI
 
-  use ModRamIO, ONLY: read_geomlt_file
+!!!! Module Subroutines and Functions
+  use ModRamGSL, ONLY: GSL_Interpolation_1D
+  use ModRamIO,  ONLY: read_geomlt_file
 
-  use nrmod,    ONLY: polint
 
   implicit none
 
+  integer :: GSLerr
   character(len=4), intent(in) :: NameParticleIn
-  real(kind=Real8_),intent(out):: fluxOut_II(nT, nE)
+  real(DP),intent(out):: fluxOut_II(nT, nE)
 
   character(len=8) :: StringDate
-  integer :: iError, iTime1, iTime2, iSpec=1, NEL_
+  integer :: iTime1, iTime2, iSpec, NEL_
   integer :: i, j, k
   integer :: lE, rE, pE
-  real(kind=Real8_) :: y, my_var
-  real(kind=Real8_), allocatable :: flux_II(:,:),logFlux_II(:,:),logELan(:),logERam(:),intFlux(:,:)
-  real(kind=Real8_) :: dyError
+  real(DP) :: y
+  real(DP), allocatable :: flux_II(:,:),logFlux_II(:,:),logELan(:),logERam(:)
 
   ! Usual debug variables.
   logical :: DoTest, DoTestMe, IsInitialized=.true.
@@ -107,12 +114,13 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   if (eGrid_SI(iSpec,NEL_).lt.EkeV(nE)) rE = 1
   pE = rE + lE
   allocate(flux_II(0:NTL,NEL_+pE), logFlux_II(nT,NEL_+pE), logELan(NEL_+pE), logERam(nE))
+  flux_II = 0.0; logFlux_II = 0.0; logELan = 0.0; logERam = 0.0
 
   ! Get closest times and interpolate
   iTime1 = 0
   iTime2 = 0
   do i=1,NBD
-     if (TimeRamElapsed.eq.tGrid_SI(iSpec,i)) then
+     if (abs(TimeRamElapsed-tGrid_SI(iSpec,i)).le.1e-9) then
         iTime2 = i
         iTime1 = i
         exit  
@@ -135,21 +143,21 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   ! If at end of full day of flux, set fluxLast.
   if (iTime1==NBD) fluxLast_SII(iSpec,:,:)=flux_SIII(iSpec,NBD,:,:)
 
-  if (iTime1.eq.iTime2) then
+  !if (iTime1.eq.iTime2) then
      flux_II(1:24,1+lE:NEL_+le) = flux_SIII(iSpec,iTime1,:,1:NEL_)
-  else
-     do j=1,NTL-1
-        do k=1,NEL_
-           call lintp(tGrid_SI(iSpec,:), flux_SIII(iSpec,:,j,k), &
-                      NBD, TimeRamElapsed, flux_II(j,k+lE), iError)
-        enddo
-     enddo
-  endif
+  !else
+  !   do j=1,NTL-1
+  !      do k=1,NEL_
+  !         CALL GSL_Interpolation_1D('Steffen',tGrid_SI(iSpec,:),flux_SIII(iSpec,:,j,k), &
+  !                                   TimeRamElapsed,flux_II(j,k+lE),GSLerr)
+  !      enddo
+  !   enddo
+  !endif
 
   ! If needed, extrapolate (for now just set to 10^8 and 0.1 for testing)
   if (lE.eq.1) then
      do j=1,NTL-1
-        flux_II(j,1) = 10.**7
+        flux_II(j,1) = 10.**8
      enddo
   endif
 
@@ -171,7 +179,7 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   ! Interpolate in LT-space, get log for E-interpolation...
   do j=1,nT
      do k=1,NEL_+pE
-        call lintp(lGrid_SI(iSpec,:), flux_II(:,k), 26, MLT(j), y, iError)
+        call GSL_Interpolation_1D('Steffen',lGrid_SI(iSpec,:),flux_II(:,k), MLT(j), y, GSLerr)
         logFlux_II(j,k)=log10(y)
      end do
   end do
@@ -190,11 +198,12 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   ! Interpolate/Extrapolate in energy space; return to normal units.
   do j=1,nT
      do k=1,nE
-        call lintp(logELan, logFlux_II(j,:), NEL_+pE, logERam(k), y, iError)
-        if (y.gt.8)  then
-           y=8
-           write(*,*) ' in ModRamBoundary: limit flux to 1e8'
-        end if
+        CALL GSL_Interpolation_1D('Steffen',logELan, logFlux_II(j,:), logERam(k), y, GSLerr)
+        ! Moved this check to GEOSB
+        !if (y.gt.8)  then
+        !   y=8
+        !   write(*,*) ' in ModRamBoundary: limit flux to 1e8'
+        !end if
         fluxOut_II(j,k)=10.**y
      end do
   end do
@@ -212,36 +221,31 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
 
 end subroutine get_geomlt_flux
 
-!==============================================================================
+!==================================================================================================
 ! *************************************************************************
 !                                GEOSB
 !                       Boundary conditions set up
 !**************************************************************************
   SUBROUTINE GEOSB
 
-    use ModRamMain,      ONLY: Real8_, S, PathSwmfOut, PathRamOut
-    use ModRamParams,    ONLY: DoAnisoPressureGMCoupling, IsComponent, boundary, &
-                               DoMultiBcsFile
+!!!! Module Variables
+    use ModRamMain,      ONLY: DP, S
+    use ModRamParams,    ONLY: IsComponent, boundary, BoundaryFiles, WriteBoundary
     use ModRamGrids,     ONLY: NTL, NEL, NT, NE, NR
-    use ModRamTiming,    ONLY: TimeRamElapsed, TimeRamNow, TimeRamStart
-    use ModRamVariables, ONLY: FFACTOR, UPA, EKEV, Kp, F107
-    use ModRamCouple,    ONLY: FluxBats_IIS, generate_flux, TypeMHD, MhdDensPres_VII, &
-                               FluxBats_anis
+    use ModRamTiming,    ONLY: TimeRamElapsed
+    use ModRamVariables, ONLY: FFACTOR, UPA, Kp, F107
 
+!!!! Module Subroutines and Functions
     use ModRamIO, ONLY: write_dsbnd
 
-    use ModIoUnit, ONLY: UNITTMP_
-    USE ModConst,  ONLY: cProtonMass
-
     implicit none
-    save
-    integer             :: ij, ik, j, jw, k, l, nLines
-    real(kind=Real8_)   :: bexp, ahe0, ahe1, gexp, doy, azir, &
-                           fracComposition, T
-    character(len=200)  :: NameFluxFile
-    character(len=90)   :: HEADER
-    real(kind=Real8_)   :: RELAN(NTL,NEL),FLAN(NT,NEL),FluxLanl(nT,nE)
 
+    integer  :: ij, ik, l, u
+    real(DP) :: bexp, ahe0, ahe1, gexp, fracComposition, T
+    real(DP), ALLOCATABLE :: RELAN(:,:), FLAN(:,:), FluxLanl(:,:)
+
+    ALLOCATE(RELAN(NTL,NEL),FLAN(NT,NEL),FluxLanl(nT,nE))
+    RELAN = 0.0; FLAN = 0.0; FluxLanl = 0.0
     T = TimeRamElapsed
 
     ! Create Young et al. composition ratios.
@@ -265,94 +269,87 @@ end subroutine get_geomlt_flux
     FGEOS(S,:,:,:)=0.
 
     ! Read LANL flux (1/cm2/s/sr/keV) assumed isotropic
-    IF ((boundary .eq. 'LANL') .OR. (boundary .eq. 'PTM')) THEN
+    IF (BoundaryFiles) THEN
       ! LANL interpolated flux files.
       if (s==1) then
         call get_geomlt_flux('elec', FluxLanl)
       else
         call get_geomlt_flux('prot', FluxLanl)
       end if
-      ! fix corrupted bc, NAN check doesn't work? limit ion flux:
-      if (S.gt.1) then
-        do ij=2,nT
-          do ik=1,nE
-            if (FluxLanl(iJ,iK).gt.1e7) FluxLanl(iJ,iK)=FluxLanl(iJ-1,iK)
-            if (FluxLanl(iJ,iK).gt.1e7) then
-              FluxLanl(iJ,iK)=1e7
-              write(*,*) ' in GEOSB: limit ion flux to 1e7'
-            endif
-          end do
-        end do
-        do ik=1,nE
-          FluxLanl(1,iK)=FluxLanl(nT,iK)
-        end do
-      end if
-      ! corrupted bc, end of fix
+      do ik=1,nE
+        FluxLanl(1,iK)=FluxLanl(nT,iK)
+      end do
       ! Adjust flux for composition
       FluxLanl=FluxLanl*fracComposition
       do ik=1,NE
         do ij=1,nT
-          do L=2,upa(NR)-1
+          u = int(upa(nR)-1,kind=4)
+          do L=2,u
             FGEOS(s,iJ,iK,L)=FluxLanl(iJ,iK) * FFACTOR(S,NR,IK,L)
+            if ((S.eq.1).and.(FGEOS(s,iJ,iK,L).gt.1e10)) FGEOS(s,iJ,iK,L) = 1e10
+            if ((S.ne.1).and.(FGEOS(s,iJ,iK,L).gt.1e8)) FGEOS(s,iJ,iK,L) = 1e8
           end do
         end do
       end do
     ELSEIF (boundary .EQ. 'SWMF') THEN
-      ! Read SWMF flux (1/cm2/s/sr/keV) assumed isotropic
-      if (IsComponent) then ! If SWMF component, get flux from Bats.
-        write(*,*) 'RAM_SCB: Getting flux from BATS-R-US'
-        do iK=1, nE
-          do iJ=1,nT
-            do L=2,UPA(NR)-1
-              if (.not.DoAnisoPressureGMCoupling) then
-                FGEOS(s,iJ,iK,L)=FluxBats_IIS(iK,iJ,s)*FFACTOR(S,NR,IK,L)
-              else
-                ! anisotropy coupling is pitch angle dependent.
-                FGEOS(s,iJ,iK,L)=FluxBats_anis(iK,L,iJ,s)*FFACTOR(S,NR,iK,L)
-              endif
-            end do
-          end do
-        end do
-      else ! Open file if running stand alone.
-!        if (DoMultiBcsFile) then
-!          write(NameFluxFile, "(a,'/',a,'_',i1,'.swf')") trim(PathSwmfOut), ST7, S
-!          nlines = 25
-!        else
-!          write(NameFluxFile, "(a,'/',a,'.swf')") trim(PathSwmfOut), ST7
-!          nlines=49
-!        endif
-!        write(*,'(2a)')'RAM_SCB: Loading flux from ',trim(NameFluxFile)
-!        OPEN(UNIT=UNITTMP_,FILE=trim(NameFluxFile),STATUS='OLD')
-!        READ(UNITTMP_,*) HEADER
-!        DO IJ=1,nLines
-!          READ(UNITTMP_,*) DOY,AZIR,(RELAN(IJ,IK),IK=1,NE)
-!        ENDDO
-!        CLOSE(UNITTMP_)
-!        DO IK=1,NE
-!          DO IJ=1,NT
-!            IF (NT.EQ.49) JW=IJ
-!            if ((NT.EQ.25) .and. DoMultiBcsFile) then
-!              JW=IJ
-!            else
-!              JW=2*IJ-1
-!            end if
-!            FLAN(IJ,IK) = RELAN(JW,IK)
-            ! same mass density at geo as without composition
-!            IF ((S.EQ.2) .and. .not.DoMultiBcsFile) FLAN(IJ,IK) = FLAN(IJ,IK)/(1+16*BEXP+4*GEXP)
-!            IF ((S.EQ.3) .and. .not.DoMultiBcsFile) FLAN(IJ,IK) = FLAN(IJ,IK)*GEXP/(2+32*BEXP+8*GEXP)
-!            IF ((S.EQ.4) .and. .not.DoMultiBcsFile) FLAN(IJ,IK) = FLAN(IJ,IK)*BEXP/(4+64*BEXP+16*GEXP)
-!            DO L=2,UPA(NR)-1
-!              FGEOS(S,IJ,IK,L)=FLAN(IJ,IK)*FFACTOR(S,NR,IK,L)
-!            ENDDO
-!          ENDDO
-!        ENDDO
-      end if
+      CALL CON_Stop('SWMF Flux Boundary not currently working')
+      !! Read SWMF flux (1/cm2/s/sr/keV) assumed isotropic
+      !if (IsComponent) then ! If SWMF component, get flux from Bats.
+      !  write(*,*) 'RAM_SCB: Getting flux from BATS-R-US'
+      !  do iK=1, nE
+      !    do iJ=1,nT
+      !      u = int(UPA(NR)-1,kind=4)
+      !      do L=2,u
+      !        if (.not.DoAnisoPressureGMCoupling) then
+      !          FGEOS(s,iJ,iK,L)=FluxBats_IIS(iK,iJ,s)*FFACTOR(S,NR,IK,L)
+      !        else
+      !          ! anisotropy coupling is pitch angle dependent.
+      !          FGEOS(s,iJ,iK,L)=FluxBats_anis(iK,L,iJ,s)*FFACTOR(S,NR,iK,L)
+      !        endif
+      !      end do
+      !    end do
+      !  end do
+      !else ! Open file if running stand alone.
+      !  if (DoMultiBcsFile) then
+      !    write(NameFluxFile, "(a,'/',a,'_',i1,'.swf')") trim(PathSwmfOut), ST7, S
+      !    nlines = 25
+      !  else
+      !    write(NameFluxFile, "(a,'/',a,'.swf')") trim(PathSwmfOut), ST7
+      !    nlines=49
+      !  endif
+      !  write(*,'(2a)')'RAM_SCB: Loading flux from ',trim(NameFluxFile)
+      !  OPEN(UNIT=UNITTMP_,FILE=trim(NameFluxFile),STATUS='OLD')
+      !  READ(UNITTMP_,*) HEADER
+      !  DO IJ=1,nLines
+      !    READ(UNITTMP_,*) DOY,AZIR,(RELAN(IJ,IK),IK=1,NE)
+      !  ENDDO
+      !  CLOSE(UNITTMP_)
+      !  DO IK=1,NE
+      !    DO IJ=1,NT
+      !      IF (NT.EQ.49) JW=IJ
+      !      if ((NT.EQ.25) .and. DoMultiBcsFile) then
+      !        JW=IJ
+      !      else
+      !        JW=2*IJ-1
+      !      end if
+      !      FLAN(IJ,IK) = RELAN(JW,IK)
+      !     ! same mass density at geo as without composition
+      !      IF ((S.EQ.2) .and. .not.DoMultiBcsFile) FLAN(IJ,IK) = FLAN(IJ,IK)/(1+16*BEXP+4*GEXP)
+      !      IF ((S.EQ.3) .and. .not.DoMultiBcsFile) FLAN(IJ,IK) = FLAN(IJ,IK)*GEXP/(2+32*BEXP+8*GEXP)
+      !      IF ((S.EQ.4) .and. .not.DoMultiBcsFile) FLAN(IJ,IK) = FLAN(IJ,IK)*BEXP/(4+64*BEXP+16*GEXP)
+      !      DO L=2,UPA(NR)-1
+      !        FGEOS(S,IJ,IK,L)=FLAN(IJ,IK)*FFACTOR(S,NR,IK,L)
+      !      ENDDO
+      !    ENDDO
+      !  ENDDO
+      !end if
     END IF
 
     ! Write interpolated dfluxes to file.
-    call write_dsbnd
+    if (WriteBoundary) call write_dsbnd
 
+    DEALLOCATE(RELAN,FLAN,FluxLanl)
     RETURN
-  END
+  END SUBROUTINE GEOSB
 
 END MODULE ModRamBoundary

@@ -16,6 +16,7 @@ module ModRamFunctions
 
     use ModTimeConvert
 
+
     implicit none
 
     character(len=200)           :: RamFileName
@@ -42,17 +43,18 @@ module ModRamFunctions
     use ModRamGrids, ONLY: NR, NE, NT, NPA
     use ModRamVariables, ONLY: f2, rfactor, upa, we, wmu, ekev
 
+
     implicit none
 
     real(kind=Real8_), intent(out) :: dstOut
 
     ! Factor2 includes conversions and factor of 1.3.
-    real(kind=Real8_)           :: sumEnergy=0.0, factor2=-5.174E-30
+    real(kind=Real8_)           :: sumEnergy, factor2
     integer                     :: i, j, k, l, s
-    character(len=*), parameter :: NameSub = 'get_ramdst'
     !------------------------------------------------------------------------
     sumEnergy = 0.0
     dstOut = 0.0
+    factor2 =-5.174E-30
     ! Sum energy over whole domain and all species.
     do s=1,4; do i=2,nR; do k=2,nE; do l=1,nPa
        if(l.ge.uPa(i))cycle
@@ -66,76 +68,79 @@ module ModRamFunctions
   end subroutine get_ramdst
 
 !=============================================================================
-  function erff(x)
+!  function erff(x)
+!
+!    use ModRamMain, ONLY: Real8_
+!
 
-    use ModRamMain, ONLY: Real8_
-
-    implicit none
-
-    integer :: ier = 0
-    real(kind=Real8_)            :: erff
-    real(kind=Real8_), intent(in):: x
-    real(kind=Real8_), parameter :: cHalf = 0.5
-    !-----------------------------------------------------------------------
-    if(x.lt.0.)then
-       ERFF=-GAMMP(cHalf,X**2,ier)
-       if (ier.ne.0) return
-    else
-       ERFF=GAMMP(cHalf,X**2,ier)
-       if (ier.ne.0) return
-    endif
-    return
-  end function erff
-
-!=============================================================================
-  function gammp(A,X,IER)
-    
-    use ModRamMain, ONLY: Real8_
-
-    implicit none
-
-    real(kind=Real8_) :: gammp
-    real(kind=Real8_) :: GLN, GAMMCF
-    integer, intent(inout) :: ier
-    real(kind=Real8_), intent(in)       :: A, X
-    !-----------------------------------------------------------------------
-    IER = 0
-    IF(X.LT.0..OR.A.LE.0.) & !PAUSE -- pause is antiquated.
-         write(*,*)'WARNING! X and/or A arguments to GAMMP < 0!!!'
-    
-    ! use series representation
-    IF(X.LT.A+1.)THEN
-       CALL GSER(GAMMP,A,X,GLN,IER)
-       IER = IER * 20
-       IF (IER.EQ.20) return
-       
-    ! continued fraction representation
-    ELSE
-       CALL GCF(GAMMCF,A,X,GLN,IER)
-       GAMMP=1.-GAMMCF
-       IER = 10 * IER
-       IF (IER.EQ.10) RETURN
-    ENDIF
-
-    RETURN
-  end function gammp
+!    implicit none
+!
+!    integer :: ier = 0
+!    real(kind=Real8_)            :: erff
+!    real(kind=Real8_), intent(in):: x
+!    real(kind=Real8_), parameter :: cHalf = 0.5
+!    !-----------------------------------------------------------------------
+!    if(x.lt.0.)then
+!       ERFF=-GAMMP(cHalf,X**2,ier)
+!       if (ier.ne.0) return
+!    else
+!       ERFF=GAMMP(cHalf,X**2,ier)
+!       if (ier.ne.0) return
+!    endif
+!    return
+!  end function erff
 
 !=============================================================================
-  function G(x)
-    
-    use ModRamMain, ONLY: Real8_
-    use ModRamConst, ONLY: PI 
-    implicit none
+!  function gammp(A,X,IER)
+!    
+!    use ModRamMain, ONLY: Real8_
+!
 
-    real(kind=Real8_), intent(in) :: x
-    real(kind=Real8_) :: G1
-    real(kind=Real8_) :: G
-    !-----------------------------------------------------------------------
+!    implicit none
+!
+!    real(kind=Real8_) :: gammp
+!    real(kind=Real8_) :: GLN, GAMMCF
+!    integer, intent(inout) :: ier
+!    real(kind=Real8_), intent(in)       :: A, X
+!    !-----------------------------------------------------------------------
+!    IER = 0
+!    IF(X.LT.0..OR.A.LE.0.) & !PAUSE -- pause is antiquated.
+!         write(*,*)'WARNING! X and/or A arguments to GAMMP < 0!!!'
+!    
+!    ! use series representation
+!    IF(X.LT.A+1.)THEN
+!       CALL GSER(GAMMP,A,X,GLN,IER)
+!       IER = IER * 20
+!       IF (IER.EQ.20) return
+!       
+!    ! continued fraction representation
+!    ELSE
+!       CALL GCF(GAMMCF,A,X,GLN,IER)
+!       GAMMP=1.-GAMMCF
+!       IER = 10 * IER
+!       IF (IER.EQ.10) RETURN
+!    ENDIF
+!
+!    RETURN
+!  end function gammp
 
-    G1=ERFF(X)-2.*X/sqrt(PI)*exp(-X*X)
-    G=G1/2./X/X
-    return
-  end function g
+!=============================================================================
+!  function G(x)
+!    
+!    use ModRamMain, ONLY: Real8_
+!    use ModRamConst, ONLY: PI 
+
+!    implicit none
+!
+!    real(kind=Real8_), intent(in) :: x
+!    real(kind=Real8_) :: G1
+!    real(kind=Real8_) :: G
+!    !-----------------------------------------------------------------------
+!
+!    G1=ERFF(X)-2.*X/sqrt(PI)*exp(-X*X)
+!    G=G1/2./X/X
+!    return
+!  end function g
 
 !=============================================================================
   function funt(x)
@@ -143,6 +148,7 @@ module ModRamFunctions
 
     use ModRamMain, ONLY: Real8_
     use ModRamConst, ONLY: PI
+
     implicit none
     
 
@@ -170,15 +176,16 @@ module ModRamFunctions
 
     use ModRamMain, ONLY: Real8_
     use ModRamConst, ONLY: PI
+
     implicit none
 
     real(kind=Real8_), intent(in) :: x
-    real(kind=Real8_) :: y, ylog=0, alpha, beta, A1, A2, A3, A4
-    real(kind=Real8_) :: funi
+    real(kind=Real8_) :: y, alpha, beta, A1, A2, A3, A4
+    real(kind=Real8_) :: funi, ylog
     !-----------------------------------------------------------------------
-
+    ylog = 0.0
     Y=SQRT(1-X*X)
-    if (y>0)ylog=log(y)
+    if (y>0) ylog=log(y)
     ALPHA=1.+LOG(2.+SQRT(3.))/2./SQRT(3.)
     BETA=ALPHA/2.-PI*SQRT(2.)/12.
     A1=0.055
@@ -198,6 +205,7 @@ module ModRamFunctions
     use ModRamMain, ONLY: Real8_
     use ModRamConst, ONLY: PI
 
+
     implicit none
     real(kind=Real8_), intent(in) :: x, y
     real(kind=Real8_) :: atan2d
@@ -213,6 +221,7 @@ module ModRamFunctions
     use ModRamMain, ONLY: Real8_
     use ModRamConst, ONLY: PI
     
+
     implicit none
     real(kind=Real8_), intent(in) :: x
     real(kind=Real8_) :: acosd
@@ -227,6 +236,7 @@ module ModRamFunctions
     use ModRamMain, ONLY: Real8_
     use ModRamConst, ONLY: PI
     
+
     implicit none
     real(kind=Real8_), intent(in) :: x
     real(kind=Real8_):: asind
@@ -240,6 +250,7 @@ module ModRamFunctions
 
     use ModRamMain, ONLY: Real8_
     use ModRamConst, ONLY: PI
+
 
     implicit none
     real(kind=Real8_), intent(in) :: x
@@ -255,6 +266,7 @@ module ModRamFunctions
     use ModRamMain, ONLY: Real8_
     use ModRamConst, ONLY: PI
 
+
     implicit none
     real(kind=Real8_), intent(in) :: x
     real(kind=Real8_) :: sind
@@ -267,6 +279,7 @@ module ModRamFunctions
   subroutine get_dipole_trace(xIn, nPoints, xOut, yOut, zOut)
     ! Create nPoints cartesian points along dipole from xIn to Earth's surface.
     use ModRamMain, ONLY: Real8_
+
     implicit none
     
     ! Argument declarations
@@ -312,6 +325,7 @@ module ModRamFunctions
     use ModRamParams,    ONLY: DoAnisoPressureGMCoupling
     use ModRamGrids,     ONLY: NR, NT
     
+
     implicit none
     
     real(kind=Real8_), parameter :: onethird=1.0/3.0, twothird=2.0/3.0
@@ -340,6 +354,7 @@ module ModRamFunctions
     ! to our location, X,Y, and Z.
     ! The return value, NewtFit, is the value of U interpolated to xi,yi,zi.
     use ModRamMain, ONLY: Real8_
+
     implicit none
     ! Output value:
     real(kind=Real8_) :: NewtfitLarge
@@ -396,17 +411,17 @@ module ModRamFunctions
     ! of the first nearest neighbor, while x(4) should correspond to the
     ! fourth nearest neighbor, etc.
 
-    use ModRamMain, ONLY: Real8_
+    use ModRamMain, ONLY: DP
+
     implicit none
 
     ! Output value:
-    real(kind=Real8_) :: Newtfit
+    real(DP) :: Newtfit
     ! Input Values:
-    real(kind=Real8_), intent(in) :: x(4), y(4), z(4), u(4), xnew(3)
+    real(DP), intent(in) :: x(4), y(4), z(4), u(4), xnew(3)
     ! Local variables:
-    real(kind=Real8_) :: xi, yi, zi
-    real(kind=Real8_) :: f0, f1, f2, f3, D10, D12, D20, D30, D31, D32, &
-         A1, A2, A3, dv0, dv1, dv2, dv3
+    real(DP) :: xi, yi, zi
+    real(DP) :: D10, D12, D20, D30, D31, D32, A1, A2, A3, dv0, dv1, dv2, dv3
     !-----------------------------------------------------------------------
     xi = xnew(1); yi = xnew(2); zi = xnew(3)
     D10=SQRT( (x(2)-x(1))**2 + (y(2)-y(1))**2 + (z(2)-z(1))**2 )
@@ -450,17 +465,19 @@ module ModRamFunctions
     
     use ModRamMain, ONLY: Real8_
     
+
     implicit none
     
     ! Arguments and return value:
     integer, intent(in) :: n
     real(kind=Real8_), intent(in) :: x(n), y(n), z(n), u(n), xnew(3)
-    real(kind=Real8_) :: WeightFit
+    real(kind=Real8_) :: WeightFit, SumWeights
 
     ! Internal variables
-    real(kind=Real8_) ::  SumWeights = 0.0, dv(n), xi, yi, zi
+    real(kind=Real8_) ::  dv(n), xi, yi, zi
     integer :: i
     !-----------------------------------------------------------------------
+    SumWeights = 0.0
     xi = xnew(1)
     yi = xnew(2)
     zi = xnew(3)

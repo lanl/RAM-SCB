@@ -1,0 +1,23 @@
+Scheme options
+
+
+=============== SCHEME SETTINGS ========================
+#TS07_DIRECTORY
+/projects/space_data/MagModelInputs/TS07_Coeffs
+
+#QINDENTON_FILE_PATH
+/projects/space_data/MagModelInputs/QinDenton/
+
+#OMNIFILE
+/projects/lanl/Carrington/ModelInputs/OmniFiles/omni_2013.txt
+
+#BOUNDARY_FILE_PATH
+/projects/lanl/Carrington/ModelInputs/BoundaryFiles/
+
+#SATELLITE
+60.0			DtOutput
+2			nSatellite
+/projects/lanl/Carrington/ModelInputs/SatFiles/Ephem/2013/20130316_RBSPA_eph.txt
+/projects/lanl/Carrington/ModelInputs/SatFiles/Ephem/2013/20130316_RBSPB_eph.txt
+F			DoUseVAPini
+==========================================================

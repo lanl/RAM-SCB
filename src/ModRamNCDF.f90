@@ -1,13 +1,12 @@
 !============================================================================
+!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    All rights reserved.
+!============================================================================
+
 module ModRamNCDF
-!   A set of variables and tools for general I/O handling, file name
-!   creation, etc.
-!   Copyright (c) 2016, Los Alamos National Security, LLC
-!   All rights reserved.
-!******************************************************************************
+
 
   implicit none
-  save
   
   contains
 !==============================================================================
@@ -70,6 +69,7 @@ module ModRamNCDF
 !      
 !    use netcdf
 !
+
 !    implicit none
 !
 !    integer, intent(in) :: iFileID

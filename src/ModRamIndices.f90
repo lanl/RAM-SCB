@@ -1,39 +1,36 @@
 !============================================================================
-module ModRamIndices
 !    Copyright (c) 2016, Los Alamos National Security, LLC
 !    All rights reserved.
 !============================================================================
-  
+
+module ModRamIndices
   ! A set of tools for handling the indices used in RAM-SCB.  Combined with
   ! the PARAM interface, allows the user to select source of indices, gather
   ! and interpolate the values to the current simulation time.
 
-  use ModRamParams,    ONLY: NameIndexFile, NameOmniFile
-  use ModRamVariables, ONLY: NameIndexSource, nRawKp, nRawF107, kptime, Kp, &
-                             F107, timeKp, timeF107, rawKp, rawF107
-
   implicit none
-  save
 
   contains
   !===========================================================================
   subroutine read_index_file(StartTime, EndTime, NameFile)
 
     use ModRamMain, ONLY: Real8_
+    use ModRamVariables, ONLY: nRawKp, nRawF107, kptime, &
+                               timeKp, timeF107, rawKp, rawF107
 
     use ModTimeConvert, ONLY: TimeType, time_int_to_real
     use ModIoUnit,      ONLY: UNITTMP_
+
 
     implicit none
 
     type(timetype),   intent(in) :: StartTime, EndTime
     character(len=*), intent(in) :: NameFile
 
-    integer :: is, fmday, dateIndex
-    character(len=100) :: header
+    integer :: dateIndex
     real(kind=Real8_) :: tmpF107
 
-    integer :: i, j, nline, iError, cmday, iYY, iMM, iDD
+    integer :: i, j, iError, iYY, iMM, iDD
     character(len=100) :: StringLine, StringFmt
     real(kind=Real8_) :: tmpKp(8)
 
@@ -102,6 +99,7 @@ module ModRamIndices
     allocate(rawKp(nRawKp))
     allocate(rawF107(nRawF107))
     allocate(timeF107(nRawF107))
+    timeKp = 0.0; rawKp = 0.0; rawF107 = 0.0; timeF107 = 0.0
 
     if(DoTest)then
        write(*,*) NameSub//': Number of lines to read = ', nRawF107
@@ -134,6 +132,9 @@ module ModRamIndices
   !===========================================================================
   subroutine init_indices(StartTime, EndTime)
     ! Based on source of indices, prepare indices for this simulation.
+    use ModRamParams,    ONLY: NameIndexFile
+    use ModRamVariables, ONLY: NameIndexSource
+
     use ModTimeConvert, ONLY: TimeType
 
     implicit none
@@ -157,6 +158,9 @@ module ModRamIndices
     ! Interpolate Kp to current time.
     ! Use f10.7 according to current day.
     ! Input time format should be floating point used in ModTimeConvert.
+    use ModRamVariables, ONLY: nRawKp, nRawF107, Kp, F107, timeKp, &
+                               timeF107, rawKp, rawF107
+
     use ModRamMain, ONLY: Real8_
     
     implicit none
@@ -165,9 +169,8 @@ module ModRamIndices
     real(kind=Real8_), intent(out):: kpNow, f10Now
     
     integer :: iTime
-    real(kind=Real8_) :: dTime, dateNow, nSecInDay=86400.0
+    real(kind=Real8_) :: dTime, dateNow
 
-    character(len=*), parameter :: NameSub='get_indices'
     !------------------------------------------------------------------------
     ! NOTE: AS MORE SOURCES ARE ADDED, USE CASE STATEMENTS TO 
     ! CREATE DIFFERENT METHODS FOR OBTAINING THE INDICES AT timeNow.
@@ -177,6 +180,7 @@ module ModRamIndices
     do while( (iTime < nRawKp) .and. (timeKp(iTime) < timeNow))
        iTime=iTime+1
     end do
+    if (iTime.eq.1) iTime=2
 
     ! Interpolate Kp to current time.
     dTime = (timeNow - timeKp(iTime-1))/(timeKp(iTime) - timeKp(iTime-1))
@@ -184,9 +188,9 @@ module ModRamIndices
 
     ! F10.7 index is not interpolated; merely use the value at the
     ! current day.
-    dateNow=timeNow - mod(timeNow, nSecInDay)
+    dateNow=timeNow - mod(timeNow, 86400.0)
     do iTime=1, nRawF107
-       if (timeF107(iTime) .eq. dateNow) then
+       if (abs(timeF107(iTime)-dateNow) .le. 1e-9) then
           f10Now = rawF107(iTime)
           exit
        end if

@@ -1,13 +1,21 @@
+!============================================================================
+!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    All rights reserved.
+!============================================================================
+
 Module ModRamVariables
 
-  use nrtype, ONLY: DP
+  use ModRamMain, ONLY: DP
 
   implicit none
-  save
+
+  integer, allocatable :: outsideMGNP(:,:)
 
 ! UNKNOWN VARIABLES
   real(DP), ALLOCATABLE :: XNE(:,:)
 !
+
+  real :: IG(3), RZ(3), rsn, IAPO(7)   ! Ap-index, Rs-index
 
 ! Main RAM Variables (Pressures, Fluxes, and hI variables)
   real(DP), ALLOCATABLE :: F2(:,:,:,:,:), FLUX(:,:,:,:,:), PPerH(:,:), PParH(:,:), &
@@ -41,7 +49,7 @@ Module ModRamVariables
               PACHOR_Dxx(NPA_Dxx)
 
 ! ModRamLoss variables
-!  real(DP), ALLOCATABLE :: ATLOS(:,:), ACHAR(:,:,:,:)
+  real(DP), ALLOCATABLE :: ATLOS(:,:,:), CHARGE(:,:,:,:,:)
 
 ! ModRamIndices variables
   character(len=4)   :: NameIndexSource = 'file'

@@ -1,764 +1,741 @@
+!============================================================================
+!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    All rights reserved.
+!============================================================================
+
 Module ModRamScb
 ! Contains subroutines and functions necessary to couple RAM and SCB
 
   use nrtype, ONLY: DP
 
   implicit none
-  save
 
-  INTEGER, allocatable :: INDEXPA(:,:,:,:) ! Index that maps the pitch angle on each point of a field line to the equatorial (RAM) one
+! Index that maps the pitch angle on each point of a field line to the equatorial (RAM) one
+  INTEGER, allocatable :: INDEXPA(:,:,:,:)
   REAL(DP), allocatable :: flux3DEQ(:,:,:,:,:)
-  INTEGER :: NRAD
-  INTEGER :: INCFD, j, k, L
-  REAL(DP), allocatable :: bfMirror(:), bfInterm(:)
-  REAL(DP), allocatable :: chiMirror(:)
-  REAL(DP), allocatable :: derivs2(:), dBdTheta(:), dThetadB(:), derivs4(:), &
-                           distance(:), dyDummyDens(:)
 
-contains
+  contains
 
-!==============================================================================
-subroutine ramscb_allocate
-
-  use ModRamGrids, ONLY: NS, NE, NPA
-  use ModScbGrids, ONLY: nthe, npsi, nzeta, nXRaw
-
-  implicit none
-
-  ALLOCATE(INDEXPA(nthe,npsi,nzeta,NPA), Flux3DEq(NS,npsi,nzeta,NE,NPA), &
-           bfMirror(NPA), bfInterm(NPA), chiMirror(NPA), derivs2(nthe), &
-           dBdTheta(nthe), dThetadB(nthe), derivs4(nthe), distance(nthe), &
-           dyDummyDens(nthe))
+!==================================================================================================
+  subroutine ramscb_allocate
   
-  NRAD = nXRaw
-end subroutine ramscb_allocate
-
-
-!==============================================================================
-subroutine ramscb_deallocate
-
-  implicit none
-
-  DEALLOCATE(INDEXPA, Flux3DEq, bfMirror, bfInterm, chiMirror, derivs2, &
-             dBdTheta, dThetadB, derivs4, distance, dyDummyDens)
-
-end subroutine ramscb_deallocate
-
-!==============================================================================
-SUBROUTINE computehI
-  !****************************************************************************
-  ! Routine that outputs magnetic field quantities for input into RAM:
-  ! h and I integrals, plus equatorial Bz
-  ! values output at radOut; h, I values at muboun are output also, 
-  ! as well as bounce-averaged HDENS
-  !
-  ! Added branch for DIPL (operational run with dipole field only)
-  ! still need from here:
-  !  - indexPA (once)
-  !  - flux3D (every 300 s or the satellite dump time cadence)
-  ! Author: S. Zaharia, 2011
-  !
-  ! Added flux volume per unit flux (integral of ds/B) output (Apr. 2013)
-  !
-  !  Copyright (c) 2016, Los Alamos National Security, LLC
-  !  All rights reserved.
-  !****************************************************************************
-
-  use ModRamVariables, ONLY: Kp, F107, FLUX, FNHS, FNIS, BNES, HDNS, dBdt, &
-                             dIdt, dIbndt, BOUNHS, BOUNIS, EIR, EIP, DPHI, PHI, &
-                             RLZ, LZ, MU, DMU, WMU, MLT, PAbn, PA
-  use ModRamTiming,    ONLY: TimeRamNow, TimeRamStart, DT_hI, TimeRamElapsed, TOld
-  use ModRamConst,     ONLY: RE, HMIN, ME
-  use ModRamParams,    ONLY: electric, IsComponent, NameBoundMag
-  use ModRamCouple,    ONLY: SwmfPot_II
-  use ModRamGrids,     ONLY: nR, nT, nPa, nE, RadiusMax
-
-  USE ModScbMain,      ONLY: rHour, HourDecimal, Day, HourDecShort, iElectric, &
-                             prefixOut
-  use ModScbGrids,     ONLY: nthe, npsi, nzeta, nXRaw, nAzimRAM
-  use ModScbVariables, ONLY: bf, chiVal, nZetaMidnight, x, y, z, bnormal, PhiIono, &
-                             radGrid, angleGrid, h_Cart, I_Cart, h_Cart_interp, &
-                             i_Cart_interp, bZEq_Cart, flux_vol_cart, bZ, chi, &
-                             hdens_Cart, radRaw, azimRaw, nThetaEquator, fluxVolume
-
-  use ModRamFunctions, ONLY: RamFileName, COSD, FUNT, FUNI
-
-  use ModScbSpline, ONLY: Spline_2D_point, spline, splint
-  use ModScbInterp, ONLY: Interpolation_natgrid_2D
-
-  USE nrmod,     ONLY: qtrap, qromb, locate
-  use nrtype,    ONLY: DP, pi_d
-  USE ModIOUnit, ONLY: UNITTMP_
-
-  IMPLICIT NONE
-
-  REAL(DP) :: BNESPrev(NR+1,NT), FNISPrev(NR+1,NT,NPA), BOUNISPrev(NR+1,NT,NPA)
-  INTEGER :: I, IC, iCount, ierr, IP1, j1, k1, NWK, ncdfId, iFix, iDomain
-  INTEGER, DIMENSION(3) :: dimlens 
-  INTEGER, PARAMETER :: LIMIT = 10000, INF = 1
-  REAL(DP) :: MUEQ
-  REAL(DP), DIMENSION(2*nthe) :: WK
-  REAL(DP) :: switch, start_time, end_time, yLowerLimit, chiHalf, bfHalf
-  REAL(DP) :: r0(npsi, nzeta)
-  REAL(DP) :: MUBOUN, RWU, DL1, CLC, dyDummy
-  INTEGER, PARAMETER :: LENIW = LIMIT, LENW = 4*LENIW+1
-  REAL(DP) :: bZEqDiff_Cart(nR,nT), Epot_Cart(0:nR,nT), beqdip_Cart(nR)
-  INTEGER :: iwork(LENIW)  
-  INTEGER :: NEVAL, LAST, myAlphaBegin, myAlphaEnd, nratio, alphaRangeDiff
-  REAL(DP) :: work(LENW)
-  INTEGER, PARAMETER :: NPTS2 = 3  ! # of break points plus 2
-  REAL(DP) :: POINTS(NPTS2)
-  REAL(DP) :: EPSABS, EPSREL ! If EPSABS < 0, only EPSREL is taken into account; decide on what REL error you need by 
-  ! comparing values obtained for a dipole with Ejiri's values
-  REAL(DP) :: ABSERR, length, valueIntegral, valueintegral2, valueintegraldens, valueintegraldens2, &
-       valueintegraldens3, valueIntegral2Bis, valueintegral3
-  INTEGER :: IC0(2)
-  INTEGER :: alphaBeg(0:63), alphaEnd(0:63), param(0:63), my_array_type_hI(0:63) ! Assumes no more than 64 processors
-  INTEGER :: sizes(3), subsizes(3), starts(3)
-  INTEGER :: request(3, 0:63) 
-  REAL(DP) :: VC(2)
-  REAL(DP) :: h_value(npsi, nzeta, NPA), hdens_value(npsi, nzeta, NPA), I_value(npsi, nzeta, NPA), I_value_Yue(npsi,nzeta,NPA) 
-  REAL(DP) :: dyDummy1(NPA), dyDummy2(NPA)
-
-  CHARACTER(len=500) :: fileNamehi
-  character(len=200) :: NameFileOut
-  CHARACTER(len=2) :: DayChar
-  CHARACTER(len=4) :: ST3_local, ST3_local2, ST3_local3, ST3_el
-  CHARACTER(LEN=100) :: HEADER(4)
-  INTEGER :: nm_local
-  LOGICAL :: SKIP = .FALSE.
-  REAL(DP) :: radOut = RadiusMax+0.25_dp ! 9.25_dp ! 6.75_dp ! 10.25_dp ! Outer domain radius
-
-  INTEGER :: iSpecies
-  REAL(DP) :: EKEV2(NE), MU2(NPA)
-  REAL(DP), PARAMETER :: b0dip = 30570._dp
-  REAL(DP) :: beqdip(npsi,nzeta+1)
-  REAL(DP) :: DthI
-!  REAL(DP), :: flux_volume(:,:)
-
-  switch = 0.0_dp
-  dimlens = (/1, 1, 1/)
-
-  EPSABS = 0.0006_dp
-  EPSREL = 1.E-6_dp  ! 1% error should be fine for most applications
-
-  h_Cart = 0._dp
-  I_Cart = 0._dp
-  bZEq_Cart = 0._dp
-  flux_vol_Cart = 0._dp
-  bZEqDiff_Cart = 0._dp
-
-  h_value = 0._dp
-  hdens_value = 0._dp
-  I_value = 0._dp
-  I_value_Yue = 0._dp
-  valueIntegral = 0._dp
-  valueIntegral2 = 0._dp
-  valueIntegraldens = 0._dp
-  valueIntegral3 = 0._dp
-
-  yLowerLimit = 0._dp
-
-  DO j1 = 0, nR
-     radRaw(j1) = 1.75_dp + (radOut-1.75_dp) * REAL(j1,DP)/REAL(nR,DP)
-  END DO
-  DO k1 = 1, nT
-     azimRaw(k1) = 24._dp * REAL(k1-1,DP)/REAL(nT-1,DP)
-  END DO
-
-  INCFD = 1
-  NWK = 2*(nthe-nThetaEquator+1)
-
-  ! Always fill this matrix; it's used by RAM outputs
-  ! Interpolate RAM flux on 3DEQ grid, for mapping
-  DO iSpecies = 1, 4 ! ions & electrons
-     DO L = 1, NPA
-        DO K = 1, NE
-           !Cubic spline interpolation
-           CALL Spline_2D_point(radRaw(1:nR), azimRaw*pi_d/12.0, &
-                                REAL(FLUX(iSpecies, 1:nR,1:nT,K,L),DP), &   
-                                radGrid(1:npsi,2:nzeta), angleGrid(1:npsi,2:nzeta), &
-                                flux3DEQ(iSpecies, 1:npsi,2:nzeta,K,L), iDomain) 
-        END DO
-     END DO
-  END DO
-  ! Periodicity
-  flux3DEQ(:,:,1,:,:) = flux3DEQ(:,:,nzeta,:,:)
-
-  Operational_or_research: SELECT CASE (NameBoundMag)
-  CASE('DIPL') ! Dipole without SCB calculation
-
-!     IF (nm_local > 1) RETURN ! indexPA only needs to be calculated once
-
-     Alpha_loop_parallel_oper:  DO k = 2, nzeta 
-        Psi_loop_oper: DO j = 1, npsi 
-           ! If bf(theta) not strictly increasing; to weed out very small differences  
-           ! Generally if needed it means have to increase number of theta points (or crowd them more near the equatorial plane)
-           ! This might happen for DIPL once in a blue moon if ntheta is ridiculously small
-           iCount = 0
-           Monotonicity_oper: DO 
-              i = nThetaEquator
-              iFix = 0
-              iCount = iCount+1
-              fixMonotonicity_oper: DO WHILE (i < nthe)      
-                 IF (bf(i+1,j,k) < bf(i,j,k)) THEN
-                    bf(i+1,j,k) = bf(i,j,k)*(1._dp+1.E-15_dp)
-                    iFix = 1   
-                 END IF
-                 i = i+1
-              END DO fixMonotonicity_oper
-              IF (iFix == 0) EXIT Monotonicity_oper
-              CYCLE Monotonicity_oper
-           END DO Monotonicity_oper
-
-           ! Define indexPA for 90 degree pitch angle (-1 for all distances along field line except equatorial plane)
-           indexPA(:,:,:,1) = -1
-           indexPA(nThetaEquator,:,:,1) = 1
-
-           pitchAngleLoop_oper:        DO L = 2, NPA 
-              ! Find mirror points thetaM for mu, where B = Beq/(1 - mu**2)
-              IF (L /= NPA) bfMirror(L) = bf(nThetaEquator,j,k) / (1._dp - mu(L)*mu(L))
-              IF (L == NPA) bfMirror(L) = bf(nthe,j,k)
-
-              IF (bfMirror(L) > bf(nthe,j,k)) THEN ! No possibility of trapping, only passing particles
-                 iCount = iCount + 1
-                 bfMirror(L) = bf(nthe,j,k)
-              END IF
-
-              DO i = nThetaEquator, nthe
-                 IF (1. - bf(nThetaEquator,j,k)/bf(i,j,k)*(1.-MU(L)**2) >= 0.) THEN
-                    MUEQ = SQRT(1. - bf(nThetaEquator,j,k)/bf(i,j,k)*(1.-MU(L)**2))
-                    indexPA(i,j,k,L) = locate(MU(1:NPA), MUEQ)
-                    indexPA(nthe+1-i,j,k,L) = indexPA(i,j,k,L) ! Mirror across magnetic equator.
-                 ELSE
-                    indexPA(i,j,k,L) = -1
-                    indexPA(nthe+1-i,j,k,L) = -1
-                 END IF
-              END DO
-
-           END DO pitchAngleLoop_oper
-        END DO Psi_loop_oper
-     END DO Alpha_loop_parallel_oper
-
-     RETURN 
-
-  CASE default  ! Regular calculation of h, I, bounce-averaged charge xchange etc.
-     Alpha_loop_parallel:  DO k = 2, nzeta 
-        Psi_loop: DO j = 1, npsi ! nZetaMidnight, nZetaMidnight !C 2, nzeta
-
-           r0(j, k) = SQRT(x(nThetaEquator,j,k)**2 + y(nThetaEquator,j,k)**2)
-           DO i = nThetaEquator, nthe
-              distance(i) = SQRT(x(i,j,k)**2+y(i,j,k)**2+z(i,j,k)**2) ! Distance from center of Earth
-           END DO
-           !CALL spline(chiVal(nThetaEquator:nthe),distance(nThetaEquator:nthe), 1.E31_dp, 1.E31_dp, &
-           !            dyDummyDens(nThetaEquator:nthe))
-           CALL spline(chi(nThetaEquator:nthe,j,k),distance(nThetaEquator:nthe), 1.E31_dp, 1.E31_dp, &
-                       dyDummyDens(nThetaEquator:nthe))
-
-           ! Compute length of field line (j,k)
-           length = 0._dp
-           DO i = 1, nthe-1
-              length = length + SQRT((x(i+1,j,k)-x(i,j,k))**2 + (y(i+1,j,k)-y(i,j,k))**2 + (z(i+1,j,k)-z(i,j,k))**2)
-           END DO
-
-           ! Boundary choices at the ends (look into DPCHIC etc. for explanation)
-           IC0(1) = 0 
-           IC0(2) = -5 
-
-           ! If bf(theta) not strictly increasing; to weed out very small differences (which nevertheless will make DPCHIC return an error and stop) 
-           ! Generally if needed it means have to increase number of theta points (or crowd them more near the equatorial plane)
-           iCount = 0
-           Monotonicity: DO 
-              i = nThetaEquator
-              iFix = 0
-              iCount = iCount+1
-              fixMonotonicity: DO WHILE (i < nthe)      
-                 IF (bf(i+1,j,k) < bf(i,j,k)) THEN
-                    bf(i+1,j,k) = bf(i,j,k)*(1._dp+1.E-15_dp)
-                    iFix = 1   
-                 END IF
-                 i = i+1
-              END DO fixMonotonicity
-              IF (iFix == 0) EXIT Monotonicity
-              CYCLE Monotonicity
-           END DO Monotonicity
-
-           ! Initialize Hermite spline for chi(B), in order to find thetaMirror; actually, chiMirror in the general case (constTheta /= 0)
-           !CALL DPCHIC (IC0, vc, switch, nthe-nThetaEquator+1, bf(nThetaEquator:nthe,j,k), chiVal(nThetaEquator:nthe),  &
-           !     dThetadB(nThetaEquator:nthe), INCFD, WK(1:NWK), NWK, IERR)
-           CALL DPCHIC (IC0, vc, switch, nthe-nThetaEquator+1, bf(nThetaEquator:nthe,j,k), chi(nThetaEquator:nthe,j,k),  &
-                dThetadB(nThetaEquator:nthe), INCFD, WK(1:NWK), NWK, IERR)
-           
-           IF (ierr < 0) THEN ! Means monotonicity of theta(B) not established
-              PRINT*, 'FATAL error in computehI: ierr = ', ierr
-              STOP
-           END IF
-
-           iCount = 0
-
-           ! Define indexPA for 90 degree pitch angle (-1 for all distances along field line except equatorial plane)
-           indexPA(:,:,:,1) = -1
-           indexPA(nThetaEquator,:,:,1) = 1
-
-           ! L = 1 is the 90 degree pitch angle (mu = 0),  L = NPA is the 0 degree pitch angle (mu = 1)
-           pitchAngleLoop:        DO L = 2, NPA ! No need to do anything for L = 1 (equator => I = 0; h not zero, but obtained by extrapolation or just 
-              ! set the same as h(L=2) - see below)
-
-              ! Find mirror points thetaM for mu, where B = Beq/(1 - mu**2)
-              IF (L /= NPA) bfMirror(L) = bf(nThetaEquator,j,k) / (1._dp - mu(L)*mu(L))
-              IF (L == NPA) bfMirror(L) = bf(nthe,j,k)
-
-              IF (bfMirror(L) > bf(nthe,j,k)) THEN ! No possibility of trapping, only passing particles
-                 iCount = iCount + 1
-                 bfMirror(L) = bf(nthe,j,k)
-                 !chiMirror(L) = chiVal(nthe)
-                 chiMirror(L) = chi(nthe,j,k)
-              ELSE
-                 ! Find chiMirror, assuming monotonicity of bf with chiVal
-                 !CALL DPCHFE (nthe-nThetaEquator+1,  bf(nThetaEquator:nthe,j,k), chiVal(nThetaEquator:nthe), &
-                 !     dThetadB(nThetaEquator:nthe), INCFD, SKIP, 1, bfMirror(L), chiMirror(L), IERR)
-                 CALL DPCHFE (nthe-nThetaEquator+1,  bf(nThetaEquator:nthe,j,k), chi(nThetaEquator:nthe,j,k), &
-                      dThetadB(nThetaEquator:nthe), INCFD, SKIP, 1, bfMirror(L), chiMirror(L), IERR)
-              END IF
-
-              DO i = nThetaEquator, nthe
-                 IF (1. - bf(nThetaEquator,j,k)/bf(i,j,k)*(1.-MU(L)**2) >= 0.) THEN
-                    MUEQ = SQRT(1. - bf(nThetaEquator,j,k)/bf(i,j,k)*(1.-MU(L)**2))
-                    indexPA(i,j,k,L) = locate(MU(1:NPA), MUEQ)
-                    indexPA(nthe+1-i,j,k,L) = indexPA(i,j,k,L) ! Mirror across magnetic equator.
-                 ELSE
-                    indexPA(i,j,k,L) = -1
-                    indexPA(nthe+1-i,j,k,L) = -1
-                 END IF
-              END DO
-
-              ! Compute integral for mu
-              IC0(1) = -1   ! First derivative dB/dchi set to zero at equatorial plane
-              VC(1) = 0._dp
-              IC0(2) = -5 
-
-              ! Initialize Hermite spline B(theta) (to be used in fInt and fScalarInt)
-              !CALL DPCHIC (IC0, vc, switch, nthe-nThetaEquator+1, chiVal(nThetaEquator:nthe), bf(nThetaEquator:nthe,j,k), &
-              !     dBdTheta(nThetaEquator:nthe), INCFD, WK(1:NWK), NWK, IERR)
-              CALL DPCHIC (IC0, vc, switch, nthe-nThetaEquator+1, chi(nThetaEquator:nthe,j,k), bf(nThetaEquator:nthe,j,k), &
-                   dBdTheta(nThetaEquator:nthe), INCFD, WK(1:NWK), NWK, IERR)
-
-              IF (ierr < 0) THEN
-                 PRINT*, 'computehI2: ierr = ', ierr
-                 STOP
-              END IF
-
-              !valueIntegral = qromb(fInt, chiVal(nThetaEquator), chiMirror(L))  ! The integral for I is non-singular, qromb should do fine
-              valueIntegral = qromb(fInt, chi(nThetaEquator,j,k), chiMirror(L))
-
-              ! Split h integral or compute solely by DQAGI (which is pretty good for the whole interval)
-              ! March 2006 - transformed h integral by y = 1/sqrt(bm-b) change of variable; spreads out the interval from yeq to infinity; not singular anymore 
-              ! ---> better accuracy
-
-              !chiHalf = 0.2_dp*(chiVal(nThetaEquator) + 4.*chiMirror(L))
-              !CALL DPCHFE (nthe-nThetaEquator+1, chiVal(nThetaEquator:nthe), bf(nThetaEquator:nthe,j,k), &
-              !     dBdTheta(nThetaEquator:nthe), INCFD, SKIP, 1, chiHalf, bfHalf, IERR)          
-              chiHalf = 0.2_dp*(chi(nThetaEquator,j,k) + 4.*chiMirror(L))
-              CALL DPCHFE (nthe-nThetaEquator+1, chi(nThetaEquator:nthe,j,k),bf(nThetaEquator:nthe,j,k), &
-                   dBdTheta(nThetaEquator:nthe), INCFD, SKIP, 1, chiHalf,bfHalf, IERR) 
-
-              IF (bfMirror(L) - bfHalf < 0._dp) THEN
-                 PRINT*, 'computehI: problem w/ mirror point; j, k, L = ', j, k, L
-                 !   STOP
-              END IF
-
-              yLowerLimit = 1._dp/SQRT(bfMirror(L)-bfHalf)
-
-              CALL DQAGI(fScalarIntInf, yLowerLimit, INF, EPSABS, EPSREL, valueIntegral2, &
-                   ABSERR, NEVAL, IERR, LIMIT, LENW, LAST, IWORK, WORK)   ! DQAGI is the transformed integral, employed in the vicinity of the mirror point
-
-              CALL DQAGI(fScalarIntInfDens, yLowerLimit, INF, EPSABS, EPSREL, valueIntegraldens2, &
-                   ABSERR, NEVAL, IERR, LIMIT, LENW, LAST, IWORK, WORK)   ! DQAGI is the transformed integral (for Hdens), employed in the vicinity of the mirror point
-
-              valueIntegral2 = 2._dp * valueIntegral2 ! Factor of 2 comes from the conversion of integral over chi to integral over y
-              valueIntegralDens2 = 2._dp * valueIntegralDens2
-
-              ! Previous way of doing the h integral - good but the DQAGI method is better
-              ! DQAGS - from Slatec library - adaptive integration with end-point singularities - double precision - for the integral for h
-              !C CALL DQAGS(fScalarInt, chiVal(nThetaEquator), chiMirror(L), EPSABS, EPSREL, valueIntegral3, &
-              !C     ABSERR, NEVAL, IERR, LENIW, LENW, LAST, IWORK, WORK)  ! If getting error messages, it means the field line is not "smooth" enough - usually
-              ! need a new calculation with a smaller blending coefficient; IERR = 4 however just means that the required accuracy cannot be attained, but the result
-              ! however is the best that can be obtained 
-
-              ! Replaced this with same integral splitting for Hdens (DQAGS was giving some Inf values)
-              !         CALL DQAGS(fScalarIntDens, chiVal(nThetaEquator), chiMirror(L), EPSABS, EPSREL, valueIntegralDens, &
-              !              ABSERR, NEVAL, IERR, LENIW, LENW, LAST, IWORK, WORK)   ! whole interval for density
-
-              !CALL DQAG(fScalarInt, chiVal(nThetaEquator), chiHalf, EPSABS, EPSREL, 3, valueIntegral3, &
-              !     ABSERR, NEVAL, IERR, LIMIT, LENW, LAST, IWORK, WORK)   ! from eq. plane to chiHalf; regular integral (for h calculation)
-              !CALL DQAG(fScalarIntDens, chiVal(nThetaEquator), chiHalf, EPSABS, EPSREL, 3, valueIntegralDens3, &
-              !     ABSERR, NEVAL, IERR, LIMIT, LENW, LAST, IWORK, WORK)   ! from eq. plane to chiHalf; regular integral of Hdens
-              CALL DQAG(fScalarInt, chi(nThetaEquator,j,k), chiHalf, EPSABS, EPSREL, 3, valueIntegral3, &
-                   ABSERR, NEVAL, IERR, LIMIT, LENW, LAST, IWORK, WORK)   ! from eq. plane to chiHalf; regular integral (for h calculation)
-              CALL DQAG(fScalarIntDens, chi(nThetaEquator,j,k), chiHalf, EPSABS, EPSREL, 3, valueIntegralDens3, &
-                   ABSERR, NEVAL, IERR, LIMIT, LENW, LAST, IWORK, WORK)   ! from eq. plane to chiHalf; regular integral of Hdens
-
-
-              valueIntegral2 = valueIntegral2 + valueIntegral3
-              valueIntegralDens2 = valueIntegralDens2 + valueIntegralDens3
-              hdens_value(j,k,L) = 1.E10_dp * valueIntegralDens2/valueIntegral2  ! Re-normalize (see definition in hdens_rairden)
-
-              valueIntegral2 = valueintegral2 * SQRT(bfMirror(L))  ! Normalization for calculation of h
-
-              I_value(j, k, L) = 2._dp * valueIntegral * length / (pi_d * r0(j, k))
-              h_value(j, k, L) = valueIntegral2 * length / (pi_d * r0(j, k))
-
-           END DO pitchAngleLoop
-
-           ! Find h for PA = 90 degrees - various extrapolation tried, but better keep value at NPA=2 (same thing done in RAM code)
-           I_value(j, k, 1) = 0._dp
-           h_value(j, k, 1) = h_value(j, k, 2) ! This extrapolation is also used in the RAM code
-           hdens_value(j, k, 1) = hdens_value(j, k, 2)
-
-        END DO Psi_loop
-     END DO Alpha_loop_parallel
-
-     ! Periodicity for indexPA ! Alpha_loop_parallel only from 2 to nzeta
-     indexPA(:,:,1,:) = indexPA(:,:,nzeta,:)
-
-     DO j = 1, npsi
-        DO k = 2, nzeta 
-           I_value_Yue(j,k, :) = I_value(j,k, :)*r0(j,k)
-        END DO
-     END DO
-     h_value(:,1,:) = h_value(:,nzeta,:)
-     I_value(:,1,:) = I_value(:,nzeta,:)
-     I_value_Yue(:,1,:) = I_value_Yue(:,nzeta,:)
-
-     ! Interpolation will be for B - Bdip
-     beqdip(1:npsi,2:nzeta)=b0dip/(x(nThetaEquator,1:npsi,2:nzeta)**2+y(nThetaEquator,1:npsi,2:nzeta)**2)**1.5
-
-        ! Interpolate data for output in POLAR coordinates (for RAM)
-
-     IF (MINVAL(h_value) < 0._dp .OR. MINVAL(I_value)<0._dp) THEN
-        PRINT*, 'hI: minval(h) = ', MINVAL(h_value)
-        PRINT*, 'hI: minval(I) = ', MINVAL(I_value)
-        !   STOP
-     END IF
-
-     CALL Interpolation_natgrid_2D(radRaw(1:nR), azimRaw, h_value(1:npsi,2:nzeta,1:NPA), &
-                I_value(1:npsi,2:nzeta,1:NPA), bZ(nThetaEquator,1:npsi,2:nzeta)*bnormal-beqdip(1:npsi,2:nzeta), &
-                fluxVolume(1:npsi,2:nzeta)/bnormal, hdens_value(1:npsi,2:nzeta,1:NPA), &
-                h_Cart(1:nR,1:nT,1:NPA), I_Cart(1:nR,1:nT,1:NPA), &
-                bZEqDiff_Cart(1:nR,1:nT), flux_vol_Cart(1:nR,1:nT), &
-                hdens_Cart(1:nR,1:nT,1:NPA))
-
-     ! Add Bdip 
-     beqdip_Cart(1:nR) = b0dip/radRaw(1:nR)**3
-
-     ! If 3D code domain does not extend to radOut: (ACHTUNG!!!)
-     ! print*, 'computehI: max(x), radOut = ', real(maxval(abs(x)),sp), real(radOut,SP)
-     IF (MAXVAL(ABS(x)) <= radOut) THEN
-        h_Cart(nR,:,:) = h_Cart(nR-1,:,:)
-        I_Cart(nR,:,:) = I_Cart(nR-1,:,:)
-        bZEqDiff_Cart(nR,:) = bZEqDiff_Cart(nR-1,:)
-        hdens_Cart(nR,:,:) = hdens_Cart(nR-1,:,:)
-     END IF
-
-     ! Add dipole field
-     DO j = 1, nT
-        bZEq_Cart(:,j)  = bZEqDiff_Cart(:,j) + beqdip_Cart
-     END DO
-
-     ! Make field quasi-dipole as R -> 2 RE
-     DO i = 1, nR
-        IF (radRaw(i) <= 3.0) bZEq_Cart(i,:) = EXP(-2.*(radRaw(i)-3.0)**2)*bZEq_Cart(i,:) + &
-             (1.-EXP(-2.*(RadRaw(i)-3.0)**2))*beqdip_Cart(i)
-     END DO
-
-     IF (MINVAL(h_Cart) < 0._dp .OR. MINVAL(I_Cart)<0._dp) THEN
-        PRINT*, 'computehI: minval(h) = ', MINVAL(h_Cart)
-        PRINT*, 'computehI: minval(I) = ', MINVAL(I_Cart)
-        !   STOP
-     END IF
-
-     ! Cubic spline interpolation with natural boundaries to get h and I at muboun 
-     DO j = 1, nT
-        DO i = 1, nR
-           CALL spline(PA(1:NPA),h_Cart(i,j,1:NPA),1.E31_dp,1.E31_dp,dyDummy1(1:NPA))
-           CALL spline(PA(1:NPA),I_Cart(i,j,1:NPA),1.E31_dp,1.E31_dp,dyDummy2(1:NPA))
-           DO L = 1, NPA-1
-              h_Cart_interp(i,j,L) = splint(PA(1:NPA),h_Cart(i,j,1:NPA),dyDummy1(1:NPA),PAbn(L))
-              I_Cart_interp(i,j,L) = splint(PA(1:NPA),I_Cart(i,j,1:NPA),dyDummy2(1:NPA),PAbn(L))
-           END DO
-           ! Do not do the NPA inclusive in the not-a-knot interpolation above -> can lead to negative h,I(NPA)
-           h_Cart_interp(i,j,NPA) = h_Cart_interp(i,j,NPA-1)
-           I_Cart_interp(i,j,NPA) = I_Cart_interp(i,j,NPA-1)
-        END DO
-     END DO
-
-     ! Update h and I values for RAM (note that the output of the hI files
-     ! now uses RAM variables so the numbers will be different
-     DthI = TimeRamElapsed-TOld
-     DO I=2,NR+1
-        DO J=1,NT
-           BNESPrev(I,J)=BNES(I,J)
-           DO L=1,NPA
-              FNISPrev(I,J,L)=FNIS(I,J,L)
-              BOUNISPrev(I,J,L)=BOUNIS(I,J,L)
-              ! SCB Variables -> RAM Variables
-              FNHS(I,J,L)   = h_Cart(I-1,J,L)
-              FNIS(I,J,L)   = i_Cart(I-1,J,L)
-              BNES(I,J)     = bZEq_Cart(I-1,J)
-              HDNS(I,J,L)   = hdens_Cart(I-1,J,L)
-              BOUNHS(I,J,L) = h_Cart_interp(I-1,J,L)
-              BOUNIS(I,J,L) = i_Cart_interp(I-1,J,L)
-              !
-              dIdt(I,J,L)=(FNIS(I,J,L)-FNISPrev(I,J,L))/DThI
-              dIbndt(I,J,L)=(BOUNIS(I,J,L)-BOUNISPrev(I,J,L))/DThI
-           ENDDO
-           IF (J.LT.8.or.J.GT.18) THEN
-              DO L=15,2,-1
-                 if (FNHS(I,J,L-1).gt.FNHS(I,J,L)) then
-                    FNHS(I,J,L-1)=0.99*FNHS(I,J,L)
-                 endif
-              ENDDO
-           ENDIF
-           BNES(I,J)=BNES(I,J)/1e9 ! to convert in [T]
-           dBdt(I,J)=(BNES(I,J)-BNESPrev(I,J))/DThI
-        ENDDO
-     ENDDO
-     DO J=1,NT ! use dipole B at I=1
-        BNES(1,J)=0.32/LZ(1)**3/1.e4
-        dBdt(1,J) = 0.
-        EIR(1,J) = 0.
-        EIP(1,J) = 0.
-        DO L=1,NPA
-           FNHS(1,J,L) = FUNT(MU(L))
-           FNIS(1,J,L) = FUNI(MU(L))
-           BOUNHS(1,J,L)=FUNT(COSD(PAbn(L)))
-           BOUNIS(1,J,L)=FUNI(COSD(PAbn(L)))
-           HDNS(1,J,L)=HDNS(2,J,L)
-           dIdt(1,J,L)=0.
-           dIbndt(1,J,L)=0.
-        ENDDO
-     ENDDO
-     TOld = TimeRamElapsed
-
-!     END IF Master_rank
-
-15   FORMAT(A, F6.1)
-21   FORMAT(F8.2, F10.1, 3X, I2, 5X, 8(3X, E12.4))
-
-  END SELECT Operational_or_research
-
-  RETURN
-
-END SUBROUTINE computehI
-
-!==============================================================================
-FUNCTION fInt(chi_local)
-  USE nrtype,          ONLY: DP
-  use ModScbGrids,     ONLY: nthe
-  use ModScbVariables, ONLY: bf, chiVal, bnormal, nThetaEquator, chi
-  IMPLICIT NONE
-  REAL(DP), INTENT(IN) :: chi_local(:) 
-  REAL(DP) :: bf_local(SIZE(chi_local))
-  REAL(DP) :: dyDummy(SIZE(chi_local))
-  INTEGER :: i, ierr
-  REAL(DP) :: fIntSqr(SIZE(chi_local)), fInt(SIZE(chi_local))
-  LOGICAL :: SKIP = .FALSE.
-
-  !CALL DPCHFE (nthe-nThetaEquator+1, chiVal(nThetaEquator:nthe), bf(nThetaEquator:nthe,j,k), &
-  !     dBdTheta(nThetaEquator:nthe), INCFD, SKIP, SIZE(chi_local,1), chi_local, bf_local, IERR)
-  CALL DPCHFE (nthe-nThetaEquator+1, chi(nThetaEquator:nthe,j,k), bf(nThetaEquator:nthe,j,k), &
-       dBdTheta(nThetaEquator:nthe), INCFD, SKIP, SIZE(chi_local,1), chi_local, bf_local, IERR)
-
-  fIntSqr = (bfMirror(L) - bf_local)/bfMirror(L)
-  where (fIntSqr.lt.0.) fIntSqr = 0.
-  !C fInt = SQRT(MAX(1._dp/(1._dp - bf_local/bfMirror(L)), 0._dp)) ! For function h(mu0)
-  fInt = SQRT(fIntSqr) ! For function I(mu0)
-
-  RETURN
-END FUNCTION fInt
-
-!==============================================================================
-FUNCTION fIntDer(t_local)
-  USE nrtype,          ONLY: DP
-  use ModScbGrids,     ONLY: nthe
-  use ModScbSpline,    ONLY: splint
-  use ModScbVariables, ONLY: bf, bnormal, nThetaEquator
-  IMPLICIT NONE
-  REAL(DP), INTENT(IN) :: t_local(:) 
-  REAL(DP) :: bf_local(SIZE(t_local)), bfprime_local(SIZE(t_local))
-  REAL(DP) :: dyDummy(SIZE(t_local))
-  INTEGER :: i, ierr
-  REAL(DP) :: fIntDer(SIZE(t_local))
-
-  bf_local = bfMirror(L) - t_local*t_local
-
-  ! Find Bprime for the current argument array
-  DO i = 1, SIZE(t_local)
-     bfprime_local(i) = splint(bf(nThetaEquator:nthe,j,k), dBdTheta(nThetaEquator:nthe), &
-          derivs4(nThetaEquator:nthe), bf_local(i))
-  END DO
-
-  fIntDer = 1._dp / bfprime_local
-
-  RETURN
-END FUNCTION fIntDer
-
-!==============================================================================
-FUNCTION fScalarIntDens(chi_local)
-  USE nrtype,          ONLY: DP
-  use ModScbGrids,     ONLY: nthe
-  use ModScbSpline,    ONLY: splint
-  use ModScbVariables, ONLY: x, y, z, bf, chiVal, bnormal, nThetaEquator, chi
-  IMPLICIT NONE
-  REAL(DP), INTENT(IN) :: chi_local
-  REAL(DP) :: bf_local
-  REAL(DP) :: dyDummy(nthe), radius
-  REAL(DP) :: rad(nthe)
-  REAL(DP), PARAMETER :: HUGE = 1.E12_dp
-  INTEGER :: i, ierr
-  REAL(DP) :: fScalarIntDens
-  LOGICAL :: SKIP = .FALSE.
-
-  !CALL DPCHFE (nthe-nThetaEquator+1, chiVal(nThetaEquator:nthe), bf(nThetaEquator:nthe,j,k), &
-  !     dBdTheta(nThetaEquator:nthe), INCFD, SKIP, 1, chi_local, bf_local, IERR)
-  !radius = splint(chiVal(nThetaEquator:nthe), distance(nThetaEquator:nthe), dyDummyDens(nThetaEquator:nthe), chi_local)
-  CALL DPCHFE (nthe-nThetaEquator+1, chi(nThetaEquator:nthe,j,k), bf(nThetaEquator:nthe,j,k), &
-       dBdTheta(nThetaEquator:nthe), INCFD, SKIP, 1, chi_local, bf_local, IERR)
-  radius = splint(chi(nThetaEquator:nthe,j,k), distance(nThetaEquator:nthe), dyDummyDens(nThetaEquator:nthe), chi_local)
-
-
-  fScalarIntDens = hdens_rairden(radius) * SQRT(MAX(1._dp/(bfMirror(L) - bf_local), 0._dp)) 
-
-  RETURN
-
-END FUNCTION fScalarIntDens
-
-!==============================================================================
-FUNCTION fScalarInt(chi_local)
-  USE nrtype,          ONLY: DP
-  use ModScbGrids,     ONLY: nthe
-  use ModScbVariables, ONLY: bf, chiVal, bnormal, nThetaEquator, chi
-  IMPLICIT NONE
-  REAL(DP), INTENT(IN) :: chi_local
-  REAL(DP) :: bf_local
-  REAL(DP) :: dyDummy
-  REAL(DP), PARAMETER :: HUGE = 1.E12_dp
-  INTEGER :: i, ierr
-  REAL(DP) :: fScalarInt
-  LOGICAL :: SKIP = .FALSE.
-
-  !CALL DPCHFE (nthe-nThetaEquator+1, chiVal(nThetaEquator:nthe), bf(nThetaEquator:nthe,j,k), &
-  !     dBdTheta(nThetaEquator:nthe), INCFD, SKIP, 1, chi_local, bf_local, IERR)
-  CALL DPCHFE (nthe-nThetaEquator+1, chi(nThetaEquator:nthe,j,k), bf(nThetaEquator:nthe,j,k), &
-       dBdTheta(nThetaEquator:nthe), INCFD, SKIP, 1, chi_local, bf_local, IERR)
-
-
-  !C if (chi_local > chiVal(nthe)) STOP 'Problem in fScalarInt.'
-
-  IF (IERR < 0) THEN  ! IERR = 0 normal return, IERR > 0 non-fatal error
-     PRINT*, 'IERR = ', IERR
-     STOP
-  END IF
-
-  fScalarInt = SQRT(MAX(1._dp/(bfMirror(L) - bf_local), 0._dp)) ! For function h(mu0)
-!C  if (bf_local < bfMirror(L)) then
-!C     fScalarInt = SQRT(1._dp/(bfMirror(L) - bf_local)) ! For function h(mu0)
-!C  else
-!C     fScalarInt = 0._dp
-!C  end if
-
-  RETURN
-
-END FUNCTION fScalarInt
-
-!==============================================================================
-FUNCTION fScalarIntInf(y_local)
-  USE nrtype,          ONLY: DP
-  use ModScbGrids,     ONLY: nthe
-  use ModScbVariables, ONLY: bf, chiVal, bnormal, nThetaEquator, chi
-  IMPLICIT NONE
-  REAL(DP), INTENT(IN) :: y_local
-  REAL(DP) :: bf_local, chi_local, dChidB_local
-  INTEGER :: i, ierr
-  REAL(DP) :: fScalarIntInf
-  LOGICAL :: SKIP = .FALSE.
-
-  bf_local = bfMirror(L) - 1._dp/(y_local*y_local)
-
-  !CALL DPCHFD(nthe-nThetaEquator+1,  bf(nThetaEquator:nthe,j,k), chiVal(nThetaEquator:nthe), &
-  !     dThetadB(nThetaEquator:nthe), INCFD, SKIP, 1, bf_local, chi_local, dChidB_local, IERR)
-  CALL DPCHFD(nthe-nThetaEquator+1,  bf(nThetaEquator:nthe,j,k), chi(nThetaEquator:nthe,j,k), &
-       dThetadB(nThetaEquator:nthe), INCFD, SKIP, 1, bf_local, chi_local, dChidB_local, IERR)
-
-
-  IF (IERR < 0) THEN  
-     PRINT*, 'IERR = ', IERR
-     STOP
-  END IF
-
-  IF(y_local*y_local>0._dp) THEN
-     fScalarIntInf = dChidB_local/(y_local*y_local)
-  ELSE
-     PRINT*, 'Problem in fScalarIntInf; y_local = ', y_local
-  END IF
-
-  RETURN
-END FUNCTION fScalarIntInf
-
-!==============================================================================
-FUNCTION fScalarIntInfDens(y_local)
-  USE nrtype,          ONLY: DP
-  use ModScbGrids,     ONLY: nthe
-  USE ModScbSpline,    ONLY: splint
-  use ModScbVariables, ONLY: bf, chiVal, bnormal, nThetaEquator, chi
-  IMPLICIT NONE
-  REAL(DP), INTENT(IN) :: y_local
-  REAL(DP) :: bf_local, chi_local, dChidB_local, radius
-  INTEGER :: i, ierr
-  REAL(DP) :: fScalarIntInfDens
-  LOGICAL :: SKIP = .FALSE.
-
-  bf_local = bfMirror(L) - 1._dp/(y_local*y_local)
-
-  !CALL DPCHFD(nthe-nThetaEquator+1,  bf(nThetaEquator:nthe,j,k), chiVal(nThetaEquator:nthe), &
-  !     dThetadB(nThetaEquator:nthe), INCFD, SKIP, 1, bf_local, chi_local, dChidB_local, IERR)
-  CALL DPCHFD(nthe-nThetaEquator+1,  bf(nThetaEquator:nthe,j,k), chi(nThetaEquator:nthe,j,k), &
-       dThetadB(nThetaEquator:nthe), INCFD, SKIP, 1, bf_local, chi_local, dChidB_local, IERR)
-
-
-  IF (IERR < 0) THEN  
-     PRINT*, 'IERR = ', IERR
-     STOP
-  END IF
-
-  !radius = splint(chiVal(nThetaEquator:nthe), distance(nThetaEquator:nthe), dyDummyDens(nThetaEquator:nthe), chi_local)
-  radius = splint(chi(nThetaEquator:nthe,j,k), distance(nThetaEquator:nthe), dyDummyDens(nThetaEquator:nthe), chi_local)
-
-  IF(y_local*y_local>0._dp) THEN
-     fScalarIntInfDens = dChidB_local/(y_local*y_local) * hdens_rairden(radius)
-  ELSE
-     PRINT*, 'Problem in fScalarIntInf; y_local = ', y_local
-  END IF
-
-  RETURN
-END FUNCTION fScalarIntInfDens
-
-!==============================================================================
-FUNCTION hdens_rairden(radius)
-  USE nrtype, ONLY : DP
-  IMPLICIT NONE
-  REAL(DP), INTENT(IN) :: radius
-  REAL(DP) :: rad_local
-  REAL(DP) :: hdens_rairden
-  REAL(DP), PARAMETER :: a0=13.326_dp, a1=-3.6908_dp, a2=1.1362_dp, &
-       a3=-0.16984_dp, a4=0.009552_dp
-
-  rad_local = MIN(radius, 6.4_dp)  ! Rairden function increases for R > 6.4
-  hdens_rairden = a0+a1*rad_local+a2*rad_local**2 + a3*rad_local**3 + a4*rad_local**4
-  hdens_rairden = 1.E-10_dp * 10._dp**hdens_rairden  ! Normalized by 10^10 to allow integrals to be not too large
-
-  RETURN
-
-END FUNCTION hdens_rairden
+    use ModRamGrids, ONLY: NS, NE, NPA
+    use ModScbGrids, ONLY: nthe, npsi, nzeta
+  
+    implicit none
+  
+    ALLOCATE(INDEXPA(nthe,npsi,nzeta,NPA), Flux3DEq(NS,npsi,nzeta,NE,NPA))
+    INDEXPA = 0.0; Flux3DEq = 0.0
+  
+    return
+  
+  end subroutine ramscb_allocate
+
+!==================================================================================================
+  subroutine ramscb_deallocate
+  
+    implicit none
+  
+    DEALLOCATE(INDEXPA, Flux3DEq)
+  
+  end subroutine ramscb_deallocate
+
+!==================================================================================================
+  subroutine Compute3DFlux
+  
+    use ModRamVariables, ONLY: FLUX, MU, FFACTOR, FNHS, F2
+    use ModRamGrids,     ONLY: nR, nT, nPa, nE, radout
+  
+    use ModScbGrids,     ONLY: nthe, npsi, nzeta
+    use ModScbVariables, ONLY: bf, radGrid, angleGrid, radRaw, azimRaw, &
+                               nThetaEquator, x, y
+  
+    use ModRamGSL,       ONLY: GSL_Interpolation_2D
+    use ModScbFunctions, ONLY: locate
+  
+    use nrtype, ONLY: DP, pi_d, twopi_d
+  
+    implicit none
+  
+    integer :: i, j, k, L, iS, GSLErr
+    real(DP) :: MuEq, radius, angle
+  
+    DO iS = 1,4
+       DO I = 2, NR
+          DO K = 2, NE
+             DO L = 2, NPA
+                DO J = 1, NT-1
+                   FLUX(iS,I,J,K,L) = F2(iS,I,J,K,L)/FFACTOR(iS,I,K,L)/FNHS(I,J,L)
+                ENDDO
+             ENDDO
+          ENDDO
+       ENDDO
+    ENDDO
+  
+    DO j = 0, nR
+       radRaw(j) = 1.75_dp + (radOut-1.75_dp) * REAL(j,DP)/REAL(nR,DP)
+    END DO
+    DO k = 1, nT
+       azimRaw(k) = 24._dp * REAL(k-1,DP)/REAL(nT-1,DP)
+    END DO
+  
+    DO k = 2, nzeta
+       DO j = 1, npsi
+          radius = SQRT((x(nThetaEquator,j,k))**2 + y(nThetaEquator,j,k)**2)
+          angle = ASIN(y(nThetaEquator,j,k) / radius) + pi_d
+          IF ((x(nThetaEquator,j,k) .LE. 0) .AND. (y(nThetaEquator,j,k) .GE.0)) &
+               angle = twopi_d - ASIN(y(nThetaEquator,j,k) / radius)
+          IF ((x(nThetaEquator,j,k) .LE. 0) .AND. (y(nThetaEquator,j,k) .LE.0)) &
+               angle = - ASIN(y(nThetaEquator,j,k) / radius)
+          radGrid(j,k) = radius
+          angleGrid(j,k) = angle
+       END DO
+    END DO
+  
+    ! Always fill this matrix; it's used by RAM outputs
+    ! Interpolate RAM flux on 3DEQ grid, for mapping
+    DO iS = 1, 4 ! ions & electrons
+       DO L = 1, NPA
+          DO K = 1, NE
+             !Cubic GSL interpolation
+             CALL GSL_Interpolation_2D(radRaw(1:nR), azimRaw*pi_d/12.0, &
+                                       FLUX(iS,1:nR,1:nT,K,L), &
+                                       radGrid(1:npsi,2:nzeta), angleGrid(1:npsi,2:nzeta), &
+                                       flux3DEQ(iS,1:npsi,2:nzeta,K,L),GSLerr)
+          END DO
+       END DO
+    END DO
+    ! Periodicity
+    flux3DEQ(:,:,1,:,:) = flux3DEQ(:,:,nzeta,:,:)
+  
+    DO k = 2, nzeta
+       DO j = 1, npsi
+          ! If bf(theta) not strictly increasing; to weed out very small
+          ! differences  
+          ! Generally if needed it means have to increase number of theta
+          ! points (or crowd them more near the equatorial plane)
+  
+          !! Do nThetaEquator -> nthe
+          Monotonicity_up: DO
+             i = nThetaEquator
+             L = 0
+             fixMonotonicity_up: DO WHILE (i < nthe)
+                IF (bf(i+1,j,k) < bf(i,j,k)) THEN
+                   bf(i+1,j,k) = bf(i,j,k)*(1._dp+1.E-15_dp)
+                   L = 1
+                END IF
+                i = i+1
+             END DO fixMonotonicity_up
+             IF (L == 0) EXIT Monotonicity_up
+             CYCLE Monotonicity_up
+          END DO Monotonicity_up
+  
+          !! Do nThetaEquator -> 1
+          Monotonicity_down: DO
+             i = nThetaEquator
+             L = 0
+             fixMonotonicity_down: DO WHILE (i > 1)
+                IF (bf(i-1,j,k) < bf(i,j,k)) THEN
+                   bf(i-1,j,k) = bf(i,j,k)*(1._dp+1.E-15_dp)
+                   L = 1
+                END IF
+                i = i-1
+             END DO fixMonotonicity_down
+             IF (L == 0) EXIT Monotonicity_down
+             CYCLE Monotonicity_down
+          END DO Monotonicity_down
+  
+  !!!!! Compute IndexPA to go along with Flux3D
+          ! Define indexPA for 90 degree pitch angle (-1 for all distances
+          ! along field line except equatorial plane)
+          indexPA(:,:,:,1) = -1
+          indexPA(nThetaEquator,:,:,1) = 1
+  
+          DO L = 2, NPA
+             DO i = nThetaEquator, nthe
+                IF (1. - bf(nThetaEquator,j,k)/bf(i,j,k)*(1.-MU(L)**2) >= 0.) THEN
+                   MUEQ = SQRT(1. - bf(nThetaEquator,j,k)/bf(i,j,k)*(1.-MU(L)**2))
+                   indexPA(i,j,k,L) = locate(MU(1:NPA), MUEQ)
+                   indexPA(nthe+1-i,j,k,L) = indexPA(i,j,k,L) ! Mirror across magnetic equator.
+                ELSE
+                   indexPA(i,j,k,L) = -1
+                   indexPA(nthe+1-i,j,k,L) = -1
+                END IF
+             END DO
+  !!!!!
+          END DO
+       END DO
+    END DO
+    
+    ! Periodicity for indexPA
+    indexPA(:,:,1,:) = indexPA(:,:,nzeta,:)
+  
+    return
+  end subroutine Compute3DFlux
+
+!==================================================================================================
+  SUBROUTINE computehI(iter)
+  
+    use ModRamVariables, ONLY: FNHS, FNIS, BNES, HDNS, dBdt, &
+                               dIdt, dIbndt, BOUNHS, BOUNIS, EIR, EIP, &
+                               LZ, MU, MLT, PAbn, PA, DL1, outsideMGNP
+    use ModRamTiming,    ONLY: TimeRamElapsed, TOld
+    use ModRamConst,     ONLY: b0dip
+    use ModRamParams,    ONLY: NameBoundMag, verbose, checkMGNP
+    use ModRamGrids,     ONLY: nR, nT, nPa, radout
+  
+    use ModScbGrids,     ONLY: nthe, npsi, nzeta
+    use ModScbVariables, ONLY: bf, chiVal, x, y, z, bnormal, &
+                               h_Cart, I_Cart, h_Cart_interp, &
+                               i_Cart_interp, bZEq_Cart, flux_vol_cart, bZ, &
+                               hdens_Cart, radRaw, azimRaw, nThetaEquator, fluxVolume, &
+                               thetaVal
+  
+    use ModRamGSL,       ONLY: GSL_Interpolation_2D, GSL_Interpolation_1D, &
+                               GSL_Integration_hI
+    use ModRamFunctions, ONLY: RamFileName, COSD, FUNT, FUNI
+    use ModScbFunctions, ONLY: extap, locate
+    use ModScbIO,        ONLY: trace, PARMOD, IOPT
+  
+    use nrtype,    ONLY: DP, pi_d
+  
+    implicit none
+  
+    INTEGER, INTENT(IN) :: iter
+    INTEGER :: ii, j, GSLerr
+    
+    ! Variables for timing
+    integer :: time1, clock_rate, clock_max
+    real(dp) :: starttime,stoptime
+  
+    ! Variables for SCB
+    REAL(DP) :: DthI
+    REAL(DP), ALLOCATABLE :: length(:,:), r0(:,:), BeqDip(:,:)
+    REAL(DP), ALLOCATABLE :: distance(:,:,:), H_value(:,:,:), I_value(:,:,:), &
+                             Hdens_value(:,:,:), yI(:,:,:), yH(:,:,:), yD(:,:,:), &
+                             bfmirror(:,:,:)
+  
+    ! Variables for RAM
+    integer  :: nEquator
+    integer, ALLOCATABLE :: ScaleAt(:)
+    REAL(DP) :: wn, xo, xn, xp, yo, yn, yp, t0, t1, rt, tt, zt
+    REAL(DP) :: r0_RAM, length_RAM
+    REAL(DP), ALLOCATABLE :: BeqDip_Cart(:), bfMirror_RAM(:), yI_RAM(:), yH_RAM(:), &
+                             yD_RAM(:), bbx(:), bby(:), bbz(:), bb(:), dd(:), &
+                             cVal(:), xx(:), yy(:), zz(:)
+    REAL(DP), ALLOCATABLE :: BzeqDiff_Cart(:,:), BNESPrev(:,:)
+    REAL(DP), ALLOCATABLE :: FNISPrev(:,:,:), BOUNISPrev(:,:,:)
+    REAL(DP) :: scalingI, scalingH, scalingD, I_Temp, H_Temp, D_Temp
+  
+    ! Variables for Tracing
+    INTEGER :: LMAX, LOUT
+    INTEGER :: ID
+    REAL(DP) :: x0, y0, z0, xe, ye, ze, xf, yf, zf
+    REAL(DP) :: ER, DSMAX, RLIM, DIR
+    REAL(DP) :: PDyn, BzIMF, DIST, XMGNP, YMGNP, ZMGNP
+    REAL(DP), DIMENSION(200) :: xtemp, ytemp, ztemp, bxtemp, bytemp, bztemp, dtemp
+  
+    integer, save :: i, k, L
+    !$OMP THREADPRIVATE(i, k, L)
+
+    ! Don't need to run if using Dipole magnetic field boundary
+    ! unless it is run from the initialization step
+    if ((NameBoundMag.eq.'DIPL').and.(iter.ne.0)) return
+
+    clock_rate = 1000
+    clock_max = 100000
+    LMAX = 200
+  
+    !!! Initialize Allocatable Arrays
+    ALLOCATE(length(npsi,nzeta+1), r0(npsi,nzeta+1), BeqDip(npsi,nzeta+1))
+    ALLOCATE(distance(nthe,npsi,nzeta))
+    ALLOCATe(H_value(npsi,nzeta,NPA), I_value(npsi,nzeta,NPA), HDens_value(npsi,nzeta,NPA), &
+             yI(npsi,nzeta,NPA), yH(npsi,nzeta,NPA), yD(npsi,nzeta,NPA), bfmirror(npsi,nzeta,NPA))
+    ALLOCATE(BeqDip_Cart(nR))
+    ALLOCATE(ScaleAt(nT))
+    ALLOCATE(bfMirror_RAM(nPa), yI_RAM(nPA), yH_RAM(nPA), yD_RAM(nPA))
+    ALLOCATE(bbx(nthe), bby(nthe), bbz(nthe), bb(nthe), dd(nthe), cVal(nthe), &
+             xx(nthe), yy(nthe), zz(nthe))
+    ALLOCATE(BzeqDiff_Cart(nR,nT))
+    ALLOCATE(BNESPrev(nR+1,nT))
+    ALLOCATE(FNISPrev(nR+1,nT,nPa),BOUNISPrev(nR+1,nT,nPa))
+    length = 0._dp; r0 = 0._dp; BEqDip = 0._dp; distance = 0._dp
+    H_value = 0._dp; I_value = 0._dp; HDens_Value = 0._dp; yI = 0._dp; yH = 0._dp; yD = 0._dp
+    bfMirror = 0._dp; BEqDip_Cart = 0._dp; bfMirror_RAM = 0._dp; yI_RAM = 0._dp
+    yH_RAM = 0._dp; yD_RAM = 0._dp; bbx = 0._dp; bby = 0._dp; bbz = 0._dp; bb = 0._dp
+    dd = 0._dp; cVal = 0._dp; xx = 0._dp; yy = 0._dp; zz = 0._dp; BzEqDiff_Cart = 0._dp
+    BNESPrev = 0._dp; FNISPrev = 0._dp; BOUNISPrev = 0._dp
+    ScaleAt = 0
+    !!!
+
+    h_Cart = 0._dp
+    I_Cart = 0._dp
+    bZEq_Cart = 0._dp
+    flux_vol_Cart = 0._dp
+    bZEqDiff_Cart = 0._dp  
+    h_value = 0._dp
+    hdens_value = 0._dp
+    I_value = 0._dp
+  
+    DO j = 0, nR
+       radRaw(j) = 1.75_dp + (radOut-1.75_dp) * REAL(j,DP)/REAL(nR,DP)
+    END DO
+    DO k = 1, nT
+       azimRaw(k) = 24._dp * REAL(k-1,DP)/REAL(nT-1,DP)
+    END DO
+  
+    Operational_or_research: SELECT CASE (NameBoundMag)
+    CASE('DIPL') ! Dipole without SCB calculation
+       ! Start RAM Timing
+       call system_clock(time1,clock_rate,clock_max)
+       starttime=time1/real(clock_rate,dp)
+       ! Loop over RAM grid
+       do i = 1,nR
+          do j = 1,1 ! Dipole is azimuthially symmetric, only need to calculate one MLT
+             ! Calculate h and I at RAM grid point
+             zt = MLT(j)*2._dp*pi_d/24._dp - pi_d
+             t1 = asin(sqrt(1.0/LZ(i+1)))
+             t0 = pi_d-t1
+             do k=1,nthe
+                tt = t0 + REAL(k-1,DP)/REAL(nthe-1,DP)*(t1-t0) 
+                rt = LZ(i+1)*sin(tt)**2
+                xx(k) = (rt)*cos(zt)*sin(tt)
+                yy(k) = (rt)*sin(zt)*sin(tt)
+                zz(k) = (rt)*cos(tt)
+                dd(k) = rt ! Distance from center of earth
+                bb(k) = (b0dip/bnormal)*sqrt(1+3*cos(tt)**2)/rt**3
+             enddo
+  
+             cVal(1) = 0._dp
+             length_RAM = 0._dp
+             nEquator = (nthe+1)/2
+             do k = 2,nthe
+                cVal(k) = cVal(k-1) + SQRT((xx(k)-xx(k-1))**2 &
+                                         + (yy(k)-yy(k-1))**2 &
+                                         + (zz(k)-zz(k-1))**2)
+                length_RAM = length_RAM + SQRT((xx(k)-xx(k-1))**2 &
+                                             + (yy(k)-yy(k-1))**2 &
+                                             + (zz(k)-zz(k-1))**2)
+              enddo
+             bZEq_Cart(i,j) = bb(nEquator)*bnormal !Since in a dipole Beq = Bzeq
+             cVal(1:nthe) = pi_d*cVal(1:nthe)/cVal(nthe)
+             r0_RAM = SQRT(xx(nEquator)**2+yy(nEquator)**2)
+  
+             bfmirror_RAM(1:NPA-1) = bb(nEquator)/(1._dp - mu(1:NPA-1)**2)
+             bfmirror_RAM(NPA) = bb(nthe)
+  
+             CALL GSL_Integration_hI(bfMirror_RAM(:),cVal(1:nthe),bb(1:nthe), &
+                                     dd(1:nthe), yI_RAM(:), yH_RAM(:), yD_RAM(:))
+  
+             I_cart(i,j,:) = (length_RAM/(pi_d*r0_RAM)) * yI_RAM(:)/SQRT(Bfmirror_RAM(:))
+             H_cart(i,j,:) = (length_RAM/(pi_d*2*r0_RAM)) * yH_RAM(:)*SQRT(Bfmirror_RAM(:))
+             HDens_cart(i,j,:) = 1.E5_dp * yD_RAM(:)/yH_RAM(:) ! Re-normalize
+  
+             CALL GSL_Interpolation_1D('Cubic',PA(NPA:1:-1),h_Cart(i,j,NPA:1:-1),&
+                                       PAbn(NPA-1:2:-1),h_Cart_interp(i,j,NPA-1:2:-1),GSLerr)
+             CALL GSL_Interpolation_1D('Cubic',PA(NPA:1:-1),I_Cart(i,j,NPA:1:-1),&
+                                       PAbn(NPA-1:2:-1),I_Cart_interp(i,j,NPA-1:2:-1),GSLerr)
+          enddo
+          do j = 2,nT ! Now apply the one MLT to the rest of the MLTs
+            bZEq_Cart(i,j) = bZEq_Cart(i,1)
+            I_cart(i,j,:) = I_cart(i,1,:)
+            H_cart(i,j,:) = H_cart(i,1,:)
+            HDens_cart(i,j,:) = HDens_cart(i,1,:)
+            h_cart_interp(i,j,:) = h_cart_interp(i,1,:)
+            I_cart_interp(i,j,:) = I_cart_interp(i,1,:)
+          enddo
+       enddo
+  
+       h_Cart_interp(:,:,NPA) = h_Cart_interp(:,:,NPA-1)
+       I_Cart_interp(:,:,NPA) = I_Cart_interp(:,:,NPA-1)
+       h_Cart_interp(:,:,1) = h_Cart_interp(:,:,2)
+       I_Cart_interp(:,:,1) = I_Cart_interp(:,:,2)
+  
+       ! End RAM Timing
+       call system_clock(time1,clock_rate,clock_max)
+       stoptime=time1/real(clock_rate,dp)
+       write(*,*) 'RAM h and I: ',stoptime-starttime
+  
+       ! Make sure all H and I integrals have been filled in correctly
+       IF (MINVAL(h_Cart) < 0._dp .OR. MINVAL(I_Cart)<0._dp) THEN
+          if (verbose) PRINT*, 'computehI: minval(h) = ', MINVAL(h_Cart)
+          if (verbose) PRINT*, 'computehI: minval(I) = ', MINVAL(I_Cart)
+          !   STOP
+       END IF
+  
+    CASE default  ! Regular calculation of h, I, bounce-averaged charge xchange etc.
+  !!!!! BEGIN SCB INTEGRAl CALCULATION
+       write(*,*) 'Calculating h and I integrals'
+  
+       ! Start timing
+       call system_clock(time1,clock_rate,clock_max)
+       starttime=time1/real(clock_rate,dp)
+  
+       ! Start parallel loop
+  !$OMP PARALLEL DO
+       RhoLoop: DO j = 2,npsi
+          PhiLoop: DO k = 2,nzeta
+             r0(j, k) = SQRT(x(nThetaEquator,j,k)**2 + y(nThetaEquator,j,k)**2)
+             !if (r0(j,k).gt.7.25) then ! Don't do the exterior field lines outside RAM domain
+             !   I_value(j,k,:) = 0._dp
+             !   H_value(j,k,:) = 0._dp
+             !   HDens_value(j,k,:) = 0._dp
+             !   cycle PhiLoop
+             !endif
+             DO i = 1, nthe
+                distance(i,j,k) = SQRT(x(i,j,k)**2+y(i,j,k)**2+z(i,j,k)**2) ! Distance from center of Earth
+             END DO
+             ! Compute length of field line (j,k)
+             length(j,k) = 0._dp
+             DO i = 1, nthe-1
+                length(j,k) = length(j,k) + SQRT((x(i+1,j,k)-x(i,j,k))**2 + (y(i+1,j,k)-y(i,j,k))**2 + (z(i+1,j,k)-z(i,j,k))**2)
+             END DO
+  
+             bfmirror(j,k,1:NPA-1) = bf(nThetaEquator,j,k)/(1._dp - mu(1:NPA-1)**2)
+             bfmirror(j,k,NPA) = bf(nthe,j,k)
+  
+             CALL GSL_Integration_hI(bfMirror(j,k,:),chiVal(:),bf(:,j,k),distance(:,j,k), &
+                                     yI(j,k,:), yH(j,k,:), yD(j,k,:))
+             do L = 2,NPA
+                if (isnan(yI(j,k,L))) yI(j,k,L) = yI(j,k-1,L)
+                if (isnan(yH(j,k,L))) yH(j,k,L) = yH(j,k-1,L)
+                if (isnan(yD(j,k,L))) yD(j,k,L) = yD(j,k-1,L)
+             enddo
+             I_value(j,k,:) = (length(j,k)/(pi_d*r0(j,k))) * yI(j,k,:)/SQRT(Bfmirror(j,k,:))
+             H_value(j,k,:) = (length(j,k)/(pi_d*2*r0(j,k))) * yH(j,k,:)*SQRT(Bfmirror(j,k,:))
+             HDens_value(j,k,:) = 1.E5_dp * yD(j,k,:)/yH(j,k,:) ! Re-normalize
+  
+          END DO PhiLoop
+       END DO RhoLoop
+  !$OMP END PARALLEL DO
+  
+       ! Handle periodicity
+       I_value(:,1,:) = I_value(:,nzeta,:)
+       H_value(:,1,:) = H_value(:,nzeta,:)
+  
+       ! End Timing
+       call system_clock(time1,clock_rate,clock_max)
+       stoptime=time1/real(clock_rate,dp)
+       write(*,*) 'SCB h and I: ',stoptime-starttime
+  !!!!! END SCB INTEGRAl CALCULATION
+  
+  !!!!! BEGIN SCB -> RAM CONVERSION
+       ! Check if RAM point is inside or outside SCB domain
+       ! If inside then interpolate to the the point
+       ! If outside then use SCB magnetic field model to calculate h and I
+       DIR = -1.0
+       DSMAX = 0.1
+       ER = 0.001
+       RLIM = 20.0
+       ScaleAt = 0
+       scalingI = 0._dp
+       scalingH = 0._dp
+       scalingD = 0._dp
+  
+       ! Start RAM Timing
+       call system_clock(time1,clock_rate,clock_max)
+       starttime=time1/real(clock_rate,dp)
+  
+       ! Interpolation will be for B - Bdip
+       beqdip(1:npsi,2:nzeta)=b0dip/(x(nThetaEquator,1:npsi,2:nzeta)**2+y(nThetaEquator,1:npsi,2:nzeta)**2)**1.5
+       beqdip_Cart(1:nR) = b0dip/radRaw(1:nR)**3
+  
+       ! Loop over RAM grid
+       outsideMGNP = 0
+       do j = 1,nT
+          do i = 1,nR
+             xo = radRaw(i) * COS(azimRaw(j)*2._dp*pi_d/24._dp - pi_d)
+             yo = radRaw(i) * SIN(azimRaw(j)*2._dp*pi_d/24._dp - pi_d)
+  
+             ! Convex hull calculation
+             wn = 0 ! wn =/= 0 means the point is inside the SCB domain
+             DO k = 1,nzeta
+                yn = y(nThetaEquator,npsi,k)
+                yp = y(nThetaEquator,npsi,k+1)
+                xn = x(nThetaEquator,npsi,k)
+                xp = x(nThetaEquator,npsi,k+1)
+                if (yn.le.yo) then
+                   if (yp.gt.yo) then
+                      if (((xp-xn)*(yo-yn)-(yp-yn)*(xo-xn)).gt.0) wn = wn + 1
+                   endif
+                else
+                   if (yp.le.yo) then
+                      if (((xp-xn)*(yo-yn)-(yp-yn)*(xo-xn)).lt.0) wn = wn - 1
+                   endif
+                endif
+             ENDDO
+             if ((abs(wn).gt.1e-9).or.(NameBoundMag.eq.'DIPS')) then
+                ! Interpolate from SCB -> RAM grid
+                DO L = 2,NPA
+                   CALL GSL_Interpolation_2D(x(nThetaEquator,:,2:nzeta), y(nThetaEquator,:,2:nzeta), &
+                                             h_Value(:,2:nzeta,L), xo, yo, h_Cart(i,j,L),GSLerr)
+                   CALL GSL_Interpolation_2D(x(nThetaEquator,:,2:nzeta), y(nThetaEquator,:,2:nzeta), &
+                                             I_Value(:,2:nzeta,L), xo, yo, I_Cart(i,j,L),GSLerr)
+                   CALL GSL_Interpolation_2D(x(nThetaEquator,:,2:nzeta), y(nThetaEquator,:,2:nzeta), &
+                                             hDens_Value(:,2:nzeta,L), xo, yo, hDens_Cart(i,j,L),GSLerr)
+                ENDDO
+                CALL GSL_Interpolation_2D(x(nThetaEquator,:,2:nzeta), y(nThetaEquator,:,2:nzeta), &
+                                          bZ(nThetaEquator,:,2:nzeta)*bnormal-beqdip(:,2:nzeta), &
+                                          xo, yo, bZEqDiff_Cart(i,j),GSLerr)
+                CALL GSL_Interpolation_2D(x(nThetaEquator,:,2:nzeta), y(nThetaEquator,:,2:nzeta), &
+                                          fluxVolume(:,2:nzeta)/bnormal, xo, yo, flux_vol_Cart(i,j),GSLerr)
+                bZEq_Cart(i,j) = bZEqDiff_Cart(i,j) + beqdip_Cart(i)
+             else
+                Pdyn = PARMOD(1)
+                BzIMF = PARMOD(4)
+                call SHUETAL_MGNP_08(PDyn,-1.0_dp,BzIMF,xo,yo,0.0_dp,XMGNP,YMGNP,ZMGNP,DIST,ID)
+                if ((CheckMGNP).and.((ID.lt.0).or.(DIST.lt.DL1))) then
+                   if (verbose) write(*,*) 'Point outside magnetopause', xo, yo, DIST
+                   outsideMGNP(i,j) = 1
+                   bZEq_Cart(i,j) = bZEq_Cart(i-1,j)
+                   I_cart(i,j,:) = I_cart(i-1,j,:)
+                   H_cart(i,j,:) = H_cart(i-1,j,:)
+                   HDens_cart(i,j,:) = HDens_Cart(i-1,j,:)
+                else
+                   ! Calculate h and I at RAM grid point
+                   !! Get equatorial point
+                   x0 = LZ(i+1) * COS(MLT(j)*2._dp*pi_d/24._dp - pi_d)
+                   y0 = LZ(i+1) * SIN(MLT(j)*2._dp*pi_d/24._dp - pi_d)
+                   z0 = 0._dp
+  
+                   !! Trace from equatorial point to pole then pole to other pole
+                   CALL trace(x0,y0,z0,DIR,DSMAX,ER,RLIM,1._dp,IOPT,PARMOD,  &
+                              xe,ye,ze,xtemp(:),ytemp(:),ztemp(:),LOUT,LMAX, &
+                              bxtemp(:),bytemp(:),bztemp(:))
+                   CALL trace(xe,ye,ze,-DIR,DSMAX,ER,RLIM,1._dp,IOPT,PARMOD, &
+                              xf,yf,zf,xtemp(:),ytemp(:),ztemp(:),LOUT,LMAX, &
+                              bxtemp(:),bytemp(:),bztemp(:))
+                   ! We have a problem now, LOUT is often only ~30 which is to few
+                   ! points to get a good integral solution. For now I will just fit
+                   ! the new points to the same grid as SCB. Can look into changing
+                   ! this later. -ME
+                   dtemp(1) = 0._dp
+                   do k = 2,LOUT
+                      dtemp(k) = dtemp(k-1) + SQRT((xtemp(k)-xtemp(k-1))**2 &
+                                                  +(ytemp(k)-ytemp(k-1))**2 &
+                                                  +(ztemp(k)-ztemp(k-1))**2)
+                   enddo
+                   cVal(:) = thetaVal(:)*dtemp(LOUT)/pi_d
+                   CALL GSL_Interpolation_1D('Cubic',dtemp(1:LOUT),xtemp(1:LOUT),cVal(:),xx(:),GSLerr)
+                   CALL GSL_Interpolation_1D('Cubic',dtemp(1:LOUT),ytemp(1:LOUT),cVal(:),yy(:),GSLerr)
+                   CALL GSL_Interpolation_1D('Cubic',dtemp(1:LOUT),ztemp(1:LOUT),cVal(:),zz(:),GSLerr)
+                   CALL GSL_Interpolation_1D('Cubic',dtemp(1:LOUT),bxtemp(1:LOUT),cVal(:),bbx(:),GSLerr)
+                   CALL GSL_Interpolation_1D('Cubic',dtemp(1:LOUT),bytemp(1:LOUT),cVal(:),bby(:),GSLerr)
+                   CALL GSL_Interpolation_1D('Cubic',dtemp(1:LOUT),bztemp(1:LOUT),cVal(:),bbz(:),GSLerr)
+  
+                   !! Get necessary information at each point along the trace
+                   dd(:) = SQRT(xx(:)**2+yy(:)**2+zz(:)**2) ! Distance from center of earth
+                   bb(:) = SQRT(bbx(:)**2+bby(:)**2+bbz(:)**2)/bnormal
+  
+                   length_RAM = 0._dp
+                   do k = 2,nthe
+                      length_RAM = length_RAM + SQRT((xx(k)-xx(k-1))**2 &
+                                                   + (yy(k)-yy(k-1))**2 &
+                                                   + (zz(k)-zz(k-1))**2)
+                   enddo
+                   bZEq_Cart(i,j) = bbz(nThetaEquator)
+                   cVal(:) = thetaVal(:)
+                   r0_RAM = SQRT(xx(nThetaEquator)**2+yy(nThetaEquator)**2)
+  
+                   bfmirror_RAM(1:NPA-1) = bb(nThetaEquator)/(1._dp - mu(1:NPA-1)**2)
+                   bfmirror_RAM(NPA) = bb(nthe)
+  
+                   CALL GSL_Integration_hI(bfMirror_RAM(:),cVal(:),bb(:),dd(:), &
+                                           yI_RAM(:),yH_RAM(:),yD_RAM(:))
+  
+                   I_cart(i,j,:) = (length_RAM/(pi_d*r0_RAM)) * yI_RAM(:)/SQRT(Bfmirror_RAM(:))
+                   H_cart(i,j,:) = (length_RAM/(pi_d*2*r0_RAM)) * yH_RAM(:)*SQRT(Bfmirror_RAM(:))
+                   HDens_cart(i,j,:) = 1.E5_dp * yD_RAM(:)/yH_RAM(:) ! Re-normalize
+  
+                   if (ScaleAt(j).eq.0) ScaleAt(j) = i
+                endif
+             endif
+          enddo
+       enddo
+  
+       !! Scale based on outer SCB boundary
+       !Moved to it's own loop in case we want to add different scaling options later -ME
+       do j = 1,nT
+          if (ScaleAt(j).ne.0) then
+             ii = ScaleAt(j)
+             do L = 2, NPA
+                I_Temp = I_cart(ii-1,j,L) + (Lz(ii)-Lz(ii-1)) &
+                                           /(Lz(ii-2)-Lz(ii-1)) &
+                                           *(I_Cart(ii-2,j,L)-I_Cart(ii-1,j,L))
+                if (I_Temp.le.0) then
+                   scalingI = I_Cart(ii-1,j,L)/I_Cart(ii,j,L)
+                else
+                   scalingI = I_Temp/I_cart(ii,j,L)
+                endif
+                !if (scalingI.le.0) write(*,*) j,L,scalingI,I_cart(ii,j,L),I_cart(ii-1,j,L),I_cart(ii-2,j,L)
+  
+                H_Temp = H_cart(ii-1,j,L) + (Lz(ii)-Lz(ii-1)) &
+                                           /(Lz(ii-2)-Lz(ii-1)) &
+                                           *(H_Cart(ii-2,j,L)-H_Cart(ii-1,j,L))
+                if (H_Temp.le.0) then
+                   scalingH = H_Cart(ii-1,j,L)/H_Cart(ii,j,L)
+                else
+                   scalingH = H_Temp/H_cart(ii,j,L)
+                endif
+                !if (scalingH.le.0) write(*,*) j,L,scalingH,H_cart(ii,j,L),H_cart(ii-1,j,L),H_cart(ii-2,j,L)
+  
+                D_Temp = HDens_cart(ii-1,j,L) + (Lz(ii)-Lz(ii-1)) &
+                                               /(Lz(ii-2)-Lz(ii-1)) &
+                                               *(HDens_Cart(ii-2,j,L)-HDens_Cart(ii-1,j,L))
+                if (D_Temp.le.0) then
+                   scalingD = HDens_Cart(ii-1,j,L)/HDens_Cart(ii,j,L)
+                else
+                   scalingD = D_Temp/HDens_cart(ii,j,L)
+                endif
+                !if (scalingD.le.0) write(*,*) j,L,scalingD,HDens_cart(ii,j,L),HDens_cart(ii-1,j,L),HDens_cart(ii-2,j,L)
+  
+                do i = ii, nR
+                   I_cart(i,j,L) = I_cart(i,j,L)*scalingI
+                   H_cart(i,j,L) = H_cart(i,j,L)*scalingH
+                   HDens_cart(i,j,L) = HDens_cart(i,j,L)*scalingD
+                enddo
+             enddo
+          endif
+       enddo
+  
+       I_cart(:,:,3) = 0.99*I_cart(:,:,4)
+       I_cart(:,:,2) = 0.99*I_cart(:,:,3)
+       I_cart(:,:,1) = 0._dp
+       H_cart(:,:,3) = 0.99*H_cart(:,:,4)
+       H_cart(:,:,2) = 0.99*H_cart(:,:,3)
+       H_cart(:,:,1) = 0.99*H_cart(:,:,2)
+       HDens_cart(:,:,3) = 0.999*HDens_cart(:,:,4)
+       HDens_cart(:,:,2) = 0.999*HDens_cart(:,:,3)
+       HDens_cart(:,:,1) = 0.999*HDens_cart(:,:,2)
+  
+       ! End RAM Timing
+       call system_clock(time1,clock_rate,clock_max)
+       stoptime=time1/real(clock_rate,dp)
+       write(*,*) 'RAM h and I: ',stoptime-starttime
+  !!!!! END SCB -> RAM CONVERSION
+  
+       ! Make sure all H and I integrals have been filled in correctly
+       !! First Check for Negatives
+       IF (MINVAL(h_Cart) < 0._dp .OR. MINVAL(I_Cart)<0._dp .OR. MINVAL(HDens_Cart)<0._dp) THEN
+          if (verbose) PRINT*, 'computehI: minval(h) = ', MINVAL(h_Cart), minloc(H_Cart)
+          if (verbose) PRINT*, 'computehI: minval(I) = ', MINVAL(I_Cart), minloc(I_Cart)
+          if (verbose) print*, 'computehI: minval(D) = ', MINVAL(HDens_Cart), minloc(HDens_Cart)
+          do j = 1, nT
+             do i = 2, nR
+                do L = 1, nPa
+                   if (h_Cart(i,j,L).lt.0) h_Cart(i,j,L) = h_Cart(i-1,j,L)
+                   if (I_Cart(i,j,L).lt.0) I_Cart(i,j,L) = I_Cart(i-1,j,L)
+                   if (HDens_Cart(i,j,L).lt.0) HDens_Cart(i,j,L) = HDens_Cart(i-1,j,L)
+                enddo
+             enddo
+          enddo
+          if (verbose) PRINT*, 'computehI: minval(h) = ', MINVAL(h_Cart), minloc(H_Cart)
+          if (verbose) PRINT*, 'computehI: minval(I) = ', MINVAL(I_Cart), minloc(I_Cart)
+          if (verbose) print*, 'computehI: minval(D) = ', MINVAL(HDens_Cart), minloc(HDens_Cart)
+       END IF
+       !! Now check for bad integrals
+       IF (MAXVAL(h_Cart) > 3._dp) THEN
+          if (verbose) PRINT*, 'computehI: maxval(h) = ', MAXVAL(h_Cart), maxloc(H_Cart)
+          if (verbose) PRINT*, 'computehI: maxval(I) = ', MAXVAL(I_Cart), maxloc(I_Cart)
+          do j = 1, nT
+             do i = 1, nR
+                do L = 2, nPa
+                   if (h_Cart(i,j,L).gt.3) then 
+                      h_Cart(i,j,L) = h_Cart(i,j,L-1)
+                      hDens_Cart(i,j,L) = hDens_Cart(i,j,L-1)
+                   endif
+                enddo
+             enddo
+          enddo
+       ENDIF
+  
+       ! Cubic GSL interpolation with natural boundaries to get h and I at muboun 
+       DO j = 1, nT
+          DO i = 1, nR
+             CALL GSL_Interpolation_1D('Cubic',PA(NPA:1:-1),h_Cart(i,j,NPA:1:-1),&
+                                       PAbn(NPA-1:2:-1),h_Cart_interp(i,j,NPA-1:2:-1),GSLerr)
+             if (GSLerr.ne.0) then
+                if (verbose) write(*,*) "  ModRamScb: Issue calculating BOUNHS; i,j = ", i, j
+             endif
+             CALL GSL_Interpolation_1D('Cubic',PA(NPA:1:-1),I_Cart(i,j,NPA:1:-1),&
+                                       PAbn(NPA-1:2:-1),I_Cart_interp(i,j,NPA-1:2:-1),GSLerr)
+             if (GSLerr.ne.0) then
+                if (verbose) write(*,*) "  ModRamScb: Issue calculating BOUNIS; i,j = ", i, j
+             endif
+             ! Do not do the NPA inclusive in the not-a-knot interpolation above -> can lead to negative h,I(NPA)
+             h_Cart_interp(i,j,NPA) = h_Cart_interp(i,j,NPA-1)
+             I_Cart_interp(i,j,NPA) = I_Cart_interp(i,j,NPA-1)
+             h_Cart_interp(i,j,1) = h_Cart_interp(i,j,2)
+             I_Cart_interp(i,j,1) = I_Cart_interp(i,j,2)
+          END DO
+       END DO
+ 
+    END SELECT Operational_or_research
+ 
+    ! Update h and I values for RAM (note that the output of the hI files
+    ! now uses RAM variables so the numbers will be different
+    DthI = TimeRamElapsed-TOld
+    DO I=2,NR+1
+       DO J=1,NT
+          BNESPrev(I,J)=BNES(I,J)
+          DO L=1,NPA
+             FNISPrev(I,J,L)=FNIS(I,J,L)
+             BOUNISPrev(I,J,L)=BOUNIS(I,J,L)
+             ! SCB Variables -> RAM Variables
+             FNHS(I,J,L)   = h_Cart(I-1,J,L)
+             FNIS(I,J,L)   = i_Cart(I-1,J,L)
+             BNES(I,J)     = bZEq_Cart(I-1,J)
+             HDNS(I,J,L)   = hdens_Cart(I-1,J,L)
+             BOUNHS(I,J,L) = h_Cart_interp(I-1,J,L)
+             BOUNIS(I,J,L) = i_Cart_interp(I-1,J,L)
+             !
+             if (abs(DthI).le.1e-9) then
+                dIdt(I,J,L)   = 0._dp
+                dIbndt(I,J,L) = 0._dp
+             else
+                dIdt(I,J,L)   = (FNIS(I,J,L)-FNISPrev(I,J,L))/DThI
+                dIbndt(I,J,L) = (BOUNIS(I,J,L)-BOUNISPrev(I,J,L))/DThI
+             endif
+          ENDDO
+          IF (J.LT.8.or.J.GT.18) THEN
+             DO L=15,2,-1
+                if (FNHS(I,J,L-1).gt.FNHS(I,J,L)) then
+                   FNHS(I,J,L-1)=0.99*FNHS(I,J,L)
+                endif
+             ENDDO
+          ENDIF
+          BNES(I,J)=BNES(I,J)/1e9 ! to convert in [T]
+          if (abs(DthI).le.1e-9) then
+             dBdt(I,J) = 0._dp
+          else
+             dBdt(I,J) = (BNES(I,J)-BNESPrev(I,J))/DThI
+          endif
+       ENDDO
+    ENDDO
+    DO J=1,NT ! use dipole B at I=1
+       BNES(1,J)=0.32/LZ(1)**3/1.e4
+       dBdt(1,J) = 0._dp
+       EIR(1,J) = 0._dp
+       EIP(1,J) = 0._dp
+       DO L=1,NPA
+          FNHS(1,J,L) = FUNT(MU(L))
+          FNIS(1,J,L) = FUNI(MU(L))
+          BOUNHS(1,J,L)=FUNT(COSD(PAbn(L)))
+          BOUNIS(1,J,L)=FUNI(COSD(PAbn(L)))
+          HDNS(1,J,L)=HDNS(2,J,L)
+          dIdt(1,J,L)=0._dp
+          dIbndt(1,J,L)=0._dp
+       ENDDO
+    ENDDO
+    TOld = TimeRamElapsed
+
+    DEALLOCATE(length,r0,BeqDip,distance,H_value,I_value,HDens_value,yI,yH,yD, &
+               bfmirror,BeqDip_Cart,bfMirror_RAM,yI_RAM,yH_RAM,yD_RAM,bbx,bby, &
+               bbz,bb,dd,cVal,xx,yy,zz,BzeqDiff_Cart,BNESPrev,FNISPrev,ScaleAt,&
+               BOUNISPrev)
+  
+    RETURN
+  
+  END SUBROUTINE computehI
 
 END MODULE ModRamScb

@@ -1,16 +1,14 @@
+!============================================================================
+!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    All rights reserved.
+!============================================================================
+
 MODULE ModRamRun
 ! Contains the subroutine for running ram and calculating pressure
 ! Calls subroutines from ModRamDrift, ModRamWPI, and ModRamLoss
 ! Calculates new F2 and parallel/perpendicular pressures
 
-  use ModRamVariables, ONLY: SETRC, ELORC, LSDR, LSCHA, LSATM, LSCOE, LSCSC, &
-                             LSWAE, XNN, XND, LNCN, LNCD, LECN, LECD, ENERN, &
-                             ENERD, ATEW, ATAW, ATAC, ATEC, ATMC, ATAW_EMIC, &
-                             NECR, PParH, PPerH, PParO, PPerO, PParE, PPerE, &
-                             PParHe, PPerHe, PParT, PPerT, F2
-
   implicit none
-  save
 
   contains
 
@@ -18,26 +16,30 @@ MODULE ModRamRun
   SUBROUTINE ram_run
 
     !!!! Module Variables
-    use ModRamMain,      ONLY: Real8_
-    use ModRamParams,    ONLY: electric, DoUseWPI, DoUseBASdiff, DoUseKpDiff
+    use ModRamMain,      ONLY: DP
+    use ModRamParams,    ONLY: electric, DoUseWPI, DoUseBASdiff, DoUseKpDiff, &
+                               DoUsePlane_SCB, verbose
     use ModRamConst,     ONLY: RE
     use ModRamGrids,     ONLY: NR, NE, NT, NPA
-    use ModRamTiming,    ONLY: UTs, T, DtEfi, Dt_hI, DtsMin, DtsNext
-    use ModRamVariables, ONLY: Kp, VT, VTOL, VTN, TOLV, LZ, PHI, PHIOFS, MU, &
-                               WMU, FFACTOR, FLUX, FNHS, DtDriftR, DtDriftP, &
-                               DtDriftE, DtDriftMu
+    use ModRamTiming,    ONLY: UTs, T, DtEfi, DtsMin, DtsNext, TimeRamNow, Dts
+    use ModRamVariables, ONLY: Kp, VT, VTOL, VTN, TOLV, LZ, PHI, PHIOFS, &
+                               FFACTOR, FLUX, FNHS, DtDriftR, DtDriftP, &
+                               DtDriftE, DtDriftMu, NECR, F107, RZ, IG, rsn, &
+                               IAPO, LSDR, ELORC, LSCHA, LSWAE, LSATM, PPerT, &
+                               PParT, PPerO, PParO, PPerH, PParH, PPerE, PParE, &
+                               PPerHe, PParHe, F2, outsideMGNP
     !!!! Module Subroutines/Functions
     use ModRamDrift, ONLY: DRIFTPARA, DRIFTR, DRIFTP, DRIFTE, DRIFTMU, DRIFTEND
-    use ModRamLoss,  ONLY: CEPARA, CHAREXCHANGE, ATMOL, LOSSEND
+    use ModRamLoss,  ONLY: CEPARA, CHAREXCHANGE, ATMOL
     use ModRamWPI,   ONLY: WAPARA_KP, WPADIF, WAVELO
     !!!! Share Modules
     use ModTimeConvert, ONLY: TimeType
 
     implicit none
 
-    real(kind=Real8_)  :: AVS, VT_kV(NR+1,NT), lambda
-    integer :: i, j, k, l, jw ! Iterators
-    integer :: IS ! Species to advect.
+    real(DP) :: AVS, DAY
+    integer  :: i, j, k, l, nmonth
+    integer  :: IS ! Species to advect.
 
     AVS=7.05E-6/(1.-0.159*KP+0.0093*KP**2)**3/RE  ! Voll-Stern parameter
     DO I=1,NR+1
@@ -52,7 +54,16 @@ MODULE ModRamRun
 
     T = UTs
 
-!$OMP PARALLEL DO
+    ! Added capability to couple to plasmaspheric density model
+    IF (DoUsePlane_SCB) THEN
+       ! Need total number of days from TimeRamNow
+       DAY = TimeRamNow%iMonth*30 + TimeRamNow%iDay
+       CALL APFMSIS(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay,TimeRamNow%iHour,IAPO)
+       CALL TCON(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay,DAY,RZ,IG,rsn,nmonth)
+       CALL PLANE(TimeRamNow%iYear,DAY,T,KP,IAPO(2),RZ(3),F107,2.*DTs,NECR,VT/1e3)
+    END IF
+
+  !$OMP PARALLEL DO
     do iS=1,4
        !   calls for given species S:
        CALL CEPARA(iS)
@@ -119,11 +130,19 @@ MODULE ModRamRun
 
        ! Routines needed to clear allocated variables for use with OpenMP
        CALL DRIFTEND
-       CALL LOSSEND
     end do
-!$OMP END PARALLEL DO
+  !$OMP END PARALLEL DO
+
+    !!!! For now set the flux to 0 outside magnetopause.
+    DO I = 1, nR
+       DO J = 1, nT
+          if (outsideMGNP(I,J) == 1) F2(:,I,J,:,:) = 1.d-31
+       ENDDO
+    ENDDO
+    !!!!
 
     DtsNext = min(minval(DtDriftR), minval(DtDriftP), minval(DtDriftE), minval(DtDriftMu))
+    if (verbose) write(*,*) minval(DtDriftR), minval(DtDriftP), minval(DtDriftE), minval(DtDriftMu)
     DtsNext = max(DtsNext, DtsMin)
 
     ! Update flux and pressure totals
@@ -147,7 +166,7 @@ MODULE ModRamRun
     PPerH  = PPerT(2,:,:); PParH  = PParT(2,:,:)
 
     RETURN
-  END
+  END SUBROUTINE Ram_Run
 
 !************************************************************************
 !                       SUMRC     
@@ -155,18 +174,15 @@ MODULE ModRamRun
 !************************************************************************
   SUBROUTINE SUMRC(S)
     !!!! Module Variables
-    use ModRamMain,      ONLY: Real8_
+    use ModRamMain,      ONLY: DP
     use ModRamGrids,     ONLY: NR, NE, NPA, NT
-    use ModRamVariables, ONLY: EKEV, WE, WMU, F2
+    use ModRamVariables, ONLY: EKEV, WE, WMU, F2, SETRC, ELORC
 
     implicit none
-    save
 
     integer, intent(in) :: S
     integer :: i, j, k, l
-    real(kind=Real8_):: enold
-    real(kind=Real8_):: WEIGHT
-    !$OMP THREADPRIVATE(ENOLD, WEIGHT)
+    real(DP) :: enold, WEIGHT
 
     ELORC(S)=0.
     ENOLD=SETRC(S)
@@ -184,7 +200,7 @@ MODULE ModRamRun
     ELORC(S)=ENOLD-SETRC(S)
 
     RETURN
-  END
+  END SUBROUTINE SUMRC
 
 !*************************************************************************
 !                               ANISCH
@@ -192,33 +208,42 @@ MODULE ModRamRun
 !*************************************************************************
   SUBROUTINE ANISCH(S)
     ! Module Variables
-    use ModRamMain,      ONLY: Real8_
+    use ModRamMain,      ONLY: DP
     use ModRamConst,     ONLY: CS, PI, Q
-    use ModRamParams,    ONLY: DoUseWPI, DoUsePLane_SCB, DoUseBASdiff
-    use ModRamGrids,     ONLY: NR, NT, NPA, ENG, SLEN, NCO, NCF, Nx, Ny, NE
+    use ModRamParams,    ONLY: DoUseWPI, DoUsePlane_SCB, DoUseBASdiff
+    use ModRamGrids,     ONLY: NR, NT, NPA, ENG, SLEN, NCO, NCF, Ny, NE
     use ModRamTiming,    ONLY: Dt_bc, T
-    use ModRamVariables, ONLY: IP1, UPA, WMU, FFACTOR, MU, EKEV, LZ, PHI, MLT, &
-                               PAbn, RMAS, GREL, IR1, EPP, ERNH, CDAAR, BDAAR, &
-                               ENOR, NDAAJ, fpofc, Kp, BOUNHS, FNHS, BNES, XNE
+    use ModRamVariables, ONLY: IP1, UPA, WMU, FFACTOR, MU, EKEV, LZ, MLT,  &
+                               PAbn, RMAS, GREL, IR1, EPP, ERNH, CDAAR, BDAAR,  &
+                               ENOR, NDAAJ, fpofc, Kp, BOUNHS, FNHS, BNES, XNE, &
+                               NECR, PPerT, PParT, F2, ATAW, ATAW_emic, ATAC
     ! Module Subroutines/Functions
+    use ModRamGSL,       ONLY: GSL_Interpolation_1D, GSL_Interpolation_2D
     use ModRamFunctions, ONLY: ACOSD
 
     implicit none
-    save
 
     integer, intent(in) :: S
-    integer :: i, iwa, j, k, klo, l, iz, ier, kn, i1, j1
-    real(kind=Real8_) :: cv, rfac, rnhtt, edent, pper, ppar, rnht, Y, &
-                         eden,sume,suma,sumn,ernm,epma,epme,anis,epar,taudaa,taudea,taudee, &
-                         gausgam,anist,epart,fnorm,xfrl,Bw,esu,omega,er1,dx
-    real(kind=Real8_) :: MUBOUN,DWAVE(NPA),KEVERG,CMRA(SLEN),BWAVE(NR,NT), &
-                         AVDAA(NPA),TAVDAA(NPA),DAA(NE,NPA,Slen),DUMP(ENG,NCF), &
-                         DN(2,25),EPO(2,25),AII(2,25),XFR(NR,NT),XFRe(NCF),ALENOR(ENG), &
-                         DUME(ENG,NCF),DVV(NE,NPA,Slen),AVDVV(NPA),TAVDVV(NPA),WCDT(NR,NT), &
-                         XFRT(NR,NT),PA(NPA),DAMR(NPA,NCO),DAMR1(NPA),GREL_new(Ny),BOUNHS_(Nx)
-    INTEGER :: MINP(NT),MAXP(NT),KHI(5)
-    character(len=80) HEADER
+    integer :: i, iwa, j, k, klo, l, iz, kn, i1, j1, GSLerr, u
+    real(DP) :: cv, rfac, rnhtt, edent, pper, ppar, rnht, Y, &
+                eden,sume,suma,sumn,ernm,epma,epme,anis,epar,taudaa, &
+                gausgam,anist,epart,fnorm,xfrl,Bw,esu,omega,er1
+    real(DP) :: MUBOUN
+    real(DP), ALLOCATABLE :: DWAVE(:),CMRA(:),BWAVE(:,:),AVDAA(:),TAVDAA(:),&
+                             DAA(:,:,:),DUMP(:,:),XFR(:,:),XFRe(:),ALENOR(:),&
+                             DUME(:,:),DVV(:,:,:),AVDVV(:),TAVDVV(:),WCDT(:,:),&
+                             XFRT(:,:),PA(:),DAMR(:,:),DAMR1(:),GREL_new(:)
+    INTEGER :: KHI(5)
     DATA khi/6, 10, 25, 30, 35/ ! ELB=0.1 keV -> 0.4,1,39,129,325 keV 
+
+    ALLOCATE(DWAVE(NPA),CMRA(SLEN),BWAVE(NR,NT),AVDAA(NPA),TAVDAA(NPA), &
+             DAA(NE,NPA,Slen),DUMP(ENG,NCF),XFR(NR,NT),XFRe(NCF),ALENOR(ENG), &
+             DUME(ENG,NCF),DVV(NE,NPA,Slen),AVDVV(NPA),TAVDVV(NPA),WCDT(NR,NT), &
+             XFRT(NR,NT),PA(NPA),DAMR(NPA,NCO),DAMR1(NPA),GREL_new(Ny))
+    DWAVE = 0.0; CMRA = 0.0; BWAVE = 0.0; AVDAA = 0.0; TAVDAA = 0.0; DAA = 0.0
+    DUMP = 0.0; XFR = 0.0; XFRe = 0.0; ALENOR = 0.0; DUME = 0.0; DVV = 0.0
+    AVDVV = 0.0; TAVDVV = 0.0; WCDT = 0.0; XFRT = 0.0; PA = 0.0; DAMR = 0.0
+    DAMR1 = 0.0; GREL_new = 0.0
 
     cv=CS*100 ! speed of light in [cm/s]
     esu=Q*3E9 ! elementary charge in [esu]
@@ -227,10 +252,14 @@ MODULE ModRamRun
     khi(5)=NE
     ! calculate ring current parameters
     DO I=2,NR
-      I1=(I-2)*IR1+3
+      I1=int((I-2)*IR1+3,kind=4)
       DO J=1,NT
-        J1=(J-1)*IP1
-!        if (S.EQ.1.and.I.eq.2.and.J.eq.1) write (*,*) " Need to specify Ne if using WPI"
+        J1=int((J-1)*IP1,kind=4)
+        IF (DoUsePlane_SCB) THEN
+          XNE(I,J)=NECR(I1,J1)
+        ELSE
+          !if (S.EQ.1.and.I.eq.2.and.J.eq.1) write (*,*) " Need to specify Ne if using WPI"
+        ENDIF
         klo=2
         PPERT(S,I,J)=0.
         PPART(S,I,J)=0.
@@ -246,7 +275,8 @@ MODULE ModRamRun
             SUME=0.
             SUMA=0.
             SUMN=0.
-            DO L=1,UPA(I)-1
+            u = int(UPA(I)-1,kind=4)
+            DO L=1,u
               ERNM=WMU(L)/FFACTOR(S,I,K,L)/FNHS(I,J,L)
               EPMA=ERNM*MU(L)*MU(L)
               EPME=ERNM-EPMA
@@ -274,8 +304,8 @@ MODULE ModRamRun
         enddo
         ANIST=PPERT(S,I,J)/PPART(S,I,J)-1.
         EPART=PPART(S,I,J)/RNHTT
-     ENDDO
-  ENDDO
+      ENDDO
+    ENDDO
 
     IF (MOD(INT(T),INT(Dt_bc)).EQ.0.and.DoUseWPI.and.S.eq.1) THEN
          ! zero PA diffusion coefficients
@@ -315,7 +345,7 @@ MODULE ModRamRun
                    ENDDO
                    DO L=1,NPA
                       MUBOUN=MU(L)+0.5*WMU(L)
-                      CALL LINTP(PA,DAMR1,NPA,PAbn(L),Y,IER)
+                      CALL GSL_Interpolation_1D('Steffen',PA,DAMR1,PAbn(L),Y,GSLerr)
                       taudaa=10.**Y*fnorm ! <Daa/p2> [1/s]
                       if (taudaa.gt.1e0) then
                          print*,'taudaa=',taudaa,' L=',LZ(I),' MLT=',MLT(J)
@@ -357,7 +387,7 @@ MODULE ModRamRun
                   ENDDO
                   DO K=2,NE
                      ER1=LOG10(EKEV(K))
-                     CALL LINTP2(ALENOR,fpofc,DUMP,ENG,NCF,ER1,xfrl,Y,IER)
+                     CALL GSL_Interpolation_2D(ALENOR,fpofc,DUMP,ER1,xfrl,Y,GSLerr)
                      DWAVE(L)=10.**Y*fnorm/GREL(S,K)**2*(1.-MUBOUN*MUBOUN)/MUBOUN ! denorm pa [1/s]
                      ATAW(I,J,K,L)=DWAVE(L)           ! call WPADIF twice, implicit
                      taudaa=dwave(l)/MUBOUN/BOUNHS(I,J,L) ! <Dmu>
@@ -368,6 +398,10 @@ MODULE ModRamRun
       ENDDO
     ENDIF ! end diff coeff loop 
 
+    DEALLOCATE(DWAVE,CMRA,BWAVE,AVDAA,TAVDAA, &
+               DAA,DUMP,XFR,XFRe,ALENOR, &
+               DUME,DVV,AVDVV,TAVDVV,WCDT, &
+               XFRT,PA,DAMR,DAMR1,GREL_new)
   RETURN
   end subroutine ANISCH
 

@@ -17,7 +17,16 @@ our $MakefileDefOrig = 'src/Makefile.def';
 our @Arguments       = @ARGV;
 my  $IsStandalone = 'True';
 my  $DoSetLibs;
+my  $SchemeUser = 'False';
 
+foreach(@Arguments){
+    if(/^-scheme/) {$SchemeUser = 'True';
+                    push(@Arguments,"-compiler=gfortran");
+                    push(@Arguments,"-mpi=openmpi");
+                    #system("bash","-c","source schemeSetup.sh");
+                    next;
+    }
+}
 # Find and execute main Config.pl.
 # Simultaneously determine if in stand-alone mode.
 my $config = "../../share/Scripts/Config.pl";
@@ -43,9 +52,13 @@ my %libs;
 
 # Handle RAM-SCB installation arguments.
 foreach(@Arguments){
+    if(/^-scheme/) {$libs{'gsl'} = "/packages2/.packages2/x86_64-pc-linux-gnu-rhel6/gsl/2.3";
+                    $libs{'netcdf'} = "/packages2/.packages2/x86_64-pc-linux-gnu-rhel6/netcdf/4.4.4";
+                    $DoSetLibs = 1;
+                    next;
+    };
     if(/^-ncdf=(.*)/)    {$libs{'netcdf'} =$1; $DoSetLibs = 1; next;};
-    if(/^-pspline=(.*)/) {$libs{'pspline'}=$1; $DoSetLibs = 1; next;};
-    if(/^-ncarg=(.*)/)   {$libs{'ngmath'} =$1; $DoSetLibs = 1; next;};
+    if(/^-gsl=(.*)/)     {$libs{'gsl'}    =$1; $DoSetLibs = 1; next;};
     if(/^-setlibs/)      {$DoSetLibs = 1;  next;};
 }
 
@@ -60,8 +73,7 @@ $DoSetLibs = 1 if($Install);
 if($DoSetLibs){
     # Set default library locations unless set by flags.
     $libs{'netcdf'}=$ENV{NETCDFDIR} unless exists $libs{'netcdf'};
-    $libs{'pspline'}=$ENV{PSPLINEDIR} unless exists $libs{'pspline'};
-    $libs{'ngmath'}=$ENV{NCARGDIR} unless exists $libs{'ngmath'};
+    $libs{'gsl'}=$ENV{GSLDIR} unless exists $libs{'gsl'};
     &set_libs;
 }
 
@@ -85,17 +97,22 @@ sub set_libs
     }else{
 	open(FILE, '>', '../../LibLocations.txt');
     }
-    foreach(keys(%libs)){
-	if($libs{$_}){
-	    $lib_cmd=$lib_cmd . "\\\n\t-L$libs{$_}/lib -l$_ ";
-	    $lib_cmd=$lib_cmd . '-lnetcdff ' if($_ eq 'netcdf');
-	    $lib_cmd=$lib_cmd . '-lezcdf '   if($_ eq 'pspline');
-	    print FILE "$_  $libs{$_}\n";
-	}else{
-	    $lib_cmd=$lib_cmd . "\\\n\t-l$_ ";
-	    $lib_cmd=$lib_cmd . '-lezcdf ' if($_ eq 'pspline');
-	    print FILE "$_  (default lib path)\n";
-	}
+    if($SchemeUser eq 'True'){
+        $lib_cmd=$lib_cmd . "\\\n\t-L$libs{'netcdf'}/lib -lnetcdff";
+        $lib_cmd=$lib_cmd . "\\\n\t-L$libs{'gsl'}/lib -lgsl -lgslcblas -lm";
+    }else{
+        foreach(keys(%libs)){
+	    if($libs{$_}){
+	        $lib_cmd=$lib_cmd . "\\\n\t-L$libs{$_}/lib -l$_ ";
+    	        $lib_cmd=$lib_cmd . '-lnetcdff ' if($_ eq 'netcdf');
+                $lib_cmd=$lib_cmd . '-lgslcblas -lm ' if($_ eq 'gsl');
+    	        print FILE "$_  $libs{$_}\n";
+    	    }else{
+    	        $lib_cmd=$lib_cmd . "\\\n\t-l$_ ";
+                $lib_cmd=$lib_cmd . '-lnetcdff ' if($_ eq 'netcdf');
+    	        print FILE "$_  (default lib path)\n";
+    	    }
+        }
     }
 
     close(FILE);
@@ -123,15 +140,22 @@ sub set_libs
     my $modpath = '';
     `echo  >> $MakefileDefEdit`;   # Add some spaces
     `echo  >> $MakefileDefEdit`;   # to end of file...
-    foreach(keys(%libs)){
-	if(/pspline/){
-	    $modpath = $libs{$_} ? "$libs{$_}/mod" : "/usr/lib/pspline/mod";
-	    `echo PSPLINE_PATH = $modpath >> $MakefileDefEdit`;
-	}
-	if(/netcdf/){
-	    $modpath = $libs{$_} ? "$libs{$_}/include" : "/usr/lib/netcdf/include";
-	    `echo NETCDF_PATH = $modpath >> $MakefileDefEdit`;
-	}
+    if($SchemeUser eq 'True') {
+        $modpath = "$libs{'netcdf'}/include";
+       `echo NETCDF_PATH = $modpath >> $MakefileDefEdit`;
+        $modpath = "$libs{'gsl'}/include";
+       `echo GSL_PATH = $modpath >> $MakefileDefEdit`;
+    }else{
+        foreach(keys(%libs)){
+	    if(/netcdf/){
+	        $modpath = $libs{$_} ? "$libs{$_}/include" : "/usr/lib/netcdf/include";
+           `    echo NETCDF_PATH = $modpath >> $MakefileDefEdit`;
+	    }
+            if(/gsl/){
+                $modpath = $libs{$_} ? "$libs{$_}/include" : "/usr/lib/gsl/include";
+           `    echo GSL_PATH = $modpath >> $MakefileDefEdit`;
+            }
+        }
     }
 
 }

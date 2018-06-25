@@ -10,18 +10,19 @@ program ram_scb
 !    All rights reserved.
 !============================================================================
 !!!! Module Variables
-use ModRamMain,      ONLY: Real8_, S, iCal, nIter
-use ModRamParams,    ONLY: DoSaveFinalRestart, DoVarDt, IsComponent
+use ModRamMain,      ONLY: DP, iCal, nIter
+use ModRamParams,    ONLY: DoSaveFinalRestart, DoVarDt, IsComponent, &
+                           verbose, reset, DoUseRam, SCBonRAMTime, RAMTie
 use ModRamTiming,    ONLY: DtsFramework, DtsMax, DtsMin, DtsNext, Dts, Dt_hI, &
                            TimeRamStart, TimeRamNow, TimeMax, TimeRamElapsed, &
-                           TimeRamStop, T, UTs, Dt_bc, DtEfi
-use ModRamVariables, ONLY: Kp, F107, DTDriftR, DTDriftP, DTDriftE, DTDriftMu, &
-                           PParT, PPerT, FGEOS
-use ModScbGrids,     ONLY: npsi, nzeta, nthe
-use ModScbVariables, ONLY: alfa, psi, x, y, z
+                           UTs, Dt_bc, DtEfi
+use ModRamVariables, ONLY: Kp, F107, dBdt, dIdt, dIbndt
+use ModScbVariables, ONLY: hICalc, SORFail
+use ModScbParams,    ONLY: method
+
 !!!! Module Subroutines and Functions
+use ModRamGSL,       ONLY: GSL_Initialize
 use ModRamInjection, ONLY: injection
-use ModRamCouple,    ONLY: RAMCouple_Allocate, RAMCouple_Deallocate
 use ModRamFunctions, ONLY: ram_sum_pressure, RamFileName
 use ModRamIndices,   ONLY: get_indices
 use ModRamTiming,    ONLY: max_output_timestep, init_timing, finalize_timing, do_timing
@@ -33,24 +34,26 @@ use ModRamBoundary,  ONLY: get_boundary_flux
 use ModRamEField,    ONLY: get_electric_field
 use ModScbInit,      ONLY: scb_allocate, scb_init, scb_deallocate
 use ModScbRun,       ONLY: scb_run
-use ModRamScb,       ONLY: ramscb_allocate, computehI, ramscb_deallocate
+use ModScbIO,        ONLY: computational_domain
+use ModSceInit,      ONLY: sce_allocate, sce_init, sce_deallocate
+use ModRamScb,       ONLY: ramscb_allocate, computehI, ramscb_deallocate, compute3DFlux
+
 !!!! External Modules (share/Library/src)
 use ModReadParam
 use CON_planet,      ONLY: set_planet_defaults
 use CON_axes,        ONLY: init_axes, test_axes
 use ModPlanetConst,  ONLY: init_planet_const
 use ModTimeConvert,  ONLY: time_real_to_int
-use ModIOUnit,       ONLY: UNITTMP_
+
 !!!! MPI Modules
 use ModMpi
 use ModRamMpi
 
+
 implicit none
 
-integer :: i,j,k
-character(len=200) :: FileName
-real(kind=Real8_) :: DtOutputMax, DtEndMax, DtTemp
-real(kind=Real8_), DIMENSION(4,20,25) :: ParTemp, PerTemp
+logical :: triggerSCB
+real(DP) :: DtOutputMax, DtEndMax
 !----------------------------------------------------------------------------
 ! Ensure code is set to StandAlone mode.
 IsComponent = .false.
@@ -72,13 +75,15 @@ call IM_set_parameters
 
 ! Allocate Arrays
 call ram_allocate
-call RAMCouple_Allocate
 call scb_allocate
 call ramscb_allocate
+call sce_allocate
 
 ! Initialize RAM_SCB
 call ram_init
 call scb_init
+call sce_init
+call GSL_Initialize
 
 ! Initialize planet and axes if in stand-alone mode.
 ! In component mode, the framework takes care of this.
@@ -109,8 +114,8 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
          DtEndMax   = (TimeMax-TimeRamElapsed)/2.0
          DtOutputMax = max_output_timestep(TimeRamElapsed)
          DTs = min(DTsNext,DTsmax,DtOutputMax,DtEndMax,DTsFramework)
-         if (Kp.gt.6.0 .AND. DTs.gt.5.0) DTs = 5.0   !1. or 0.25 
-      else if(mod(UTs, Dt_hI) .eq. 0) then
+         if (Kp.gt.6.0 .AND. DTs.gt.5.0) DTs = 5.0
+      else if(abs(mod(UTs, Dt_hI)) .le. 1e-9) then
          DTs = 5.0
          if(Kp .ge. 5.0) DTs = min(DTsMin,DTs)
          if(Kp .gt. 6.0) DTs = 1.0   !1. or 0.25
@@ -122,33 +127,23 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
       call get_indices(TimeRamNow%Time, Kp, f107)
 
       ! Update Boundary Flux if Dt_bc has passed
-      if (mod(TimeRamElapsed, Dt_bc).eq.0) then
+      if (abs(mod(TimeRamElapsed, Dt_bc)).le.1e-9) then
          call get_boundary_flux
       end if
 
       ! Update Electric Fields if DtEfi has passed
-      if (mod(TimeRamElapsed, DtEfi).eq.0) then
+      if (abs(mod(TimeRamElapsed, DtEfi)).le.1e-9) then
          call get_electric_field
       end if
-!!!!!!!!!
-
-!!!!!!!!! INJECTION TEST
-!      if ((iCal.eq.150).or.  &
-!         (iCal.eq.100).or.  &
-!         (iCal.eq.500).or.  &
-!         (iCal.eq.1200).or. &
-!         (iCal.eq.2000)) then
-!         call injection(iCal)
-!      endif
 !!!!!!!!!
 
 !!!!!!!!!! RUN RAM
       ! Broadcast current call to ram_all
       call write_prefix
       write(*,*) 'Calling ram_run for UTs, DTs,Kp = ', UTs, Dts, Kp
-
       ! Call RAM for each species.
-      call ram_run
+      if (DoUseRAM) call ram_run
+      FLUSH(6)
 
       ! Increment and update time
       TimeRamElapsed = TimeRamElapsed + 2.0 * DTs
@@ -157,31 +152,42 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
 !!!!!!!!!
 
 !!!!!!!!! RUN SCB
-      ! Call SCB if Dt_hI has passed
-      if (((mod(TimeRamElapsed, Dt_hI).eq.0).or.(Dt_hI.eq.1))) then
-!       if (mod(iCal,5).eq.0) then
+      ! Call SCB if conditions are met
+      triggerSCB = .false.
+      if (SCBonRAMTime) then
+         if ((mod(nIter,RAMTie).eq.0).and.(nIter.gt.1)) triggerSCB = .true.
+      else
+         if (abs(mod(TimeRamElapsed, Dt_hI)).le.1e-9) triggerSCB = .true.
+      endif
+      if (triggerSCB) then
          call write_prefix
          write(*,*) 'Running SCB model to update B-field...'
 
          call ram_sum_pressure
-         call scb_run
-
-!         FileName = RamFileName('MAG_xyz','dat',TimeRamNow)
-!         open(UNITTMP_, File=FileName, Status='NEW')
-!         write(UNITTMP_,*) npsi, nthe, nzeta
-!         do j=1,npsi
-!           do i=1,nthe
-!             do k=1,nzeta
-!               write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
-!             enddo
-!           enddo
-!         enddo
+         call scb_run(nIter)
+         FLUSH(6)
+         if ((SORFail).and.(Reset)) then
+            if (verbose) print*, 'Error in SCB calculation, attempting a full reset'
+            call computational_domain
+            call scb_run(0)
+            if (SORFail) hICalc = .false.
+         endif
+         FLUSH(6)
 
          ! Couple SCB -> RAM
-         call computehI
+         if ((hICalc).and.(method.ne.3)) then ! Calculate full h's and I's if SCB was successful
+            call computehI(nIter)
+         else                                 ! If SCB wasn't successful use previous h's and I's
+            dBdt = 0._dp                      ! which implies dXdt = 0
+            dIdt = 0._dp
+            dIbndt = 0._dp
+         endif
+         call compute3DFlux
+         FLUSH(6)
 
          call write_prefix
          write(*,*) 'Finished 3D Equilibrium code.'
+         DtsNext = DtsMin ! This is so we don't accidently take to big of a step after an SCB call
       end if
 !!!!!!!!!
 
@@ -190,6 +196,7 @@ if (TimeRamElapsed .lt. TimeMax) then ! No wasted cycles, please.
       call do_timing
       ! Check and write output, as necessary.
       call handle_output(TimeRamElapsed)
+      FLUSH(6)
 !!!!!!!!!
 
 !!!!!!!!! FINISH TIME STEP
@@ -215,22 +222,22 @@ if ((.not.IsComponent)) then
 
      ! Deallocate arrays
      call ram_deallocate
-     call RAMCouple_deallocate
      call scb_deallocate
      call ramscb_deallocate
+     call sce_deallocate
 
      write(*,*) &
           '==============================================================='
 end if
 
-
 call MPI_Finalize(iError)
 
 end program ram_scb
-!==============================================================================
+!==================================================================================================
   subroutine write_prefix
 
     use ModRamParams, ONLY: IsComponent
+
 
     implicit none
 
@@ -241,25 +248,49 @@ end program ram_scb
    
   end subroutine write_prefix
 
-!============================================================================
+!==================================================================================================
 subroutine CON_stop(String)
   ! "Safely" stop RAM-SCB on all nodes.
-  use ModRamTiming, ONLY: TimeRamElapsed
+  use ModScbGrids,     ONLY: nthe, npsi, nzeta
+  use ModScbVariables, ONLY: x,y,z
+  use ModRamTiming,    ONLY: TimeRamElapsed, TimeRamNow
+  use ModRamFunctions, ONLY: RamFileName
+
+  use ModIOUnit,       ONLY: UNITTMP_
+
+
   implicit none
 
   character(len=*), intent(in) :: String
-  write(*,*)'Stopping execution! at time=',TimeRamElapsed,&
-       ' with msg:'
+  character(len=200) :: FileName
+
+  integer :: i, j, k
+
+  write(*,*)'Stopping execution! at time=',TimeRamElapsed,' with msg:'
   write(*,*)String
+
+  FileName = RamFileName('MAGxyz2','dat',TimeRamNow)
+  open(UNITTMP_, File=FileName)
+  write(UNITTMP_,*) nthe, npsi, nzeta
+  do i=1,nthe
+     do j = 1, npsi
+        do k=1,nzeta
+           write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
+        enddo
+    enddo
+  enddo
+  close(UNITTMP_)
+
   stop
 end subroutine CON_stop
 
-!============================================================================
+!==================================================================================================
 
 subroutine CON_set_do_test(String,DoTest,DoTestMe)
   ! Replaces the SWMF testing routine.
   
   use ModRamParams, ONLY: StringTest
+
 
   implicit none
   character (len=*), intent(in)  :: String
@@ -268,7 +299,7 @@ subroutine CON_set_do_test(String,DoTest,DoTestMe)
   DoTest   = i_sub_string(' '//StringTest,' '//String//' ')>0
   DoTestMe = DoTest !.and. i_proc()==iProcTest
 contains
-  !===========================================================================
+  !================================================================================================
   integer function i_sub_string(StringA,StringB)
 
     ! This is needed to avoid some SGI f90 compiler bug 
@@ -277,6 +308,7 @@ contains
     ! index(' '//StringTest,' '//str//' ')
     !
     ! directly.
+
 
     implicit none
 
@@ -288,4 +320,4 @@ contains
 
 end subroutine CON_set_do_test
 
-!============================================================================
+!==================================================================================================

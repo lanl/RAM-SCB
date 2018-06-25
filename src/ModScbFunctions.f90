@@ -1,18 +1,22 @@
+!============================================================================
+!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    All rights reserved.
+!============================================================================
+
 MODULE ModScbFunctions
-  ! Contains various functions and subroutines for performing calculations
-  ! in SCB
-  
+  ! Contains various functions and subroutines for performing calculations in SCB
+
   implicit none
   
   contains
 !==============================================================================
-  SUBROUTINE extap(x1,x2,x3,x4)
-  
+  SUBROUTINE extap(x1,x2,x3,x4)  
     USE nrtype
     IMPLICIT NONE
     REAL(DP), INTENT(IN)     :: x1, x2, x3
     REAL(DP), INTENT(OUT)    :: x4
     REAL(DP)                 :: ddx1, ddx2, ddx, pm
+    x4 = 0.0; ddx = 0.0; ddx2 = 0.0; ddx = 0.0; pm = 0.0
   
     x4 = 3. * x3 - 3. * x2 + x1
     ddx1 = x3 - x2
@@ -20,19 +24,50 @@ MODULE ModScbFunctions
     ddx = x4 - x3
     pm = ddx * ddx1
     IF(pm > 0.) RETURN
-    IF(ddx2 == 0) x4 = 2. * x3 - x2
-    IF(ddx2 == 0) RETURN
+    IF(abs(ddx2) <= 1e-9) x4 = 2. * x3 - x2
+    IF(abs(ddx2) <= 1e-9) RETURN
     ddx = (ddx1 * ddx1) / ddx2
     x4 = x3 + ddx
     RETURN
   END SUBROUTINE extap
+
+!==============================================================================
+FUNCTION locate(xx,x)
+  USE nrtype
+  IMPLICIT NONE
+  REAL(DP), DIMENSION(:), INTENT(IN) :: xx
+  REAL(DP), INTENT(IN) :: x
+  INTEGER :: locate
+  INTEGER :: n,jl,jm,ju
+  LOGICAL :: ascnd
+  n=SIZE(xx)
+  ascnd = (xx(n) >= xx(1))
+  jl=0
+  ju=n+1
+  DO
+     IF (ju-jl <= 1) EXIT
+     jm=(ju+jl)/2
+     IF (ascnd .EQV. (x >= xx(jm))) THEN
+        jl=jm
+     ELSE
+        ju=jm
+     END IF
+  END DO
+  IF (abs(x-xx(1)) <= 1e-9) THEN
+     locate=1
+  ELSE IF (abs(x-xx(n)) <= 1e-9) THEN
+     locate=n-1
+  ELSE
+     locate=jl
+  END IF
+END FUNCTION locate
   
 !==============================================================================
   REAL FUNCTION radFunc(x)
     IMPLICIT NONE
     REAL :: x
     radFunc = 10. - 5. ! This will ensure the DIERCKX spline is defined up to R=10 RE
-  
+    x = x 
   END FUNCTION radFunc
   
 !==============================================================================
@@ -59,21 +94,21 @@ MODULE ModScbFunctions
     ! Savitzky-Golay smoothing (1-D passes in both directions) using quadratic polynomial and 7 pts
   
     USE ModScbMain, ONLY : DP
-  
+    use ModScbParams, ONLY: SavGolIters 
     IMPLICIT NONE
   
     REAL(DP), INTENT(IN) :: pres(:,:)
     REAL(DP), DIMENSION(SIZE(pres,1),SIZE(pres,2)) :: SavGol7, pres0, pres1, pres2
     REAL(DP) :: BSav(7,7)
   
-    INTEGER :: ier, iPass, j, k, nrad, nphi
+    INTEGER :: iPass, j, k, nrad, nphi
   
     nrad = SIZE(pres,1)
     nphi = SIZE(pres,2)
   
     pres0 = pres
   
-  DO iPass = 1, 3 ! Single or multiple pass
+  DO iPass = 1, SavGolIters ! Single or multiple pass
   
   BSav = RESHAPE((/32, 5, 1, -2, -2, -1, 5, &
          15, 4, 3, 3, 1, 0, -3, &
@@ -90,11 +125,14 @@ MODULE ModScbFunctions
           IF (j > 3 .AND. j < nrad-2) THEN
              pres1(j,k) = DOT_PRODUCT(BSav(4,:)/21., pres0(j-3:j+3,k))
           ELSE IF (j == 1) THEN
-             pres1(j,k) = DOT_PRODUCT(BSav(1,:)/42., pres0(1:7,k))
+             pres1(j,k) = pres0(j,k)
+             !pres1(j,k) = DOT_PRODUCT(BSav(1,:)/42., pres0(1:7,k))
           ELSE IF (j == 2) THEN
-             pres1(j,k) = DOT_PRODUCT(BSav(2,:)/14., pres0(1:7,k))
+             pres1(j,k) = pres0(j,k)
+             !pres1(j,k) = DOT_PRODUCT(BSav(2,:)/14., pres0(1:7,k))
           ELSE IF (j == 3) THEN
-             pres1(j,k) = DOT_PRODUCT(BSav(3,:)/14., pres0(1:7,k))
+             pres1(j,k) = pres0(j,k)
+             !pres1(j,k) = DOT_PRODUCT(BSav(3,:)/14., pres0(1:7,k))
           ELSE IF (j == nrad-2) THEN
              pres1(j,k) = DOT_PRODUCT(BSav(5,:)/14., pres0(nrad-6:nrad,k))
           ELSE IF (j == nrad-1) THEN
