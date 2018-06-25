@@ -41,4 +41,7 @@ Module ModRamGrids
   integer :: Ny = 37
   integer :: NyE = 300             ! Grid points for energy    "     "
 
+  ! Grid derivs
+  real(DP) :: dR, dPhi
+
 end Module ModRamGrids

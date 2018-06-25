@@ -119,7 +119,7 @@ MODULE ModRamInit
     use ModRamParams,    ONLY: DoUseWPI, DoUseBASDiff
     use ModRamMain,      ONLY: DP, S
     use ModRamTiming,    ONLY: TimeRamStart, TimeMax, TimeRamRealStart, TimeRamNow
-    use ModRamGrids,     ONLY: RadiusMax, RadiusMin, nR, nRExtend, nT
+    use ModRamGrids,     ONLY: RadiusMax, RadiusMin, nR, nRExtend, nT, dR, dPhi
     use ModRamVariables, ONLY: PParH, PPerH, PParHe, PPerHe, PParO, PPerO, PParE, &
                                PPerE, LSDR, LSCHA, LSATM, LSCOE, LSCSC, LSWAE, ELORC, &
                                SETRC, XNN, XND, ENERN, ENERD, LNCN, LNCD, LECN, LECD, &
@@ -135,7 +135,7 @@ MODULE ModRamInit
   
     type(timetype) :: TimeRamStop
   
-    real(DP) :: dR, dPh
+    real(DP) :: dPh
   
     integer :: iR, iPhi
   !------------------------------------------------------------------------------
@@ -228,12 +228,12 @@ MODULE ModRamInit
     use ModRamMain,      ONLY: DP, S
     use ModRamConst,     ONLY: RE, PI, M1, MP, CS, Q, HMIN
     use ModRamGrids,     ONLY: RadiusMax, RadiusMin, NR, NPA, Slen, NT, NE, &
-                               NLT, EnergyMin
+                               NLT, EnergyMin, dR, dPhi
     use ModRamParams,    ONLY: DoUsePlane_SCB
     use ModRamVariables, ONLY: amla, DL1, Lz, RLz, IR1, EKEV, Mu, WMu, DMu, &
                                RMAS, WE, DE, EBND, GRBND, V, Pa, Pabn, UPA, &
                                FFACTOR, GREL, ZrPabn, VBND, PHI, BE, MLT, &
-                               ERNH, EPP, FACGR, CONF1, CONF2, DPHI, IP1, &
+                               ERNH, EPP, FACGR, CONF1, CONF2, IP1, &
                                MDR, RFACTOR
     !!!! Module Subroutines/Functions
     use ModRamFunctions, ONLY: ACOSD, ASIND, COSD, SIND
