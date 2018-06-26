@@ -137,6 +137,8 @@ module IM_wrapper
     ! The value should be interpolated from nPoints with
     ! indexes stored in Index and weights stored in Weight
     ! The variables should be put into Buff_V
+    ! This is not implemented for RAM-SCB.  IM to IE coupling occurs
+    ! implicitly through IM-to-GM pressure coupling.
     
     use CON_router,   ONLY: IndexPtrType, WeightPtrType
     implicit none
@@ -147,15 +149,18 @@ module IM_wrapper
     type(IndexPtrType),intent(in) :: Index
     type(WeightPtrType),intent(in):: Weight
     !--------------------------------------------------------------------------
+
+    call CON_stop(NameSub//' Not implemented for RAM_SCB.')
     
   end subroutine IM_get_for_ie
 
   !============================================================================
   subroutine IM_put_from_ie_mpi(nTheta, nPhi, Potential_II)
     
-    use ModRamMain,  ONLY: Real8_, TimeRamElapsed, PathRamOut
-    use ModRamCouple,ONLY: SwmfIonoPot_II, nIePhi, nIeTheta
-    use ModPlotFile, ONLY: save_plot_file
+    use ModRamMain,   ONLY: Real8_,  PathRamOut
+    use ModRamTiming, ONLY: TimeRamElapsed
+    use ModRamCouple, ONLY: SwmfIonoPot_II, nIePhi, nIeTheta
+    use ModPlotFile,  ONLY: save_plot_file
     
     implicit none
     
@@ -680,6 +685,7 @@ module IM_wrapper
   subroutine IM_run(TimeSimulation,TimeSimulationLimit)
     
     use ModRamTiming, ONLY: DtsMax, DtsFramework, TimeRamElapsed
+    use ModRamScbRun, ONLY: run_ramscb
     
     implicit none
     
