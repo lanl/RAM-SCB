@@ -58,6 +58,7 @@ module ModRamCouple
   integer, public, parameter   :: nPointsMax = 200
   integer, public :: nRadSWMF, nRadSwmfVar, nRadSwmfVarInner, &
        nLonSWMF, nLinesSWMF, nPoints
+  integer, public, allocatable :: iLine_III(:,:,:)
   real(kind=Real8_), public, allocatable :: iEnd(:)
   real(kind=Real8_), public, allocatable :: MhdLines_IIV(:,:,:)
   real(kind=Real8_), public, allocatable :: xSWMF(:,:,:), ySWMF(:,:,:), &
@@ -89,7 +90,7 @@ contains
          iEnd(2*(nRExtend)*nT), xEqSWMF(nRExtend,nT-1),  yEqSWMF(nRExtend,nT-1),&
          pEqSWMF(nRExtend,nT-1), nEqSWMF(nRExtend,nT-1), SwmfPot_II(nR+1, nT), &
          uEqSWMF_DII(3,nRExtend,nT-1),bEqSWMF_DII(3,nRExtend,nT-1), &
-         ETotal_DII(2,nR,nT))
+         ETotal_DII(2,nR,nT), iLine_III(2,nRExtend,nT))
 
     SWMFPot_II = 0.
     FluxBats_anis = 0.
@@ -113,7 +114,7 @@ contains
 
     DEALLOCATE(IonoMap_DSII, MhdDensPres_VII, FluxBats_IIS, PMhdGhost, iEnd, &
          FluxBats_anis, xEqSWMF, yEqSWMF, pEqSWMF, nEqSWMF, SwmfPot_II, &
-         uEqSWMF_DII, bEqSWMF_DII, ETotal_DII)
+         uEqSWMF_DII, bEqSWMF_DII, ETotal_DII, iLine_III, MHDLines_IIV)
 
   end subroutine RAMCouple_Deallocate
 
