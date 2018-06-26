@@ -248,11 +248,12 @@ module IM_wrapper
   subroutine IM_put_from_gm_line(nRadiusIn, nLonIn, Map_DSII, &
        nVarLineIn, nPointLineIn, BufferLine_VI, NameVar)
     
-    use ModRamMain,  ONLY: nR, nT, TimeRamElapsed, RadiusMin, RadiusMax, &
-         Real8_, PathRamOut, nRextend
-    use ModNumConst, ONLY: cRadToDeg
-    use ModIoUnit,   ONLY: UnitTmp_
-    use ModPlotFile, ONLY: save_plot_file
+    use ModRamMain,   ONLY: Real8_, PathRamOut
+    use ModRamGrids,  ONLY: nR, nT, RadiusMin, RadiusMax, nRextend
+    use ModRamTiming, ONLY: TimeRamElapsed
+    use ModNumConst,  ONLY: cRadToDeg
+    use ModIoUnit,    ONLY: UnitTmp_
+    use ModPlotFile,  ONLY: save_plot_file
     use ModRamCouple
     
     implicit none
@@ -298,8 +299,9 @@ module IM_wrapper
     
     ! On first call, set run-specific information.
     if (IsFirstCall) then
-       ! Create index array that converts radial 
-       ! and local time index to line index.
+       ! Create index array that converts radial  and local time index to
+       ! line index.  This is used for easily searching for a line in our
+       ! large tracing arrays.
        n = 0
        do iT = 1, nT; do iR = 1, nRextend; do iDir = 1, 2
           n = n+1
@@ -380,7 +382,7 @@ module IM_wrapper
     
     ! Extract BATS plasma density and pressure at the outer boundary.
     ! Need values at first outer ghost cell.
-    iR = nR+2; iT=1  !!! CHECK HERE PLZ.
+    iR = nR+2; iT=1  ! Assumes 2 ghost cells: 1 inner, 1 outer.  Careful!
     do iPoint = 1, nPointLine
        ! Search for first point in line that matches
        ! the line index for our current rad/lon pair:
@@ -456,7 +458,6 @@ module IM_wrapper
     ! so that BATS can use it as if it were RCM pressure.
     ! Start here by converting from colat/radiats to lat/degrees.
     ! Rotate the local time coordinates by 12 Hours.
-    !IonoMap_DSII =  Map_DSII
     do iT=1, nT
        n = mod(iT+12-1,24)+1
        IonoMap_DSII(:,:,:,iT) = Map_DSII(:,:,:,n)
@@ -489,13 +490,16 @@ module IM_wrapper
 
   subroutine IM_get_for_gm(Buffer_IIV,iSizeIn,jSizeIn,nVar,NameVar)
     
-    use CON_time,     ONLY: get_time
-    use ModRamMain,   ONLY: Real8_, nR, nT, PAllSum, HPAllSum, &
-         OPAllSum, PparSum, BNES, NAllSum, HNAllSum, ONAllSum, &
-         TimeRamNow, PathRamOut,nRextend, DoAnisoPressureGMCoupling
-    use ModRamCouple, ONLY: IonoMap_DSII, MhdDensPres_VII, PMhdGhost, &
+    use CON_time,        ONLY: get_time
+    use ModRamMain,      ONLY: Real8_, PathRamOut
+    use ModRamParams,    ONLY: DoAnisoPressureGMCoupling
+    use ModRamGrids,     ONLY: nR, nT, nRextend
+    use ModRamVariables, ONLY: PAllSum, HPAllSum, OPAllSum, PparSum, &
+         NAllSum, HNAllSum, ONAllSum, BNES
+    use ModRamTiming,    ONLY: TimeRamNow
+    use ModRamCouple,    ONLY: IonoMap_DSII, MhdDensPres_VII, PMhdGhost, &
          DoMultiFluidGMCoupling
-    use ModIoUnit,    ONLY: UNITTMP_
+    use ModIoUnit,       ONLY: UNITTMP_
     use ModRamFunctions, ONLY: ram_sum_pressure
     implicit none
     
@@ -538,7 +542,7 @@ module IM_wrapper
     
     ! Fill pressure from computational cells; rotate 180.
     do iT=1, nT
-       iRot = mod(iT+11,nT-1) + 1
+       iRot = mod(iT+((nT-1)/2-1),nT-1) + 1 ! Even # of cells, 1 ghost cell.
        Buffer_IIV(1:nR,iRot,pres_) = PAllSum(1:nR,iT)
        Buffer_IIV(1:nR,iRot,dens_) = NAllSum(1:nR,iT)
        if (DoAnisoPressureGMCoupling)then
@@ -553,7 +557,7 @@ module IM_wrapper
        end if
     end do
     
-    ! Azimuthal symmetry.
+    ! Azimuthal continuity about zero:
     Buffer_IIV(1:nR,nT,pres_) = Buffer_IIV(1:nR,1,pres_)
     if (DoAnisoPressureGMCoupling)then
        Buffer_IIV(1:nR,nT,parpres_) = Buffer_IIV(1:nR,1,parpres_)
@@ -600,6 +604,7 @@ module IM_wrapper
     use ModRamMain,   ONLY: iCal, IsComponent
     use ModRamTiming, ONLY: TimeRamStart, TimeMax
     use ModRamParams, ONLY: IsComponent, StrRamDescription
+    use ModRamCouple, ONLY: RAMCouple_Allocate
     use CON_time,     ONLY: get_time, tSimulationMax
     !use CON_variables, ONLY: StringDescription
     implicit none
@@ -641,12 +646,17 @@ module IM_wrapper
     call scb_init
     call sce_init
     call GSL_Initialize
+
+    ! Allocate arrays for coupling:
+    call RAMCouple_Allocate
     
   end subroutine IM_init_session
   
   !=============================================================================
   
   subroutine IM_finalize(TimeSimulation)
+
+    use ModRamCouple, ONLY: RAMCouple_Deallocate
     
     implicit none
     
@@ -659,6 +669,7 @@ module IM_wrapper
     call scb_deallocate
     call ramscb_deallocate
     call sce_deallocate
+    call RAMCouple_Deallocate
     
   end subroutine IM_finalize
   

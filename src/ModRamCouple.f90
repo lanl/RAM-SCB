@@ -36,7 +36,7 @@ module ModRamCouple
        Ux_=-1, Uy_=-1, Uz_=-1
 
   logical :: DoMultiFluidGMCoupling = .false.
-  logical :: DoPassJr  = .false.
+  logical :: DoPassJr   = .false.
   logical :: DoIEPrecip = .false.
 
   ! Coupling P to SWMF:
@@ -84,10 +84,12 @@ contains
 
     implicit none
 
-    ALLOCATE(IonoMap_DSII(3,2,nRextend,nT), MhdDensPres_VII(3,nT,4), FluxBats_IIS(nE, nT, 1:4), &
-             PMhdGhost(nT), FluxBats_anis(nE,nPa,nT,1:4), iEnd(2*(nRExtend)*nT), xEqSWMF(nRExtend,nT-1), &
-             yEqSWMF(nRExtend,nT-1), pEqSWMF(nRExtend,nT-1), nEqSWMF(nRExtend,nT-1), SwmfPot_II(nR+1, nT), &
-             uEqSWMF_DII(3,nRExtend,nT-1),bEqSWMF_DII(3,nRExtend,nT-1),ETotal_DII(2,nR,nT))
+    ALLOCATE(IonoMap_DSII(3,2,nRextend,nT), MhdDensPres_VII(3,nT,4), &
+         FluxBats_IIS(nE, nT, 1:4), PMhdGhost(nT), FluxBats_anis(nE,nPa,nT,1:4),&
+         iEnd(2*(nRExtend)*nT), xEqSWMF(nRExtend,nT-1),  yEqSWMF(nRExtend,nT-1),&
+         pEqSWMF(nRExtend,nT-1), nEqSWMF(nRExtend,nT-1), SwmfPot_II(nR+1, nT), &
+         uEqSWMF_DII(3,nRExtend,nT-1),bEqSWMF_DII(3,nRExtend,nT-1), &
+         ETotal_DII(2,nR,nT))
 
     SWMFPot_II = 0.
     FluxBats_anis = 0.
@@ -110,7 +112,8 @@ contains
     implicit none
 
     DEALLOCATE(IonoMap_DSII, MhdDensPres_VII, FluxBats_IIS, PMhdGhost, iEnd, &
-               FluxBats_anis, xEqSWMF, yEqSWMF, pEqSWMF, nEqSWMF, SwmfPot_II)
+         FluxBats_anis, xEqSWMF, yEqSWMF, pEqSWMF, nEqSWMF, SwmfPot_II, &
+         uEqSWMF_DII, bEqSWMF_DII, ETotal_DII)
 
   end subroutine RAMCouple_Deallocate
 
@@ -190,7 +193,7 @@ contains
        NameVar = trim( NameVar(nChar + 1:len(NameVar)) )
     end do
 
-    if ( all((/ RhoH_,  RhoHe_, RhoO_ /)  .ne. -1) ) TypeMhd = 'multiS'
+    if ( all((/ RhoH_,  RhoHe_, RhoO_  /) .ne. -1) ) TypeMhd = 'multiS'
     if ( all((/ PresH_, PresHe_,PresO_ /) .ne. -1) ) TypeMhd = 'multiF'
     if ( all((/ PresSw_,PresH_ ,PresO_ /) .ne. -1) ) TypeMhd = 'mult3F'
     if ( Ppar_ .ne. -1) TypeMhd = 'anisoP'
@@ -234,9 +237,14 @@ contains
     MhdLines_IIV = 0.0
 
     if(DoTestMe) write(*,*)'IM:'//NameSub//'nLinesSWMF = ', nLinesSWMF
-    
+
+    ! Loop through lines, find the number of points in each line (stored in
+    ! iEnd), determine missing lines, etc.  Sort from big 2D array to
+    ! 3D array.  2D array has all tracing info for all field lines on one
+    ! dimension; 3D array has info for each tracing segregated.
     NewLine: do iLine=1, nLinesSWMF
-       ! Skip missing lines (i.e., inside MHD boundary)
+       ! Skip missing lines (i.e., inside MHD boundary) by checking the
+       ! line number reported by the MHD tracer:
        if (iLine<BufferLine_VI(1, iPointBuff)) then
           iEnd(iLine) = -1
           cycle NewLine
@@ -244,6 +252,7 @@ contains
 
        ! Grab all points on current line:
        do while(BufferLine_VI(1,iPointBuff)==iLine)
+          ! Extract values into 3D array:
           MhdLines_IIV(iLine, iPointLine, :) = BufferLine_VI(:, iPointBuff)
           ! Do not exceed buffer:
           if (iPointBuff == nPointIn) exit
@@ -268,8 +277,9 @@ contains
 
     MhdLines_IIV(:,:,3:5) = MhdLines_IIV(:,:,3:5)/6378100.0 !XYZ in R_E.
 
-    ! Now, extend lines to ionosphere.  Fill in missing lines w/ dipole lines.
-    nPoints = int(maxval(iEnd)+5,kind=4)
+    ! Now, extend lines from MHD inner boundary to ionosphere.
+    ! Fill in missing lines w/ dipole lines.
+    nPoints = int(maxval(iEnd)+5) ! Find the longest line in array + extra points
     iLon=1; iRad=1
     do iLine=1, nLinesSWMF
        ! If line is missing...
@@ -295,7 +305,7 @@ contains
           MhdLines_IIV(iLine,1,Uy_) = corot*lz(iRad)*cos(phi(iLon))
           MhdLines_IIV(iLine,1,Uz_) = 0.0
        else
-          i = int(iEnd(iLine),kind=4)
+          i = int(iEnd(iLine))
           !write(*,*)'Extending!'
           !write(*,*)'Adding ', nPoints-i, 'points.'
           !write(*,'(a,3f9.6)') '...from ', x(iLine,i),y(iLine,i),z(iLine,i)
@@ -546,6 +556,7 @@ contains
     gamma3 = 0.886  ! gamma(1.5)
     factor1 = gamma1/gamma2/gamma3*sqrt(2*cPi)/(2*kappa-3)**1.5
 
+    ! Convert from moments to fluxes:
     do iE=1, nE
        eCent = 1000.0 * Ekev(iE) ! Center of energy bin in eV.
        factor=4.0E6*Ekev(iE)     ! Unit conversion factor * eCent in KeV.
