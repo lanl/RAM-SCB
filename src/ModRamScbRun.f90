@@ -22,7 +22,7 @@ MODULE ModRamScbRun
     use ModRamFunctions, ONLY: ram_sum_pressure, RamFileName
     use ModRamIndices,   ONLY: get_indices
     use ModRamTiming,    ONLY: max_output_timestep, init_timing, finalize_timing, do_timing
-    use ModRamIO,        ONLY: init_output, handle_output, ram_write_pressure
+    use ModRamIO,        ONLY: init_output, handle_output, ram_write_pressure, write_prefix
     use ModRamRestart,   ONLY: write_restart
     use ModRamInit,      ONLY: ram_allocate, ram_init, init_input, ram_deallocate
     use ModRamRun,       ONLY: ram_run

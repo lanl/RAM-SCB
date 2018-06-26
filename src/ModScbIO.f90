@@ -359,7 +359,6 @@ MODULE ModScbIO
     ! No need to do anything when using a dipole
     if ((NameBoundMag.eq.'DIPL').or.(NameBoundMag.eq.'DIPS')) return
 
-    call write_prefix
     write(*,*) "Updating SCB Boundary Conditions"
 
     DIR = -1.0

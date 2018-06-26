@@ -128,21 +128,6 @@ call MPI_Finalize(iError)
 
 end program ram_scb
 !==================================================================================================
-  subroutine write_prefix
-
-    use ModRamParams, ONLY: IsComponent
-
-
-    implicit none
-
-    character(len=7) :: StringPrefix = 'IM:'
-
-    if(.not. IsComponent) RETURN
-    write(*,'(a)',ADVANCE='NO')trim(StringPrefix)
-   
-  end subroutine write_prefix
-
-!==================================================================================================
 subroutine CON_stop(String)
   ! "Safely" stop RAM-SCB on all nodes.
   use ModScbGrids,     ONLY: nthe, npsi, nzeta

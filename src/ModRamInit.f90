@@ -451,6 +451,7 @@ MODULE ModRamInit
     use ModRamVariables, ONLY: Kp, F107, TOLV, NECR, IP1, IR1, XNE
     !!!! Module Subroutines/Functions
     use ModRamRun,       ONLY: ANISCH
+    use ModRamIO,        ONLY: write_prefix
     use ModRamBoundary,  ONLY: get_boundary_flux
     use ModRamRestart,   ONLY: read_restart
     use ModRamIndices,   ONLY: get_indices
