@@ -639,9 +639,17 @@ module IM_wrapper
     
     ! Set starting time, using start time of simulation.
     call get_time(TimeStartOut=TimeRamStart)
+
+    if(DoTest) write(*,'(a,i4, 2("-",i2.2),1x, i2.2,2(":",i2.2)))') &
+         'IM: TimeRamStart = ', &
+         TimeRamStart%iYear, TimeRamStart%iMonth,  TimeRamStart%iDay, &
+         TimeRamStart%iHour, TimeRamStart%iMinute, TimeRamStart%iSecond
+    
     
     ! Set TimeMax from SWMF
     TimeMax = tSimulationMax
+
+    if(DoTest) write(*,'(a, E12.6, a)')'IM: Simulation duration (s) = ', TimeMax
     
     ! Allocate Arrays
     call ram_allocate
