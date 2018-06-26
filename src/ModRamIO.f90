@@ -203,7 +203,7 @@ subroutine read_geomlt_file(NameParticle)
   use ModRamTiming,    ONLY: TimeRamNow, TimeRamStart
   use ModRamGrids,     ONLY: NEL, NEL_prot, NTL, NBD
   use ModRamParams,    ONLY: boundary, BoundaryPath
-  use ModRamVariables, ONLY: StringFileDate, flux_SIII, fluxLast_SII, eGrid_SI, &
+  use ModRamVariables, ONLY: flux_SIII, fluxLast_SII, eGrid_SI, &
                              avgSats_SI, lGrid_SI, tGrid_SI
   !!!! Share Modules
   use ModIOUnit,      ONLY: UNITTMP_
@@ -236,10 +236,9 @@ subroutine read_geomlt_file(NameParticle)
   !------------------------------------------------------------------------
   call CON_set_do_test(NameSub, DoTest, DoTestMe)
 
-  ! Save file date.
-  write(StringFileDate,'(i4.4,i2.2,i2.2)') &
-       TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay
+  
 
+  
   ! Build file name using current date.  NameParticle decides if we open
   ! electrons or protons.
   if (NameParticle.eq.'prot') then
