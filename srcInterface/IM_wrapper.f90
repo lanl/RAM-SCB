@@ -265,7 +265,7 @@ module IM_wrapper
     character(len=*), intent(in) :: NameVar
     
     integer           :: iR, iT, iDir, n
-    real(kind=Real8_) :: rotate_VII(3,nT,4) = 0.0
+    real(kind=Real8_) :: rotate_VII(3,nT,4)
     logical, save     :: IsFirstCall = .true.
     
     ! These variables should either be in a module, OR
@@ -274,7 +274,6 @@ module IM_wrapper
     ! Note that this routine is only called on the root processor !!!
     integer :: nVarLine   = 0          ! number of vars per line point
     integer :: nPointLine = 0          ! number of points in all lines
-    integer, save :: iLine_III(2,nRextend,nT)           ! line index 
     
     logical :: DoTest, DoTestMe
     character(len=*), parameter :: NameSub='IM_put_from_gm_line'
@@ -291,7 +290,9 @@ module IM_wrapper
        write(*,*)"RAM  nR, nT = ", nRextend,  nT
        call CON_stop(NameSub//': IM gridsize does not match SWMF description.')
     endif
-    
+
+    ! Initialize rotate array:
+    rotate_VII(3,nT,4) = 0.0
     
     ! Save total number of points along all field lines
     nPointLine = nPointLineIn
@@ -601,9 +602,9 @@ module IM_wrapper
   
   subroutine IM_init_session(iSession, TimeSimulation)
     
-    use ModRamMain,   ONLY: iCal, IsComponent
+    use ModRamMain,   ONLY: iCal
     use ModRamTiming, ONLY: TimeRamStart, TimeMax
-    use ModRamParams, ONLY: IsComponent, StrRamDescription
+    use ModRamParams, ONLY: IsComponent, StrRamDescription, IsComponent
     use ModRamCouple, ONLY: RAMCouple_Allocate
     use CON_time,     ONLY: get_time, tSimulationMax
     !use CON_variables, ONLY: StringDescription
@@ -670,7 +671,7 @@ module IM_wrapper
     call ramscb_deallocate
     call sce_deallocate
     call RAMCouple_Deallocate
-    
+
   end subroutine IM_finalize
   
   !=============================================================================
