@@ -23,6 +23,18 @@ module ModRamIO
 !============================!
 !===== BASE SUBROUTINES =====!
 !============================!
+  subroutine write_prefix
+
+    use ModRamParams, ONLY: IsComponent
+
+    implicit none
+
+    character(len=7) :: StringPrefix = 'IM:'
+
+    if(.not. IsComponent) RETURN
+    write(*,'(a)',ADVANCE='NO')trim(StringPrefix)
+
+  end subroutine write_prefix
 !==============================================================================
   function RamFileName(PrefixIn, SuffixIn, TimeIn)
     ! Create a file name using the new RAM-SCB I/O filename standards:
