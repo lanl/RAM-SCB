@@ -53,7 +53,7 @@ module IM_wrapper
     case('VERSION')
        call put(CompInfo,                         &
             Use=.true.,                           &
-            NameVersion='RAM-SCB (Jordanova, Zaharia)', &
+            NameVersion='RAM-SCB (Jordanova, Zaharia, Engel)', &
             Version=2.0)
        
     case('MPI')
@@ -84,9 +84,9 @@ module IM_wrapper
 
   !============================================================================
   subroutine IM_set_grid
-    use ModNumConst, ONLY: cTwoPi
-    use ModRamMain,  ONLY: RadiusMin, RadiusMax, NR, NT, PI, LZ, PHI, DL1, &
-         DPHI, dR, nRextend, GridExtend
+    use ModNumConst,     ONLY: cTwoPi
+    use ModRamGrids,     ONLY: RadiusMin, RadiusMax, NR, NT, dPhi, dR, nRextend
+    use ModRamVariables, ONLY: LZ, PHI, DL1, GridExtend
     use CON_coupler, ONLY: set_grid_descriptor, is_proc, IM_
     implicit none
     
@@ -592,9 +592,10 @@ module IM_wrapper
   
   subroutine IM_init_session(iSession, TimeSimulation)
     
-    use ModRamMain, ONLY: iCal, IsComponent, &
-         TimeRamStart, StrRamDescription, TimeMax
-    use CON_time,   ONLY: get_time, tSimulationMax
+    use ModRamMain,   ONLY: iCal, IsComponent
+    use ModRamTiming, ONLY: TimeRamStart, TimeMax
+    use ModRamParams, ONLY: IsComponent, StrRamDescription
+    use CON_time,     ONLY: get_time, tSimulationMax
     !use CON_variables, ONLY: StringDescription
     implicit none
     
@@ -624,7 +625,17 @@ module IM_wrapper
     ! Set TimeMax from SWMF
     TimeMax = tSimulationMax
     
-    call init_ramscb
+    ! Allocate Arrays
+    call ram_allocate
+    call scb_allocate
+    call ramscb_allocate
+    call sce_allocate
+
+    ! Initialize RAM_SCB
+    call ram_init
+    call scb_init
+    call sce_init
+    call GSL_Initialize
     
   end subroutine IM_init_session
   
@@ -637,14 +648,20 @@ module IM_wrapper
     !INPUT PARAMETERS:
     real,     intent(in) :: TimeSimulation   ! seconds from start time
     !---------------------------------------------------------------------------
-    call finalize_ramscb
+    
+    ! Deallocate arrays
+    call ram_deallocate
+    call scb_deallocate
+    call ramscb_deallocate
+    call sce_deallocate
+    
   end subroutine IM_finalize
   
   !=============================================================================
   
   subroutine IM_save_restart(TimeSimulation)
     
-    use ModRamIO, ONLY: write_restart
+    use ModRamRestart, ONLY: write_restart
     
     implicit none
     
@@ -662,7 +679,7 @@ module IM_wrapper
   !INTERFACE:
   subroutine IM_run(TimeSimulation,TimeSimulationLimit)
     
-    use ModRamMain, ONLY: DtsMax, DtsFramework, TimeRamElapsed
+    use ModRamTiming, ONLY: DtsMax, DtsFramework, TimeRamElapsed
     
     implicit none
     
@@ -686,7 +703,7 @@ module IM_wrapper
     DtTotal = TimeSimulationLimit - TimeSimulation
     
     ! Multiply with 1.0 to avoid mixed real precision 
-    DtsFramework = min(1.0*DtsMax, 0.5 * DtTotal)
+    DtsFramework   = min(1.0*DtsMax, 0.5 * DtTotal)
     TimeRamElapsed = TimeSimulation
     
     call run_ramscb
