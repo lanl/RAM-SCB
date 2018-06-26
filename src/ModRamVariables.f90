@@ -5,7 +5,7 @@
 
 Module ModRamVariables
 
-  use ModRamMain, ONLY: DP
+  use nrtype, ONLY: DP
 
   implicit none
 
