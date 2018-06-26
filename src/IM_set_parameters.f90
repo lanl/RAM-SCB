@@ -17,6 +17,7 @@ subroutine IM_set_parameters
   use ModScbParams
 
 !!!! Module Subroutines and Functions
+  use ModRamIO,   ONLY: write_prefix
   use ModRamSats, ONLY: read_sat_params  
 
 !!!! External Modules (share/Library)

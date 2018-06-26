@@ -111,7 +111,6 @@ module ModRamTiming
 
     ! Write timing report.
     if(abs(mod(TimeRamElapsed, dtPrintTiming)) .le. 1e-9) then
-!       call write_prefix
        write(*,'(a, f12.2, a, f12.2, a, f10.6, a)') &
             'Simulated ', TimeRamElapsed, 's in ', SysTimeNow, &
             's (',Efficiency,'x real-time)'
@@ -142,7 +141,6 @@ module ModRamTiming
     ! Update timing metrics (only efficiency so far...)
     Efficiency = (TimeRamElapsed-TimeRestart)/SysTimeNow
 
-!    call write_prefix
     write(*,'(a, f12.2, a, f12.2, a, f12.8, a)') &
          'Simulated ', TimeRamElapsed, 's in ', SysTimeNow, &
          's (',Efficiency,'X)'
@@ -201,7 +199,6 @@ module ModRamTiming
          DtW_MAGxyz  -mod(TimeIn, DtW_MAGxyz  )) / 2.0
 
     if(DoTestMe)then
-       call write_prefix
        write(*,'(2a,f11.2,a)')NameSub,' using these values at t=',TimeIn,':'
        write(*,'(a,f8.2)')'    DtLogfile=',DtLogfile
        write(*,'(a,f8.2)')'    DtSats   =',DtSatTemp

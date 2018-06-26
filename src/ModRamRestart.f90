@@ -445,7 +445,6 @@ module ModRamRestart
     left = 1
     right = npsi
 
-    call write_prefix
     write(*,*) 'Loading restart files.'
     ! LOAD RESTART FILE
     iStatus = nf90_open(trim(PathRestartIn//'/restart.nc'),nf90_nowrite,iFileID)
