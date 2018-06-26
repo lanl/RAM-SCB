@@ -125,7 +125,7 @@ MODULE ModRamInit
     !!!! Module Variables
     use ModRamParams,    ONLY: DoUseWPI, DoUseBASDiff
     use ModRamMain,      ONLY: DP, S
-    use ModRamTiming,    ONLY: TimeRamStart, TimeMax, TimeRamRealStart, TimeRamNow
+    use ModRamTiming,    ONLY: TimeRamStart, TimeMax, TimeRamStart, TimeRamNow
     use ModRamGrids,     ONLY: RadiusMax, RadiusMin, nR, nRExtend, nT, dR, dPhi
     use ModRamVariables, ONLY: PParH, PPerH, PParHe, PPerHe, PParO, PPerO, PParE, &
                                PPerE, LSDR, LSCHA, LSATM, LSCOE, LSCSC, LSWAE, ELORC, &
@@ -148,7 +148,7 @@ MODULE ModRamInit
   !------------------------------------------------------------------------------
     TimeRamStop%Time = TimeRamStart%Time + TimeMax
     call time_real_to_int(TimeRamStop)
-    call init_indices(TimeRamRealStart, TimeRamStop)
+    call init_indices(TimeRamStart, TimeRamStop)
     call get_indices(TimeRamNow%Time, Kp, f107)
   
   !!!!!!!!! Zero Values
