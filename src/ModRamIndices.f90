@@ -38,9 +38,17 @@ module ModRamIndices
     character(len=*), parameter :: NameSub='read_index_file'
     !------------------------------------------------------------------------
     call CON_set_do_test(NameSub, DoTest, DoTestMe)
-    if(DoTest) write(*,*)'Loading indices from ', trim(NameFile)
-
-!!! Open file and find the starting date of file
+    if(DoTest) then
+       write(*,*)'Loading indices from ', trim(NameFile)
+       write(*,'(a, i4, 2("-",i2.2),1x, i2.2,2(":",i2.2))') 'Start Time = ', &
+            StartTime%iYear, StartTime%iMonth, StartTime%iDay, &
+            StartTime%iHour, StartTime%iMinute, StartTime%iSecond
+       write(*,'(a, i4, 2("-",i2.2),1x, i2.2,2(":",i2.2))') 'End Time   = ', &
+            EndTime%iYear, EndTime%iMonth, EndTime%iDay, &
+            EndTime%iHour, EndTime%iMinute, EndTime%iSecond
+    end if
+    
+    !!! Open file and find the starting date of file
     dateIndex = -1
     open(unit=UNITTMP_, FILE=NameFile, STATUS='OLD', IOSTAT=iError)
     if (iError.ne.0) call CON_stop(NameSub//' Error opening file '//NameFile)
@@ -51,9 +59,9 @@ module ModRamIndices
            call CON_stop( &
                 NameSub//': Start date outside of range of RamIndices file')
         end if
-        if ((StartTime%iYear.eq.iYY).and. &
-            (StartTime%iMonth.eq.iMM).and. &
-            (StartTime%iDay.eq.iDD)) then
+        if ((StartTime%iYear  .eq. iYY)  .and. &
+            (StartTime%iMonth .eq. iMM)  .and. &
+            (StartTime%iDay   .eq. iDD)) then
            EXIT Read_RamIndices_Dates
         else
            dateIndex = dateIndex + 1
@@ -62,7 +70,7 @@ module ModRamIndices
     end do Read_RamIndices_Dates
     close(UNITTMP_)
 
-!!! Open file and fast forward to starting line
+    !!! Open file and fast forward to starting line
     open(unit=UNITTMP_, FILE=NameFile, STATUS='OLD', IOSTAT=iError)
     if (dateIndex.eq.0) then
       read(UNITTMP_, *) StringLine
@@ -92,7 +100,7 @@ module ModRamIndices
       end if
     end if
 
-!!! Allocate arrays based on number of days required.
+    !!! Allocate arrays based on number of days required.
     nRawF107 = ceiling((EndTime%Time-StartTime%Time)/86400.0)+1
     nRawKp   = 8*nRawF107
     allocate(timeKp(nRawKp))
@@ -106,7 +114,7 @@ module ModRamIndices
        write(*,*) NameSub//': Number of KP vals to read=', nRawKp
     end if
 
-!!! Read and store all data for entire interval.
+    !!! Read and store all data for entire interval.
     do i=1, nRawF107
        read(UNITTMP_, '(i4, i2, i2, 8(1x,f3.1), 1x, f5.1)',IOSTAT=iError) &
             iYY, iMM, iDD, tmpKp, rawF107(i)
