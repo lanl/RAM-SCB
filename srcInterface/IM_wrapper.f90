@@ -231,10 +231,11 @@ module IM_wrapper
   
   !============================================================================
   
-  subroutine IM_put_from_gm(Buffer_IIV,iSizeIn,jSizeIn,nVarIn,NameVar)
+  subroutine IM_put_from_gm(Buffer_IIV,Kp,iSizeIn,jSizeIn,nVarIn,NameVar)
 
     integer, intent(in) :: iSizeIn,jSizeIn,nVarIn
     real, dimension(iSizeIn,jSizeIn,nVarIn), intent(in) :: Buffer_IIV
+    real, intent(in) :: Kp
     character (len=*),intent(in)       :: NameVar
 
     character (len=*),parameter :: NameSub = 'IM_put_from_gm'
@@ -606,7 +607,13 @@ module IM_wrapper
     use ModRamTiming, ONLY: TimeRamStart, TimeMax
     use ModRamParams, ONLY: IsComponent, StrRamDescription, IsComponent
     use ModRamCouple, ONLY: RAMCouple_Allocate
+    use ModRamGsl,    ONLY: gsl_initialize
+    use ModRamInit,   ONLY: ram_init, ram_allocate
+    use ModScbInit,   ONLY: scb_init, scb_allocate
+    use ModSceInit,   ONLY: sce_init, sce_allocate
+    use ModRamScb,    ONLY: ramscb_allocate
     use CON_time,     ONLY: get_time, tSimulationMax
+    
     !use CON_variables, ONLY: StringDescription
     implicit none
     
@@ -658,7 +665,11 @@ module IM_wrapper
   subroutine IM_finalize(TimeSimulation)
 
     use ModRamCouple, ONLY: RAMCouple_Deallocate
-    
+    use ModRamInit,   ONLY: ram_deallocate
+    use ModScbInit,   ONLY: scb_deallocate
+    use ModSceInit,   ONLY: sce_deallocate
+    use ModRamScb,    ONLY: ramscb_deallocate
+
     implicit none
     
     !INPUT PARAMETERS:
@@ -731,21 +742,19 @@ module IM_wrapper
   end subroutine IM_run
   
   !=============================================================================
-  subroutine IM_put_from_gm_crcm(Integral_IIV, iSize, jSize, nIntegral, &
-       Bufferline_VI, nVarLine, nPointLine, NameVar, tSimulation)
-    ! Dummy routine to satisfy dependencies in SWMF.
-    use ModRamMain, ONLY: Real8_
-    
-    implicit none
-    
-    integer,           intent(in) :: iSize, jSize, nIntegral
-    integer,           intent(in) :: nVarLine, nPointLine
-    real(kind=Real8_), intent(in) :: Integral_IIV(iSize,jSize,nIntegral)
-    real(kind=Real8_), intent(in) :: BufferLine_VI(nVarLine, nPointLine)
-    character(len=100),intent(in) :: NameVar
-    real(kind=Real8_), intent(in) :: tSimulation
-    
-    character(len=*), parameter :: NameSub = 'IM_putfrom_gm_crcm'
+  subroutine IM_put_from_gm_crcm(Integral_IIV, Kp, iSizeIn, jSizeIn, &
+       nIntegralIn, BufferLine_VI, nVarLine, nPointLine, NameVar, tSimulation)
+
+    integer, intent(in) :: iSizeIn, jSizeIn, nIntegralIn
+    real,    intent(in) :: Integral_IIV(iSizeIn,jSizeIn,nIntegralIn)
+    real,    intent(in) :: Kp
+    integer, intent(in) :: nVarLine, nPointLine
+    real,    intent(in) :: BufferLine_VI(nVarLine, nPointLine)
+    real,    intent(in) :: tSimulation
+    character (len=*), intent(in) :: NameVar
+
+    character (len=*), parameter :: NameSub='IM_put_from_gm_crcm'
+
     !---------------------------------------------------------------------------
     call CON_stop(NameSub//': Do not call this routine from RAM-SCB!')
     
