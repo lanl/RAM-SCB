@@ -537,8 +537,10 @@ subroutine IM_set_parameters
   TOld = TimeRamElapsed
 
   ! Calculate TimeMax
-  if (StopCommand)   TimeMax = TimeRamElapsed + TimeMax
-  If (IsStopTimeSet) TimeMax = TimeRamFinish%Time-TimeRamStart%Time
-  If (abs(TimeMax).le.1e-9) call con_stop('No stop time specified in PARAM.in! Use either #STOP or #STOPTIME')
+  if (.not.IsComponent) then
+     if (StopCommand)   TimeMax = TimeRamElapsed + TimeMax
+     If (IsStopTimeSet) TimeMax = TimeRamFinish%Time-TimeRamStart%Time
+     If (abs(TimeMax).le.1e-9) call con_stop('No stop time specified in PARAM.in! Use either #STOP or #STOPTIME')
+  endif
 
 end subroutine IM_set_parameters
