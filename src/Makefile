@@ -95,6 +95,7 @@ GSL_OBJECTS=		\
 	RamGSL.o
 
 CPL_OBJECTS=            \
+        ModRamScbRun.o  \
         ModRamScb.o     \
         ModRamSce.o     \
 
