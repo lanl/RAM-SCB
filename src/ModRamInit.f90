@@ -123,9 +123,11 @@ MODULE ModRamInit
 !==================================================================================================
   SUBROUTINE ram_init
     !!!! Module Variables
-    use ModRamParams,    ONLY: DoUseWPI, DoUseBASDiff
-    use ModRamMain,      ONLY: DP, S
-    use ModRamTiming,    ONLY: TimeRamStart, TimeMax, TimeRamStart, TimeRamNow
+    use ModRamParams,    ONLY: DoUseWPI, DoUseBASDiff, IsRestart, IsComponent
+    use ModRamMain,      ONLY: DP, S, PathRestartIn, nIter
+    use ModRamTiming,    ONLY: TimeRamStart, TimeMax, TimeRamRealStart, TimeRamNow, &
+                               TimeRamElapsed, TimeMax, TimeRestart, TimeRamFinish, &
+                               TOld
     use ModRamGrids,     ONLY: RadiusMax, RadiusMin, nR, nRExtend, nT, dR, dPhi
     use ModRamVariables, ONLY: PParH, PPerH, PParHe, PPerHe, PParO, PPerO, PParE, &
                                PPerE, LSDR, LSCHA, LSATM, LSCOE, LSCSC, LSWAE, ELORC, &
@@ -135,9 +137,10 @@ MODULE ModRamInit
     use ModRamWPI,     ONLY: WAPARA_HISS, WAPARA_BAS, WAPARA_CHORUS, WAVEPARA1, WAVEPARA2
     use ModRamIndices, ONLY: init_indices, get_indices
     !!!! Share Modules
-    use ModTimeConvert, ONLY: TimeType, time_real_to_int
+    use ModTimeConvert, ONLY: TimeType, time_real_to_int, time_int_to_real
     use ModNumConst,    ONLY: cTwoPi
-  
+    use ModIOUnit,      ONLY: UNITTMP_ 
+
     implicit none
   
     type(timetype) :: TimeRamStop
@@ -145,10 +148,47 @@ MODULE ModRamInit
     real(DP) :: dPh
   
     integer :: iR, iPhi
-  !------------------------------------------------------------------------------
+    integer :: nrIn, ntIn, neIn, npaIn
+    logical :: TempLogical
+    logical :: StopCommand, IsStopTimeSet
+    character(len=100) :: StringLine, NameCommand, RestartFile
+    !------------------------------------------------------------------------------
+    if (IsRestart) then
+       RestartFile=PathRestartIn//'/restart_info.txt'
+       open(unit=UnitTMP_, file=trim(RestartFile), status='old')
+       read(UnitTMP_,*)StringLine
+       read(UnitTMP_, '(a25,i4.4, 2i2.2, 1x, 3i2.2)')StringLine, &
+            TimeRamStart%iYear, TimeRamStart%iMonth, TimeRamStart%iDay, &
+            TimeRamStart%iHour, TimeRamStart%iMinute, TimeRamStart%iSecond
+       TimeRamStart%FracSecond=0.0
+       read(UnitTMP_,'(a25, f15.4)') StringLine, TimeRestart
+       read(UnitTMP_,'(a25, i15)') StringLine, nIter
+       read(UnitTMP_, *) StringLine
+       read(UnitTMP_, '(a25, 4i3)') StringLine, nrIn, ntIn, neIn, npaIn
+       close(UnitTMP_)
+       call time_int_to_real(TimeRamStart)
+       TimeRamRealStart%Time = TimeRamStart%Time + TimeRestart
+       TimeRamElapsed = TimeRestart
+       call time_real_to_int(TimeRamRealStart)
+    else
+       TimeRamElapsed = 0
+       TimeRamRealStart = TimeRamStart
+    end if
+    TimeRamNow = TimeRamRealStart
+    TOld = TimeRamElapsed
+
+    ! Calculate TimeMax
+    if (IsComponent) then
+       TimeRamNow = TimeRamRealStart
+    else
+       TimeMax = TimeRamElapsed + TimeMax
+       !If (IsStopTimeSet) TimeMax = TimeRamFinish%Time-TimeRamStart%Time
+       !If (abs(TimeMax).le.1e-9) call con_stop('No stop time specified in PARAM.in! Use either #STOP or #STOPTIME')
+    endif
+
     TimeRamStop%Time = TimeRamStart%Time + TimeMax
     call time_real_to_int(TimeRamStop)
-    call init_indices(TimeRamStart, TimeRamStop)
+    call init_indices(TimeRamRealStart, TimeRamStop)
     call get_indices(TimeRamNow%Time, Kp, f107)
   
   !!!!!!!!! Zero Values

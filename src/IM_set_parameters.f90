@@ -512,35 +512,4 @@ subroutine IM_set_parameters
      method = 3
   endif
 
-  if (IsRestart) then
-     RestartFile=PathRestartIn//'/restart_info.txt'
-     open(unit=UnitTMP_, file=trim(RestartFile), status='old')
-     read(UnitTMP_,*)StringLine
-     read(UnitTMP_, '(a25,i4.4, 2i2.2, 1x, 3i2.2)')StringLine, &
-          TimeRamStart%iYear, TimeRamStart%iMonth, TimeRamStart%iDay, &
-          TimeRamStart%iHour, TimeRamStart%iMinute, TimeRamStart%iSecond
-     TimeRamStart%FracSecond=0.0
-     read(UnitTMP_,'(a25, f15.4)') StringLine, TimeRestart
-     read(UnitTMP_,'(a25, i15)') StringLine, nIter
-     read(UnitTMP_, *) StringLine
-     read(UnitTMP_, '(a25, 4i3)') StringLine, nrIn, ntIn, neIn, npaIn
-     close(UnitTMP_)
-     call time_int_to_real(TimeRamStart)
-     TimeRamRealStart%Time = TimeRamStart%Time + TimeRestart
-     TimeRamElapsed = TimeRestart
-     call time_real_to_int(TimeRamRealStart)
-  else
-     TimeRamElapsed = 0
-     TimeRamRealStart = TimeRamStart
-  end if
-  TimeRamNow = TimeRamRealStart
-  TOld = TimeRamElapsed
-
-  ! Calculate TimeMax
-  if (.not.IsComponent) then
-     if (StopCommand)   TimeMax = TimeRamElapsed + TimeMax
-     If (IsStopTimeSet) TimeMax = TimeRamFinish%Time-TimeRamStart%Time
-     If (abs(TimeMax).le.1e-9) call con_stop('No stop time specified in PARAM.in! Use either #STOP or #STOPTIME')
-  endif
-
 end subroutine IM_set_parameters

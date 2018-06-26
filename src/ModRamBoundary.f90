@@ -200,10 +200,10 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
      do k=1,nE
         CALL GSL_Interpolation_1D('Steffen',logELan, logFlux_II(j,:), logERam(k), y, GSLerr)
         ! Moved this check to GEOSB
-        !if (y.gt.8)  then
-        !   y=8
-        !   write(*,*) ' in ModRamBoundary: limit flux to 1e8'
-        !end if
+        if (y.gt.8)  then
+           y=8
+           write(*,*) ' in ModRamBoundary: limit flux to 1e8'
+        end if
         fluxOut_II(j,k)=10.**y
      end do
   end do

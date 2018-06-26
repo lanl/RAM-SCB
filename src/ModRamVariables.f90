@@ -5,6 +5,7 @@
 
 Module ModRamVariables
 
+  use ModRamGrids, ONLY: dR, dPhi
   use nrtype, ONLY: DP
 
   implicit none
@@ -34,7 +35,7 @@ Module ModRamVariables
                            EKEV(:), EBND(:), PHI(:), LT(:), MLT(:), MU(:), DMU(:), &
                            WMU(:), PAbn(:), LZ(:), RLZ(:), AMLA(:), BE(:,:), &
                            GridExtend(:), ZRPabn(:,:,:), FFACTOR(:,:,:,:), PA(:)
-  real(DP) :: PHIOFS, IR1, DL1, MDR, dPhi, IP1, CONF1, CONF2, RFACTOR
+  real(DP) :: PHIOFS, IR1, DL1, MDR, IP1, CONF1, CONF2, RFACTOR
 
 ! ModRamWPI variables
   real(DP), ALLOCATABLE :: WALOS1(:,:), WALOS2(:,:), WALOS3(:,:), fpofc(:), &
