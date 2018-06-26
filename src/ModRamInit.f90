@@ -35,6 +35,13 @@ MODULE ModRamInit
     PParO = 0._dp; PPerHe = 0._dp; PParHe = 0._dp; PAllSum = 0._dp; PParSum = 0._dp; PPerT = 0._dp
     PParT = 0._dp; FNHS = 0._dp; FNIS = 0._dp; BOUNHS = 0._dp; BOUNIS = 0._dp; dIdt = 0._dp
     dBdt = 0._dp; dIbndt = 0._dp; HDNS = 0._dp; BNES = 0._dp
+   ! ModRamCouple and IM_wrapper Variables
+    ALLOCATE(NAllSum(nR,nT), DensO(nR,nT), DensH(nR,nT), DensHe(nR,nT), HPAllSum(nR,nT), &
+             OPAllSum(nR,nT), HePAllSum(nR,nT), ePAllSum(nR,nT), HNAllSum(nR,nT), &
+             ONAllSum(nR,nT), HeNAllSum(nR,nT))
+    NAllSum = -1._dp; DensO = -1._dp; DensH = -1._dp; DensHe = -1._dp; HPAllSum = -1._dp
+    OPAllSum = -1._dp; HePAllSum = -1._dp; ePAllSum = -1._dp; HNAllSum = -1._dp
+    ONAllSum = -1._dp; HeNAllSum = -1._dp
   ! ModRamInit Variables
     ALLOCATE(RMAS(NS), V(NS,NE), VBND(NS,NE), GREL(NS,NE), GRBND(NS,NE), FACGR(NS,NE), &
              EPP(NS,NE), ERNH(NS,NE), UPA(NR), WE(NE), DE(NE), EKEV(NE), EBND(NE), &

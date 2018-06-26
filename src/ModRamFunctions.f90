@@ -321,7 +321,9 @@ module ModRamFunctions
 
     use ModRamMain,      ONLY: Real8_
     use ModRamVariables, ONLY: PAllSum, PParH, PPerH, PParO, PPerO, &
-                               PParE, PPerE, PParHe, PPerHe, PParSum
+                               PParE, PPerE, PParHe, PPerHe, PParSum, &
+                               NAllSum, HPAllSum, OPAllSum, HePAllSum, &
+                               ePAllSum, HNAllSum, ONAllSum, HeNAllSum
     use ModRamParams,    ONLY: DoAnisoPressureGMCoupling
     use ModRamGrids,     ONLY: NR, NT
     
@@ -338,8 +340,7 @@ module ModRamFunctions
             twothird * PPerH( i,j) + onethird * PParH( i,j) + &
             twothird * PPerE( i,j) + onethird * PParE( i,j) + &
             twothird * PPerHe(i,j) + onethird * PParHe(i,j)
-       if (DoAnisoPressureGMCoupling)&
-            PparSum(i,j) = PParO(i,j) + PParH(i,j) + PparE(i,J) + PParHe(i,j)
+       PparSum(i,j) = PParO(i,j) + PParH(i,j) + PparE(i,J) + PParHe(i,j)
     end do; end do
     
   end subroutine ram_sum_pressure
