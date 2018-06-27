@@ -1029,7 +1029,7 @@ SUBROUTINE pressure
        pper = 2.0/3.0 * pressure3D
        ppar = 1.0/3.0 * pressure3D
     ELSE    ! Anisotropic pressure case
-       IF ((boundary.eq.'LANL').or.(boundary.eq.'QDKP')) THEN ! Calculation using RAM pressures
+       IF ((boundary.eq.'LANL').or.(boundary.eq.'QDKP').or.(boundary.eq.'SWMF')) THEN ! Calculation using RAM pressures
 
           ! Cubic interpolation
           CALL GSL_Interpolation_2D(radRawExt**2, azimRawExt, pressPerRawExt, &
@@ -1088,7 +1088,7 @@ SUBROUTINE pressure
              END DO
           END DO
        ELSE     
-          STOP 'PROBLEM in pressure.f90'
+          call con_STOP('PROBLEM in pressure.f90')
        END IF
 
        pressure3D = 1.0/3.0*ppar + 2.0/3.0*pper
