@@ -109,12 +109,14 @@ contains
 !==============================================================================
   subroutine RAMCouple_Deallocate
 
-
     implicit none
+    
+    ! Items that may not have been allocated:
+    if(allocated(MHDLines_IIV)) deallocate(MHDLines_IIV)
 
     DEALLOCATE(IonoMap_DSII, MhdDensPres_VII, FluxBats_IIS, PMhdGhost, iEnd, &
          FluxBats_anis, xEqSWMF, yEqSWMF, pEqSWMF, nEqSWMF, SwmfPot_II, &
-         uEqSWMF_DII, bEqSWMF_DII, ETotal_DII, iLine_III, MHDLines_IIV)
+         uEqSWMF_DII, bEqSWMF_DII, ETotal_DII, iLine_III)
 
   end subroutine RAMCouple_Deallocate
 

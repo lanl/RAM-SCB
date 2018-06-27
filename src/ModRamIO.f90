@@ -140,12 +140,13 @@ module ModRamIO
        ! Get current Dst.
        call get_ramdst(dst)
        open(UNITTMP_, FILE=NameFileLog, POSITION='APPEND')
-       write(UNITTMP_, *) TimeIn, TimeRamNow%iYear, TimeRamNow%iMonth, &
-                         TimeRamNow%iDay, TimeRamNow%iHour, TimeRamNow%iMinute, &
-                         TimeRamNow%iSecond, floor(TimeRamNow%FracSecond*1000.0), &
-                         dst, DstBiot, sum(PParH)/(nR*nT), sum(PPerH)/(nR*nT), &
-                         sum(PParO)/(nR*nT), sum(PPerO)/(nR*nT), sum(PParHe)/(nR*nT), &
-                         sum(PPerHe)/(nR*nT), sum(PParE)/(nR*nT), sum(PPerE)/(nR*nT)
+       write(UNITTMP_, '(E13.6,1x,i4,5(1x,i2.2),1x,i3.3,10(1x,E13.6))') &
+            TimeIn, TimeRamNow%iYear, TimeRamNow%iMonth, &
+            TimeRamNow%iDay, TimeRamNow%iHour, TimeRamNow%iMinute, &
+            TimeRamNow%iSecond, floor(TimeRamNow%FracSecond*1000.0), &
+            dst, DstBiot, sum(PParH)/(nR*nT), sum(PPerH)/(nR*nT), &
+            sum(PParO)/(nR*nT), sum(PPerO)/(nR*nT), sum(PParHe)/(nR*nT), &
+            sum(PPerHe)/(nR*nT), sum(PParE)/(nR*nT), sum(PPerE)/(nR*nT)
        close(UNITTMP_)
     end if
 
@@ -236,9 +237,6 @@ subroutine read_geomlt_file(NameParticle)
   !------------------------------------------------------------------------
   call CON_set_do_test(NameSub, DoTest, DoTestMe)
 
-  
-
-  
   ! Build file name using current date.  NameParticle decides if we open
   ! electrons or protons.
   if (NameParticle.eq.'prot') then

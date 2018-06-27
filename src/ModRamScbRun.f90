@@ -80,7 +80,8 @@ MODULE ModRamScbRun
 !!!!!!!! RUN RAM
     ! Broadcast current call to ram_all
     call write_prefix
-    write(*,*) 'Calling ram_run for UTs, DTs,Kp = ', UTs, Dts, Kp
+    write(*,'(a, f7.1,1x,f6.2,1x,f3.1)') &
+         'Calling ram_run for UTs, DTs,Kp = ', UTs, Dts, Kp
     ! Call RAM for each species.
     if (DoUseRAM) call ram_run
     FLUSH(6)
