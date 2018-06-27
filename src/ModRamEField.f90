@@ -147,6 +147,7 @@ SUBROUTINE ionospheric_potential
                              dPhiIonodBeta, f, fzet, zetaVal, rhoVal, tilt
   use ModSceGrids,     ONLY: Iono_nTheta, Iono_nPsi
   use ModSceVariables, ONLY: IONO_NORTH_Phi, IONO_NORTH_JR, PhiIono_Weimer
+  use ModRamCouple,    ONLY: SWMFIonoPot_II, nIeTheta, nIePhi
   !!!! Module Subroutine/Functions
   use ModRamGSL,    ONLY: GSL_Interpolation_2D, GSL_Derivs
   use ModRamFunctions, ONLY: RamFileName
@@ -201,32 +202,32 @@ SUBROUTINE ionospheric_potential
   SELECT CASE (electric)
 
   CASE('IESC') ! interpolate SWMF iono potentials on 3Dcode ionospheric grid
-     call con_stop('IESC SWMF electric field not currently working')
-     !! If coupled to SWMF, we don't need to open any files and crap.
-     !! Initialize arrays and fill with correct values.
-     !! IM_wrapper ensures that, despite the IE grid, we always
-     !! have values from and including 10 to 80 degrees colat.
-     !if (.not. allocated(PhiIonoRaw)) then
-     !   allocate(PhiIonoRaw(nIeTheta, nIePhi))
-     !   PhiIonoRaw = 0.0
-     !endif
-     !if(.not. allocated(colat) .and. .not. allocated(lon)) then
-     !   allocate(colat(nIeTheta), lon(nIePhi))
-     !   colat = 0.0
-     !   lon   = 0.0
-     !   do i=2, nIePhi ! Longitude goes from 0 to 360.
-     !      lon(i) = lon(i-1) + 2.0_dp*pi_d/real(nIePhi-1)
-     !   end do
-     !   do i=2, nIeTheta ! Colat goes from 10 to 80.
-     !      colat(i) = colat(i-1) + (7.0_dp/18.0_dp) *pi_d/real(nIeTheta-1)
-     !   end do
-     !   colat = colat + pi_d/18.0_dp
-     !end if
-     !! Plug SWMF/IE potential into PhiIonoRaw; then we're all set.
-     !PhiIonoRaw = SwmfIonoPot_II
+     !call con_stop('IESC SWMF electric field not currently working')
+     ! If coupled to SWMF, we don't need to open any files and crap.
+     ! Initialize arrays and fill with correct values.
+     ! IM_wrapper ensures that, despite the IE grid, we always
+     ! have values from and including 10 to 80 degrees colat.
+     if (.not. allocated(PhiIonoRaw)) then
+        allocate(PhiIonoRaw(nIeTheta, nIePhi))
+        PhiIonoRaw = 0.0
+     endif
+     if(.not. allocated(colat) .and. .not. allocated(lon)) then
+        allocate(colat(nIeTheta), lon(nIePhi))
+        colat = 0.0
+        lon   = 0.0
+        do i=2, nIePhi ! Longitude goes from 0 to 360.
+           lon(i) = lon(i-1) + 2.0_dp*pi_d/real(nIePhi-1)
+        end do
+        do i=2, nIeTheta ! Colat goes from 10 to 80.
+           colat(i) = colat(i-1) + (7.0_dp/18.0_dp) *pi_d/real(nIeTheta-1)
+        end do
+        colat = colat + pi_d/18.0_dp
+     end if
+     ! Plug SWMF/IE potential into PhiIonoRaw; then we're all set.
+     PhiIonoRaw = SwmfIonoPot_II
 
-     !CALL GSL_Interpolation_2D(colat, lon, PhiIonoRaw, colatGrid(1:npsi,2:nzetap), &
-     !                       lonGrid(1:npsi,2:nzetap), PhiIono(1:npsi,2:nzetap), GSLerr)
+     CALL GSL_Interpolation_2D(colat, lon, PhiIonoRaw, colatGrid(1:npsi,2:nzetap), &
+                            lonGrid(1:npsi,2:nzetap), PhiIono(1:npsi,2:nzetap), GSLerr)
 
   CASE('RSCE')
      ! Potential from self-consistent electric field calculated in the ionosphere (Yu. 2016 August)
