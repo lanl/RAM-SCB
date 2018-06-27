@@ -608,10 +608,11 @@ module IM_wrapper
     use ModRamParams, ONLY: IsComponent, StrRamDescription, IsComponent
     use ModRamCouple, ONLY: RAMCouple_Allocate
     use ModRamGsl,    ONLY: gsl_initialize
-    use ModRamInit,   ONLY: ram_init, ram_allocate
+    use ModRamInit,   ONLY: ram_init, ram_allocate, init_input
     use ModScbInit,   ONLY: scb_init, scb_allocate
     use ModSceInit,   ONLY: sce_init, sce_allocate
     use ModRamScb,    ONLY: ramscb_allocate
+    use ModRamIO,     ONLY: init_output
     use CON_time,     ONLY: get_time, tSimulationMax
     
     !use CON_variables, ONLY: StringDescription
@@ -665,6 +666,10 @@ module IM_wrapper
 
     ! Allocate arrays for coupling:
     call RAMCouple_Allocate
+
+    ! Initialize input and output:
+    call init_input
+    call init_output
     
   end subroutine IM_init_session
   
