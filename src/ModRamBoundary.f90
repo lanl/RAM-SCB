@@ -234,6 +234,7 @@ end subroutine get_geomlt_flux
     use ModRamGrids,     ONLY: NTL, NEL, NT, NE, NR
     use ModRamTiming,    ONLY: TimeRamElapsed
     use ModRamVariables, ONLY: FFACTOR, UPA, Kp, F107
+    use ModRamCouple,    ONLY: FluxBats_IIS
 
 !!!! Module Subroutines and Functions
     use ModRamIO, ONLY: write_dsbnd
@@ -269,7 +270,7 @@ end subroutine get_geomlt_flux
     FGEOS(S,:,:,:)=0.
 
     ! Read LANL flux (1/cm2/s/sr/keV) assumed isotropic
-    IF (BoundaryFiles) THEN
+    IF (boundary.EQ.'LANL') THEN
       ! LANL interpolated flux files.
       if (s==1) then
         call get_geomlt_flux('elec', FluxLanl)
@@ -292,23 +293,23 @@ end subroutine get_geomlt_flux
         end do
       end do
     ELSEIF (boundary .EQ. 'SWMF') THEN
-      CALL CON_Stop('SWMF Flux Boundary not currently working')
+      !CALL CON_Stop('SWMF Flux Boundary not currently working')
       !! Read SWMF flux (1/cm2/s/sr/keV) assumed isotropic
       !if (IsComponent) then ! If SWMF component, get flux from Bats.
-      !  write(*,*) 'RAM_SCB: Getting flux from BATS-R-US'
-      !  do iK=1, nE
-      !    do iJ=1,nT
-      !      u = int(UPA(NR)-1,kind=4)
-      !      do L=2,u
-      !        if (.not.DoAnisoPressureGMCoupling) then
-      !          FGEOS(s,iJ,iK,L)=FluxBats_IIS(iK,iJ,s)*FFACTOR(S,NR,IK,L)
-      !        else
-      !          ! anisotropy coupling is pitch angle dependent.
-      !          FGEOS(s,iJ,iK,L)=FluxBats_anis(iK,L,iJ,s)*FFACTOR(S,NR,iK,L)
-      !        endif
-      !      end do
-      !    end do
-      !  end do
+      write(*,*) 'RAM_SCB: Getting flux from BATS-R-US'
+      do iK=1, nE
+        do iJ=1,nT
+          u = int(UPA(NR)-1,kind=4)
+          do L=2,u
+            !if (.not.DoAnisoPressureGMCoupling) then
+            FGEOS(s,iJ,iK,L)=FluxBats_IIS(iK,iJ,s)*FFACTOR(S,NR,IK,L)
+            !else
+            !  ! anisotropy coupling is pitch angle dependent.
+            !  FGEOS(s,iJ,iK,L)=FluxBats_anis(iK,L,iJ,s)*FFACTOR(S,NR,iK,L)
+            !endif
+          end do
+        end do
+      end do
       !else ! Open file if running stand alone.
       !  if (DoMultiBcsFile) then
       !    write(NameFluxFile, "(a,'/',a,'_',i1,'.swf')") trim(PathSwmfOut), ST7, S
