@@ -607,7 +607,7 @@ MODULE ModScbIO
     z(:,:,nzeta+1) = z(:,:,2)
 
     ! For outputing the magnetic field
-    call Write_MAGxyz
+    !call Write_MAGxyz
 
     SORFail = .false.
     call ComputeBandJacob

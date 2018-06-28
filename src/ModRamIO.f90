@@ -370,17 +370,18 @@ end subroutine read_geomlt_file
 !===========================================================================
   subroutine read_hI_file
      !!!! Module Variables
-     use ModRamMain,      ONLY: DP,PathScbIn
+     use ModRamMain,      ONLY: PathScbIn
      use ModRamTiming,    ONLY: TimeRamNow
      use ModRamParams,    ONLY: NameBoundMag, UseEfInd
      use ModRamGrids,     ONLY: NR, NT, NPA
      use ModRamVariables, ONLY: FNHS, FNIS, BOUNHS, BOUNIS, BNES, HDNS, dIdt, &
                                 dBdt, dIbndt, LZ, MU, PAbn, EIR, EIP
      !!!! Module Subroutines/Functions
-     use ModRamFunctions, ONLY: COSD, FUNT, FUNI
+     use ModRamFunctions, ONLY: FUNT, FUNI, COSD
      !!!! Share Modules
      use ModIoUnit,       ONLY: UNITTMP_
 
+     use nrtype, ONLY: DP, pi_d
      implicit none
 
      logical :: THERE
@@ -442,8 +443,8 @@ end subroutine read_geomlt_file
         DO L=1,NPA
            FNHS(1,J,L) = FUNT(MU(L))
            FNIS(1,J,L) = FUNI(MU(L))
-           BOUNHS(1,J,L)=FUNT(COSD(PAbn(L)))
-           BOUNIS(1,J,L)=FUNI(COSD(PAbn(L)))
+           BOUNHS(1,J,L)=FUNT(cosd(PAbn(L)))
+           BOUNIS(1,J,L)=FUNI(cosd(PAbn(L)))
            HDNS(1,J,L)=HDNS(2,J,L)
            dIdt(1,J,L)=0.
            dIbndt(1,J,L)=0.
@@ -846,7 +847,8 @@ subroutine ram_write_hI
   use ModRamMain,      ONLY: PathScbOut
   use ModRamGrids,     ONLY: nR, nT, nPA
   use ModRamTiming,    ONLY: TimeRamNow, TimeRamElapsed
-  use ModRamVariables, ONLY: LZ, MLT, FNHS, BOUNHS, FNIS, BOUNIS, BNES, HDNS
+  use ModRamVariables, ONLY: LZ, MLT, FNHS, BOUNHS, FNIS, BOUNIS, BNES, HDNS, &
+                             dIdt, dHdt, dBdt
 
   use ModIOUnit, ONLY: UNITTMP_
 
@@ -868,7 +870,8 @@ subroutine ram_write_hI
      DO j = 1, nT
         DO L = 1, NPA
            WRITE(UNITTMP_, *) LZ(i), MLT(j), L, FNHS(i,j,L), BOUNHS(i,j,L), &
-                FNIS(i,j,L), BOUNIS(i,j,L), BNES(i,j), HDNS(i,j,L)
+                FNIS(i,j,L), BOUNIS(i,j,L), BNES(i,j), HDNS(i,j,L), dIdt(i,j,L), &
+                dHdt(i,j,L), dBdt(i,j)
         END DO
      END DO
   END DO

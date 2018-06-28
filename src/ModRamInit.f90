@@ -30,11 +30,11 @@ MODULE ModRamInit
              PParHe(NR,NT), PAllSum(NR,NT), PParSum(NR,NT), PPerT(NS,NR,NT), &
              PParT(NS,NR,NT), FNHS(NR+1,NT,NPA), FNIS(NR+1,NT,NPA), BOUNHS(NR+1,NT,NPA), &
              BOUNIS(NR+1,NT,NPA), dIdt(NR+1,NT,NPA), dBdt(NR+1,NT), dIbndt(NR+1,NT,NPA), &
-             HDNS(NR+1,NT,NPA), BNES(NR+1,NT))
+             HDNS(NR+1,NT,NPA), BNES(NR+1,NT), dHdt(nR+1,nT,nPa))
     F2 = 0._dp; FLUX = 0._dp; PPerH = 0._dp; PParH = 0._dp; PPerE = 0._dp; PParE = 0._dp; PPerO = 0._dp
     PParO = 0._dp; PPerHe = 0._dp; PParHe = 0._dp; PAllSum = 0._dp; PParSum = 0._dp; PPerT = 0._dp
     PParT = 0._dp; FNHS = 0._dp; FNIS = 0._dp; BOUNHS = 0._dp; BOUNIS = 0._dp; dIdt = 0._dp
-    dBdt = 0._dp; dIbndt = 0._dp; HDNS = 0._dp; BNES = 0._dp
+    dBdt = 0._dp; dIbndt = 0._dp; HDNS = 0._dp; BNES = 0._dp; dHdt = 0._dp
    ! ModRamCouple and IM_wrapper Variables
     ALLOCATE(NAllSum(nR,nT), DensO(nR,nT), DensH(nR,nT), DensHe(nR,nT), HPAllSum(nR,nT), &
              OPAllSum(nR,nT), HePAllSum(nR,nT), ePAllSum(nR,nT), HNAllSum(nR,nT), &
@@ -96,7 +96,7 @@ MODULE ModRamInit
   ! Main RAM Variables
     DEALLOCATE(F2, FLUX,PPerH, PParH, PPerE, PParE, PPerO, PParO, PPerHe, PParHe, &
                PAllSum, PParSum, PPerT, PParT, FNHS, FNIS, BOUNHS, BOUNIS, dIdt, &
-               dBdt, dIbndt, HDNS, BNES)
+               dBdt, dIbndt, HDNS, BNES, dHdt)
   ! ModRamInit Variables
     DEALLOCATE(RMAS, V, VBND, GREL, GRBND, FACGR, EPP, ERNH, UPA, WE, DE, EKEV, &
                EBND, PHI, LT, MLT, MU, DMU, WMU, PAbn, LZ, RLZ, AMLA, BE, GridExtend, &
