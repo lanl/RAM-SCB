@@ -319,7 +319,6 @@ module ModRamFunctions
   !=============================================================================
   subroutine ram_sum_pressure
 
-    use ModRamMain,      ONLY: Real8_
     use ModRamVariables, ONLY: PAllSum, PParH, PPerH, PParO, PPerO, &
                                PParE, PPerE, PParHe, PPerHe, PParSum, &
                                NAllSum, HPAllSum, OPAllSum, HePAllSum, &
@@ -327,13 +326,18 @@ module ModRamFunctions
     use ModRamParams,    ONLY: DoAnisoPressureGMCoupling
     use ModRamGrids,     ONLY: NR, NT
     
+    use nrtype, ONLY: DP
 
     implicit none
     
-    real(kind=Real8_), parameter :: onethird=1.0/3.0, twothird=2.0/3.0
+    real(DP), parameter :: onethird=1.0/3.0, twothird=2.0/3.0
     integer :: i, j
     !------------------------------------------------------------------------
-    
+   
+    write(*,*) 'Number of Parallel Pressure grid cells for electrons < 0', count(PParE < 0.0_dp)
+    write(*,*) 'Number of Perpendicular Pressure grid cells for electrons < 0', count(PPerE < 0.0_dp)
+    where (PParE < 0._dp) PParE = 0._dp
+    where (PPerE < 0._dp) PPerE = 0._dp 
     do i=1, nR; do j=1, nT
        PAllSum(i,j) = &
             twothird * PPerO( i,j) + onethird * PParO( i,j) + &
