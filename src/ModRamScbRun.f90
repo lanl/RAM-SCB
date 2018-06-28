@@ -84,7 +84,6 @@ MODULE ModRamScbRun
          'Calling ram_run for UTs, DTs,Kp = ', UTs, Dts, Kp
     ! Call RAM for each species.
     if (DoUseRAM) call ram_run
-    FLUSH(6)
 
     ! Increment and update time
     TimeRamElapsed = TimeRamElapsed + 2.0 * DTs
@@ -106,14 +105,14 @@ MODULE ModRamScbRun
 
        call ram_sum_pressure
        call scb_run(nIter)
-       FLUSH(6)
+
        if ((SORFail).and.(Reset)) then
           if (verbose) print*, 'Error in SCB calculation, attempting a full reset'
           call computational_domain
           call scb_run(0)
           if (SORFail) hICalc = .false.
        endif
-       FLUSH(6)
+
 
        ! Couple SCB -> RAM
        if ((hICalc).and.(method.ne.3)) then ! Calculate full h's and I's if SCB was successful
@@ -124,7 +123,6 @@ MODULE ModRamScbRun
           dIbndt = 0._dp
        endif
        call compute3DFlux
-       FLUSH(6)
 
        call write_prefix
        write(*,*) 'Finished 3D Equilibrium code.'
@@ -137,7 +135,6 @@ MODULE ModRamScbRun
     call do_timing
     ! Check and write output, as necessary.
     call handle_output(TimeRamElapsed)
-    FLUSH(6)
 !!!!!!!
 
 !!!!!!! FINISH TIME STEP

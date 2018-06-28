@@ -329,7 +329,7 @@ MODULE ModRamInit
 
     DPHI=2.*PI/(NT-1)      ! Grid size for local time [rad]
     IF (MOD(NLT,NT-1).NE.0) THEN
-      WRITE(6,*) ' Error : NT-1 is not a factor of NLT '
+      WRITE(*,*) ' Error : NT-1 is not a factor of NLT '
       STOP
     END IF
 

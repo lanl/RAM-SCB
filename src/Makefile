@@ -112,12 +112,15 @@ OBJECTS = ${RAM_OBJECTS} ${SCB_OBJECTS} ${SCE_OBJECTS} ${EXT_OBJECTS} ${GSL_OBJE
 OBJECTS_EXE = Main.o
 
 DEPEND:
-	@${SCRIPTDIR}/depend.pl ${SEARCH} ${OBJECTS}
+	${SCRIPTDIR}/depend.pl ${SEARCH} ${OBJECTS}
 
 help: 
 	echo Help forthcoming.
 
-# Rules for cleaning: 
+# Rules for cleaning:
+clean:
+	rm -f *~ core *.o *.mod fort.* a.out *.exe *.a *.so *.protex
+
 distclean:
 	/bin/rm -f ../LibLocations.txt
 	/bin/rm -f core *.o *.mod
