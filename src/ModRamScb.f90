@@ -176,7 +176,7 @@ Module ModRamScb
 !==================================================================================================
   SUBROUTINE computehI(iter)
   
-    use ModRamVariables, ONLY: FNHS, FNIS, BNES, HDNS, dBdt, &
+    use ModRamVariables, ONLY: FNHS, FNIS, BNES, HDNS, dBdt, dHdt, &
                                dIdt, dIbndt, BOUNHS, BOUNIS, EIR, EIP, &
                                LZ, MU, MLT, PAbn, PA, DL1, outsideMGNP
     use ModRamTiming,    ONLY: TimeRamElapsed, TOld
@@ -193,7 +193,7 @@ Module ModRamScb
   
     use ModRamGSL,       ONLY: GSL_Interpolation_2D, GSL_Interpolation_1D, &
                                GSL_Integration_hI
-    use ModRamFunctions, ONLY: RamFileName, COSD, FUNT, FUNI
+    use ModRamFunctions, ONLY: RamFileName, FUNT, FUNI
     use ModScbFunctions, ONLY: extap, locate
     use ModScbIO,        ONLY: trace, PARMOD, IOPT
   
@@ -224,7 +224,7 @@ Module ModRamScb
                              yD_RAM(:), bbx(:), bby(:), bbz(:), bb(:), dd(:), &
                              cVal(:), xx(:), yy(:), zz(:)
     REAL(DP), ALLOCATABLE :: BzeqDiff_Cart(:,:), BNESPrev(:,:)
-    REAL(DP), ALLOCATABLE :: FNISPrev(:,:,:), BOUNISPrev(:,:,:)
+    REAL(DP), ALLOCATABLE :: FNISPrev(:,:,:), BOUNISPrev(:,:,:), FNHSPrev(:,:,:)
     REAL(DP) :: scalingI, scalingH, scalingD, I_Temp, H_Temp, D_Temp
   
     ! Variables for Tracing
@@ -258,13 +258,13 @@ Module ModRamScb
              xx(nthe), yy(nthe), zz(nthe))
     ALLOCATE(BzeqDiff_Cart(nR,nT))
     ALLOCATE(BNESPrev(nR+1,nT))
-    ALLOCATE(FNISPrev(nR+1,nT,nPa),BOUNISPrev(nR+1,nT,nPa))
+    ALLOCATE(FNHSPrev(nR+1,nT,nPa),FNISPrev(nR+1,nT,nPa),BOUNISPrev(nR+1,nT,nPa))
     length = 0._dp; r0 = 0._dp; BEqDip = 0._dp; distance = 0._dp
     H_value = 0._dp; I_value = 0._dp; HDens_Value = 0._dp; yI = 0._dp; yH = 0._dp; yD = 0._dp
     bfMirror = 0._dp; BEqDip_Cart = 0._dp; bfMirror_RAM = 0._dp; yI_RAM = 0._dp
     yH_RAM = 0._dp; yD_RAM = 0._dp; bbx = 0._dp; bby = 0._dp; bbz = 0._dp; bb = 0._dp
     dd = 0._dp; cVal = 0._dp; xx = 0._dp; yy = 0._dp; zz = 0._dp; BzEqDiff_Cart = 0._dp
-    BNESPrev = 0._dp; FNISPrev = 0._dp; BOUNISPrev = 0._dp
+    BNESPrev = 0._dp; FNISPrev = 0._dp; BOUNISPrev = 0._dp; FNHSPrev = 0._dp
     ScaleAt = 0
     !!!
 
@@ -360,7 +360,6 @@ Module ModRamScb
        IF (MINVAL(h_Cart) < 0._dp .OR. MINVAL(I_Cart)<0._dp) THEN
           if (verbose) PRINT*, 'computehI: minval(h) = ', MINVAL(h_Cart)
           if (verbose) PRINT*, 'computehI: minval(I) = ', MINVAL(I_Cart)
-          !   STOP
        END IF
   
     CASE default  ! Regular calculation of h, I, bounce-averaged charge xchange etc.
@@ -680,6 +679,7 @@ Module ModRamScb
           BNESPrev(I,J)=BNES(I,J)
           DO L=1,NPA
              FNISPrev(I,J,L)=FNIS(I,J,L)
+             FNHSPrev(I,J,L)=FNHS(I,J,L)
              BOUNISPrev(I,J,L)=BOUNIS(I,J,L)
              ! SCB Variables -> RAM Variables
              FNHS(I,J,L)   = h_Cart(I-1,J,L)
@@ -691,11 +691,27 @@ Module ModRamScb
              !
              if (abs(DthI).le.1e-9) then
                 dIdt(I,J,L)   = 0._dp
+                dHdt(I,J,L)   = 0._dp
                 dIbndt(I,J,L) = 0._dp
              else
                 dIdt(I,J,L)   = (FNIS(I,J,L)-FNISPrev(I,J,L))/DThI
+                dHdt(I,J,L)   = (FNHS(I,J,L)-FNHSPrev(I,J,L))/DThI
                 dIbndt(I,J,L) = (BOUNIS(I,J,L)-BOUNISPrev(I,J,L))/DThI
              endif
+! TEST -ME
+if (abs(dIdt(I,J,L)) > 1.e-5) then
+   dIdt(I,J,L) = 1.e-5 * (abs(dIdt(I,J,L))/dIdt(I,J,L))
+   FNIS(I,J,L) = FNISPrev(I,J,L) + dIdt(I,J,L)*dThI
+endif
+if (abs(dHdt(I,J,L)) > 1.e-5) then
+   dHdt(I,J,L) = 1.e-5 * (abs(dHdt(I,J,L))/dHdt(I,J,L))
+   FNHS(I,J,L) = FNHSPrev(I,J,L) + dHdt(I,J,L)*dThI
+endif
+if (abs(dIbndt(I,J,L)) > 1.e-5) then
+   dIbndt(I,J,L) = 1.e-5 * (abs(dIbndt(I,J,L))/dIbndt(I,J,L))
+   BOUNIS(I,J,L) = BOUNISPrev(I,J,L) + dIbndt(I,J,L)*dThI
+endif
+!
           ENDDO
           IF (J.LT.8.or.J.GT.18) THEN
              DO L=15,2,-1
@@ -720,10 +736,11 @@ Module ModRamScb
        DO L=1,NPA
           FNHS(1,J,L) = FUNT(MU(L))
           FNIS(1,J,L) = FUNI(MU(L))
-          BOUNHS(1,J,L)=FUNT(COSD(PAbn(L)))
-          BOUNIS(1,J,L)=FUNI(COSD(PAbn(L)))
+          BOUNHS(1,J,L)=FUNT(cos(PAbn(L)*180.0/pi_d))
+          BOUNIS(1,J,L)=FUNI(cos(PAbn(L)*180.0/pi_d))
           HDNS(1,J,L)=HDNS(2,J,L)
           dIdt(1,J,L)=0._dp
+          dHdt(1,J,L)=0._dp
           dIbndt(1,J,L)=0._dp
        ENDDO
     ENDDO
@@ -732,7 +749,7 @@ Module ModRamScb
     DEALLOCATE(length,r0,BeqDip,distance,H_value,I_value,HDens_value,yI,yH,yD, &
                bfmirror,BeqDip_Cart,bfMirror_RAM,yI_RAM,yH_RAM,yD_RAM,bbx,bby, &
                bbz,bb,dd,cVal,xx,yy,zz,BzeqDiff_Cart,BNESPrev,FNISPrev,ScaleAt,&
-               BOUNISPrev)
+               BOUNISPrev,FNHSPrev)
   
     RETURN
   

@@ -24,7 +24,7 @@ Module ModRamVariables
                            PPerE(:,:), PParE(:,:), PAllSum(:,:), PParSum(:,:), &
                            PPerT(:,:,:), PParT(:,:,:), dIdt(:,:,:), dIbndt(:,:,:), &
                            HDNS(:,:,:), FNHS(:,:,:), FNIS(:,:,:), BOUNHS(:,:,:), &
-                           BOUNIS(:,:,:), BNES(:,:), dBdt(:,:)
+                           BOUNIS(:,:,:), BNES(:,:), dBdt(:,:), dHdt(:,:,:)
   real(DP), ALLOCATABLE :: NAllSum(:,:), DensO(:,:), DensH(:,:), DensHe(:,:), HPAllSum(:,:), &
                            OPAllSum(:,:), HePAllSum(:,:), ePAllSum(:,:), HNAllSum(:,:), &
                            ONAllSum(:,:), HeNAllSum(:,:)
