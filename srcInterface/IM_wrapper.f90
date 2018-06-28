@@ -265,7 +265,7 @@ module IM_wrapper
     real,    intent(in) :: BufferLine_VI(nVarLineIn,nPointLineIn)
     character(len=*), intent(in) :: NameVar
     
-    integer           :: iR, iT, iDir, n
+    integer           :: iT, iDir, n, iLine
     real(kind=Real8_) :: rotate_VII(3,nT,4)
     logical, save     :: IsFirstCall = .true.
     
@@ -301,15 +301,6 @@ module IM_wrapper
     
     ! On first call, set run-specific information.
     if (IsFirstCall) then
-       ! Create index array that converts radial  and local time index to
-       ! line index.  This is used for easily searching for a line in our
-       ! large tracing arrays.
-       n = 0
-       do iT = 1, nT; do iR = 1, nRextend; do iDir = 1, 2
-          n = n+1
-          iLine_III(iDir,iR,iT) = n
-       end do; end do; end do
-       
        ! These are used for building Euler potential surfaces:
        nRadSWMF = nRextend
        nLonSWMF = nT
@@ -381,66 +372,58 @@ module IM_wrapper
     end if
     
     call sort_mhd_lines(nVarLine, nPointLine, BufferLine_VI)
-    
-    ! Extract BATS plasma density and pressure at the outer boundary.
-    ! Need values at first outer ghost cell.
-    iR = nR+2; iT=1  ! Assumes 2 ghost cells: 1 inner, 1 outer.  Careful!
-    do iPoint = 1, nPointLine
-       ! Search for first point in line that matches
-       ! the line index for our current rad/lon pair:
-       if (BufferLine_VI(1,iPoint) .lt. iLine_III(1,iR+1,iT)) cycle
+
+    ! Extract UxB electric field across the equatorial plane.
+    ! Extract MHD density and pressure at the outer ghost cell of RAM-SCB
+    ! This is at index nR+2 (one inner ghost cell, one outer ghost cell.
+    do iT=1, nT
+       ! Get the number of the field line trace passing through the
+       ! RAM-SCB ghost cell center:
+       iLine = 2*(nRextend*(iT-1)+nR+2) - 1 ! Northern hemi trace.
+
+       ! Write some debug info to screen:
+       if(DoTest) write(*,'(a,1x,i2.2,1x,i4.4,4(2x,f6.3))') &
+            "iT, iLine, X, Y, Z, R = ", iT, iLine, &
+            MhdLines_IIV(iLine, 1, 5), &
+            MhdLines_IIV(iLine, 1, 4), &
+            MhdLines_IIV(iLine, 1, 3), &
+            sqrt( MhdLines_IIV(iLine, 1, 5)**2   &
+            +     MhdLines_IIV(iLine, 1, 4)**2   &
+            +     MhdLines_IIV(iLine, 1, 3)**2)
        
-       if(DoTest) write(*,'(a,1x,i2.2,1x,i4.4,1x,f5.0,1x, f5.3)') &
-            "iT, lineExpected, LineFound, R = ", &
-            iT, iLine_III(1,iR+1,iT), BufferLine_VI(1,iPoint), &
-            sqrt(BufferLine_VI(5,iPoint)**2 + BufferLine_VI(4,iPoint)**2 &
-            + BufferLine_VI(3,iPoint)**2)/ 6378100.0
-       
-       if(iLine_III(1,iR+1,iT) .ne. BufferLine_VI(1,iPoint)) then
-          write(*,*) "ERROR: Expected and actual line numbers don't match!"
-          write(*,*) "Expected, Actual = ", &
-               iLine_III(1,iR,iT), BufferLine_VI(1,iPoint)
-          write(*,*) "Likely cause is open field lines in IM domain."
-          call CON_stop('IM_put_from_gm_line')
-       endif
-       
-       ! Grab total dens and pressure
-       MhdDensPres_VII(1,iT,1) = BufferLine_VI(TotalRho_ , iPoint)
-       MhdDensPres_VII(2,iT,1) = BufferLine_VI(TotalPres_, iPoint)
-       PMhdGhost = BufferLine_VI(TotalPres_, iPoint)
+       ! Grab total dens and pressure, use first point in trace.
+       MhdDensPres_VII(1,iT,1) = MhdLines_IIV(iLine, 1, TotalRho_)
+       MhdDensPres_VII(2,iT,1) = MhdLines_IIV(iLine, 1, TotalPres_)
        
        if (TypeMhd .eq. 'anisoP')then
           ! anisotropic pressure from GM                           
-          MhdDensPres_VII(3,iT,1) = BufferLIne_VI(Ppar_,iPoint)
+          MhdDensPres_VII(3,iT,1) = MhdLines_IIV(iLine, 1, Ppar_)
        end if
        
        if (TypeMhd .ne. 'single') then
-          MhdDensPres_VII(1,iT,2) = BufferLine_VI(RhoH_ ,  iPoint)
-          MhdDensPres_VII(1,iT,4) = BufferLine_VI(RhoO_ ,  iPoint)
+          MhdDensPres_VII(1,iT,2) = MhdLines_IIV(iLine, 1, RhoH_)
+          MhdDensPres_VII(1,iT,4) = MhdLines_IIV(iLine, 1, RhoO_)
           ! Only MultiS has He; only Mult3F has Sw H+.
           ! Store it in Helium's slot.
           if (TypeMhd .eq. 'mult3F') then
-             MhdDensPres_VII(1,iT,3) = BufferLine_VI(RhoSw_ , iPoint)
+             MhdDensPres_VII(1,iT,3) = MhdLines_IIV(iLine, 1, RhoSw_)
           else
-             MhdDensPres_VII(1,iT,3) = BufferLine_VI(RhoHe_ , iPoint)
+             MhdDensPres_VII(1,iT,3) = MhdLines_IIV(iLine, 1, RhoHe_)
           end if
        end if
        
        if (TypeMhd .eq. 'multiF') then
-          MhdDensPres_VII(2,iT,2) = BufferLine_VI(PresH_,  iPoint)
-          MhdDensPres_VII(2,iT,3) = BufferLine_VI(PresHe_, iPoint)
-          MhdDensPres_VII(2,iT,4) = BufferLine_VI(PresO_,  iPoint)
+          MhdDensPres_VII(2,iT,2) = MhdLines_IIV(iLine, 1, PresH_)
+          MhdDensPres_VII(2,iT,3) = MhdLines_IIV(iLine, 1, PresHe_)
+          MhdDensPres_VII(2,iT,4) = MhdLines_IIV(iLine, 1, PresO_)
        end if
        if (TypeMhd .eq. 'mult3F') then
-          MhdDensPres_VII(2,iT,2) = BufferLine_VI(PresH_ , iPoint)
-          MhdDensPres_VII(2,iT,3) = BufferLine_VI(PresSw_, iPoint)
-          MhdDensPres_VII(2,iT,4) = BufferLine_VI(PresO_ , iPoint)
+          MhdDensPres_VII(2,iT,2) = MhdLines_IIV(iLine, 1, PresH_ )
+          MhdDensPres_VII(2,iT,3) = MhdLines_IIV(iLine, 1, PresSw_)
+          MhdDensPres_VII(2,iT,4) = MhdLines_IIV(iLine, 1, PresO_ )
        end if
-       
-       iT = iT + 1 ! Cycle to next logitude.
-       if (iT .gt. nT) exit
     end do
-    
+
     ! Rotate the local time coordinates by 12 Hours.
     do iT=1, nT
        n = mod(iT+12-1,24)+1
@@ -499,8 +482,7 @@ module IM_wrapper
     use ModRamVariables, ONLY: PAllSum, HPAllSum, OPAllSum, PparSum, &
          NAllSum, HNAllSum, ONAllSum, BNES
     use ModRamTiming,    ONLY: TimeRamNow
-    use ModRamCouple,    ONLY: IonoMap_DSII, MhdDensPres_VII, PMhdGhost, &
-         DoMultiFluidGMCoupling
+    use ModRamCouple,    ONLY: IonoMap_DSII, MhdDensPres_VII, DoMultiFluidGMCoupling
     use ModIoUnit,       ONLY: UNITTMP_
     use ModRamFunctions, ONLY: ram_sum_pressure
     implicit none
@@ -527,6 +509,9 @@ module IM_wrapper
        write(*,*) 'iSizeIn, jSizeIn = ', iSizeIn, jSizeIn
        call CON_stop(NameSub//' ERROR: mismatched array sizes!')
     endif
+
+    ! Initialize all values to -1; MHD will not couple negative values.
+    Buffer_IIV=-1
     
     DoMultiFluidGMCoupling = .false.
     DoAnisoPressureGMCoupling = .false.
