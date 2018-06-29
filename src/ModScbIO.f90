@@ -101,12 +101,12 @@ MODULE ModScbIO
        if (.not.IsComponent) then
           CALL CON_Stop('SWMF Magnetic Boundary currently does not work unless RAM-SCB is being run in SWMF')
        endif
-       do j = 1, nT
+       do j = 1, nT-1
           if (IsClosed_II(nRExtend,j)) then
-             x0 = BLines_DIII(1,nRExtend,j,1)
-             y0 = BLines_DIII(2,nRExtend,j,1)
-             z0 = BLines_DIII(3,nRExtend,j,1)
-             psitemp = 1./(1.-z0**2/(x0**2+y0**2+z0**2))
+             xf = BLines_DIII(1,nRExtend,j,1)
+             yf = BLines_DIII(2,nRExtend,j,1)
+             zf = BLines_DIII(3,nRExtend,j,1)
+             psitemp = 1./(1.-zf**2/(xf**2+yf**2+zf**2))
           else
              psitemp = -1
           endif
@@ -114,7 +114,7 @@ MODULE ModScbIO
           y0 = BLines_DIII(2,nR,j,1)
           z0 = BLines_DIII(3,nR,j,1)
           xpsiout = 1./(1.-z0**2/(x0**2+y0**2+z0**2))
-          write(*,*)  'MLT, xpsiout (nRExtend), xpsiout(nR) = ', MLT(j), psitemp, xpsiout
+          write(*,*)  'MLT, xpsiout(nRExtend), xpsiout(nR) = ', MLT(j), psitemp, xf, yf, zf, xpsiout, x0, y0, z0
        enddo
     else
        ! For generating x, y, and z arrays using field line tracing
