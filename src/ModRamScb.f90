@@ -224,7 +224,8 @@ Module ModRamScb
                              yD_RAM(:), bbx(:), bby(:), bbz(:), bb(:), dd(:), &
                              cVal(:), xx(:), yy(:), zz(:)
     REAL(DP), ALLOCATABLE :: BzeqDiff_Cart(:,:), BNESPrev(:,:)
-    REAL(DP), ALLOCATABLE :: FNISPrev(:,:,:), BOUNISPrev(:,:,:), FNHSPrev(:,:,:)
+    REAL(DP), ALLOCATABLE :: FNISPrev(:,:,:), BOUNISPrev(:,:,:), FNHSPrev(:,:,:), &
+                             BOUNHSPrev(:,:,:), dHbndt(:,:,:)
     REAL(DP) :: scalingI, scalingH, scalingD, I_Temp, H_Temp, D_Temp
   
     ! Variables for Tracing
@@ -258,7 +259,8 @@ Module ModRamScb
              xx(nthe), yy(nthe), zz(nthe))
     ALLOCATE(BzeqDiff_Cart(nR,nT))
     ALLOCATE(BNESPrev(nR+1,nT))
-    ALLOCATE(FNHSPrev(nR+1,nT,nPa),FNISPrev(nR+1,nT,nPa),BOUNISPrev(nR+1,nT,nPa))
+    ALLOCATE(FNHSPrev(nR+1,nT,nPa),FNISPrev(nR+1,nT,nPa),BOUNISPrev(nR+1,nT,nPa), &
+             BOUNHSPrev(nR+1,nT,nPa), dHbndt(nR+1,nT,nPa))
     length = 0._dp; r0 = 0._dp; BEqDip = 0._dp; distance = 0._dp
     H_value = 0._dp; I_value = 0._dp; HDens_Value = 0._dp; yI = 0._dp; yH = 0._dp; yD = 0._dp
     bfMirror = 0._dp; BEqDip_Cart = 0._dp; bfMirror_RAM = 0._dp; yI_RAM = 0._dp
@@ -681,6 +683,7 @@ Module ModRamScb
              FNISPrev(I,J,L)=FNIS(I,J,L)
              FNHSPrev(I,J,L)=FNHS(I,J,L)
              BOUNISPrev(I,J,L)=BOUNIS(I,J,L)
+             BOUNHSPrev(I,J,L)=BOUNHS(I,J,L)
              ! SCB Variables -> RAM Variables
              FNHS(I,J,L)   = h_Cart(I-1,J,L)
              FNIS(I,J,L)   = i_Cart(I-1,J,L)
@@ -693,25 +696,14 @@ Module ModRamScb
                 dIdt(I,J,L)   = 0._dp
                 dHdt(I,J,L)   = 0._dp
                 dIbndt(I,J,L) = 0._dp
+                dHbndt(I,J,L) = 0._dp
              else
                 dIdt(I,J,L)   = (FNIS(I,J,L)-FNISPrev(I,J,L))/DThI
                 dHdt(I,J,L)   = (FNHS(I,J,L)-FNHSPrev(I,J,L))/DThI
                 dIbndt(I,J,L) = (BOUNIS(I,J,L)-BOUNISPrev(I,J,L))/DThI
+                dHbndt(I,J,L) = (BOUNHS(I,J,L)-BOUNHSPrev(I,J,L))/DthI
              endif
-! TEST -ME
-if (abs(dIdt(I,J,L)) > 1.e-5) then
-   dIdt(I,J,L) = 1.e-5 * (abs(dIdt(I,J,L))/dIdt(I,J,L))
-   FNIS(I,J,L) = FNISPrev(I,J,L) + dIdt(I,J,L)*dThI
-endif
-if (abs(dHdt(I,J,L)) > 1.e-5) then
-   dHdt(I,J,L) = 1.e-5 * (abs(dHdt(I,J,L))/dHdt(I,J,L))
-   FNHS(I,J,L) = FNHSPrev(I,J,L) + dHdt(I,J,L)*dThI
-endif
-if (abs(dIbndt(I,J,L)) > 1.e-5) then
-   dIbndt(I,J,L) = 1.e-5 * (abs(dIbndt(I,J,L))/dIbndt(I,J,L))
-   BOUNIS(I,J,L) = BOUNISPrev(I,J,L) + dIbndt(I,J,L)*dThI
-endif
-!
+             !
           ENDDO
           IF (J.LT.8.or.J.GT.18) THEN
              DO L=15,2,-1
@@ -746,10 +738,50 @@ endif
     ENDDO
     TOld = TimeRamElapsed
 
+    do i = 2, nR
+       do j = 1, nT
+          do L = 1, nPa
+             ! TEST -ME
+             if (abs(dIdt(I,J,L)) > 1.e-5) then
+                if (J.eq.1) then
+                   if (abs(dIdt(I,nT,L)) > 1.e-5) then
+                      dIdt(I,J,L) = 1.e-5 * (abs(dIdt(I,J,L))/dIdt(I,J,L))
+                      dIbndt(I,J,L) = 1.e-5 * (abs(dIbndt(I,J,L))/dIbndt(I,J,L))
+                   else
+                      dIdt(I,J,L) = dIdt(I,nT,L)
+                      dIbndt(I,J,L) = dIbndt(I,nT,L)
+                   endif
+                else
+                   dIdt(I,J,L) = dIdt(I,J-1,L)
+                   dIbndt(I,J,L) = dIbndt(I,J-1,L)
+                endif
+                FNIS(I,J,L) = FNISPrev(I,J,L) + dIdt(I,J,L)*dThI
+                BOUNIS(I,J,L) = BOUNISPrev(I,J,L) + dIbndt(I,J,L)*dThI
+             endif
+             if (abs(dHdt(I,J,L)) > 1.e-5) then
+                if (j.eq.1) then
+                   if (abs(dHdt(I,nT,L)) > 1.e-5) then
+                      dHdt(I,J,L) = 1.e-5 * (abs(dHdt(I,J,L))/dHdt(I,J,L))
+                      dHbndt(I,J,L) = 1.e-5 * (abs(dHbndt(I,J,L))/dHbndt(I,J,L))
+                   else
+                      dHdt(I,J,L) = dHdt(I,nT,L)
+                      dHbndt(I,J,L) = dHbndt(I,nT,L)
+                   endif
+                else
+                   dHdt(I,J,L) = dHdt(I,J-1,L)
+                   dHbndt(I,J,L) = dHbndt(I,J-1,L)
+                endif
+                FNHS(I,J,L) = FNHSPrev(I,J,L) + dHdt(I,J,L)*dThI
+                BOUNHS(I,J,L) = BOUNHSPrev(I,J,L) + dHbndt(I,J,L)*dThI
+             endif
+          enddo
+       enddo
+    enddo
+
     DEALLOCATE(length,r0,BeqDip,distance,H_value,I_value,HDens_value,yI,yH,yD, &
                bfmirror,BeqDip_Cart,bfMirror_RAM,yI_RAM,yH_RAM,yD_RAM,bbx,bby, &
                bbz,bb,dd,cVal,xx,yy,zz,BzeqDiff_Cart,BNESPrev,FNISPrev,ScaleAt,&
-               BOUNISPrev,FNHSPrev)
+               BOUNISPrev,FNHSPrev,BOUNHSPrev,dHbndt)
   
     RETURN
   
