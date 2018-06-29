@@ -93,7 +93,6 @@ module IM_wrapper
     character (len=*), parameter :: NameSub='IM_set_grid'
     logical :: IsInitialized=.false.
     logical :: DoTest, DoTestMe
-    real    :: RadMaxFull
     integer :: i, j, iS
     !--------------------------------------------------------------------------
     call CON_set_do_test(NameSub, DoTest, DoTestMe)
@@ -102,8 +101,6 @@ module IM_wrapper
     if(IsInitialized) return
 
     IsInitialized = .true.
-    
-    RadMaxFull = RadiusMin + nRextend*dR
     
     ! IM grid: the equatorial grid is described by Coord1_I and Coord2_I
     ! Occasional +0.0 is used to convert from single to double precision
@@ -116,7 +113,7 @@ module IM_wrapper
             nRootBlock_D = (/1,1/),             & ! number of blocks
             nCell_D  =(/nRextend, nT/),         & ! size of equatorial grid
             XyzMin_D =(/RadiusMin+0.0,0.0/),    & ! min coordinates
-            XyzMax_D =(/RadMaxFull,cTwoPi/),    & ! max coordinates+radial ghost
+            XyzMax_D =(/GridExtend(nRextend),cTwoPi/), & ! max coordinates+radial ghost
             Coord1_I = GridExtend+0.0,          & ! radial coordinates
             Coord2_I = Phi(1:nT)+0.0,           & ! longitudinal coordinates
             TypeCoord= 'SMG',                   & ! solar magnetic coord
@@ -131,8 +128,8 @@ module IM_wrapper
             nRootBlock_D = (/1,1/),             & ! number of blocks
             nCell_D  =(/nRextend, nT/),         & ! size of equatorial grid
             XyzMin_D =(/RadiusMin+0.0,0.0/),    & ! min coordinates
-            XyzMax_D =(/RadMaxFull,cTwoPi/),    & ! max coordinates+radial ghost
-            Coord1_I =(/RadiusMin, RadMaxFull/),& ! radial coordinates
+            XyzMax_D =(/6.5,cTwoPi/),           & ! max coordinates+radial ghost
+            Coord1_I =(/RadiusMin, RadiusMax/), & ! radial coordinates
             Coord2_I =(/0.0, cTwoPi/),          & ! longitudinal coordinates
             TypeCoord='SMG',                    & ! solar magnetic coord
             nVar=7,                             & ! Number of "fluid" vars.
@@ -143,9 +140,13 @@ module IM_wrapper
     if(DoTestMe)then
        write(*,*)NameSub,' Setting RAM-SCB grid characteristics.'
        write(*,*)NameSub,' Are we on an IM proc?  ', is_proc(IM_)
+    end if
+    if(DoTestMe .and. is_proc(IM_)) then
        write(*,*)NameSub,' NR =              ', NR
        write(*,*)NameSub,' NR + Ghostcells = ', nRextend
        write(*,*)NameSub,' NT =              ', NT
+       write(*,*)NameSub,' Phi grid = ', 360.*Phi/cTwoPi
+       write(*,*)NameSub,' Rad grid = ', GridExtend
     end if
     
   end subroutine IM_set_grid
@@ -270,7 +271,7 @@ module IM_wrapper
        nVarLineIn, nPointLineIn, BufferLine_VI, NameVar)
     
     use ModRamMain,   ONLY: Real8_, PathRamOut
-    use ModRamGrids,  ONLY: nR, nT, RadiusMin, RadiusMax, nRextend
+    use ModRamGrids,  ONLY: nR, nT, RadiusMin, RadiusMax, RadMaxScb, nRextend
     use ModRamTiming, ONLY: TimeRamElapsed
     use ModNumConst,  ONLY: cRadToDeg
     use ModIoUnit,    ONLY: UnitTmp_
@@ -285,7 +286,7 @@ module IM_wrapper
     real,    intent(in) :: BufferLine_VI(nVarLineIn,nPointLineIn)
     character(len=*), intent(in) :: NameVar
     
-    integer           :: iT, iDir, n, iLine
+    integer           :: iT, iR, iDir, iRot, iLine
     real(kind=Real8_) :: rotate_VII(3,nT,4)
     logical, save     :: IsFirstCall = .true.
     
@@ -375,7 +376,7 @@ module IM_wrapper
             TimeIn       = TimeRamElapsed+0.0, &
             NameVarIn    = 'r Lon rIono ThetaIono PhiIono', &
             CoordMinIn_D = (/RadiusMin+0.0,   0.0/), &
-            CoordMaxIn_D = (/RadiusMax+0.0, 360.0/), &
+            CoordMaxIn_D = (/RadMaxScb+0.0, 360.0/), &
             VarIn_VII    = Map_DSII(:,1,:,:))
        
        write(NameFile,'(a,i5.5,a)') &
@@ -387,19 +388,18 @@ module IM_wrapper
             TimeIn       = TimeRamElapsed+0.0, &
             NameVarIn    = 'r Lon rIono ThetaIono PhiIono', &
             CoordMinIn_D = (/RadiusMin+0.0,   0.0/), &
-            CoordMaxIn_D = (/RadiusMax+0.0, 360.0/), &
+            CoordMaxIn_D = (/RadMaxScb+0.0, 360.0/), &
             VarIn_VII    = Map_DSII(:,2,:,:))
     end if
     
     call sort_mhd_lines(nVarLine, nPointLine, BufferLine_VI)
 
-    ! Extract UxB electric field across the equatorial plane.
     ! Extract MHD density and pressure at the outer ghost cell of RAM-SCB
-    ! This is at index nR+2 (one inner ghost cell, one outer ghost cell.
+    ! This is at index nR+1 (one outer ghost cell).
     do iT=1, nT
        ! Get the number of the field line trace passing through the
        ! RAM-SCB ghost cell center:
-       iLine = 2*(nRextend*(iT-1)+nR+2) - 1 ! Northern hemi trace.
+       iLine = 2*(nRextend*(iT-1)+nR+1) - 1 ! Northern hemi trace.
 
        ! Write some debug info to screen:
        if(DoTest) write(*,'(a,1x,i2.2,1x,i4.4,4(2x,f6.3))') &
@@ -446,8 +446,8 @@ module IM_wrapper
 
     ! Rotate the local time coordinates by 12 Hours.
     do iT=1, nT
-       n = mod(iT+((nT-1)/2-1),nT-1) + 1 ! Even # of cells, 1 ghost cell.
-       rotate_VII(:,iT,:) = MhdDensPres_VII(:,n,:)
+       iRot = mod(iT+((nT-1)/2-1),nT-1) + 1 ! Even # of cells, 1 ghost cell.
+       rotate_VII(:,iT,:) = MhdDensPres_VII(:,iRot,:)
     end do
     MhdDensPres_VII = rotate_VII
     
@@ -459,16 +459,45 @@ module IM_wrapper
     ! Call routine that converts density/pressure into flux.
     call generate_flux
     
+    ! DEPRECIATED: This info no longer saved.
     ! Map_DSII will be used for mapping the pressure to the ionosphere
     ! so that BATS can use it as if it were RCM pressure.
     ! Start here by converting from colat/radiats to lat/degrees.
     ! Rotate the local time coordinates by 12 Hours.
-    do iT=1, nT
-       n = mod(iT+((nT-1)/2-1),nT-1) + 1 ! Even # of cells, 1 ghost cell.
-       IonoMap_DSII(:,:,:,iT) = Map_DSII(:,:,:,n)
+    !do iT=1, nT
+    !   n = mod(iT+((nT-1)/2-1),nT-1) + 1 ! Even # of cells, 1 ghost cell.
+    !   IonoMap_DSII(:,:,:,iT) = Map_DSII(:,:,:,n)
+    !end do
+    !IonoMap_DSII(2,:,:,:) = 90.0 - cRadtoDeg * IonoMap_DSII(2,:,:,:)
+    !IonoMap_DSII(3,:,:,:) =        cRadtoDeg * IonoMap_DSII(3,:,:,:)
+
+
+    ! Sort lines one more time- this time for use by SCB.
+    do iT=1, nT-1
+       do iR=1, nRextend
+          ! Get the index that rotates in longitude 180 degrees.
+          iRot = mod(iT+((nT-1)/2-1),nT-1) + 1 ! Even # of cells, 1 ghost cell.
+          
+          ! Check if the line is open:
+          if((Map_DSII(1,1,iR,iT)/=1.).or.(Map_DSII(1,2,iR,iT)/=1.))then
+             IsClosed_II(iR,iT) = .false.
+             cycle
+          end if
+
+          ! Fill points from northern hemisphere:
+          iLine = 2*(nRextend*(iT-1)+iR) - 1          
+          Blines_DIII(1,iR,iRot,nPointsMax:) = MhdLines_IIV(iLine,:,3) !X
+          Blines_DIII(2,iR,iRot,nPointsMax:) = MhdLines_IIV(iLine,:,4) !Y
+          Blines_DIII(3,iR,iRot,nPointsMax:) = MhdLines_IIV(iLine,:,5) !Z
+
+          ! Fill points from southern hemisphere:
+          iLine = 2*(nRextend*(iT-1)+iR)          
+          Blines_DIII(1,iR,iRot,:nPointsMax-1) = MhdLines_IIV(iLine,nPointsMax-1:1:-1,3) !X
+          Blines_DIII(2,iR,iRot,:nPointsMax-1) = MhdLines_IIV(iLine,nPointsMax-1:1:-1,4) !Y
+          Blines_DIII(3,iR,iRot,:nPointsMax-1) = MhdLines_IIV(iLine,nPointsMax-1:1:-1,5) !Z
+          
+       end do
     end do
-    IonoMap_DSII(2,:,:,:) = 90.0 - cRadtoDeg * IonoMap_DSII(2,:,:,:)
-    IonoMaP_DSII(3,:,:,:) =        cRadtoDeg * IonoMap_DSII(3,:,:,:)
     
     
   end subroutine IM_put_from_gm_line
@@ -502,7 +531,7 @@ module IM_wrapper
     use ModRamVariables, ONLY: PAllSum, HPAllSum, OPAllSum, PparSum, &
          NAllSum, HNAllSum, ONAllSum, BNES
     use ModRamTiming,    ONLY: TimeRamNow
-    use ModRamCouple,    ONLY: IonoMap_DSII, MhdDensPres_VII, DoMultiFluidGMCoupling
+    use ModRamCouple,    ONLY: MhdDensPres_VII, DoMultiFluidGMCoupling
     use ModIoUnit,       ONLY: UNITTMP_
     use ModRamFunctions, ONLY: ram_sum_pressure
     implicit none
@@ -522,6 +551,12 @@ module IM_wrapper
     
     !--------------------------------------------------------------------------
     call CON_set_do_test(NameSub, DoTest, DoTestMe)
+
+    ! Note that the coupler asks for values out to nRextend, or the
+    ! radial extent of SCB.  The radial extent of RAM is nR which is <nRextend.
+    ! We fill pressure values up to nR and leave the outer cells as negative
+    ! values.  BATS will not couple negative values.
+    
     ! Check to ensure that what we get is what GM wants.
     ! Include RAM's ghost cells for continuity with incoming coupling.
     if ( (iSizeIn .ne. nRextend) .or. (jSizeIn .ne. nT) ) then

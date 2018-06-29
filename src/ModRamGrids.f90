@@ -24,7 +24,7 @@ Module ModRamGrids
   
   
   ! For B coupling, we must request additional ghostcells.
-  integer :: nRextend! = NR+3
+  integer :: nRextend ! = NR+3
   
   integer :: Slen = 55, &
              ENG  = 45, &
@@ -32,8 +32,9 @@ Module ModRamGrids
              NCO  = 5
   
   real(DP), parameter :: RadiusMin = 1.75, & ! Min radius for RAM grid
-                         RadiusMax = 6.5, &  ! Max radius for RAM Grid
-                         RadOut = 6.75       ! Extended RAM grid for SCB use
+                         RadiusMax = 6.5,  & ! Max radius for RAM Grid
+                         RadOut    = 6.75, & ! SCB CANDIDATE FOR REMOVAL
+                         RadMaxScb = 9.00    ! Extended RAM grid for SCB use
   
   real(DP) :: EnergyMin = 0.1
   

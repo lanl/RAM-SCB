@@ -8,7 +8,7 @@ module ModRamCouple
 
   use ModRamMain, ONLY: Real8_, PathRamOut
   use ModRamConst, ONLY: M1
-  use ModRamGrids, ONLY: NR, NE, NT, NPA, NRExtend
+  use ModRamGrids, ONLY: NR, NE, NT, NPA, nRextend
   use ModRamTiming, ONLY: TimeRamElapsed, TimeRamNow
   use ModRamVariables, ONLY: KP, F107, EKEV, MU, PHI, LZ
 
@@ -40,9 +40,6 @@ module ModRamCouple
   logical :: DoIEPrecip = .false.
 
   ! Coupling P to SWMF:
-  ! The iono footprints from BATS should be stored here:
-  real(kind=Real8_), public, allocatable :: IonoMap_DSII(:,:,:,:)
-
   ! Container for MHD density and pressure at outer boundary.
   ! Indices are (dens:pres,Local Time,species[all, h, he, O])
   real(kind=Real8_), public, allocatable :: MhdDensPres_VII(:,:,:)
@@ -73,6 +70,14 @@ module ModRamCouple
        pEqSWMF(:,:), nEqSWMF(:,:)
   real(kind=Real8_), public, allocatable :: uEqSWMF_DII(:,:,:), bEqSWMF_DII(:,:,:)
 
+  ! Updated MHD-> SCB coupling variables: Blines has the X, Y, and Z coordinates along each
+  ! magnetic field line.  Example: the X-coords of the line passing through RAM cell iR, iT
+  ! is stored in Blines_DIII(1, iR, iT, :).  Tracing happens from southern (index 1) to
+  ! northern hemisphere in the final dimension.
+  ! Corresponding logical variable denotes if line is close (.true.) or open (.false.).
+  real(kind=Real8_), public, allocatable :: Blines_DIII(:,:,:,:)
+  logical,           public, allocatable :: IsClosed_II(:,:)
+  
   ! Variables for coupling to SWMF-IE component:
   integer, public :: nIePhi=0, nIeTheta=0
   real(kind=Real8_), public, allocatable :: SwmfIonoPot_II(:,:)
@@ -91,24 +96,25 @@ contains
 
     implicit none
 
-    ALLOCATE(IonoMap_DSII(3,2,nRextend,nT), MhdDensPres_VII(3,nT,4), &
+    ALLOCATE(MhdDensPres_VII(3,nT,4), &
          FluxBats_IIS(nE, nT, 1:4), FluxBats_anis(nE,nPa,nT,1:4),&
          iEnd(2*(nRExtend)*nT), xEqSWMF(nRExtend,nT-1),  yEqSWMF(nRExtend,nT-1),&
          pEqSWMF(nRExtend,nT-1), nEqSWMF(nRExtend,nT-1), SwmfPot_II(nR+1, nT), &
          uEqSWMF_DII(3,nRExtend,nT-1),bEqSWMF_DII(3,nRExtend,nT-1), &
-         ETotal_DII(2,nR,nT))
+         ETotal_DII(2,nR,nT), Blines_DIII(3,nRextend,nT-1,2*nPointsMax-1), IsClosed_II(nRextend,nT))
 
     SWMFPot_II = 0.
     FluxBats_anis = 0.
     FluxBats_IIS = 0.
-    IonoMap_DSII = 0.
     xEqSWMF = 0.
     yEqSWMF = 0.
     pEqSWMF = 0.
     nEqSWMF = 0.
     uEqSWMF_DII = 0.
     bEqSWMF_DII = 0.
-
+    Blines_DIII = 0.
+    IsClosed_II  = .true.
+    
   end subroutine RAMCouple_Allocate
 
 !==============================================================================
@@ -119,7 +125,7 @@ contains
     ! Items that may not have been allocated:
     if(allocated(MHDLines_IIV)) deallocate(MHDLines_IIV)
 
-    DEALLOCATE(IonoMap_DSII, MhdDensPres_VII, FluxBats_IIS, iEnd, &
+    DEALLOCATE(MhdDensPres_VII, FluxBats_IIS, iEnd, &
          FluxBats_anis, xEqSWMF, yEqSWMF, pEqSWMF, nEqSWMF, SwmfPot_II, &
          uEqSWMF_DII, bEqSWMF_DII, ETotal_DII)
 
@@ -338,9 +344,6 @@ contains
           iRad = 1
        end if
     end do
-
-    !write(*,*) MhdLines_IIV(1,:nPoints,3)
-    !write(*,*) MhdLines_IIV(nLinesSWMF, :nPoints, 3)
 
     ! Save equatorial values, working backwards towards missing values.
     ! Note that the repeated longitude (0 and 2*pi) is skipped the 2nd time.

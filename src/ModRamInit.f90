@@ -14,13 +14,22 @@ MODULE ModRamInit
   
     use ModRamVariables ! Need to allocate and initialize all the variables
     use ModRamGrids,     ONLY: nR, nRExtend, nT, nE, nPa, &
-                               Slen, ENG, NCF, NL, nS, nX
+                               Slen, ENG, NCF, NL, nS, nX, &
+                               RadMaxScb, RadiusMin, RadiusMax
   
     implicit none
-  
-    nRExtend = NR + 3
+
+    logical :: DoTest, DoTestMe
+    character(len=*), parameter :: NameSub='ram_allocate'
+    !-------------------------------------------------------------------------
+    call CON_set_do_test(NameSub, DoTest, DoTestMe)
+    
+    ! Determine max size of grid for full SCB coverage via SWMF:
+    nRExtend = (nR-1)*(RadMaxScb-RadiusMin)/(RadiusMax-RadiusMin) + 1
     nX = NPA
-  
+
+    if(DoTest)write(*,*)'IM/',NameSub,': nRextend = ', nRextend
+    
   !!!!!!!! Allocate Arrays
     ALLOCATE(outsideMGNP(nR,nT))
     outsideMGNP = 0
@@ -152,7 +161,13 @@ MODULE ModRamInit
     logical :: TempLogical
     logical :: StopCommand, IsStopTimeSet
     character(len=100) :: StringLine, NameCommand, RestartFile
+
+    logical :: DoTest, DoTestMe
+    character(len=*), parameter :: NameSub='ram_init'
     !------------------------------------------------------------------------------
+    call CON_set_do_test(NameSub, DoTest, DoTestMe)
+
+
     if (IsRestart) then
        RestartFile=PathRestartIn//'/restart_info.txt'
        open(unit=UnitTMP_, file=trim(RestartFile), status='old')
@@ -240,7 +255,16 @@ MODULE ModRamInit
     do iPhi = 1, nT
        Phi(iPhi) = (iPhi - 1)*dPh
     end do
-  
+
+    if(DoTest)then
+       write(*,*)'IM: GRID INITIALIZED'
+       write(*,*)'  nT, nR, nRextend = ', nT, nR, nRextend
+       write(*,*)'  dPh, dR = ', dPh, dR
+       write(*,*)'  GridExtend = ', GridExtend
+       write(*,*)'  Lz (Ram-only grid) = ', Lz
+       write(*,*)'  Phi = ', phi
+    end if
+    
     ! Intialize arrays
     do S=1,4
        call Arrays
