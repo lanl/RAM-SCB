@@ -508,7 +508,7 @@ MODULE ModRamInit
   SUBROUTINE init_input
     !!!! Module Variables
     use ModRamMain,      ONLY: nIter
-    use ModRamParams,    ONLY: IsRestart, IsStarttimeSet, &
+    use ModRamParams,    ONLY: IsRestart, IsStarttimeSet, NameBoundMag, &
                                DoUsePlane_SCB, HardRestart
     use ModRamGrids,     ONLY: NL, NLT, nR, nT
     use ModRamTiming,    ONLY: DtEfi, TimeRamNow, TimeRamElapsed
@@ -534,8 +534,8 @@ MODULE ModRamInit
   
     integer :: i, j, j1, i1
   
+    character(len=4)   :: NameBoundMagTemp
     character(len=100) :: HEADER
-  
     character(len=*), parameter :: NameSub='init_input'
   
   
@@ -578,8 +578,10 @@ MODULE ModRamInit
   
        ! Compute the SCB computational domain
        call write_prefix
-       write(*,*) 'Running SCB model to initialize B-field...'
-  
+       write(*,*) 'Running SCB model with Dipole to initialize B-field...'
+ 
+       NameBoundMagTemp = NameBoundMag
+       NameBoundMag = 'DIPL' 
        call computational_domain
   
        call ram_sum_pressure
@@ -589,9 +591,7 @@ MODULE ModRamInit
        call computehI(0)
 
        call compute3DFlux
-  
-       call write_prefix
-       write(*,*) 'Finished 3D Equilibrium code.'
+       NameBoundMag = NameBoundMagTemp 
   
        !if (DoUsePlane_SCB) then
        !   write(*,*) "Reading in initial plasmasphere density model"
