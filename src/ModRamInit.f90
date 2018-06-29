@@ -513,6 +513,7 @@ MODULE ModRamInit
     use ModRamGrids,     ONLY: NL, NLT, nR, nT
     use ModRamTiming,    ONLY: DtEfi, TimeRamNow, TimeRamElapsed
     use ModRamVariables, ONLY: Kp, F107, TOLV, NECR, IP1, IR1, XNE
+    use ModScbParams,    ONLY: method
     !!!! Module Subroutines/Functions
     use ModRamRun,       ONLY: ANISCH
     use ModRamIO,        ONLY: write_prefix
@@ -532,7 +533,7 @@ MODULE ModRamInit
   
     implicit none
   
-    integer :: i, j, j1, i1
+    integer :: i, j, j1, i1, methodTemp
   
     character(len=4)   :: NameBoundMagTemp
     character(len=100) :: HEADER
@@ -581,7 +582,9 @@ MODULE ModRamInit
        write(*,*) 'Running SCB model with Dipole to initialize B-field...'
  
        NameBoundMagTemp = NameBoundMag
-       NameBoundMag = 'DIPL' 
+       methodTemp = method
+       NameBoundMag = 'DIPL'
+       method = 3 
        call computational_domain
   
        call ram_sum_pressure
@@ -591,6 +594,7 @@ MODULE ModRamInit
        call computehI(0)
 
        call compute3DFlux
+       method = methodTemp
        NameBoundMag = NameBoundMagTemp 
   
        !if (DoUsePlane_SCB) then
