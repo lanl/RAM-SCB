@@ -424,10 +424,6 @@ Module ModRamScb
        ! Check if RAM point is inside or outside SCB domain
        ! If inside then interpolate to the the point
        ! If outside then use SCB magnetic field model to calculate h and I
-       DIR = -1.0
-       DSMAX = 0.1
-       ER = 0.001
-       RLIM = 20.0
        ScaleAt = 0
        scalingI = 0._dp
        scalingH = 0._dp
@@ -500,11 +496,9 @@ Module ModRamScb
                    z0 = 0._dp
   
                    !! Trace from equatorial point to pole then pole to other pole
-                   CALL trace(x0,y0,z0,DIR,DSMAX,ER,RLIM,1._dp,IOPT,PARMOD,  &
-                              xe,ye,ze,xtemp(:),ytemp(:),ztemp(:),LOUT,LMAX, &
+                   CALL trace(x0,y0,z0,xe,ye,ze,xtemp(:),ytemp(:),ztemp(:),LOUT,LMAX, &
                               bxtemp(:),bytemp(:),bztemp(:))
-                   CALL trace(xe,ye,ze,-DIR,DSMAX,ER,RLIM,1._dp,IOPT,PARMOD, &
-                              xf,yf,zf,xtemp(:),ytemp(:),ztemp(:),LOUT,LMAX, &
+                   CALL trace(xe,ye,ze,xf,yf,zf,xtemp(:),ytemp(:),ztemp(:),LOUT,-LMAX, &
                               bxtemp(:),bytemp(:),bztemp(:))
                    ! We have a problem now, LOUT is often only ~30 which is to few
                    ! points to get a good integral solution. For now I will just fit
