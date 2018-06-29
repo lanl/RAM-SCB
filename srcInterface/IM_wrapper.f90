@@ -87,7 +87,7 @@ module IM_wrapper
     use ModNumConst,     ONLY: cTwoPi
     use ModRamGrids,     ONLY: RadiusMin, RadiusMax, NR, NT, dPhi, dR, nRextend
     use ModRamVariables, ONLY: LZ, PHI, DL1, GridExtend
-    use CON_coupler, ONLY: set_grid_descriptor, is_proc, IM_
+    use CON_coupler,     ONLY: set_grid_descriptor, is_proc, IM_
     implicit none
     
     character (len=*), parameter :: NameSub='IM_set_grid'
@@ -108,21 +108,41 @@ module IM_wrapper
     ! IM grid: the equatorial grid is described by Coord1_I and Coord2_I
     ! Occasional +0.0 is used to convert from single to double precision
     ! Grid information set here is shared with GM for coupling with BATS-R-US.
-    call set_grid_descriptor( IM_,           & ! component index
-         nDim     = 2,                       & ! dimensionality
-         nRootBlock_D = (/1,1/),             & ! number of blocks
-         nCell_D =(/nRextend, nT/),          & ! size of equatorial grid
-         XyzMin_D=(/RadiusMin+0.0,0.0/),     & ! min coordinates
-         XyzMax_D=(/RadMaxFull,cTwoPi/),     & ! max coordinates + radial ghost.
-         Coord1_I = GridExtend+0.0,          & ! radial coordinates
-         Coord2_I = Phi(1:nT)+0.0,           & ! longitudinal coordinates
-         TypeCoord= 'SMG',                   & ! solar magnetic coord
-         nVar=7,                             & ! Number of "fluid" vars.
-         NameVar = 'rho p ppar Hpp Opp Hprho Oprho')
-    ! For nVar/NameVar, RAM-SCB+BATS-R-US coupling does not need this
-    ! convention.  Placeholders are used ONLY.
-    
+
+    ! If we are on an IM block, we can use the RAM-SCB run-time generated grid.
+    if(is_proc(IM_))then
+       call set_grid_descriptor( IM_,           & ! component index
+            nDim     = 2,                       & ! dimensionality
+            nRootBlock_D = (/1,1/),             & ! number of blocks
+            nCell_D  =(/nRextend, nT/),         & ! size of equatorial grid
+            XyzMin_D =(/RadiusMin+0.0,0.0/),    & ! min coordinates
+            XyzMax_D =(/RadMaxFull,cTwoPi/),    & ! max coordinates+radial ghost
+            Coord1_I = GridExtend+0.0,          & ! radial coordinates
+            Coord2_I = Phi(1:nT)+0.0,           & ! longitudinal coordinates
+            TypeCoord= 'SMG',                   & ! solar magnetic coord
+            nVar=7,                             & ! Number of "fluid" vars.
+            NameVar = 'rho p ppar Hpp Opp Hprho Oprho')
+       ! For nVar/NameVar, RAM-SCB+BATS-R-US coupling does not need this
+       ! convention.  Placeholders are used ONLY.
+    else
+       ! Not on IM? Use dummy vars as we have not allocted grid.
+       call set_grid_descriptor( IM_,           & ! component index
+            nDim     = 2,                       & ! dimensionality
+            nRootBlock_D = (/1,1/),             & ! number of blocks
+            nCell_D  =(/nRextend, nT/),         & ! size of equatorial grid
+            XyzMin_D =(/RadiusMin+0.0,0.0/),    & ! min coordinates
+            XyzMax_D =(/RadMaxFull,cTwoPi/),    & ! max coordinates+radial ghost
+            Coord1_I =(/RadiusMin, RadMaxFull/),& ! radial coordinates
+            Coord2_I =(/0.0, cTwoPi/),          & ! longitudinal coordinates
+            TypeCoord='SMG',                    & ! solar magnetic coord
+            nVar=7,                             & ! Number of "fluid" vars.
+            NameVar = 'rho p ppar Hpp Opp Hprho Oprho')
+    endif
+
+       
     if(DoTestMe)then
+       write(*,*)NameSub,' Setting RAM-SCB grid characteristics.'
+       write(*,*)NameSub,' Are we on an IM proc?  ', is_proc(IM_)
        write(*,*)NameSub,' NR =              ', NR
        write(*,*)NameSub,' NR + Ghostcells = ', nRextend
        write(*,*)NameSub,' NT =              ', NT

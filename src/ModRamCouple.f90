@@ -54,6 +54,14 @@ module ModRamCouple
   real(kind=Real8_), public, allocatable :: ETotal_DII(:,:,:)
   
   ! Variables for B-field coupling with MHD:
+  ! Tracing info is stored in MhdLines_IIV(nLines, nPointsMax, nVarLine).
+  ! Lines progress from 1 to nLines such that a line passing through radius
+  ! index iR and MLT index iT is stored in iLine = 2*((nRextend)*(iT-1) + iR)-1
+  ! (for trace from equatorial plane to northern hemisphere) and in
+  ! iLine = 2*((nRextend)*(iT-1) + iR) (to southern hemisphere).  Each line has
+  ! up to nPointsMax; iEnd(iLine) has index of where to stop.  As MhdLines_IIV
+  ! is filled, points are added between the MHD inner boundary and R=1RE to
+  ! give all lines nPointsMax points.
   integer, public, parameter   :: nPointsMax = 200
   integer, public :: nRadSWMF, nRadSwmfVar, nRadSwmfVarInner, &
        nLonSWMF, nLinesSWMF, nPoints
