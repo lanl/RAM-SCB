@@ -495,7 +495,9 @@ module IM_wrapper
           Blines_DIII(1,iR,iRot,:nPointsMax-1) = MhdLines_IIV(iLine,nPointsMax-1:1:-1,3) !X
           Blines_DIII(2,iR,iRot,:nPointsMax-1) = MhdLines_IIV(iLine,nPointsMax-1:1:-1,4) !Y
           Blines_DIII(3,iR,iRot,:nPointsMax-1) = MhdLines_IIV(iLine,nPointsMax-1:1:-1,5) !Z
-          
+
+          ! Meters to Re:
+          Blines_DIII(:,iR,iRot,:) = Blines_DIII(:,iR,iRot,:)/6378100.0
        end do
     end do
     
