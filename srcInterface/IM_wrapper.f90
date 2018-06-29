@@ -426,7 +426,7 @@ module IM_wrapper
 
     ! Rotate the local time coordinates by 12 Hours.
     do iT=1, nT
-       n = mod(iT+12-1,24)+1
+       n = mod(iT+((nT-1)/2-1),nT-1) + 1 ! Even # of cells, 1 ghost cell.
        rotate_VII(:,iT,:) = MhdDensPres_VII(:,n,:)
     end do
     MhdDensPres_VII = rotate_VII
@@ -444,7 +444,7 @@ module IM_wrapper
     ! Start here by converting from colat/radiats to lat/degrees.
     ! Rotate the local time coordinates by 12 Hours.
     do iT=1, nT
-       n = mod(iT+12-1,24)+1
+       n = mod(iT+((nT-1)/2-1),nT-1) + 1 ! Even # of cells, 1 ghost cell.
        IonoMap_DSII(:,:,:,iT) = Map_DSII(:,:,:,n)
     end do
     IonoMap_DSII(2,:,:,:) = 90.0 - cRadtoDeg * IonoMap_DSII(2,:,:,:)
