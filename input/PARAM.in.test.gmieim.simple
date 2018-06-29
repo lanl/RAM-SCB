@@ -226,8 +226,13 @@ min idl                 StringPlot
 
 #OUTERBOUNDARY
 SWMF			NameBoundPlasma
-DIPL 			NameBoundMag
+SWMF 			NameBoundMag
 MAXW			NameDistribution
+
+#COMPONENT_TIMESTEPS
+5.0			SCBTimeStep
+5.0			BCTimeStep
+5.0			EFTimeStep
 
 #EFIELD
 IESC			NameEfield
