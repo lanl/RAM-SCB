@@ -272,11 +272,13 @@ module IM_wrapper
     
     use ModRamMain,   ONLY: Real8_, PathRamOut
     use ModRamGrids,  ONLY: nR, nT, RadiusMin, RadiusMax, RadMaxScb, nRextend
+    use ModRamVariables,ONLY: GridExtend, Phi
     use ModRamTiming, ONLY: TimeRamElapsed
     use ModNumConst,  ONLY: cRadToDeg
     use ModIoUnit,    ONLY: UnitTmp_
     use ModPlotFile,  ONLY: save_plot_file
     use ModRamCouple
+    use ModNumConst,  ONLY: cTwoPi
     
     implicit none
     
@@ -289,6 +291,8 @@ module IM_wrapper
     integer           :: iT, iR, iDir, iRot, iLine
     real(kind=Real8_) :: rotate_VII(3,nT,4)
     logical, save     :: IsFirstCall = .true.
+
+    real, parameter :: sens=1E-5  ! Sensitivity for real differences.
     
     ! These variables should either be in a module, OR
     ! there is no need for them, and BufferLine_VI should be put 
@@ -479,8 +483,14 @@ module IM_wrapper
           iRot = mod(iT+((nT-1)/2-1),nT-1) + 1 ! Even # of cells, 1 ghost cell.
           
           ! Check if the line is open:
-          if((Map_DSII(1,1,iR,iT)/=1.).or.(Map_DSII(1,2,iR,iT)/=1.))then
+          
+          if((Map_DSII(1,1,iR,iT)-1>sens).or.(Map_DSII(1,2,iR,iT)-1>sens))then
              IsClosed_II(iR,iT) = .false.
+             if(DoTest) then
+                write(*,*)'OPEN FIELD LINE AT R, MLT = ', &
+                     GridExtend(iR), Phi(iRot)*24./cTwoPi
+                write(*,*)'Line ends at R (north, south) = ', Map_DSII(1,:,iR,iT)
+             end if
              cycle
           end if
 
@@ -498,6 +508,7 @@ module IM_wrapper
 
           ! Meters to Re:
           Blines_DIII(:,iR,iRot,:) = Blines_DIII(:,iR,iRot,:)/6378100.0
+
        end do
     end do
     
