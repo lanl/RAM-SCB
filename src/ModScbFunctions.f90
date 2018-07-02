@@ -10,6 +10,49 @@ MODULE ModScbFunctions
   
   contains
 !==============================================================================
+  subroutine get_dipole_lines(radMin,radMax,constTheta,nthe,nR,nT,x,y,z,B,RAM)
+
+    use nrtype, ONLY: DP, pi_d, twopi_d
+
+    implicit none
+
+    logical, intent(in) :: RAM
+    integer, intent(in) :: nthe, nR, nT
+    real(DP), intent(in) :: radMin, radMax, constTheta
+    real(DP), intent(out) :: x(:,:,:), y(:,:,:), z(:,:,:), B(:,:,:)
+
+    integer  :: i, j, k
+    real(DP) :: zt, t1, t0, tt, rt, r0
+
+    do i = 1,nR
+       r0 = radMin + REAL(i-1, DP)/REAL(nR-1, DP)*(radMax-radMin)
+       do j = 2,nT
+          if (RAM) then
+            zt = twopi_d*REAL(j-1,DP)/REAL(nT-1,DP) - pi_d ! RAM has a rotated grid (MLT vs SM)
+          else
+            zt = twopi_d*REAL(j-2,DP)/REAL(nT-1,DP)        ! SCB has angle 0 at grid point 2
+          endif
+          t1 = asin(sqrt(1.0/r0))
+          t0 = pi_d-t1
+          do k=1,nthe
+             tt = t0 + REAL(k-1,DP)/REAL(nthe-1,DP)*(t1-t0)
+             tt = tt + constTheta * SIN(2._dp*tt)
+             rt = r0*sin(tt)**2
+             x(k,i,j) = (rt)*cos(zt)*sin(tt)
+             y(k,i,j) = (rt)*sin(zt)*sin(tt)
+             z(k,i,j) = (rt)*cos(tt)
+             B(k,i,j) = sqrt(1+3*cos(tt)**2)/rt**3
+          enddo
+       enddo
+    enddo
+    x(:,:,1) = x(:,:,nT)
+    y(:,:,1) = y(:,:,nT)
+    z(:,:,1) = z(:,:,nT)
+    B(:,:,1) = B(:,:,nT)
+
+    return
+  end subroutine get_dipole_lines
+!==============================================================================
   SUBROUTINE extap(x1,x2,x3,x4)  
     USE nrtype
     IMPLICIT NONE

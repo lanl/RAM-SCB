@@ -421,6 +421,10 @@ subroutine IM_set_parameters
         DoScbCalc = .true.
         InnerMag  = 'SWMF'
         OuterMag  = 'SWMF'
+     case('SWML')
+        DoScbCalc = .false.
+        InnerMag  = 'SWMF'
+        OuterMag  = 'SWMF'
      case('DIPL')
         DoScbCalc = .false.
         InnerMag  = 'DIPOLE'

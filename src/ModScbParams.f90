@@ -34,7 +34,7 @@ module ModScbParams
               blendPsiInit         = 0.25,  &
               blendMin             = 0.01,  &
               blendMax             = 1.0,   &
-              InConAlpha           = 1e-9,  &
+              InConAlpha           = 1e-8,  &
               InConPsi             = 1e-7,  &
               convergence          = 0.9,   &
               constTheta           = 0.0,   &

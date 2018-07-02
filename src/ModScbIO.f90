@@ -26,17 +26,18 @@ MODULE ModScbIO
     use ModRamGrids,     ONLY: nRExtend, nT, nR
     USE ModScbParams,    ONLY: Symmetric, constZ, constTheta
     USE ModScbGrids,     ONLY: npsi, nthe, nzeta
-    USE ModScbVariables, ONLY: xpsiin, xpsiout, r0Start, &
+    USE ModScbVariables, ONLY: xpsiin, xpsiout, r0Start, bf, &
                                x, y, z, thetaVal, zetaVal, left, right, chiVal, &
                                kmax, nZetaMidnight, xzero3, f, fzet, fp, &
                                fzetp, psiVal, alphaVal, psiin, psiout, psitot
     !!!! SMWF Variables
-    use ModRamCouple,    ONLY: BLines_DIII, IsClosed_II
+    use ModRamCouple,    ONLY: BLines_DIII, IsClosed_II, nPointsMax
     !!!! Module Subroutines/Functions
     use ModRamGSL,       ONLY: GSL_Interpolation_1D
     use ModRamFunctions, ONLY: RamFileName
     use ModScbEuler,     ONLY: psiges, alfges, InterpolatePsiR, mappsi, maptheta, &
                                psifunctions
+    use ModScbFunctions, ONLY: get_dipole_lines
     !!!! Share Modules
     use ModTimeConvert, ONLY: n_day_of_year
     USE ModIoUnit, ONLY: UNITTMP_
@@ -54,6 +55,12 @@ MODULE ModScbIO
     INTEGER :: LMAX = 1000
     INTEGER :: LOUT, iYear, iMonth, iDay, iHour, iMin, iSec, ifail
     REAL(DP) :: x0, y0, z0, xf, yf, zf
+    ! Variables needed for coupling
+    integer :: nSWMF
+    REAL(DP), allocatable :: xTemp(:), yTemp(:), zTemp(:)
+    REAL(DP), allocatable :: aTemp(:), pTemp(:), cTemp(:)
+    REAL(DP), allocatable :: x1(:,:,:), y1(:,:,:), z1(:,:,:)
+    REAL(DP), allocatable :: x2(:,:,:), y2(:,:,:), z2(:,:,:)
 
     integer :: time1, clock_rate, clock_max
     real(dp) :: starttime,stoptime
@@ -66,41 +73,33 @@ MODULE ModScbIO
     if ((NameBoundMag.eq.'DIPL').or.(NameBoundMag.eq.'DIPS').or.(NameBoundMag.eq.'DIPC')) then
        ! For generating x, y, and z arrays using analytic dipole and analytic compressed dipole
        ! the variable b controls the compression with 0 being no compression
-       Symmetric = .false.
+       Symmetric = .true.
        xpsiin = 1.75
-       xpsiout = 7.50
-       b = 0.0
+       xpsiout = 7.00
+       call get_dipole_lines(xpsiin,xpsiout,constTheta,nthe,npsi,nzeta,x,y,z,bf,.false.)
        chival = (thetaVal + constTheta*sin(2.*thetaVal))
        kmax = nZetaMidnight
-
-       do k=2,nzeta
-          do j=1,npsi
-             r0 = xpsiin + REAL(j-1, DP)/REAL(npsi-1, DP)*(xpsiout-xpsiin)
-             rr = (2-b*cos(zetaVal(k)))/(1+b*cos(zetaVal(k)))
-             t0 = pi_d-asin((1.0/r0)**(1./rr))
-             t1 = asin((1.0/r0)**(1./rr))
-             do i=1,nthe
-                tt = t0 + REAL(i-1,DP)/REAL(nthe-1,DP)*(t1-t0)
-                tt = tt + constTheta * SIN(2._dp*tt)
-                zt = zetaVal(k)+constZ*SIN(zetaVal(k))
-                rt = r0*sin(tt)**rr
-                x(i,j,k) = (rt)*cos(zt)*sin(tt)
-                y(i,j,k) = (rt)*sin(zt)*sin(tt)
-                z(i,j,k) = (rt)*cos(tt)
-             enddo
-          enddo
-       enddo
-       x(:,:,1) = x(:,:,nzeta)
-       y(:,:,1) = y(:,:,nzeta)
-       z(:,:,1) = z(:,:,nzeta)
        x(:,:,nzeta+1) = x(:,:,2)
        y(:,:,nzeta+1) = y(:,:,2)
        z(:,:,nzeta+1) = z(:,:,2)
     elseif (NameBoundMag.eq.'SWMF') then
        ! For generating x, y, and z arrays using the Space Weather Modelling Framework
-       if (.not.IsComponent) then
-          CALL CON_Stop('SWMF Magnetic Boundary currently does not work unless RAM-SCB is being run in SWMF')
-       endif
+       nSWMF = 2*nPointsMax-1
+       ALLOCATE(xTemp(nSWMF), yTemp(nSWMF), zTemp(nSWMF))
+       ALLOCATE(aTemp(nT-1), pTemp(nRExtend), cTemp(nSWMF))
+       ALLOCATE(x1(nRExtend,nZeta,nSWMF), y1(nRExtend,nZeta,nSWMF), z1(nRExtend,nZeta,nSWMF))
+       ALLOCATE(x2(npsi,nzeta,nSWMF), y2(npsi,nzeta,nSWMF), z2(npsi,nzeta,nSWMF))
+
+       ! Step 0: Get alphaVal, psiVal, and chiVal
+       !! ChiVal
+       chival = (thetaVal + constTheta*sin(2.*thetaVal))
+       !! AlphaVal
+       dphi  = twopi_d/REAL(nzeta-1, DP)
+       DO k = 1, nzeta+1
+          phi         = REAL(k-2, DP) * dphi
+          alphaVal(k) = phi + constZ*sin(phi)
+       END DO
+       !! PsiVal
        do j = 1, nT-1
           if (IsClosed_II(nRExtend,j)) then
              xf = BLines_DIII(1,nRExtend,j,1)
@@ -114,18 +113,94 @@ MODULE ModScbIO
           y0 = BLines_DIII(2,nR,j,1)
           z0 = BLines_DIII(3,nR,j,1)
           xpsiout = 1./(1.-z0**2/(x0**2+y0**2+z0**2))
-          write(*,*)  'MLT, xpsiout(nRExtend), xpsiout(nR) = ', MLT(j), psitemp, xf, yf, zf, xpsiout, x0, y0, z0
+          write(*,*)  'MLT, xpsiout(nRExtend), xpsiout(nR) = ', MLT(j), psitemp, xpsiout
        enddo
+       xpsiout = psitemp
+       xpsiin  = 1.75
+       psiin   = -xzero3/xpsiin
+       psiout  = -xzero3/xpsiout
+       psitot  = psiout-psiin
+       xpsitot = xpsiout - xpsiin
+       DO j = 1, npsi
+          psis = REAL(j-1, DP) / REAL(npsi-1, DP)
+          xpl = xpsiin + xpsitot * psis
+          psival(j) = -xzero3 / xpl
+       ENDDO
+
+       ! Step 1: Take xF, yF, zF (nRExtend, nT, nSWMF) and put on x1, y1, z1 (nRExtend, nzeta, nSWMF) [MapAlpha]
+       do j = 1, nT-1
+          aTemp(j) = MLT(j)*pi_d/12._dp + pi_d
+          if (aTemp(j) > twopi_d) aTemp(j) = aTemp(j) - twopi_d
+       enddo
+       do i = 1, nRExtend
+          do k = 1, nSWMF
+             xTemp(1:nT-1) = BLines_DIII(1,i,1:nT-1,k)
+             yTemp(1:nT-1) = BLines_DIII(2,i,1:nT-1,k)
+             zTemp(1:nT-1) = BLines_DIII(3,i,1:nT-1,k)
+             CALL GSL_Interpolation_1D('Cubic',aTemp(1:nT-1),xTemp(1:nT-1), &
+                                       alphaVal(2:nzeta),x1(i,2:nzeta,k),GSLerr)
+             CALL GSL_Interpolation_1D('Cubic',aTemp(1:nT-1),yTemp(1:nT-1), &
+                                       alphaVal(2:nzeta),y1(i,2:nzeta,k),GSLerr)
+             CALL GSL_Interpolation_1D('Cubic',aTemp(1:nT-1),zTemp(1:nT-1), &
+                                       alphaVal(2:nzeta),z1(i,2:nzeta,k),GSLerr) 
+          enddo
+       enddo 
+
+       ! Step 2: Take x1, y1, z1 (nRExtend, nzeta, nSWMF) and put on x2, y2, z2 (npsi, nzeta, nSWMF) [MapPsi]
+       do j = 2, nzeta
+          do k = 1, nSWMF
+             xTemp(1:nRExtend) = x1(1:nRExtend,j,k)
+             yTemp(1:nRExtend) = y1(1:nRExtend,j,k)
+             zTemp(1:nRExtend) = z1(1:nRExtend,j,k)
+             pTemp(1:nRExtend) = 0._dp ! NEED TO SET PTEMP!!!! -ME
+             CALL GSL_Interpolation_1D('Cubic',pTemp(1:nRExtend),xTemp(1:nRExtend), &
+                                        psiVal(1:npsi),x2(1:npsi,j,k),GSLerr)
+             CALL GSL_Interpolation_1D('Cubic',pTemp(1:nRExtend),yTemp(1:nRExtend), &
+                                        psiVal(1:npsi),y2(1:npsi,j,k),GSLerr)
+             CALL GSL_Interpolation_1D('Cubic',pTemp(1:nRExtend),zTemp(1:nRExtend), &
+                                        psiVal(1:npsi),z2(1:npsi,j,k),GSLerr)
+          enddo
+       enddo
+
+       ! Step 3: Take x2, y2, z2 (npsi, nzeta, nSWMF) and put on x, y, z (nthe, npsi, nzeta) [MapTheta]
+       do i = 1, npsi
+          do j = 2, nzeta
+             distance(1) = 0._dp
+             xTemp(1:nSWMF) = x2(i,j,nSWMF)
+             yTemp(1:nSWMF) = y2(i,j,nSWMF)
+             zTemp(1:nSWMF) = z2(i,j,nSWMF)
+             DO k = 2, nSWMF
+                distance(i) = distance(i-1) + SQRT((xTemp(k)-xTemp(k-1))**2 &
+                                                  +(yTemp(k)-yTemp(k-1))**2 &
+                                                  +(zTemp(k)-zTemp(k-1))**2)
+             END DO
+             cTemp = distance / distance(2*nPointsMax-1) * pi_d
+             CALL GSL_Interpolation_1D('Cubic',cTemp,xTemp(1:nSWMF), &
+                                       chiVal(1:nthe),x(1:nthe,i,j),GSLerr)
+             CALL GSL_Interpolation_1D('Cubic',cTemp,yTemp(1:nSWMF), &
+                                       chiVal(1:nthe),y(1:nthe,i,j),GSLerr)
+             CALL GSL_Interpolation_1D('Cubic',cTemp,zTemp(1:nSWMF), &
+                                       chiVal(1:nthe),z(1:nthe,i,j),GSLerr)
+          enddo
+       enddo
+       x(:,:,1) = x(:,:,nzeta)
+       y(:,:,1) = y(:,:,nzeta)
+       z(:,:,1) = z(:,:,nzeta)
+       x(:,:,nzeta+1) = x(:,:,2)
+       y(:,:,nzeta+1) = y(:,:,2)
+       z(:,:,nzeta+1) = z(:,:,2)
+
+       DEALLOCATE(xTemp,yTemp,zTemp,aTemp,pTemp,cTemp,x1,y1,z1,x2,y2,z2)
     else
        ! For generating x, y, and z arrays using field line tracing
        !! Define the inputs needed for the magnetic field models for the tracing
-       Symmetric = .false. ! For testing assume symmetry, makes runs go faster
+       Symmetric = .false. 
 
        ! Get correct model inputs and place them in cooresponding variables
        call get_model_inputs(Pdyn,Dst,ByIMF,BzIMF,G,W)
 
        ! Start tracing timing
-       write(*,*) NameBoundMag//' tracing starting'
+       write(*,'(1x,a)',ADVANCE='NO') NameBoundMag//' tracing starting'
        call system_clock(time1,clock_rate,clock_max)
        starttime=time1/real(clock_rate,dp)
    
@@ -139,14 +214,13 @@ MODULE ModScbIO
           x0 = 8._dp*cos(zetaVal(k))
           y0 = 8._dp*sin(zetaVal(k))
           z0 = 0._dp
-          call trace(x0,y0,z0,xf,yf,zf,xx(:),yy(:),zz(:),LOUT,LMAX,bx,by,bz)
+          call trace(x0,y0,z0,1.0_dp,xf,yf,zf,xx(:),yy(:),zz(:),LOUT,LMAX,bx,by,bz)
           psitemp = 1./(1.-zf**2/(xf**2+yf**2+zf**2))
           if (psitemp.lt.xpsiout) then
              xpsiout = psitemp
              kmax = k
           endif
        enddo
-       if (verbose) write(*,*) 'PsiOut = ', xpsiout
 
        xpsiin = 1.75
        ! Calculate dipole starting points for given xpsiin and xpsiout
@@ -156,11 +230,11 @@ MODULE ModScbIO
              r0 = xpsiin + REAL(j-1,DP)/REAL(npsi-1,DP)*(xpsiout-xpsiin)
              tt = pi_d-asin(sqrt(1.0/r0))
              rt = r0*sin(tt)**2
-             zt = zetaVal(k)!+constZ*sin(zetaVal(k))
+             zt = zetaVal(k)+constZ*sin(zetaVal(k))
              x0 = rt*cos(zt)*sin(tt)
              y0 = rt*sin(zt)*sin(tt)
              z0 = rt*cos(tt)
-             CALL trace(x0,y0,z0,xf,yf,zf,xx(:),yy(:),zz(:),LOUT,LMAX,bx,by,bz)
+             CALL trace(x0,y0,z0,-1.0_dp,xf,yf,zf,xx(:),yy(:),zz(:),LOUT,LMAX,bx,by,bz)
              distance(1) = 0._dp
              do i = 2,LOUT
                 distance(i) = distance(i-1) + SQRT((xx(i)-xx(i-1))**2 &
@@ -183,7 +257,7 @@ MODULE ModScbIO
        ! Finish tracing timing
        call system_clock(time1,clock_rate,clock_max)
        stoptime=time1/real(clock_rate,dp)
-       write(*,*) NameBoundMag//' tracing took',stoptime-starttime,'seconds'
+       write(*,'(a,1x,f6.2,1x,a)') ': Completed in',stoptime-starttime,'seconds'
 
        ! Periodic in zeta
        x(:,:,1) = x(:,:,nzeta)
@@ -220,18 +294,6 @@ MODULE ModScbIO
        fzetp(k)    = 0._dp !                and the curvilinar coordinate
     END DO
     call alfges
-
-    !! For outputing the magnetic field for testing
-    !open(UNITTMP_,FILE=RamFileName('ComputeDomain','dat',TimeRamNow))
-    !write(UNITTMP_,*) nthe, npsi, nzeta
-    !do i = 1,nthe
-    ! do j = 1,npsi
-    !  do k = 1,nzeta
-    !   write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
-    !  enddo
-    ! enddo
-    !enddo
-    !close(UNITTMP_)
 
     return
 
@@ -299,8 +361,6 @@ MODULE ModScbIO
        return
     endif
 
-    write(*,*) "Updating SCB Boundary Conditions"
-
     ! Get correct model inputs and place them in cooresponding variables
     call get_model_inputs(Pdyn,Dst,ByIMF,BzIMF,G,W)
 
@@ -312,14 +372,14 @@ MODULE ModScbIO
        x0 = 8._dp*cos(zetaVal(k))
        y0 = 8._dp*sin(zetaVal(k))
        z0 = 0._dp
-       call trace(x0,y0,z0,xf,yf,zf,xx(:),yy(:),zz(:),LOUT,LMAX,bx,by,bz)
+       call trace(x0,y0,z0,1.0_dp,xf,yf,zf,xx(:),yy(:),zz(:),LOUT,LMAX,bx,by,bz)
        psitemp = 1./(1.-zf**2/(xf**2+yf**2+zf**2))
        if (psitemp.lt.xpsiout) then
           xpsiout = psitemp
           ktemp = k
        endif
     enddo
-    if (verbose) write(*,*) 'Psiout = ',xpsiout, 'PsioutPrev = ',xpsitemp
+    
     if ((abs(xpsiout-xpsitemp).le.1e-9).or.(xpsitemp.eq.-1._dp)) return
 
     ! Since T89 tracing is so quick, just retrace everything
@@ -376,7 +436,7 @@ MODULE ModScbIO
        x0 = rt*cos(zt)*sin(tt)
        y0 = rt*sin(zt)*sin(tt)
        z0 = rt*cos(tt)
-       CALL trace(x0,y0,z0,xf,yf,zf,xx(:),yy(:),zz(:),LOUT,LMAX,bx,by,bz)
+       CALL trace(x0,y0,z0,-1.0_dp,xf,yf,zf,xx(:),yy(:),zz(:),LOUT,LMAX,bx,by,bz)
        distance(1) = 0._dp
        do i = 2,LOUT
           distance(i) = distance(i-1) + SQRT((xx(i)-xx(i-1))**2 &
@@ -525,7 +585,7 @@ MODULE ModScbIO
 
   end subroutine update_domain
 !=============================================================================!
-  subroutine trace(x0,y0,z0,xf,yf,zf,xx,yy,zz,LOUT,LMD,bx,by,bz)
+  subroutine trace(x0,y0,z0,RIN,xf,yf,zf,xx,yy,zz,LOUT,LMD,bx,by,bz)
     use ModRamParams, ONLY: NameBoundMag
 
     use nrtype, ONLY: DP
@@ -535,19 +595,18 @@ MODULE ModScbIO
     EXTERNAL :: DIP_08, IGRF_GSW_08, SMGSW_08, T89C, T96_01, T01_01, T04_s
     EXTERNAL :: TS07D_JULY_2017
     integer, intent(in)   :: LMD
-    REAL(DP), intent(in)  :: x0, y0, z0
+    REAL(DP), intent(in)  :: x0, y0, z0, RIN
     integer, intent(out)  :: LOUT
     REAL(DP), intent(inout) :: xf, yf, zf, xx(:), yy(:), zz(:), bx(:), by(:), bz(:)
 
-    integer  :: i
-    REAL(DP) :: xGSW, yGSW, zGSW, xfGSW, yfGSW, zfGSW, R0, DIR, DSMAX, ER, RLIM, RIN, LMAX
+    integer  :: i, LMAX
+    REAL(DP) :: xGSW, yGSW, zGSW, xfGSW, yfGSW, zfGSW, R0, DIR, DSMAX, ER, RLIM
     REAL(DP), ALLOCATABLE :: xxGSW(:), yyGSW(:), zzGSW(:), BxGSW(:), ByGSW(:), BzGSW(:)
 
     DIR = -1.0
     DSMAX = 0.1
     ER = 0.001
     RLIM = 30.0
-    RIN = -1._dp
     LMAX = LMD
 
     if (LMAX.lt.0) then
@@ -564,6 +623,7 @@ MODULE ModScbIO
     else
        R0 = RIN
     endif
+
     IF (NameBoundMag.eq.'T89D') THEN
        call TRACE_08(XGSW,YGSW,ZGSW,DIR,DSMAX,ER,RLIM,R0,IOPT,PARMOD, &
                      T89C,DIP_08,xfGSW,yfGSW,zfGSW,xxGSW(:),yyGSW(:),zzGSW(:), &
@@ -685,6 +745,7 @@ MODULE ModScbIO
     SPS = 0.0
     CPS = 1.0
     PS = 0.0
+
     write(StringFileDate,'(i4.4,i2.2,i2.2)') Year, Month, Day
     write(StringFileFolder,'(i4.4)') Year
     QDFile = trim(QinDentonPath)//'/QinDenton_'//StringFileDate//'_1min.txt'
@@ -692,7 +753,6 @@ MODULE ModScbIO
     IF (.not.LExist) then
        QDFile = trim(QinDentonPath)//StringFileFolder//'/QinDenton_'//StringFileDate//'_1min.txt'
     ENDIF
-    write(*,*) 'Reading File: ', trim(QDFile)
     open(unit=UNITTMP_, file=QDFile, status='OLD', iostat=iError)
     if(iError/=0) call CON_stop('get_model_inputs: Error opening file '//trim(QDFile))
     FileIndexStart = 0
@@ -767,6 +827,7 @@ MODULE ModScbIO
     enddo Cycle_QDFile
     close(UNITTMP_)
 
+    IOPT = 0
     PARMOD(1) = Pdyn
     PARMOD(2) = Dst
     PARMOD(3) = ByIMF
@@ -776,17 +837,9 @@ MODULE ModScbIO
     ELSEIF ((NameBoundMag.eq.'T96I').or.(NameBoundMag.eq.'T96D')) THEN
        ! No extra parameters
     ELSEIF ((NameBoundMag.eq.'T02I').or.(NameBoundMag.eq.'T02D')) THEN
-       PARMOD(1) = Pdyn
-       PARMOD(2) = Dst
-       PARMOD(3) = ByIMF
-       PARMOD(4) = BzIMF
        PARMOD(5) = G(1)
        PARMOD(6) = G(2)
     ELSEIF ((NameBoundMag.eq.'T04I').or.(NameBoundMag.eq.'T04D')) THEN
-       PARMOD(1) = Pdyn
-       PARMOD(2) = Dst
-       PARMOD(3) = ByIMF
-       PARMOD(4) = BzIMF
        PARMOD(5) = W(1)
        PARMOD(6) = W(2)
        PARMOD(7) = W(3)
@@ -798,10 +851,6 @@ MODULE ModScbIO
        dut = Sec+Mins*60+Hour*3600
        call INIT_TS07D_COEFFS(Year,n_day_of_year(Year,Month,Day),dut,ifail)
        call INIT_TS07D_TLPR
-    ELSEIF (NameBoundMag.eq.'IGRF') THEN
-       ! Don't need to do anything, just want it to not fail
-    ELSE
-       CALL CON_STOP('Unrecognized magnetic boundary')
     ENDIF
 
     deallocate(nSeconds,Buffer,BufferA)
