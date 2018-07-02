@@ -19,6 +19,7 @@ subroutine get_electric_field
   use ModRamParams,    ONLY: electric, IsComponent
   use ModRamGrids,     ONLY: NR, NT
   use ModRamVariables, ONLY: KP, PHI, LZ, PHIOFS, VT, VTOL, VTN, TOLV
+  use ModRamIO,        ONLY: write_prefix
 
   use ModTimeConvert, ONLY: TimeType, time_real_to_int
 
@@ -32,7 +33,9 @@ subroutine get_electric_field
 
   ! Set "new" values of indices and E-field to "old" values. 
   VTOL = VTN
-  print*,'RAM: updating E field at time ', TimeRamElapsed/3600.
+  write(*,*) ''
+  call write_prefix
+  write(*,'(a,F10.2)')'Updating E field at time: ', TimeRamElapsed/3600.
 
   ! Open this file and save contents.
   if(electric .ne. 'VOLS') call ram_get_electric(vtn)
@@ -106,7 +109,6 @@ subroutine ram_get_electric(EOut_II)
   END DO
 
   CALL ionospheric_potential
-  PRINT*, '3DEQ: mapping iono. potentials along B-field lines'
   DO i = 1,nR
      DO j = 1,nT
         xo(i,j) = radRaw(i) * COS(azimRaw(j)*2._dp*pi_d/24._dp - pi_d)
@@ -128,7 +130,8 @@ subroutine ram_get_electric(EOut_II)
      where (EOut_II.gt.300000) EOut_II = 300000
      where (EOut_II.lt.-300000) EOUT_II = -300000
   END IF
-  print*, 'EOut_II max and min', maxval(EOut_II), minval(EOut_II)
+  write(*,'(1x,a,2F10.2)') 'EOut_II max and min', maxval(EOut_II), minval(EOut_II)
+  write(*,*) ''
 
   DEALLOCATE(Epot_Cart, xo, yo)
   RETURN
@@ -244,16 +247,6 @@ SUBROUTINE ionospheric_potential
      CALL sce_run
      PhiIonoRaw = Iono_North_Phi
 
-open(UNITTMP_, file=RamFileName('potential','dat',TimeRamNow))
-write(UNITTMP_,*) 'a'
-write(UNITTMP_,*) 'a'
-write(UNITTMP_,*) 'a'
-do i = 1, Iono_nTheta
- do j = 1, Iono_nPsi
-  write(UNITTMP_,*) colat(i), lon(j), IONO_NORTH_Phi(i,j), IONO_NORTH_Jr(i,j), PhiIono_Weimer(i,j)
- enddo
-enddo
-close(UNITTMP_)
      CALL GSL_Interpolation_2D(colat, lon, PhiIonoRaw, colatGrid(1:npsi,2:nzetap), &
                                lonGrid(1:npsi,2:nzetap), PhiIono(1:npsi,2:nzetap), GSLerr)
 
@@ -263,7 +256,6 @@ close(UNITTMP_)
      OPEN(UNITTMP_, FILE=NameOmniFile, status = 'UNKNOWN', action = 'READ')
      if (UseSWMFFile) then
         UseAL = .false.
-        print*, 'IP: year, month, day, hour, min, btot, bz, v, n'
         Read_SWMF_file: DO
            read(UNITTMP_,*) iyear_l, imonth_l, iday_l, ihour_l, imin_l, isec_l, imsec_l, &
                             bximf_l, byimf_l, bzimf_l, vx_l, vy_l, vz_l, nk_l, t_l
@@ -272,21 +264,17 @@ close(UNITTMP_)
                (TimeRamNow%iHour.eq.ihour_l).and.(TimeRamNow%iMinute.eq.imin_l)) then
               bTot_l = SQRT(bximf_l**2 + byimf_l**2 + bzimf_l**2)
               vk_l   = SQRT(vx_l**2 + vy_l**2 + vz_l**2)
-              write(*,*)iyear_l,imonth_l,iday_l, ihour_l, imin_l, btot_l, bzimf_l, vk_l, nk_l
               EXIT Read_SWMF_file
            END IF
         END DO Read_SWMF_file
      else
         UseAL = .true.
-        PRINT*, 'IP: Year, Day, Hour, Min, Bt, By, Bz, V, N, Pdyn, AL, SYMH'
         Read_OMNI_file: DO
            READ(UNITTMP_,*) iYear_l, iDoy_l, iHour_l, iMin_l, bTot_l, byimf_l, &
                             bzimf_l, Vk_l, Nk_l, pdyn_l, AL_l, SymH_l
            doy = n_day_of_year(TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay)
            if ((TimeRamNow%iYear.eq.iyear_l).and.(doy.eq.idoy_l).and. &
                (TimeRamNow%iHour.eq.ihour_l).and.(TimeRamNow%iMinute.eq.imin_l)) then
-              WRITE(*,*) iYear_l, iDoy_l, iHour_l, iMin_l, bTot_l, byimf_l, &
-                         bzimf_l, Vk_l, Nk_l, pdyn_l, AL_l, SymH_l
               EXIT Read_OMNI_file
            END IF
         END DO Read_OMNI_file
@@ -309,6 +297,10 @@ close(UNITTMP_)
      END DO
 
      if (electric == 'WESC') then
+        write(*,*) 'Year ', ' DOY ', ' Hour ', ' Min ', ' angle ', '  bT  ', ' tilt ', '    vT    ', '  Nd  '
+        WRITE(*,'(1x,I4,2x,I3,2x,I2,4x,I2,3x,3F6.2,F10.2,F6.2)') &
+              iYear_l, iDoy_l, iHour_l, iMin_l, angle, bTot_l, tilt, Vk_l, Nk_l
+
         CALL SetModel(angle,bTot_l,tilt,Vk_l,Nk_l,REAL(AL_l,dp),UseAL)
         DO k = 2, nzeta
            DO j = 1, npsi
@@ -320,6 +312,10 @@ close(UNITTMP_)
            END DO
         END DO
      elseif (electric == 'W5SC') then
+        write(*,*) 'Year ', ' DOY ', ' Hour ', ' Min ', '  bY  ', '  bZ  ', ' tilt ', '    vT    ', '  Nd  '
+        WRITE(*,'(1x,I4,2x,I3,2x,I2,4x,I2,1x,3F6.2,F10.2,F6.2)') &
+              iYear_l, iDoy_l, iHour_l, iMin_l, byimf_l, bzimf_l, tilt, Vk_l, Nk_l
+
         CALL SetModel05(byimf_l, bzimf_l, tilt, Vk_l, Nk_l)
         DO k = 2, nzeta
            DO j = 1, npsi
@@ -332,17 +328,6 @@ close(UNITTMP_)
            END DO
         END DO
      endif
-
-open(UNITTMP_, file='w_potential_test.dat')
-write(UNITTMP_,*) 'a'
-write(UNITTMP_,*) 'a'
-write(UNITTMP_,*) 'a'
-do i = 1, npsi
- do j = 2, nzeta
-  write(UNITTMP_,*) latgrid(i,j), lonGrid(i,j), PhiIono(i,j)
- enddo
-enddo
-close(UNITTMP_)
 
   CASE DEFAULT
      DEALLOCATE(dPhiIonodRho, dPhiIonodZeta, colatGrid, lonGrid,latGrid)

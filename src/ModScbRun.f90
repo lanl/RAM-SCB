@@ -131,6 +131,7 @@
     ! boundaries. These blendings are conservative, and could be adjusted
     ! to
     ! be more exact, but for now are reasonable -ME
+    if (verbose) write(*,'(1x,a,2F6.2)') 'Starting normGradP and normJxB = ', normGradP, normJxB
     if (normGradP.gt.80) then
        blendInitial = 0.15
        !convDistance = 0.2
@@ -237,7 +238,7 @@
                 SORFail = .true.
                 exit OuterIters
              endif
-             if (verbose) PRINT*, 'CE: Cycling alpha_theta pts, blendAlpha = ', blendAlpha
+             if (verbose) write(*,*) 'CE: Cycling alpha_theta pts, blendAlpha = ', blendAlpha
              CYCLE Move_points_in_alpha_theta
           END IF
           EXIT Move_points_in_alpha_theta
@@ -328,18 +329,19 @@
                 SORFail = .true.
                 exit OuterIters
              endif
-             if (verbose) PRINT*, 'CE: Cycling psi_theta pts, blendPsi = ', blendPsi
+             if (verbose) write(*,*) 'CE: Cycling psi_theta pts, blendPsi = ', blendPsi
              CYCLE Move_points_in_psi_theta
           END IF
           EXIT Move_points_in_psi_theta
        END DO Move_points_in_psi_theta
  
        if (verbose) then
-          if (iteration == 1) WRITE(*,*) ' itout ',' blendAlpha ',' blendPsi ',' itAlpha ', &
+          if (iteration == 1) WRITE(*,*) 'itout ',' blendAlpha ',' blendPsi ',' itAlpha ', &
                                          ' diffAlpha ',' errorAlpha ', ' itPsi ',' diffPsi ', &
-                                         ' errorPsi '
-          WRITE(*,*) iteration, blendAlpha, blendPsi, nisave1,sumdb1,errorAlpha/twopi_d, &
-                     nisave,sumdb,errorPsi/MAXVAL(ABS(psival))
+                                         '   errorPsi '
+          WRITE(*,'(1x,I3,5x,F6.2,5x,F6.2,5x,I4,2x,F10.2,2x,E10.2,3x,I4,1x,F10.2,1x,E10.2)') &
+                iteration, blendAlpha, blendPsi, nisave1, sumdb1, errorAlpha/twopi_d, &
+                                                 nisave, sumdb, errorPsi/MAXVAL(ABS(psival))
        endif
   
        ! Need to set an actual convergence criteria using the JxB and GradP
@@ -358,7 +360,6 @@
        END IF
 
        IF (iConvGlobal == 1) THEN
-          PRINT*, 'Approaching convergence.'
           sumdbconv = sumdb1
           EXIT Outeriters
        END IF
@@ -396,9 +397,8 @@
        stoptime=time1/real(clock_rate,dp)
 
        !   The end of the iterative calculation
-       PRINT*, iteration, "outer iterations performed in", stoptime-starttime, "seconds."
-       IF (boundary /= 'SWMF') PRINT*, "End of calculation."
-       PRINT*, ' '
+       write(*,'(1x,a)',ADVANCE='NO') 'End of SCB Calculation: '
+       write(*,'(I3,1x,a,1x,F6.2,1x,a)'), iteration, "outer iterations performed in", stoptime-starttime, "seconds."
     end if
   
     IF (iteration > numit) lconv = 1
@@ -417,6 +417,8 @@
     CALL computeBandJacob
     CALL pressure
     CALL compute_convergence
+    if (verbose) write(*,'(1x,a,2F6.2)') 'Ending normGradP and normJxB = ', normGradP, normJxB
+
     CALL entropy(entropyFixed, fluxVolume, iCountEntropy)
 
     ! Compute physical quantities: currents, field components etc..
@@ -724,7 +726,8 @@
     totalEnergy = SUM(magneticEnergy) + SUM(thermalEnergy)
     DstDPS = 1.3_dp * (-BEarth) * (2._dp*SUM(thermalEnergy))/(3._dp*magneticEnergyDipole) * 1.E9_dp
     DstDPSInsideGeo = 1.3_dp * (-BEarth) * (2._dp*SUM(thermalEnergyInsideGeo))/(3._dp*magneticEnergyDipole) * 1.E9_dp
-    WRITE(*, '(A, 1X, F8.2, 1X, F8.2, 1X, F8.2, 1X, F8.2, A)') 'DstDPS, DstDPSGeo, DstBiot, DstBiotGeo = ', real(DstDPS), &
+    WRITE(*, '(1X, A, 1X, F8.2, 1X, F8.2, 1X, F8.2, 1X, F8.2, A)') &
+         'DstDPS, DstDPSGeo, DstBiot, DstBiotGeo = ', real(DstDPS), &
          real(DstDPSInsideGeo), real(DstBiot), real(DstBiotInsideGeo), ' nT' ! 1.3 factor due to currents induced in the Earth 
 
     DEALLOCATE(magneticEnergy,magneticEnergyInsideGeo,thermalEnergy,thermalEnergyInsideGeo)  

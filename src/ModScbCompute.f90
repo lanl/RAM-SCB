@@ -382,10 +382,9 @@ MODULE ModScbCompute
 
      IF (boundary/='SWMF' .AND. iteration/=1) THEN
         PRINT*, ' '
-        WRITE(*,*) &
-             'Total azimuthal J - midnight meridian (MA): ', totalCROSS
-        PRINT*, 'Total region 1 current in MA: ', region1FAC
-        PRINT*, 'Total region 2 current in MA: ', region2FAC
+        WRITE(*,'(1x,a,F10.2)') 'Total azimuthal J - midnight meridian (mA): ', totalCROSS
+        WRITE(*,'(1x,a,F10.2)') 'Total region 1 current in mA:               ', region1FAC
+        WRITE(*,'(1x,a,F10.2)') 'Total region 2 current in mA:               ', region2FAC
         PRINT*, ' '
      END IF
 
@@ -726,15 +725,6 @@ MODULE ModScbCompute
     jCrossB = sqrt(JxBx**2+JxBy**2+JxBz**2)
     gradP = sqrt(GradPx**2+GradPy**2+GradPz**2)
 
-    !GradPx = GradPx * pnormal*2
-    !GradPy = GradPy * pnormal*2
-    !GradPz = GradPz * pnormal*2
-    !Bx = Bx * bnormal
-    !By = By * bnormal
-    !Bz = Bz * bnormal
-    !Jx = Jx * pjconst*6.4
-    !Jy = Jy * pjconst*6.4
-    !Jz = Jz * pjconst*6.4
     jCrossB = jCrossB*bnormal*pjconst!/(1E6)
     GradP   = GradP*pnormal/6.4!/(1E6)
     jCrossBMinusGradPMod = jCrossB-GradP
@@ -747,14 +737,14 @@ MODULE ModScbCompute
     DO i = 2, nthe-1
        DO j = 2, npsi-1
           DO k = 2, nzeta
-             !IF (2.*pper(i,j,k) > 1.E-2*bsq(i,j,k)) THEN
+             IF (2.*pper(i,j,k) > 1.E-2*bsq(i,j,k)) THEN
                 ! In regions of low plasma beta, the pressure does not change the magnetic field
                 normDiff = normDiff + jacobian(i,j,k) * dr * dpPrime * dt * jCrossBMinusGradPMod(i,j,k)
                 normDiffRel = normDiffRel + jacobian(i,j,k) * dr * dpPrime * dt * jCrossBMinusGradPMod(i,j,k) / jCrossB(i,j,k)
                 normJxB = normJxB + jacobian(i,j,k) * dr * dpPrime * dt * jCrossB(i,j,k)
                 normGradP = normGradP + jacobian(i,j,k) * dr * dpPrime * dt * gradP(i,j,k)
                 volume = volume + jacobian(i,j,k) * dr * dpPrime * dt
-             !END IF
+             END IF
           END DO
        END DO
     END DO
@@ -766,7 +756,7 @@ MODULE ModScbCompute
     normGradP = normGradP/volume
  
     !  Norms of |jxB-grad P|,      |jxB|,      |gradP| 
-    if (verbose) WRITE(*, *) normDiff, normJxB, normGradP, normJxB/normGradP, normGradP/normJxB
+    !if (verbose) WRITE(*, '(5F6.2)') normDiff, normJxB, normGradP, normJxB/normGradP, normGradP/normJxB
     if (isnan(normDiff).or.isnan(normJxB).or.isnan(normGradP)) then
      if (verbose) write(*,*) 'NaN detected in Compute_Convergence'
      SORFail = .true.

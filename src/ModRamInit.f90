@@ -196,9 +196,11 @@ MODULE ModRamInit
     if (IsComponent) then
        TimeRamNow = TimeRamRealStart
     else
-       TimeMax = TimeRamElapsed + TimeMax
-       !If (IsStopTimeSet) TimeMax = TimeRamFinish%Time-TimeRamStart%Time
-       !If (abs(TimeMax).le.1e-9) call con_stop('No stop time specified in PARAM.in! Use either #STOP or #STOPTIME')
+       If (abs(TimeMax).le.1e-9) then
+          TimeMax = TimeRamFinish%Time-TimeRamStart%Time
+       else
+          TimeMax = TimeRamElapsed + TimeMax
+       endif
     endif
 
     TimeRamStop%Time = TimeRamStart%Time + TimeMax
@@ -208,20 +210,14 @@ MODULE ModRamInit
   
   !!!!!!!!! Zero Values
     ! Initialize Pressures.
-    PPerH  = 0._dp
-    PParH  = 0._dp
-    PPerO  = 0._dp
-    PParO  = 0._dp
-    PPerHe = 0._dp
-    PParHe = 0._dp
-    PPerE  = 0._dp
-    PParE  = 0._dp
+    PPerH  = 0._dp; PParH  = 0._dp
+    PPerO  = 0._dp; PParO  = 0._dp
+    PPerHe = 0._dp; PParHe = 0._dp
+    PPerE  = 0._dp; PParE  = 0._dp
   
     ! Initial loss is zero
-    LNCN  = 0._dp
-    LNCD  = 0._dp
-    LECN  = 0._dp
-    LECD  = 0._dp
+    LNCN  = 0._dp; LNCD  = 0._dp
+    LECN  = 0._dp; LECD  = 0._dp
     LSDR  = 0._dp
     LSCHA = 0._dp
     LSATM = 0._dp
@@ -232,10 +228,8 @@ MODULE ModRamInit
     SETRC = 0._dp
   
     ! Initial energy and density
-    XNN   = 0._dp
-    XND   = 0._dp
-    ENERN = 0._dp
-    ENERD = 0._dp
+    XNN   = 0._dp; XND   = 0._dp
+    ENERN = 0._dp; ENERD = 0._dp
   !!!!!!!!!
   
   !!!!!!!!!! Initialize grid.
@@ -272,16 +266,13 @@ MODULE ModRamInit
           if (S.EQ.1) then
              CALL WAPARA_HISS
              IF (DoUseBASdiff) then
-                print*, 'RAM-e: using BAS diff coeffic '
                 CALL WAPARA_BAS
              ELSE
-                print*, 'RAM-e: user-supplied diff coeffic '
                 CALL WAPARA_CHORUS
              ENDIF
           end if
        ELSE
           if (S.EQ.1) then
-             print*, 'RAM-e: using electron lifetimes '
              CALL WAVEPARA1
              CALL WAVEPARA2
           end if
@@ -578,13 +569,17 @@ MODULE ModRamInit
        TOLV = 0.0
   
        ! Compute the SCB computational domain
+       write(*,*) ''
        call write_prefix
-       write(*,*) 'Running SCB model with Dipole to initialize B-field...'
- 
+       write(*,'(a)') 'Running SCB model to initialize B-field...'
+
        NameBoundMagTemp = NameBoundMag
-       methodTemp = method
-       NameBoundMag = 'DIPL'
-       method = 3 
+       if (NameBoundMag.eq.'SWMF') then
+          NameBoundMagTemp = NameBoundMag
+          methodTemp = method
+          NameBoundMag = 'DIPL'
+          method = 3 
+       endif
        call computational_domain
   
        call ram_sum_pressure
@@ -594,8 +589,10 @@ MODULE ModRamInit
        call computehI(0)
 
        call compute3DFlux
-       method = methodTemp
-       NameBoundMag = NameBoundMagTemp 
+       if (NameBoundMagTemp.eq.'SWMF') then
+          method = methodTemp
+          NameBoundMag = NameBoundMagTemp 
+       endif
   
        !if (DoUsePlane_SCB) then
        !   write(*,*) "Reading in initial plasmasphere density model"

@@ -334,10 +334,6 @@ module ModRamFunctions
     integer :: i, j
     !------------------------------------------------------------------------
    
-    write(*,*) 'Number of Parallel Pressure grid cells for electrons < 0', count(PParE < 0.0_dp)
-    write(*,*) 'Number of Perpendicular Pressure grid cells for electrons < 0', count(PPerE < 0.0_dp)
-    where (PParE < 0._dp) PParE = 0._dp
-    where (PPerE < 0._dp) PPerE = 0._dp 
     do i=1, nR; do j=1, nT
        PAllSum(i,j) = &
             twothird * PPerO( i,j) + onethird * PParO( i,j) + &

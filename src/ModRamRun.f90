@@ -142,7 +142,6 @@ MODULE ModRamRun
     !!!!
 
     DtsNext = min(minval(DtDriftR), minval(DtDriftP), minval(DtDriftE), minval(DtDriftMu))
-    if (verbose) write(*,*) minval(DtDriftR), minval(DtDriftP), minval(DtDriftE), minval(DtDriftMu)
     DtsNext = max(DtsNext, DtsMin)
 
     ! Update flux and pressure totals

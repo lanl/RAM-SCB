@@ -493,7 +493,8 @@ end subroutine read_geomlt_file
 
     call write_prefix
     NameFile = trim(InitializationPath)//'/initialization.nc'
-    write(*,*) 'Loading initial condition files '//trim(NameFile)
+    write(*,*) ''
+    write(*,'(a)') 'Loading initial condition files...'
     ! LOAD INITIAL FILE
     iStatus = nf90_open(trim(NameFile),nf90_nowrite,iFileID)
     call ncdf_check(iStatus, NameSub)

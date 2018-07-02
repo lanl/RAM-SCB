@@ -19,7 +19,7 @@ subroutine get_boundary_flux
   use ModRamMain,   ONLY: S
   use ModRamTiming, ONLY: TimeRamElapsed
   use ModRamParams, ONLY: BoundaryFiles
-
+  use ModRamIO,     ONLY: write_prefix
 
   implicit none
  
@@ -29,7 +29,9 @@ subroutine get_boundary_flux
   do iS=1,4
      S = iS
      IF (S.EQ.1) THEN
-        if (BoundaryFiles) print*, 'RAM: calling GEOSB at time (hr) = ', TimeRamElapsed/3600.
+        write(*,*) ''
+        call write_prefix
+        write(*,'(a,F10.2)') 'Calling GEOSB at time:    ', TimeRamElapsed/3600.
      ENDIF
      CALL GEOSB
   end do
