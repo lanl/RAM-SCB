@@ -175,7 +175,7 @@ Module ModRamScb
     REAL(DP) :: x0, y0, z0, xe, ye, ze, xf, yf, zf
     REAL(DP) :: ER, DSMAX, RLIM, DIR
     REAL(DP) :: PDyn, BzIMF, DIST, XMGNP, YMGNP, ZMGNP
-    REAL(DP), DIMENSION(200) :: xtemp, ytemp, ztemp, bxtemp, bytemp, bztemp, dtemp
+    REAL(DP), DIMENSION(1000) :: xtemp, ytemp, ztemp, bxtemp, bytemp, bztemp, dtemp
   
     integer, save :: j, k
     REAL(DP), save :: wn, xo, xn, xp, yo, yn, yp, psiRAM, alphaRAM
@@ -186,7 +186,7 @@ Module ModRamScb
 
     clock_rate = 1000
     clock_max = 100000
-    LMAX = 200
+    LMAX = 1000
   
     !!! Initialize Allocatable Arrays
     ALLOCATE(ScaleAt(nT), outsideSCB(nR,nT), bbx(nthe), bby(nthe), bbz(nthe), xx(nthe), &
@@ -311,6 +311,7 @@ Module ModRamScb
                                                   +(ytemp(k)-ytemp(k-1))**2 &
                                                   +(ztemp(k)-ztemp(k-1))**2)
                    enddo
+
                    cVal(:) = chiVal(:)*dtemp(LOUT)/pi_d
                    CALL GSL_Interpolation_1D('Cubic',dtemp(1:LOUT),xtemp(1:LOUT),cVal(:),xRAM(:,i,j),GSLerr)
                    CALL GSL_Interpolation_1D('Cubic',dtemp(1:LOUT),ytemp(1:LOUT),cVal(:),yRAM(:,i,j),GSLerr)
@@ -344,7 +345,7 @@ Module ModRamScb
                                                + (zRAM(k,i,j)-zRAM(k-1,i,j))**2)
              enddo
              r0(i,j) = SQRT(xRAM(nThetaEquator,i,j)**2+yRAM(nThetaEquator,i,j)**2)
-             bfmirror(i,j,1:NPA-1) = bRAM(nThetaEquator,i,j)/(1._dp -mu(1:NPA-1)**2)
+             bfmirror(i,j,1:NPA-1) = minval(bRAM(:,i,j))/(1._dp -mu(1:NPA-1)**2)
              bfmirror(i,j,NPA)     = bRAM(nthe,i,j)
 
              CALL GSL_Integration_hI(bfMirror(i,j,:),chiVal(:),bRAM(:,i,j),distance(:,i,j),&
@@ -354,6 +355,7 @@ Module ModRamScb
              H_cart(i,j,:) = (length(i,j)/(pi_d*2*r0(i,j))) *yH(i,j,:)*SQRT(Bfmirror(i,j,:))
              HDens_cart(i,j,:) = 1.E5_dp * yD(i,j,:)/yH(i,j,:) !Re-normalize
              bZEq_Cart(i,j) = bRAM(nThetaEquator,i,j)*bnormal
+
           end if
        enddo
     enddo
@@ -397,7 +399,7 @@ Module ModRamScb
              else
                 scalingD = D_Temp/HDens_cart(ii,j,L)
              endif
-  
+
              do i = ii, nR
                 if (outsideMGNP(i,j) == 0) then
                    ! If inside Magnetopause but outside SCB domain then scale h
@@ -405,12 +407,14 @@ Module ModRamScb
                    I_cart(i,j,L) = I_cart(i,j,L)*scalingI
                    H_cart(i,j,L) = H_cart(i,j,L)*scalingH
                    HDens_cart(i,j,L) = HDens_cart(i,j,L)*scalingD
+                   bZEq_Cart(i,j) = bZEq_Cart(i-1,j)
                 else 
                    ! If outside Magnetopause then set h and I integrals to 
                    ! the previous radial point
                    I_cart(i,j,L) = I_cart(i-1,j,L)
                    H_cart(i,j,L) = H_cart(i-1,j,L)
                    HDens_cart(i,j,L) = HDens_cart(i-1,j,L)
+                   bZEq_Cart(i,j) = bZEq_Cart(i-1,j)
                 endif
              enddo
           enddo
@@ -454,20 +458,15 @@ Module ModRamScb
        if (verbose) print*, 'computehI: minval(D) = ', MINVAL(HDens_Cart), minloc(HDens_Cart)
     END IF
     !! Now check for bad integrals (integrals that are too large)
-    IF (MAXVAL(h_Cart) > 3._dp) THEN
-       if (verbose) PRINT*, 'computehI: maxval(h) = ', MAXVAL(h_Cart), maxloc(H_Cart)
-       if (verbose) PRINT*, 'computehI: maxval(I) = ', MAXVAL(I_Cart), maxloc(I_Cart)
+    do i = 1, nR
        do j = 1, nT
-          do i = 1, nR
-             do L = 2, nPa
-                if (h_Cart(i,j,L).gt.3) then 
-                   h_Cart(i,j,L) = h_Cart(i,j,L-1)
-                   hDens_Cart(i,j,L) = hDens_Cart(i,j,L-1)
-                endif
-             enddo
+          do L = nPa-1,1,-1
+             if (i_Cart(i,j,L).gt.i_Cart(i,j,L+1)) i_Cart(i,j,L) = 0.99*i_Cart(i,j,L+1)
+             if (H_Cart(i,j,L).gt.H_Cart(i,j,L+1)) H_Cart(i,j,L) = 0.99*H_Cart(i,j,L+1)
+             if (HDens_Cart(i,j,L).gt.HDens_Cart(i,j,L+1)) HDens_Cart(i,j,L) = 0.999*HDens_Cart(i,j,L+1)
           enddo
        enddo
-    ENDIF
+    enddo
   
     ! Cubic GSL interpolation with natural boundaries to get h and I at muboun 
     DO j = 1, nT
@@ -542,41 +541,17 @@ Module ModRamScb
     ENDDO
     TOld = TimeRamElapsed
 
-    do i = 2, nR
+    ! Check for NaN's
+    do i = 2, nR+1
        do j = 1, nT
           do L = 1, nPa
-             if (abs(dIdt(I,J,L)) > 1.e-5) then
-                if (J.eq.1) then
-                   if (abs(dIdt(I,nT,L)) > 1.e-5) then
-                      dIdt(I,J,L) = 1.e-5 * (abs(dIdt(I,J,L))/dIdt(I,J,L))
-                      dIbndt(I,J,L) = 1.e-5 * (abs(dIbndt(I,J,L))/dIbndt(I,J,L))
-                   else
-                      dIdt(I,J,L) = dIdt(I,nT,L)
-                      dIbndt(I,J,L) = dIbndt(I,nT,L)
-                   endif
-                else
-                   dIdt(I,J,L) = dIdt(I,J-1,L)
-                   dIbndt(I,J,L) = dIbndt(I,J-1,L)
-                endif
-                FNIS(I,J,L) = FNISPrev(I,J,L) + dIdt(I,J,L)*dThI
-                BOUNIS(I,J,L) = BOUNISPrev(I,J,L) + dIbndt(I,J,L)*dThI
-             endif
-             if (abs(dHdt(I,J,L)) > 1.e-5) then
-                if (j.eq.1) then
-                   if (abs(dHdt(I,nT,L)) > 1.e-5) then
-                      dHdt(I,J,L) = 1.e-5 * (abs(dHdt(I,J,L))/dHdt(I,J,L))
-                      dHbndt(I,J,L) = 1.e-5 * (abs(dHbndt(I,J,L))/dHbndt(I,J,L))
-                   else
-                      dHdt(I,J,L) = dHdt(I,nT,L)
-                      dHbndt(I,J,L) = dHbndt(I,nT,L)
-                   endif
-                else
-                   dHdt(I,J,L) = dHdt(I,J-1,L)
-                   dHbndt(I,J,L) = dHbndt(I,J-1,L)
-                endif
-                FNHS(I,J,L) = FNHSPrev(I,J,L) + dHdt(I,J,L)*dThI
-                BOUNHS(I,J,L) = BOUNHSPrev(I,J,L) + dHbndt(I,J,L)*dThI
-             endif
+             if (isnan(FNIS(I,J,L))) FNIS(I,J,L) = FNIS(I-1,J,L)
+             if (isnan(FNHS(I,J,L))) FNHS(I,J,L) = FNHS(I-1,J,L)
+             if (isnan(BOUNIS(I,J,L))) BOUNIS(I,J,L) = BOUNIS(I-1,J,L)
+             if (isnan(BOUNHS(I,J,L))) BOUNHS(I,J,L) = BOUNHS(I-1,J,L)
+             if (isnan(HDNS(I,J,L))) HDNS(I,J,L) = HDNS(I-1,J,L)
+             if (isnan(dIdt(I,J,L))) dIdt(I,J,L) = 0._dp
+             if (isnan(dIbndt(I,J,L))) dIbndt(I,J,L) = 0._dp
           enddo
        enddo
     enddo
