@@ -8,6 +8,7 @@ module ModRamPl_Ne
 ! *** put other modules here ***
   use ModRamGrids,     ONLY: NR, NT, NL, NLT
   use ModRamVariables, ONLY: NECR, VT, LZ, PHI, DL1, IR1, DPHI
+  use ModRamMain, ONLY: Real8_
 !\
 ! Grid size parameters from ModRamMain
 !/
@@ -34,14 +35,14 @@ module ModRamPl_Ne
 real, parameter :: CodeVersion = 1.0
 
 ! Kind for double precision, set here for portability.
-integer, parameter :: Real8_ = selected_real_kind(14,200)
+!integer, parameter :: Real8_ = selected_real_kind(14,200)
 integer, parameter :: Real4_ = selected_real_kind( 6, 37)
 
 ! Include IRI 2012?  Default is yes!
 logical :: UseIRI_2012 = .false.
 
 ! Use the latest NRLMSISE model?  Default is yes!
-logical :: UseNRL_MSISE = .false.
+logical :: UseNRL_MSISE = .true.
 
 ! Use a non-dipole magnetic field from SCB .dat file
 logical :: UseSCB_nondipole = .false.
