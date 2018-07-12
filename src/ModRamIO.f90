@@ -169,16 +169,20 @@ module ModRamIO
     end if
 
     ! Write MAGxyz File
-    if ((abs(mod(TimeIn, DtW_MAGxyz))<=1e-9).and.(NameBoundMag.ne.'DIPL')) call Write_MAGxyz
+    if ((abs(mod(TimeIn, DtW_MAGxyz))<=1e-9).and.(NameBoundMag.ne.'DIPL')) &
+       call Write_MAGxyz(NameBoundMag)
 
     ! Write hI File
-    if ((abs(mod(TimeIn, DtW_hI))<=1e-9).and.(NameBoundMag.ne.'DIPL')) call ram_write_hI
+    if ((abs(mod(TimeIn, DtW_hI))<=1e-9).and.(NameBoundMag.ne.'DIPL')) &
+       call ram_write_hI
 
     ! Write efield file
-    if (abs(mod(TimeIn, DtW_Efield)).le.1e-9) call ram_epot_write
+    if (abs(mod(TimeIn, DtW_Efield)).le.1e-9) &
+       call ram_epot_write
 
     ! Update Satellite Files
-    if (DoSaveRamSats .and. (abs(mod(TimeRamElapsed,DtWriteSat)) .le. 1e-9)) call fly_sats
+    if (DoSaveRamSats .and. (abs(mod(TimeRamElapsed,DtWriteSat)) .le. 1e-9)) &
+       call fly_sats
 
     ! Write restarts.
     if (abs(mod(TimeIn,DtRestart)).le.1e-9) call write_restart()
@@ -205,7 +209,8 @@ subroutine read_geomlt_file(NameParticle)
   use ModRamGrids,     ONLY: NEL, NEL_prot, NTL, NBD
   use ModRamParams,    ONLY: boundary, BoundaryPath
   use ModRamVariables, ONLY: flux_SIII, fluxLast_SII, eGrid_SI, &
-                             avgSats_SI, lGrid_SI, tGrid_SI
+                             avgSats_SI, lGrid_SI, tGrid_SI, &
+                             StringFileDate
   !!!! Share Modules
   use ModIOUnit,      ONLY: UNITTMP_
   use ModTimeConvert, ONLY: TimeType, time_int_to_real
@@ -236,6 +241,8 @@ subroutine read_geomlt_file(NameParticle)
 
   !------------------------------------------------------------------------
   call CON_set_do_test(NameSub, DoTest, DoTestMe)
+
+  write(StringFileDate,'(i4.4,i2.2,i2.2)') TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay
 
   ! Build file name using current date.  NameParticle decides if we open
   ! electrons or protons.
@@ -330,8 +337,8 @@ subroutine read_geomlt_file(NameParticle)
   endif
 
   ! Set species index.
-  iSpec=1 !Protons.
-  if(NameParticle.eq.'elec') iSpec=2 !electrons.
+  if (NameParticle.eq.'prot') iSpec=1 !Protons.
+  if (NameParticle.eq.'elec') iSpec=2 !electrons.
 
   ! Put data into proper array according to NameParticle.
   lGrid_SI(iSpec,1:NTL-1)     = MLTBuffer
@@ -658,7 +665,7 @@ end subroutine read_geomlt_file
     use ModRamGrids,     ONLY: nR, nE, nPA, nT
     use ModRamVariables, ONLY: F2, FFACTOR, FNHS, WE, WMU, XNN, XND, ENERN,   &
                                ENERD, EkeV, UPA, LNCN, LNCD, Kp, MLT, LZ, &
-                               LECD, LECN
+                               LECD, LECN, outsideMGNP
     use ModRamTiming,    ONLY: TimeRamNow
 
     use ModRamFunctions
@@ -734,6 +741,7 @@ end subroutine read_geomlt_file
     DO I=4,NR,IW
       DO 25 J=1,NT-1,JW
         WRITE(UNITTMP_,32) StringDate,LZ(I),KP,MLT(J)
+        if (outsideMGNP(I,J) == 1) F(I,J,:,:) = 1e-31
         DO 27 K=4,NE-1
 27      WRITE(UNITTMP_,30) EKEV(K),(F(I,J,K,L),L=2,NPA-2)
 25    CONTINUE
@@ -792,7 +800,8 @@ end subroutine read_geomlt_file
     use ModRamParams,    ONLY: DoAnisoPressureGMCoupling
     use ModRamGrids,     ONLY: NR, NT
     use ModRamVariables, ONLY: PParH, PPerH, PParHe, PPerHe, PParO, PPerO, &
-                               PPerE, PParE, PAllSum, PParSum, KP, LZ, PHI
+                               PPerE, PParE, PAllSum, PParSum, KP, LZ, PHI, &
+                               outsideMGNP
     !!!! Share Modules
     use ModIOUnit, ONLY: UNITTMP_
 
@@ -827,7 +836,10 @@ end subroutine read_geomlt_file
     end if
     do i=2, NR
        do j=1, NT
-          if (.not.DoAnisoPressureGMCoupling) then
+          if (outsideMGNP(I,J) == 1) then
+             write(UNITTMP_,*) LZ(I),PHI(J)*12/PI_d,1e-31,1e-31,1e-31,1e-31, &
+                               1e-31,1e-31,1e-31,1e-31,1e-31,1e-31
+          elseif (.not.DoAnisoPressureGMCoupling) then
              write(UNITTMP_,*) LZ(I),PHI(J)*12/PI_d,PPERH(I,J),PPARH(I,J), &
                                PPERO(I,J),PPARO(I,J), PPERHE(I,J),PPARHE(I,J), &
                                PPERE(I,J),PPARE(I,J),PAllSum(i,j)
@@ -871,8 +883,7 @@ subroutine ram_write_hI
      DO j = 1, nT
         DO L = 1, NPA
            WRITE(UNITTMP_, *) LZ(i), MLT(j), L, FNHS(i,j,L), BOUNHS(i,j,L), &
-                FNIS(i,j,L), BOUNIS(i,j,L), BNES(i,j), HDNS(i,j,L), dIdt(i,j,L), &
-                dHdt(i,j,L), dBdt(i,j)
+                FNIS(i,j,L), BOUNIS(i,j,L), BNES(i,j), HDNS(i,j,L)
         END DO
      END DO
   END DO

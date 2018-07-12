@@ -116,7 +116,7 @@ MODULE ModRamScbRun
 
 
        ! Couple SCB -> RAM
-       if ((hICalc).and.(method.ne.3)) then ! Calculate full h's and I's if SCB was successful
+       if ((hICalc)) then ! Calculate full h's and I's if SCB was successful
           call computehI(nIter)
        else                                 ! If SCB wasn't successful use previous h's and I's
           dBdt = 0._dp                      ! which implies dXdt = 0

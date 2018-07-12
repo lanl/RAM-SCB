@@ -142,6 +142,7 @@ MODULE ModRamInit
                                PPerE, LSDR, LSCHA, LSATM, LSCOE, LSCSC, LSWAE, ELORC, &
                                SETRC, XNN, XND, ENERN, ENERD, LNCN, LNCD, LECN, LECD, &
                                Lz, GridExtend, Phi, kp, F107
+    use ModScbVariables, ONLY: radRaw, azimRaw
     !!!! Modules Subroutines/Functions
     use ModRamWPI,     ONLY: WAPARA_HISS, WAPARA_BAS, WAPARA_CHORUS, WAVEPARA1, WAVEPARA2
     use ModRamIndices, ONLY: init_indices, get_indices
@@ -156,7 +157,7 @@ MODULE ModRamInit
   
     real(DP) :: dPh
   
-    integer :: iR, iPhi
+    integer :: iR, iPhi, j, k
     integer :: nrIn, ntIn, neIn, npaIn
     logical :: TempLogical
     logical :: StopCommand, IsStopTimeSet
@@ -258,7 +259,15 @@ MODULE ModRamInit
        write(*,*)'  Lz (Ram-only grid) = ', Lz
        write(*,*)'  Phi = ', phi
     end if
-    
+
+    ! Arrays that are needed in the SCB calculations.
+    DO j = 0,nR
+       radRaw(j) = RadiusMin + ((RadiusMax+dR)-RadiusMin) * REAL(j,DP)/REAL(nR,DP)
+    END DO
+    DO k = 1,nT
+       azimRaw(k) = 24.0 * REAL(k-1,DP)/REAL(nT-1,DP)
+    END DO
+
     ! Intialize arrays
     do S=1,4
        call Arrays
@@ -504,7 +513,7 @@ MODULE ModRamInit
     use ModRamGrids,     ONLY: NL, NLT, nR, nT
     use ModRamTiming,    ONLY: DtEfi, TimeRamNow, TimeRamElapsed
     use ModRamVariables, ONLY: Kp, F107, TOLV, NECR, IP1, IR1, XNE
-    use ModScbParams,    ONLY: method
+    use ModScbParams,    ONLY: method, constTheta
     !!!! Module Subroutines/Functions
     use ModRamRun,       ONLY: ANISCH
     use ModRamIO,        ONLY: write_prefix
@@ -593,14 +602,14 @@ MODULE ModRamInit
           method = methodTemp
           NameBoundMag = NameBoundMagTemp 
        endif
-  
-       !if (DoUsePlane_SCB) then
-       !   write(*,*) "Reading in initial plasmasphere density model"
-          OPEN(UNITTMP_,FILE='ne_full.dat',STATUS='OLD') ! Kp=1-2 (quiet)
-          READ(UNITTMP_,'(A)') HEADER
-          READ(UNITTMP_,*) ((NECR(I,J),I=1,NL),J=0,NLT)  ! L= 1.5 to 10
-          CLOSE(UNITTMP_)
-       !endif
+ 
+       ! NECR needed for the plasmasphere model (PLANE)
+       ! XNE needed for wave particle interactions (WPI)
+       ! Initialize both of them even if not using WPI or PLANE 
+       OPEN(UNITTMP_,FILE='ne_full.dat',STATUS='OLD') ! Kp=1-2 (quiet)
+       READ(UNITTMP_,'(A)') HEADER
+       READ(UNITTMP_,*) ((NECR(I,J),I=1,NL),J=0,NLT)  ! L= 1.5 to 10
+       CLOSE(UNITTMP_)
        DO I=2,NR
          I1=int((I-2)*IR1+3,kind=4)
          DO J=1,NT
