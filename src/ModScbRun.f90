@@ -78,7 +78,7 @@
 
 !!!!! Recalculate the SCB outerboundary
     if (nIter.ne.0) then
-       call Update_Domain(check)
+       call Update_Domain(check,x,y,z,psiVal,f)
        IF ((iAMR == 1).and.(check)) THEN
           CALL InterpolatePsiR
           CALL mappsi
@@ -131,7 +131,7 @@
     ! boundaries. These blendings are conservative, and could be adjusted
     ! to
     ! be more exact, but for now are reasonable -ME
-    if (verbose) write(*,'(1x,a,2F6.2)') 'Starting normGradP and normJxB = ', normGradP, normJxB
+    if (verbose) write(*,'(1x,a,2F10.2)') 'Starting normGradP and normJxB = ', normGradP, normJxB
     if (normGradP.gt.80) then
        blendInitial = 0.15
        !convDistance = 0.2
@@ -417,7 +417,7 @@
     CALL computeBandJacob
     CALL pressure
     CALL compute_convergence
-    if (verbose) write(*,'(1x,a,2F6.2)') 'Ending normGradP and normJxB = ', normGradP, normJxB
+    if (verbose) write(*,'(1x,a,2F10.2)') 'Ending normGradP and normJxB = ', normGradP, normJxB
 
     CALL entropy(entropyFixed, fluxVolume, iCountEntropy)
 
@@ -1135,71 +1135,24 @@ SUBROUTINE pressure
 
        CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, pper(1:nthe,1:npsi,1:nzeta), &
                        dPperdTheta, dPperdRho, dPperdZeta, GSLerr)
+       !dPperdTheta(:,:,1) = dPperdTheta(:,:,nzeta)
+       !dPperdRho(:,:,1) = dPperdRho(:,:,nzeta)
+       !dPperdZeta(:,:,1) = dPperdZeta(:,:,nzeta)
        CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, bsq(1:nthe,1:npsi,1:nzeta), &
                        dBsqdTheta, dBsqdRho, dBsqdZeta, GSLerr)
-  
+       !dBsqdTheta(:,:,1) = dBsqdTheta(:,:,nzeta)
+       !dBsqdRho(:,:,1) = dBsqdRho(:,:,nzeta)
+       !dBsqdZeta(:,:,1) = dBsqdZeta(:,:,nzeta)
+
        DO j = 1, npsi
-          !DO k = 1, nzeta
-          !   if (SQRT(x(nThetaEquator,j,k)**2+y(nThetaEquator,j,k)**2) > 7._dp) then
-          !      dPPerdRho(:,j,k) = dPPerdRho(:,j-1,k)
-          !   endif
-          !ENDDO
           dPperdPsi(:,j,:) = 1./f(j) * dPperdRho(:,j,:)
-          !IF (iOuterMethod == 2) dBBdPsi(:,j,:) = dBBdRho(:,j,:) / f(j)
           dBsqdPsi(:,j,:) = 1./f(j) * dBsqdRho(:,j,:)
        END DO
   
        DO k = 1, nzeta
-          !DO j = 1, npsi
-          !   if (SQRT(x(nThetaEquator,j,k)**2+y(nThetaEquator,j,k)**2) > 7._dp) then
-          !      dPPerdZeta(:,j,k) = dPPerdZeta(:,j-1,k)
-          !   endif
-          !END DO
           dPperdAlpha(:,:,k) = 1. / fzet(k) * dPperdZeta(:,:,k)
-          !IF (iOuterMethod == 2) dBBdAlpha(:,:,k) = dBBdZeta(:,:,k) / fzet(k)
           dBsqdAlpha(:,:,k) = 1. / fzet(k) * dBsqdZeta(:,:,k)
        END DO
-  
-       !IF (iOuterMethod == 2) THEN ! If using the Newton method, need these
-       !   ALLOCATE(BigBracketPsi(nthe,npsi,nzeta), stat = ierr)
-       !   ALLOCATE(BigBracketAlpha(nthe,npsi,nzeta), stat = ierr)
-       !   ALLOCATE(dBBdRho(nthe,npsi,nzeta), stat = ierr)
-       !   ALLOCATE(dBBdZeta(nthe,npsi,nzeta), stat = ierr)
-       !   ALLOCATE(dummy1(nthe,npsi,nzeta), stat = ierr)
-       !   ALLOCATE(dummy2(nthe,npsi,nzeta), stat = ierr)
-       !   BigBracketPsi = 0.0; BigBracketAlpha = 0.0; dBBdRho = 0.0
-       !   dBBdZeta = 0.0; dummy1 = 0.0; dummy2 = 0.0
-       !   DO k = 1, nzeta
-       !      DO j = 1, npsi
-       !         DO i = 1, nthe
-       !            BigBracketAlpha(i,j,k) = (-1./sigma(i,j,k) * dPperdAlpha(i,j,k) &
-       !                 - 1./(sigma(i,j,k)*bsq(i,j,k)) * f(j)**2 * fzet(k) * (gradRhoSq(i,j,k)* &
-       !                 gradThetaGradZeta(i,j,k) - gradRhoGradTheta(i,j,k)*gradRhoGradZeta(i,j,k)) * &
-       !                 (dPperdTheta(i,j,k) + (1.-sigma(i,j,k))*0.5*dBsqdTheta(i,j,k)) - &
-       !                 (1. - sigma(i,j,k)) / sigma(i,j,k) * 0.5 * dBsqdAlpha(i,j,k))
-       !            BigBracketPsi(i,j,k) = (1./sigma(i,j,k) * dPperdPsi(i,j,k) &
-       !                 - 1./(sigma(i,j,k)*bsq(i,j,k)) * f(j) * fzet(k)**2 * (gradRhoGradZeta(i,j,k)* &
-       !                 gradThetaGradZeta(i,j,k) - gradRhoGradTheta(i,j,k)*gradZetaSq(i,j,k)) * &
-       !                 (dPperdTheta(i,j,k) + (1.-sigma(i,j,k)) * 0.5_dp * dBsqdTheta(i,j,k)) + &
-       !                 (1.-sigma(i,j,k)) / sigma(i,j,k) * 0.5_dp * dBsqdPsi(i,j,k))
-       !         END DO
-       !      END DO
-       !   END DO
-       !   CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, &
-       !                   BigBracketAlpha(1:nthe,1:npsi,1:nzeta), &
-       !                   dummy1, dummy2, dBBdZeta, GSLerr)
-       !   CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, &
-       !                   BigBracketPsi(1:nthe,1:npsi,1:nzeta), &
-       !                   dummy1, dBBdRho, dummy2, GSLerr)
-
-       !   IF(ALLOCATED(BigBracketPsi)) DEALLOCATE(BigBracketPsi, stat = idealerr)
-       !   IF(ALLOCATED(BigBracketAlpha)) DEALLOCATE(BigBracketAlpha, stat = idealerr)
-       !   IF(ALLOCATED(dBBdRho)) DEALLOCATE(dBBdRho, stat = idealerr)
-       !   IF(ALLOCATED(dBBdZeta)) DEALLOCATE(dBBdZeta, stat = idealerr)
-       !   IF(ALLOCATED(dummy1)) DEALLOCATE(dummy1, stat = idealerr)
-       !   IF(ALLOCATED(dummy2)) DEALLOCATE(dummy2, stat = idealerr)
-       !END IF
-
     END IF Isotropy_choice
  
     DO j = 1, npsi

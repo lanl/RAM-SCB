@@ -75,7 +75,7 @@ MODULE ModScbIO
        ! the variable b controls the compression with 0 being no compression
        Symmetric = .true.
        xpsiin = 1.75
-       xpsiout = 7.00
+       xpsiout = 7.50
        call get_dipole_lines(xpsiin,xpsiout,constTheta,nthe,npsi,nzeta,x,y,z,bf,.false.)
        chival = (thetaVal + constTheta*sin(2.*thetaVal))
        kmax = nZetaMidnight
@@ -221,8 +221,8 @@ MODULE ModScbIO
              kmax = k
           endif
        enddo
+       xpsiin = 1.75 ! Don't need to do tracing at inner boundary
 
-       xpsiin = 1.75
        ! Calculate dipole starting points for given xpsiin and xpsiout
        ! in chosen field and perform nzeta*npsi traces to create grid
        do k=2,nzeta
@@ -269,6 +269,9 @@ MODULE ModScbIO
        chival = (thetaVal + constTheta*sin(2.*thetaVal))
     endif
 
+    ! Output magnetic field for testing
+    !call Write_MAGxyz('ComputeDomain')
+
     ! Get the Psi (Alpha) Euler Potential
     ! This is done by assuming a dipole on the field line foot points
     ! and then assigning the value of where they would cross the equator
@@ -300,7 +303,7 @@ MODULE ModScbIO
   end subroutine computational_domain
 
 !=============================================================================!
-  subroutine update_domain(updated)
+  subroutine update_domain(updated,xOld,yOld,zOld,psiValOld,fOld)
 
     !!! Module Variables
     use ModRamParams,    ONLY: NameBoundMag, verbose
@@ -327,6 +330,8 @@ MODULE ModScbIO
 
     implicit none
 
+    real(DP), intent(IN) :: xOld(:,:,:), yOld(:,:,:), zOld(:,:,:), psiValOld(:), &
+                            fOld(:)
     LOGICAL, INTENT(OUT) :: updated
     LOGICAL :: outside
     INTEGER :: i, j, k, GSLerr, i1, i2, jout, ktemp
@@ -368,17 +373,22 @@ MODULE ModScbIO
     xpsiout = 8.0
     scanLeft  = nZetaMidnight/2
     scanRight = nZetaMidnight + scanLeft
-    do k = scanLeft,scanRight
+    Find_PsiOut: do k = scanLeft,scanRight
        x0 = 8._dp*cos(zetaVal(k))
        y0 = 8._dp*sin(zetaVal(k))
        z0 = 0._dp
        call trace(x0,y0,z0,1.0_dp,xf,yf,zf,xx(:),yy(:),zz(:),LOUT,LMAX,bx,by,bz)
-       psitemp = 1./(1.-zf**2/(xf**2+yf**2+zf**2))
+       r0 = xf**2+yf**2+zf**2
+       if ((r0.gt.1.1).or.(LOUT.ge.LMAX)) then
+          xpsiout = xpsitemp
+          exit Find_PsiOut
+       endif
+       psitemp = 1./(1.-zf**2/r0)
        if (psitemp.lt.xpsiout) then
           xpsiout = psitemp
           ktemp = k
        endif
-    enddo
+    enddo Find_PsiOut
     
     if ((abs(xpsiout-xpsitemp).le.1e-9).or.(xpsitemp.eq.-1._dp)) return
 
@@ -405,27 +415,6 @@ MODULE ModScbIO
     zout = 0.0; rout = 0.0; xmid = 0.0; ymid = 0.0; zmid = 0.0; rmid = 0.0; rold = 0.0
     outer = 0; cVal = 0.0
 
-    ! Now move points radially to match the new xpsiout value
-    ! Get the new psi values
-    kmax = ktemp
-    psiin   = -xzero3/xpsiin
-    psiout  = -xzero3/xpsiout
-    psitot  = psiout-psiin
-    xpsitot = xpsiout - xpsiin
-    DO j = 1, npsi
-       psis = REAL(j-1, DP) / REAL(npsi-1, DP)
-       xpl = xpsiin + xpsitot * psis
-       psival(j) = -xzero3 / xpl
-       f(j) = (xzero3 / xpl**2) * xpsitot !dPsi/dR -- For converting between euler potential
-       fp(j) = 0._dp                      !           and the curvilinear coordinate
-    END DO
-
-    DO k = 1, nzeta+1
-       alphaVal(k) = twopi_d*(REAL(k-2, DP)/REAL(nzeta-1, DP))
-       fzet(k)     = 1._dp ! dAlpha/dPhi -- For converting between the euler potential
-       fzetp(k)    = 0._dp !                and the curvilinar coordinate
-    END DO
-
     ! Trace the outer shell and identify the points that lay outside the new outer boundary
     rtest = 0._dp
     do k=1,nzeta
@@ -437,6 +426,16 @@ MODULE ModScbIO
        y0 = rt*sin(zt)*sin(tt)
        z0 = rt*cos(tt)
        CALL trace(x0,y0,z0,-1.0_dp,xf,yf,zf,xx(:),yy(:),zz(:),LOUT,LMAX,bx,by,bz)
+       r0 = xf**2+yf**2+zf**2
+       if ((r0.gt.1.1).or.(LOUT.ge.LMAX)) then ! If somethings wrong then abort
+          Updated = .false.
+          DEALLOCATE(xOldTheta,yOldTheta,zOldTheta,chiValOld,radius,xOldPsi,yOldPsi, &
+                     zOldPsi,psiOld,xtemp,ytemp,ztemp,psiValTemp,rtemp,dj,xatemp,yatemp, &
+                     zatemp,phi,xPhi,yPhi,zPhi,xout,yout,zout,rout,xmid,ymid,zmid,rmid, &
+                     rold,outer,cVal)
+          return
+       endif
+
        distance(1) = 0._dp
        do i = 2,LOUT
           distance(i) = distance(i-1) + SQRT((xx(i)-xx(i-1))**2 &
@@ -463,12 +462,33 @@ MODULE ModScbIO
              rold(i,j,k) = x(i,j,k)**2+y(i,j,k)**2+z(i,j,k)**2
              if ((rold(i,j,k) > rout(i,k)).and.(j.gt.15)) outside = .true.
              if ((outside).and.(outer(i,k).eq.1)) then
-                outer(i,k) = j-2
+                outer(i,k) = j-1
              endif
           enddo
-          if (outer(i,k).eq.1) outer(i,k) = npsi-2
+          if (outer(i,k).eq.1) outer(i,k) = npsi-1
        enddo
     enddo
+
+   ! Now move points radially to match the new xpsiout value
+    ! Get the new psi values
+    kmax = ktemp
+    psiin   = -xzero3/xpsiin
+    psiout  = -xzero3/xpsiout
+    psitot  = psiout-psiin
+    xpsitot = xpsiout - xpsiin
+    DO j = 1, npsi
+       psis = REAL(j-1, DP) / REAL(npsi-1, DP)
+       xpl = xpsiin + xpsitot * psis
+       psival(j) = -xzero3 / xpl
+       f(j) = (xzero3 / xpl**2) * xpsitot !dPsi/dR -- For converting between euler potential
+       fp(j) = 0._dp                      !           and the curvilinear coordinate
+    END DO
+
+    DO k = 1, nzeta+1
+       alphaVal(k) = twopi_d*(REAL(k-2, DP)/REAL(nzeta-1, DP))
+       fzet(k)     = 1._dp ! dAlpha/dPhi -- For converting between the euler potential
+       fzetp(k)    = 0._dp !                and the curvilinar coordinate
+    END DO
    
     ! Map all interior points onto the new psi values
     do k = 1,nzeta
@@ -482,12 +502,21 @@ MODULE ModScbIO
           xtemp(jout+1) = x(i,jout,k) + (rout(i,k) - rold(i,jout,k)) &
                                        /(rold(i,jout-1,k)-rold(i,jout,k)) &
                                        *(x(i,jout-1,k) - x(i,jout,k))
+          if (abs(1-xtemp(jout+1)/x(i,jout,k)).gt.abs(1-rout(i,k)/rold(i,jout,k))) then
+             xtemp(jout+1) = x(i,jout,k)*rout(i,k)/rold(i,jout,k)
+          endif
           ytemp(jout+1) = y(i,jout,k) + (rout(i,k) - rold(i,jout,k)) &
                                        /(rold(i,jout-1,k)-rold(i,jout,k)) &
                                        *(y(i,jout-1,k) - y(i,jout,k))
+          if (abs(1-ytemp(jout+1)/y(i,jout,k)).gt.abs(1-rout(i,k)/rold(i,jout,k))) then
+             ytemp(jout+1) = y(i,jout,k)*rout(i,k)/rold(i,jout,k)
+          endif
           ztemp(jout+1) = z(i,jout,k) + (rout(i,k) - rold(i,jout,k)) &
                                        /(rold(i,jout-1,k)-rold(i,jout,k)) &
                                        *(z(i,jout-1,k) - z(i,jout,k))
+          if (abs(1-ztemp(jout+1)/z(i,jout,k)).gt.abs(1-rout(i,k)/rold(i,jout,k))) then
+             ztemp(jout+1) = z(i,jout,k)*rout(i,k)/rold(i,jout,k)
+          endif
 
           dj(1) = 0._dp
           do j = 2,jout
@@ -513,12 +542,19 @@ MODULE ModScbIO
           z(i,npsi,k) = ztemp(jout+1)
        enddo
        do j = 1,npsi
-          x(nthe,j,k) = x(nthe-1,j,k) + (cVal(nthe)-cVal(nthe-1))/(cVal(nthe-2)-cVal(nthe-1))*(x(nthe-2,j,k)-x(nthe-1,j,k))
-          y(nthe,j,k) = y(nthe-1,j,k) + (cVal(nthe)-cVal(nthe-1))/(cVal(nthe-2)-cVal(nthe-1))*(y(nthe-2,j,k)-y(nthe-1,j,k))
-          z(nthe,j,k) = z(nthe-1,j,k) + (cVal(nthe)-cVal(nthe-1))/(cVal(nthe-2)-cVal(nthe-1))*(z(nthe-2,j,k)-z(nthe-1,j,k))
-          x(1,j,k) = x(2,j,k) + (cVal(1)-cVal(2))/(cVal(3)-cVal(2))*(x(3,j,k)-x(2,j,k))
-          y(1,j,k) = y(2,j,k) + (cVal(1)-cVal(2))/(cVal(3)-cVal(2))*(y(3,j,k)-y(2,j,k))
-          z(1,j,k) = z(2,j,k) + (cVal(1)-cVal(2))/(cVal(3)-cVal(2))*(z(3,j,k)-z(2,j,k))
+          r0 = xpsiin + REAL(j-1,DP)/REAL(npsi-1,DP)*(xpsiout-xpsiin)
+          tt = pi_d-asin(sqrt(1.0/r0))
+          rt = r0*sin(tt)**2
+          zt = atan2(y(2,j,k),x(2,j,k))
+          x0 = rt*cos(zt)*sin(tt)
+          y0 = rt*sin(zt)*sin(tt)
+          z0 = rt*cos(tt)
+          x(1,j,k) = x0 
+          y(1,j,k) = y0
+          z(1,j,k) = z0
+          x(nthe,j,k) = x0
+          y(nthe,j,k) = y0
+          z(nthe,j,k) = -z0
        enddo
     enddo
 
@@ -556,23 +592,24 @@ MODULE ModScbIO
     z(:,:,nzeta+1) = z(:,:,2)
 
     ! For outputing the magnetic field
-    !call Write_MAGxyz
+    call Write_MAGxyz('UpdateDomain')
 
+    ! Check if the newly calculated magnetic field has any problems
     SORFail = .false.
     call ComputeBandJacob
     do k = 2,nzeta
        do j = 1,npsi
           i = nThetaEquator
           if ((sqrt(x(i,j,k)**2+y(i,j,k)**2+z(i,j,k)**2) < 1.7).or.(SORFail)) then
-             write(*,*) sqrt(x(i,j,k)**2+y(i,j,k)**2+z(i,j,k)**2)
-             write(*,*) 'Issue with calculating new magnetic boundary, regenerating entire magnetic field'
-             call computational_domain
+             write(*,*) 'Issue with calculating new magnetic boundary, using old configuration'
+             x = xOld
+             y = yOld
+             z = zOld
+             psiVal = psiValOld
+             f = fOld
+             call psiges
              SORFail = .false.
-             DEALLOCATE(xOldTheta,yOldTheta,zOldTheta,chiValOld,radius,xOldPsi,yOldPsi, &
-                        zOldPsi,psiOld,xtemp,ytemp,ztemp,psiValTemp,rtemp,dj,xatemp,yatemp, &
-                        zatemp,phi,xPhi,yPhi,zPhi,xout,yout,zout,rout,xmid,ymid,zmid,rmid, &
-                        rold,outer,cVal)
-             return
+             updated = .false.
           endif
        enddo
     enddo
@@ -729,9 +766,15 @@ MODULE ModScbIO
     integer :: iYear, iMonth, iDay, iHour, iMinute, iSecond
     integer :: i, iError, Hour, Mins, Sec, iFail
     real(DP) :: dsA, dsI
-    real(DP), allocatable :: Buffer(:,:), BufferA(:,:), nSeconds(:)
+    real(DP), allocatable :: Buffer(:,:), BufferA(:), nSeconds(:)
     REAL(DP) :: AA, SPS, CPS, PS, AB, dut
     COMMON /GEOPACK1/ AA(10),SPS,CPS,AB(3),PS
+
+    ! Usual debug variables.
+    logical :: DoTest, DoTestMe
+    character(len=*), parameter :: NameSub='get_model_inputs'
+    !==============================================================================================
+    call CON_set_do_test(NameSub, DoTest, DoTestMe)
 
     Year   = TimeRamNow%iYear
     Month  = TimeRamNow%iMonth
@@ -777,7 +820,7 @@ MODULE ModScbIO
        read(UNITTMP_,*) StringHeader
     enddo
 
-    allocate(nSeconds(nIndex),Buffer(nIndex,36), BufferA(nIndex,36))
+    allocate(nSeconds(nIndex),Buffer(nIndex,36), BufferA(36))
     nSeconds = 0.0; Buffer = 0.0; BufferA = 0.0
 
     i = 1
@@ -795,32 +838,30 @@ MODULE ModScbIO
        if (nSeconds(i).ge.TimeRamNow%Time) then  ! Check that we are on or past the time we want
           dsA = nSeconds(i) - TimeRamNow%Time
           if (abs(dsA).le.1e-9) then                     ! Check if we are exactly on the time or past
-             BufferA(i,:) = Buffer(i,:)
+             BufferA(:) = Buffer(i,:)
           else
              if (i.eq.1) then                    ! Check if we are on the first time step
-                BufferA(i,:) = Buffer(i,:)
+                BufferA(:) = Buffer(1,:)
+             elseif (i.eq.nIndex) then
+                BufferA(:) = Buffer(nIndex,:)
              else
                 dsA = TimeRamNow%Time - nSeconds(i-1)
                 dsI = nSeconds(i) - nSeconds(i-1)
-                BufferA(i,:) = Buffer(i-1,:) + (dsA/dsI)*(Buffer(i,:)-Buffer(i-1,:))
+                BufferA(:) = Buffer(i-1,:) + (dsA/dsI)*(Buffer(i,:)-Buffer(i-1,:))
              endif
           endif
-          !DenP = BufferA(i,4)
-          Pdyn = BufferA(i,5)
-          Dst = BufferA(i,19)
-          ByIMF = BufferA(i,1)
-          BzIMF = BufferA(i,2)
-          G(:) = BufferA(i,6:8)
-          W(:) = BufferA(i,26:31)
-          exit Cycle_QDFile
-       elseif (i.eq.nIndex) then
-          !DenP = BufferA(i,4)
-          Pdyn = Buffer(i,5)
-          Dst = Buffer(i,19)
-          ByIMF = Buffer(i,1)
-          BzIMF = Buffer(i,2)
-          G(:) = Buffer(i,6:8)
-          W(:) = Buffer(i,26:31)
+          !DenP = BufferA(4)
+          Pdyn = BufferA(5)
+          Dst = BufferA(19)
+          ByIMF = BufferA(1)
+          BzIMF = BufferA(2)
+          G(:) = BufferA(6:8)
+          W(:) = BufferA(26:31)
+          if (DoTestMe) then
+             write(*,*) 'Testing get_model_inputs'
+             write(*,*) 'Buffer = ', BufferA(:)
+             write(*,*) 'Values = ', Pdyn, Dst, ByIMF, BzIMF, G, W
+          endif
           exit Cycle_QDFile
        endif
        i = i + 1
@@ -847,7 +888,6 @@ MODULE ModScbIO
        PARMOD(9) = W(5)
        PARMOD(10) = W(6)
     ELSEIF ((NameBoundMag.eq.'T07I').or.(NameBoundMag.eq.'T07D')) THEN
-       IOPT = 0
        dut = Sec+Mins*60+Hour*3600
        call INIT_TS07D_COEFFS(Year,n_day_of_year(Year,Month,Day),dut,ifail)
        call INIT_TS07D_TLPR
@@ -859,10 +899,10 @@ MODULE ModScbIO
 !=============================================================================!
 !============================= OUTPUT ROUTINES ===============================!
 !=============================================================================!
-  SUBROUTINE Write_MAGxyz
+  SUBROUTINE Write_MAGxyz(FileName)
     use ModRamTiming,    ONLY: TimeRamNow
     use ModScbGrids,     ONLY: nthe, npsi, nzeta
-    use ModScbVariables, ONLY: x, y, z
+    use ModScbVariables, ONLY: x, y, z, nThetaEquator
 
     use ModRamFunctions, ONLY: RamFileName
 
@@ -871,10 +911,11 @@ MODULE ModScbIO
     implicit none
 
     INTEGER :: i, j, k
+    character(len=*), intent(in) :: FileName
 
-    open(UNITTMP_,FILE=RamFileName('MAGxyz','dat',TimeRamNow))
+    open(UNITTMP_,FILE=RamFileName(trim(FileName),'dat',TimeRamNow))
     write(UNITTMP_,*) nthe, npsi, nzeta
-    do i = 1,nthe
+    do i = nThetaEquator, nThetaEquator
      do j = 1,npsi
       do k = 1,nzeta
        write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
@@ -1030,8 +1071,8 @@ END SUBROUTINE Write_ionospheric_potential
   USE ModScbVariables, ONLY: x, y, z, bf, bnormal, Jx, Jy, Jz, Bx, By, Bz, &
                              GradPx, GradPy, GradPz, JCrossB, GradP, &
                              vecd, vec1, vec2, vec3, vec4, vec6, vec7, vec8, &
-                             vec9, vecr, vecx, alfa, psi, &
-                             pnormal, bnormal, pjconst
+                             vec9, vecr, vecx, alfa, psi, nZetaMidnight, &
+                             pnormal, bnormal, pjconst, nThetaEquator
   !!!! Module Subroutine/Function
   use ModRamFunctions, ONLY: RamFileName
   use ModRamGSL,       ONLY: GSL_Derivs
@@ -1105,27 +1146,65 @@ END SUBROUTINE Write_ionospheric_potential
   xRHS(:,:,1) = xRHS(:,:,nzeta)
  
   ! Force balance quantities
-  FileName = trim(prefixOut)//'Force_balance_'//iter
+  FileName = trim(prefixOut)//'FB_equatorial_'//iter
   OPEN(UNITTMP_, file = RamFileName(FileName,'dat',TimeRamNow), status='replace')
-  WRITE(UNITTMP_, *) nthe, npsi, nzeta
+  WRITE(UNITTMP_, *) npsi, nzeta
+  i = nThetaEquator
+  DO j = 1, npsi
+     DO k = 1, nzeta
+        WRITE(UNITTMP_, *) x(i,j,k), y(i,j,k), z(i,j,k),    &
+                           bf(i,j,k)*bnormal,               &
+                           jCrossB(i,j,k), gradP(i,j,k),    &
+                           rLHS(i,j,k), rRHS(i,j,k),        &
+                           xLHS(i,j,k), xRHS(i,j,k),        &
+                           Jx(i,j,k)*pjconst, &
+                           Jy(i,j,k)*pjconst, &
+                           Jz(i,j,k)*pjconst, &
+                           Bx(i,j,k)*bnormal, &
+                           By(i,j,k)*bnormal, &
+                           Bz(i,j,k)*bnormal, &
+                           GradPx(i,j,k)*pnormal/6.4, &
+                           GradPy(i,j,k)*pnormal/6.4, &
+                           GradPz(i,j,k)*pnormal/6.4
+     END DO
+  END DO
+  CLOSE(UNITTMP_)
+
+  FileName = trim(prefixOut)//'FB_midnight_'//iter
+  OPEN(UNITTMP_, file = RamFileName(FileName,'dat',TimeRamNow), status='replace')
+  WRITE(UNITTMP_, *) nthe, npsi
   DO i = 1, nthe
      DO j = 1, npsi
-        DO k = 1, nzeta
-           WRITE(UNITTMP_, *) x(i,j,k), y(i,j,k), z(i,j,k),    &
-                              bf(i,j,k)*bnormal,               &
-                              jCrossB(i,j,k), gradP(i,j,k),    &
-                              rLHS(i,j,k), rRHS(i,j,k),        &
-                              xLHS(i,j,k), xRHS(i,j,k),        &
-                              Jx(i,j,k)*pjconst, &
-                              Jy(i,j,k)*pjconst, &
-                              Jz(i,j,k)*pjconst, &
-                              Bx(i,j,k)*bnormal, &
-                              By(i,j,k)*bnormal, &
-                              Bz(i,j,k)*bnormal, &
-                              GradPx(i,j,k)*pnormal/6.4, &
-                              GradPy(i,j,k)*pnormal/6.4, &
-                              GradPz(i,j,k)*pnormal/6.4
-        END DO
+        k = nZetaMidnight
+        WRITE(UNITTMP_, *) x(i,j,k), y(i,j,k), z(i,j,k),    &
+                           bf(i,j,k)*bnormal,               &
+                           jCrossB(i,j,k), gradP(i,j,k),    &
+                           rLHS(i,j,k), rRHS(i,j,k),        &
+                           xLHS(i,j,k), xRHS(i,j,k),        &
+                           Jx(i,j,k)*pjconst, &
+                           Jy(i,j,k)*pjconst, &
+                           Jz(i,j,k)*pjconst, &
+                           Bx(i,j,k)*bnormal, &
+                           By(i,j,k)*bnormal, &
+                           Bz(i,j,k)*bnormal, &
+                           GradPx(i,j,k)*pnormal/6.4, &
+                           GradPy(i,j,k)*pnormal/6.4, &
+                           GradPz(i,j,k)*pnormal/6.4
+        k = 2
+        WRITE(UNITTMP_, *) x(i,j,k), y(i,j,k), z(i,j,k),    &  
+                           bf(i,j,k)*bnormal,               &
+                           jCrossB(i,j,k), gradP(i,j,k),    &  
+                           rLHS(i,j,k), rRHS(i,j,k),        &
+                           xLHS(i,j,k), xRHS(i,j,k),        &
+                           Jx(i,j,k)*pjconst, &
+                           Jy(i,j,k)*pjconst, &
+                           Jz(i,j,k)*pjconst, &
+                           Bx(i,j,k)*bnormal, &
+                           By(i,j,k)*bnormal, &
+                           Bz(i,j,k)*bnormal, &
+                           GradPx(i,j,k)*pnormal/6.4, &
+                           GradPy(i,j,k)*pnormal/6.4, &
+                           GradPz(i,j,k)*pnormal/6.4
      END DO
   END DO
   CLOSE(UNITTMP_)
