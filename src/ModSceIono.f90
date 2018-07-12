@@ -757,15 +757,15 @@ MODULE ModSceIono
        enddo
     enddo
   
-    if (UseWeimer) then ! apply the boundary condition at high latitude
-       do j=1, nPsi-1
-          x_G(iMin-1:iHighBnd(j), j) = PhiIono_Weimer(iMin-1:iHighBnd(j),j)
-       end do
-    else
-       do j=1, nPsi-1
-          x_G(iMin-1:iHighBnd(j), j) = 0.0
-       end do
-    end if
+    !if (UseWeimer) then ! apply the boundary condition at high latitude
+    do j=1, nPsi-1
+       x_G(iMin-1:iHighBnd(j), j) = PhiIono_Weimer(iMin-1:iHighBnd(j),j)
+    end do
+    !else
+    !   do j=1, nPsi-1
+    !      x_G(iMin-1:iHighBnd(j), j) = 0.0
+    !   end do
+    !end if
     x_G(iMax+1,1:nPsi-1) = 0.0
   
     ! Apply periodic boundary conditions in Psi direction
@@ -828,11 +828,11 @@ MODULE ModSceIono
     real(DP), intent(in) :: lat(:,:), mlt(:,:)
     real(DP), intent(inout) :: PhiWeimer(:,:)
 
-    integer :: i,j
+    integer :: i,j, maxN, minN
     integer :: doy, ierr, iYear_l, iDoy_l, iHour_l, iMin_l, iLines, isec_l, &
                imsec_l, imonth_l, iday_l, AL_l, SymH_l
     REAL(DP) :: radius, angle, bzimf_l, bndylat, byimf_l, pdyn_l, Nk_l, &
-                Vk_l, bTot_l, bximf_l, vx_l, vy_l, vz_l, t_l, V, AVS
+                Vk_l, bTot_l, bximf_l, vx_l, vy_l, vz_l, t_l, maxV, minV
     CHARACTER(LEN = 100) :: header
     !---------------------------------------------------------------------
     OPEN(UNITTMP_, FILE=NameOmniFile, status = 'UNKNOWN', action = 'READ')
@@ -882,15 +882,24 @@ MODULE ModSceIono
     CALL SetModel05(byimf_l, bzimf_l, tilt, Vk_l, Nk_l)
 
     ! calculate weimer potential from w05 for the high-latitude potential used in the solver
-    AVS=7.05E-6/(1.-0.159*KP+0.0093*KP**2)**3/RE  ! Voll-Stern parameter
     DO j = 1, Iono_nPsi-1
        DO i = 1, Iono_nTheta
-          V = -AVS*((1/sin(IONO_NORTH_Theta(i,j))**2)*RE)**2*SIN(IONO_NORTH_Psi(i,j)) ! [V]
           ! use the weimer 2005 model
           call EpotVal05(lat(i,j), mlt(i,j), 0.0_dp, PhiWeimer(i,j))
           PhiWeimer(i,j) = PhiWeimer(i,j) * 1.0e3 ! in Volts
-          !if (abs(PhiWeimer(i,j)).lt.1.0_dp) PhiWeimer(i,j) = V + 1.0_DP
        END DO
+       maxV = maxval(PhiWeimer(:,j))
+       maxN = count(PhiWeimer(:,j).gt.0.0)
+       minV = minval(PhiWeimer(:,j))
+       minN = count(PhiWeimer(:,j).lt.0.0)
+       ThetaLoop: DO i = 1, Iono_nTheta
+          if (lat(i,j) > 75) cycle ThetaLoop
+          if (maxN > minN) then
+             if (PhiWeimer(i,j).le.0.1*maxV) PhiWeimer(i,j) = 0.1*maxV
+          else
+             if (PhiWeimer(i,j).ge.0.1*minV) PhiWeimer(i,j) = 0.1*minV
+          endif
+       ENDDO ThetaLoop
     END DO
 
   end subroutine iono_potential_weimer
