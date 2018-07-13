@@ -591,8 +591,8 @@ MODULE ModScbIO
     y(:,:,nzeta+1) = y(:,:,2)
     z(:,:,nzeta+1) = z(:,:,2)
 
-    ! For outputing the magnetic field
-    call Write_MAGxyz('UpdateDomain')
+    ! For testing the magnetic field update
+    !call Write_MAGxyz('UpdateDomain')
 
     ! Check if the newly calculated magnetic field has any problems
     SORFail = .false.
@@ -900,6 +900,7 @@ MODULE ModScbIO
 !============================= OUTPUT ROUTINES ===============================!
 !=============================================================================!
   SUBROUTINE Write_MAGxyz(FileName)
+    use ModRamMain,      ONLY: PathScbOut
     use ModRamTiming,    ONLY: TimeRamNow
     use ModScbGrids,     ONLY: nthe, npsi, nzeta
     use ModScbVariables, ONLY: x, y, z, nThetaEquator
@@ -913,7 +914,7 @@ MODULE ModScbIO
     INTEGER :: i, j, k
     character(len=*), intent(in) :: FileName
 
-    open(UNITTMP_,FILE=RamFileName(trim(FileName),'dat',TimeRamNow))
+    open(UNITTMP_,FILE=trim(PathScbOut)//RamFileName(trim(FileName),'dat',TimeRamNow))
     write(UNITTMP_,*) nthe, npsi, nzeta
     do i = nThetaEquator, nThetaEquator
      do j = 1,npsi
