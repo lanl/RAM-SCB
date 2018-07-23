@@ -84,7 +84,6 @@ void interpolation_1d_c(int n, int i1, int i2,
       }else{
          t = gsl_interp_linear;
       }
-      t = gsl_interp_steffen;
       gsl_spline *spline = gsl_spline_alloc (t, i1);
       err = gsl_spline_init (spline, xa, fa, i1);
       if (err) { 
@@ -247,7 +246,7 @@ void interpolation_derivs_c(int i1, double *xa, double *fa, double *dx, int *sta
 
       for ( i = 0; i<i1; i++ ) {
          err = gsl_spline_eval_deriv_e(spline,xa[i],acc,&dx[i]);
-         if (dx[i]==0.0) { dx[i] = dx[i] + 0.00001; }
+         if (dx[i]==0.0) { dx[i] = dx[i] + 1e-31; }
          if (err) {
             if (err == GSL_EDOM) {
                printf("interpolation_derivs_c warning, GSL_EDOM: x is outside range of xa, x=%f, xa[0]=%f, xa[-1]=%f\n",xa[i],xa[0],xa[i1-1]);

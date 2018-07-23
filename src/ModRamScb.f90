@@ -44,7 +44,7 @@ Module ModRamScb
   subroutine Compute3DFlux
   
     use ModRamVariables, ONLY: FLUX, MU, FFACTOR, FNHS, F2
-    use ModRamGrids,     ONLY: nR, nT, nPa, nE, radout
+    use ModRamGrids,     ONLY: nR, nT, nPa, nE, radout, RadiusMin
   
     use ModScbGrids,     ONLY: nthe, npsi, nzeta
     use ModScbVariables, ONLY: bf, radGrid, angleGrid, radRaw, azimRaw, &
@@ -320,12 +320,12 @@ Module ModRamScb
                    enddo
 
                    cVal(:) = chiVal(:)*dtemp(LOUT)/pi_d
-                   CALL GSL_Interpolation_1D('Cubic',dtemp(1:LOUT),xtemp(1:LOUT),cVal(:),xRAM(:,i,j),GSLerr)
-                   CALL GSL_Interpolation_1D('Cubic',dtemp(1:LOUT),ytemp(1:LOUT),cVal(:),yRAM(:,i,j),GSLerr)
-                   CALL GSL_Interpolation_1D('Cubic',dtemp(1:LOUT),ztemp(1:LOUT),cVal(:),zRAM(:,i,j),GSLerr)
-                   CALL GSL_Interpolation_1D('Cubic',dtemp(1:LOUT),bxtemp(1:LOUT),cVal(:),bbx(:),GSLerr)
-                   CALL GSL_Interpolation_1D('Cubic',dtemp(1:LOUT),bytemp(1:LOUT),cVal(:),bby(:),GSLerr)
-                   CALL GSL_Interpolation_1D('Cubic',dtemp(1:LOUT),bztemp(1:LOUT),cVal(:),bbz(:),GSLerr)
+                   CALL GSL_Interpolation_1D(dtemp(1:LOUT),xtemp(1:LOUT),cVal(:),xRAM(:,i,j),GSLerr)
+                   CALL GSL_Interpolation_1D(dtemp(1:LOUT),ytemp(1:LOUT),cVal(:),yRAM(:,i,j),GSLerr)
+                   CALL GSL_Interpolation_1D(dtemp(1:LOUT),ztemp(1:LOUT),cVal(:),zRAM(:,i,j),GSLerr)
+                   CALL GSL_Interpolation_1D(dtemp(1:LOUT),bxtemp(1:LOUT),cVal(:),bbx(:),GSLerr)
+                   CALL GSL_Interpolation_1D(dtemp(1:LOUT),bytemp(1:LOUT),cVal(:),bby(:),GSLerr)
+                   CALL GSL_Interpolation_1D(dtemp(1:LOUT),bztemp(1:LOUT),cVal(:),bbz(:),GSLerr)
                    bRAM(:,i,j) = SQRT(bbx(:)**2+bby(:)**2+bbz(:)**2)/bnormal
                 endif
              endif
@@ -478,9 +478,9 @@ Module ModRamScb
     ! Cubic GSL interpolation with natural boundaries to get h and I at muboun 
     DO j = 1, nT
        DO i = 1, nR
-          CALL GSL_Interpolation_1D('Cubic',PA(NPA:1:-1),h_Cart(i,j,NPA:1:-1),&
+          CALL GSL_Interpolation_1D(PA(NPA:1:-1),h_Cart(i,j,NPA:1:-1),&
                                     PAbn(NPA-1:2:-1),h_Cart_interp(i,j,NPA-1:2:-1),GSLerr)
-          CALL GSL_Interpolation_1D('Cubic',PA(NPA:1:-1),I_Cart(i,j,NPA:1:-1),&
+          CALL GSL_Interpolation_1D(PA(NPA:1:-1),I_Cart(i,j,NPA:1:-1),&
                                     PAbn(NPA-1:2:-1),I_Cart_interp(i,j,NPA-1:2:-1),GSLerr)
           ! Do not do the NPA inclusive in the not-a-knot interpolation above -> can lead to negative h,I(NPA)
           h_Cart_interp(i,j,NPA) = h_Cart_interp(i,j,NPA-1)

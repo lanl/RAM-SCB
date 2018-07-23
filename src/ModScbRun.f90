@@ -31,7 +31,6 @@
                                MinSCBIterations, iAMR, isEnergDetailNeeded, &
                                isFBDetailNeeded, method, isotropy, convergence
     !!!! Module Subroutine/Functions
-    USE ModRamGSL,      ONLY: GSL_Interpolation_1D, GSL_Smooth_1D
     USE ModScbCompute,  ONLY: computeBandJacob, compute_convergence, metrics
     USE ModScbEuler,    ONLY: alfges, psiges, mapalpha, mappsi, directAlpha, &
                               iterateAlpha, directPsi, iteratePsi, psiFunctions, &
@@ -927,15 +926,15 @@ SUBROUTINE pressure
        ELSEIF (iSm2 == 2) THEN ! B-Spline Fit
           DO j = 1,nXRawExt
              CALL GSL_Smooth_1D(azimRawExt(1:nAzimRAM),pressPerRawExt(j,1:nAzimRAM),aTemp(1:500),bTemp(1:500),GSLerr)
-             CALL GSL_Interpolation_1D('Cubic',aTemp(1:500),bTemp(1:500),azimRawExt(1:nAzimRAM),pressPerRawExt(j,1:nAzimRAM),GSLerr)
+             CALL GSL_Interpolation_1D(aTemp(1:500),bTemp(1:500),azimRawExt(1:nAzimRAM),pressPerRawExt(j,1:nAzimRAM),GSLerr)
              CALL GSL_Smooth_1D(azimRawExt(1:nAzimRAM),pressParRawExt(j,1:nAzimRAM),aTemp(1:500),bTemp(1:500),GSLerr)
-             CALL GSL_Interpolation_1D('Cubic',aTemp(1:500),bTemp(1:500),azimRawExt(1:nAzimRAM),pressParRawExt(j,1:nAzimRAM),GSLerr)
+             CALL GSL_Interpolation_1D(aTemp(1:500),bTemp(1:500),azimRawExt(1:nAzimRAM),pressParRawExt(j,1:nAzimRAM),GSLerr)
           ENDDO
           DO k = 1,nAzimRAM
              CALL GSL_Smooth_1D(radRawExt(1:nXRawExt),pressPerRawExt(1:nXRawExt,k),aTemp(1:500),bTemp(1:500),GSLerr)
-             CALL GSL_Interpolation_1D('Cubic',aTemp(1:500),bTemp(1:500),radRawExt(1:nXRawExt),pressPerRawExt(1:nXRawExt,k),GSLerr)
+             CALL GSL_Interpolation_1D(aTemp(1:500),bTemp(1:500),radRawExt(1:nXRawExt),pressPerRawExt(1:nXRawExt,k),GSLerr)
              CALL GSL_Smooth_1D(radRawExt(1:nXRawExt),pressParRawExt(1:nXRawExt,k),aTemp(1:500),bTemp(1:500),GSLerr)
-             CALL GSL_Interpolation_1D('Cubic',aTemp(1:500),bTemp(1:500),radRawExt(1:nXRawExt),pressParRawExt(1:nXRawExt,k),GSLerr)
+             CALL GSL_Interpolation_1D(aTemp(1:500),bTemp(1:500),radRawExt(1:nXRawExt),pressParRawExt(1:nXRawExt,k),GSLerr)
           ENDDO
        ELSEIF (iSm2 == 3) THEN ! Moving Average Filter
           call gaussian_kernel(1.0, kernelPer)

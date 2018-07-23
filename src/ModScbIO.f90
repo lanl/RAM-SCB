@@ -137,11 +137,11 @@ MODULE ModScbIO
              xTemp(1:nT-1) = BLines_DIII(1,i,1:nT-1,k)
              yTemp(1:nT-1) = BLines_DIII(2,i,1:nT-1,k)
              zTemp(1:nT-1) = BLines_DIII(3,i,1:nT-1,k)
-             CALL GSL_Interpolation_1D('Cubic',aTemp(1:nT-1),xTemp(1:nT-1), &
+             CALL GSL_Interpolation_1D(aTemp(1:nT-1),xTemp(1:nT-1), &
                                        alphaVal(2:nzeta),x1(i,2:nzeta,k),GSLerr)
-             CALL GSL_Interpolation_1D('Cubic',aTemp(1:nT-1),yTemp(1:nT-1), &
+             CALL GSL_Interpolation_1D(aTemp(1:nT-1),yTemp(1:nT-1), &
                                        alphaVal(2:nzeta),y1(i,2:nzeta,k),GSLerr)
-             CALL GSL_Interpolation_1D('Cubic',aTemp(1:nT-1),zTemp(1:nT-1), &
+             CALL GSL_Interpolation_1D(aTemp(1:nT-1),zTemp(1:nT-1), &
                                        alphaVal(2:nzeta),z1(i,2:nzeta,k),GSLerr) 
           enddo
        enddo 
@@ -153,12 +153,12 @@ MODULE ModScbIO
              yTemp(1:nRExtend) = y1(1:nRExtend,j,k)
              zTemp(1:nRExtend) = z1(1:nRExtend,j,k)
              pTemp(1:nRExtend) = 0._dp ! NEED TO SET PTEMP!!!! -ME
-             CALL GSL_Interpolation_1D('Cubic',pTemp(1:nRExtend),xTemp(1:nRExtend), &
-                                        psiVal(1:npsi),x2(1:npsi,j,k),GSLerr)
-             CALL GSL_Interpolation_1D('Cubic',pTemp(1:nRExtend),yTemp(1:nRExtend), &
-                                        psiVal(1:npsi),y2(1:npsi,j,k),GSLerr)
-             CALL GSL_Interpolation_1D('Cubic',pTemp(1:nRExtend),zTemp(1:nRExtend), &
-                                        psiVal(1:npsi),z2(1:npsi,j,k),GSLerr)
+             CALL GSL_Interpolation_1D(pTemp(1:nRExtend),xTemp(1:nRExtend), &
+                                       psiVal(1:npsi),x2(1:npsi,j,k),GSLerr)
+             CALL GSL_Interpolation_1D(pTemp(1:nRExtend),yTemp(1:nRExtend), &
+                                       psiVal(1:npsi),y2(1:npsi,j,k),GSLerr)
+             CALL GSL_Interpolation_1D(pTemp(1:nRExtend),zTemp(1:nRExtend), &
+                                       psiVal(1:npsi),z2(1:npsi,j,k),GSLerr)
           enddo
        enddo
 
@@ -175,11 +175,11 @@ MODULE ModScbIO
                                                   +(zTemp(k)-zTemp(k-1))**2)
              END DO
              cTemp = distance / distance(2*nPointsMax-1) * pi_d
-             CALL GSL_Interpolation_1D('Cubic',cTemp,xTemp(1:nSWMF), &
+             CALL GSL_Interpolation_1D(cTemp,xTemp(1:nSWMF), &
                                        chiVal(1:nthe),x(1:nthe,i,j),GSLerr)
-             CALL GSL_Interpolation_1D('Cubic',cTemp,yTemp(1:nSWMF), &
+             CALL GSL_Interpolation_1D(cTemp,yTemp(1:nSWMF), &
                                        chiVal(1:nthe),y(1:nthe,i,j),GSLerr)
-             CALL GSL_Interpolation_1D('Cubic',cTemp,zTemp(1:nSWMF), &
+             CALL GSL_Interpolation_1D(cTemp,zTemp(1:nSWMF), &
                                        chiVal(1:nthe),z(1:nthe,i,j),GSLerr)
           enddo
        enddo
@@ -252,9 +252,9 @@ MODULE ModScbIO
              enddo
              chiVal = (thetaVal + constTheta * SIN(2.*thetaVal)) * distance(LOUT)/pi_d
 
-             CALL GSL_Interpolation_1D('Cubic',distance(1:LOUT),xx(1:LOUT),chiVal(2:nthe),x(2:nthe,j,k),GSLerr)
-             CALL GSL_Interpolation_1D('Cubic',distance(1:LOUT),yy(1:LOUT),chiVal(2:nthe),y(2:nthe,j,k),GSLerr)
-             CALL GSL_Interpolation_1D('Cubic',distance(1:LOUT),zz(1:LOUT),chiVal(2:nthe),z(2:nthe,j,k),GSLerr)
+             CALL GSL_Interpolation_1D(distance(1:LOUT),xx(1:LOUT),chiVal(2:nthe),x(2:nthe,j,k),GSLerr)
+             CALL GSL_Interpolation_1D(distance(1:LOUT),yy(1:LOUT),chiVal(2:nthe),y(2:nthe,j,k),GSLerr)
+             CALL GSL_Interpolation_1D(distance(1:LOUT),zz(1:LOUT),chiVal(2:nthe),z(2:nthe,j,k),GSLerr)
              x(1,j,k) = x0
              y(1,j,k) = y0
              z(1,j,k) = z0
@@ -454,9 +454,9 @@ MODULE ModScbIO
        enddo
        cVal = (thetaVal + constTheta * SIN(2.*thetaVal)) * distance(LOUT)/pi_d
 
-       CALL GSL_Interpolation_1D('Cubic',distance(1:LOUT),xx(1:LOUT),cVal(2:nthe),xout(2:nthe,k),GSLerr)
-       CALL GSL_Interpolation_1D('Cubic',distance(1:LOUT),yy(1:LOUT),cVal(2:nthe),yout(2:nthe,k),GSLerr)
-       CALL GSL_Interpolation_1D('Cubic',distance(1:LOUT),zz(1:LOUT),cVal(2:nthe),zout(2:nthe,k),GSLerr)
+       CALL GSL_Interpolation_1D(distance(1:LOUT),xx(1:LOUT),cVal(2:nthe),xout(2:nthe,k),GSLerr)
+       CALL GSL_Interpolation_1D(distance(1:LOUT),yy(1:LOUT),cVal(2:nthe),yout(2:nthe,k),GSLerr)
+       CALL GSL_Interpolation_1D(distance(1:LOUT),zz(1:LOUT),cVal(2:nthe),zout(2:nthe,k),GSLerr)
        xout(1,k) = x0
        yout(1,k) = y0
        zout(1,k) = z0
@@ -544,9 +544,9 @@ MODULE ModScbIO
           do j = 1,jout+1
              psiValTemp(j) = (psiValTemp(j)-psiValTemp(1))/psiRatio + psiVal(1)
           enddo
-          call GSL_Interpolation_1D('Cubic',psiValTemp(1:jout+1),xtemp(1:jout+1),psiVal(1:npsi),x(i,1:npsi,k),GSLerr)
-          call GSL_Interpolation_1D('Cubic',psiValTemp(1:jout+1),ytemp(1:jout+1),psiVal(1:npsi),y(i,1:npsi,k),GSLerr)
-          call GSL_Interpolation_1D('Cubic',psiValTemp(1:jout+1),ztemp(1:jout+1),psiVal(1:npsi),z(i,1:npsi,k),GSLerr)
+          call GSL_Interpolation_1D(psiValTemp(1:jout+1),xtemp(1:jout+1),psiVal(1:npsi),x(i,1:npsi,k),GSLerr)
+          call GSL_Interpolation_1D(psiValTemp(1:jout+1),ytemp(1:jout+1),psiVal(1:npsi),y(i,1:npsi,k),GSLerr)
+          call GSL_Interpolation_1D(psiValTemp(1:jout+1),ztemp(1:jout+1),psiVal(1:npsi),z(i,1:npsi,k),GSLerr)
           x(i,npsi,k) = xtemp(jout+1)
           y(i,npsi,k) = ytemp(jout+1)
           z(i,npsi,k) = ztemp(jout+1)
@@ -585,9 +585,9 @@ MODULE ModScbIO
 
           i1 = 2
           i2 = nthe-1
-          CALL GSL_Interpolation_1D('Cubic',chiValOld,xOldTheta,chiVal(i1:i2),x(i1:i2,j,k),GSLerr)
-          CALL GSL_Interpolation_1D('Cubic',chiValOld,yOldTheta,chiVal(i1:i2),y(i1:i2,j,k),GSLerr)
-          CALL GSL_Interpolation_1D('Cubic',chiValOld,zOldTheta,chiVal(i1:i2),z(i1:i2,j,k),GSLerr)
+          CALL GSL_Interpolation_1D(chiValOld,xOldTheta,chiVal(i1:i2),x(i1:i2,j,k),GSLerr)
+          CALL GSL_Interpolation_1D(chiValOld,yOldTheta,chiVal(i1:i2),y(i1:i2,j,k),GSLerr)
+          CALL GSL_Interpolation_1D(chiValOld,zOldTheta,chiVal(i1:i2),z(i1:i2,j,k),GSLerr)
        END DO
     END DO
     call psiges

@@ -190,18 +190,20 @@ MODULE ModRamGSL
   end subroutine GSL_Smooth_1D
 
 !==================================================================================================
-  subroutine Interpolation_1D_array(ctype,x1,f1,x2,f2,err)
+  subroutine Interpolation_1D_array(x1,f1,x2,f2,err,ctype)
+    ! Subroutine for performing 1D interpolations using the GSL package.
+    ! The default interpolation uses the Steffen spline. If ctype is included in
+    ! the call you can specify Cubic, Akima, or Linear splines be used instead.
 
     use, intrinsic :: iso_c_binding
     use nrtype, ONLY: DP
-
 
     implicit none
 
     integer, intent(out) :: err
     real(DP), DIMENSION(:), INTENT(IN)  :: x1, f1, x2
     real(DP), DIMENSION(:), INTENT(INOUT) :: f2
-    character(len=*), INTENT(IN) :: ctype
+    character(len=*), optional, INTENT(IN) :: ctype
 
     INTEGER(c_int) :: n1, n2, err_c(1), ntype
     real(c_double), DIMENSION(:), ALLOCATABLE :: xa, fa, xb, fb
@@ -215,16 +217,20 @@ MODULE ModRamGSL
     fa = REAL(f1,c_double)
     xb = REAL(x2,c_double)
 
-    if (ctype.eq.'Cubic') then
-       ntype = 1
-    elseif (ctype.eq.'Akima') then
-       ntype = 2
-    elseif (ctype.eq.'Steffen') then
-       ntype = 3
-    elseif (ctype.eq.'Linear') then
-       ntype = 0
+    if (present(ctype)) then
+       if (ctype.eq.'Cubic') then
+          ntype = 1
+       elseif (ctype.eq.'Akima') then
+          ntype = 2
+       elseif (ctype.eq.'Steffen') then
+          ntype = 3
+       elseif (ctype.eq.'Linear') then
+          ntype = 0
+       else
+          ntype = 3
+       endif
     else
-       ntype = 1
+       ntype = 3
     endif
 
     call Interpolation_1D_c(ntype,n1,n2,xa,fa,xb,fb,err_c)
@@ -239,7 +245,7 @@ MODULE ModRamGSL
   end subroutine Interpolation_1D_array
 
 !==================================================================================================
-  subroutine Interpolation_1D_point(ctype,x1,f1,x2,f2,err)
+  subroutine Interpolation_1D_point(x1,f1,x2,f2,err,ctype)
 
     use, intrinsic :: iso_c_binding
     use nrtype, ONLY: DP
@@ -249,7 +255,7 @@ MODULE ModRamGSL
     integer, INTENT(OUT)  :: err
     real(DP), INTENT(IN)  :: x1(:), f1(:), x2
     real(DP), INTENT(INOUT) :: f2
-    character(len=*), INTENT(IN) :: ctype
+    character(len=*), optional, INTENT(IN) :: ctype
 
     INTEGER(c_int) :: n1, n2, err_c(1), ntype
     real(c_double), DIMENSION(:), ALLOCATABLE :: xa, fa, xb, fb
@@ -263,16 +269,20 @@ MODULE ModRamGSL
     fa = REAL(f1,c_double)
     xb(1) = REAL(x2,c_double)
 
-    if (ctype.eq.'Cubic') then
-       ntype = 1
-    elseif (ctype.eq.'Akima') then
-       ntype = 2
-    elseif (ctype.eq.'Steffen') then
-       ntype = 3
-    elseif (ctype.eq.'Linear') then
-       ntype = 0
+    if (present(ctype)) then
+       if (ctype.eq.'Cubic') then
+          ntype = 1
+       elseif (ctype.eq.'Akima') then
+          ntype = 2
+       elseif (ctype.eq.'Steffen') then
+          ntype = 3
+       elseif (ctype.eq.'Linear') then
+          ntype = 0
+       else
+          ntype = 3
+       endif
     else
-       ntype = 1
+       ntype = 3
     endif
 
     call Interpolation_1D_c(ntype,n1,n2,xa,fa,xb,fb,err_c)

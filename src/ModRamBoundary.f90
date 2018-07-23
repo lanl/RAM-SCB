@@ -150,7 +150,7 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   else
      do j=1,NTL-1
         do k=1,NEL_
-           CALL GSL_Interpolation_1D('Steffen',tGrid_SI(iSpec,:),flux_SIII(iSpec,:,j,k), &
+           CALL GSL_Interpolation_1D(tGrid_SI(iSpec,:),flux_SIII(iSpec,:,j,k), &
                                      TimeRamElapsed,flux_II(j,k+lE),GSLerr)
         enddo
      enddo
@@ -181,7 +181,7 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   ! Interpolate in LT-space, get log for E-interpolation...
   do j=1,nT
      do k=1,NEL_+pE
-        call GSL_Interpolation_1D('Steffen',lGrid_SI(iSpec,:),flux_II(:,k), MLT(j), y, GSLerr)
+        call GSL_Interpolation_1D(lGrid_SI(iSpec,:),flux_II(:,k), MLT(j), y, GSLerr)
         logFlux_II(j,k)=log10(y)
      end do
   end do
@@ -200,7 +200,7 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   ! Interpolate/Extrapolate in energy space; return to normal units.
   do j=1,nT
      do k=1,nE
-        CALL GSL_Interpolation_1D('Steffen',logELan, logFlux_II(j,:), logERam(k), y, GSLerr)
+        CALL GSL_Interpolation_1D(logELan, logFlux_II(j,:), logERam(k), y, GSLerr)
         ! Moved this check to GEOSB
         if ((NameParticleIn.eq.'prot').and.(y.gt.8))  then ! Limit proton flux to 10**8
            y=8
