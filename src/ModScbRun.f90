@@ -781,7 +781,7 @@ SUBROUTINE pressure
                              pressOxygenPerRaw(:,:), pressOxygenParRaw(:,:), pressHeliumPerRaw(:,:), &
                              pressHeliumParRaw(:,:), pressPerRaw(:,:), pressParRaw(:,:), &
                              pressEleParRaw(:,:), pressElePerRaw(:,:), radRaw_local(:), &
-                             ratioRaw(:,:)
+                             ratioRaw(:,:), azimRaw_local(:)
     REAL(DP), ALLOCATABLE :: pressPerRawExt(:,:), pressParRawExt(:,:), outputPer(:,:), &
                              outputPar(:,:), radRawExt(:), azimRawExt(:)
 
@@ -800,7 +800,7 @@ SUBROUTINE pressure
              pressOxygenParRaw(nXRaw,nYRaw), pressHeliumPerRaw(nXRaw,nYRaw), &
              pressHeliumParRaw(nXRaw,nYRaw), pressPerRaw(nXRaw,nYRaw), pressParRaw(nXRaw,nYRaw), &
              pressEleParRaw(nXRaw,nYRaw), pressElePerRaw(nXRaw,nYRaw), &
-             radRaw_local(nXRaw), ratioRaw(nXRaw,nYRaw))
+             radRaw_local(nXRaw), azimRaw_local(nYRaw), ratioRaw(nXRaw,nYRaw))
     ALLOCATE(dipoleFactorMid(nthe,npsi),dipoleFactorNoo(nthe,npsi))
     ALLOCATE(pressPerRawExt(nXRawExt,nAzimRAM), pressParRawExt(nXRawExt,nAzimRAM), &
              outputPer(nXRawExt,nAzimRAM), outputPar(nXRawExt,nAzimRAM))
@@ -857,7 +857,7 @@ SUBROUTINE pressure
        DO j1 = 1, nXRaw
           DO k1 = 1, nYRaw
              radRaw_local(j1) = LZ(j1+1)
-             azimRaw(k1) = PHI(k1)*12/pi_d
+             azimRaw_local(k1) = PHI(k1)*12/pi_d
              pressProtonPerRaw(j1,k1) = PPERH(j1+1,k1)
              pressProtonParRaw(j1,k1) = PPARH(j1+1,k1)
              pressOxygenPerRaw(j1,k1) = PPERO(j1+1,k1)
@@ -869,14 +869,14 @@ SUBROUTINE pressure
           END DO
        END DO
 
-       azimRaw = azimRaw * 360./24 * pi_d / 180._dp ! In radians
+       azimRaw_local = azimRaw_local * 360./24 * pi_d / 180._dp ! In radians
 
        radRawExt(1:nXRaw) = radRaw_local(1:nXRaw)
        DO j1 = nXRaw+1, nXRawExt
           radRawExt(j1) = radRaw_local(nXRaw) + REAL(j1-nXRaw, DP)*(radRaw_local(nXRaw)-radRaw_local(1))/(REAL(nXRaw-1, DP))
        END DO
 
-       azimRawExt(1:nAzimRAM) = azimRaw(1:nYRaw) ! nYRaw = nAzimRAM
+       azimRawExt(1:nAzimRAM) = azimRaw_local(1:nYRaw) ! nYRaw = nAzimRAM
        IF (PressMode == 'SKD') then
           pressPerRaw = 0.16_dp * (pressProtonPerRaw + pressOxygenPerRaw + pressHeliumPerRaw) ! from keV/cm^3 to nPa
           pressParRaw = 0.16_dp * (pressProtonParRaw + pressOxygenParRaw + pressHeliumParRaw) ! from keV/cm^3 to nPa
@@ -1070,6 +1070,7 @@ SUBROUTINE pressure
                 aLiemohn(j,k) = - aratio(j,k) / (aratio(j,k)+1_dp)
                 DO i = 1, nthe
                    ratioB = bf(nThetaEquator,j,k) / bf(i,j,k)
+                   ratioB = min(ratioB, 1.0)
                    IF (iLossCone == 2) THEN
                       ! New reference values (Liemohn)
                       rBI = MAX(bf(1,j,k)/bf(i,j,k), 1._dp+1.E-9_dp)  ! Must be larger than 1, i.e. the field at "Earth" higher than last field value 
@@ -1174,7 +1175,7 @@ SUBROUTINE pressure
                pressParRaw, pressEleParRaw, pressElePerRaw, radRaw_local, ratioRaw)
     DEALLOCATE(dipoleFactorMid, dipoleFactorNoo)
     DEALLOCATE(pressPerRawExt, pressParRawExt, radRawExt, azimRawExt, outputPer, &
-               outputPar)
+               outputPar, azimraw_local)
 
     RETURN
   

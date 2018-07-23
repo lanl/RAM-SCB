@@ -225,7 +225,7 @@ MODULE ModScbEuler
                                  - vecx(iz,jz,k)
                 alfa(iz,jz,k) = alfa(iz,jz,k) + om(jz) * (resid(iz,jz,k) / vecd(iz,jz,k))
                 if (isnan(alfa(iz,jz,k))) then
-                   if (verbose) write(*,*) iz,jz,k,alfa(iz,jz,k), resid(iz,jz,k), vecd(iz,jz,k)
+                   if (verbose) write(*,*) iz,jz,k, alfa(iz,jz,k), resid(iz,jz,k), vecd(iz,jz,k)
                    if (verbose) write(*,*) 'NaN encountered in ModScbEuler iterateAlpha'
                    alfa(iz,jz,k) = alfaprev(iz,jz,k)
                    resid(iz,jz,k) = 0._dp

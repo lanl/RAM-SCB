@@ -71,7 +71,14 @@ Module ModRamScb
           ENDDO
        ENDDO
     ENDDO
-  
+ 
+    DO j = 0,nR
+       radRaw(j) = RadiusMin + (radOut-RadiusMin) * REAL(j,DP)/REAL(nR,DP)
+    END DO
+    DO k = 1,nT
+       azimRaw(k) = 24.0 * REAL(k-1,DP)/REAL(nT-1,DP)
+    END DO
+ 
     ! Always fill this matrix; it's used by RAM outputs
     ! Interpolate RAM flux on 3DEQ grid, for mapping
     DO iS = 1, 4 ! ions & electrons
