@@ -5,9 +5,12 @@
 
 Module ModRamVariables
 
-  use ModRamMain, ONLY: DP
+  use ModRamGrids, ONLY: dR, dPhi
+  use nrtype, ONLY: DP
 
   implicit none
+
+  integer, allocatable :: outsideMGNP(:,:)
 
 ! UNKNOWN VARIABLES
   real(DP), ALLOCATABLE :: XNE(:,:)
@@ -21,8 +24,10 @@ Module ModRamVariables
                            PPerE(:,:), PParE(:,:), PAllSum(:,:), PParSum(:,:), &
                            PPerT(:,:,:), PParT(:,:,:), dIdt(:,:,:), dIbndt(:,:,:), &
                            HDNS(:,:,:), FNHS(:,:,:), FNIS(:,:,:), BOUNHS(:,:,:), &
-                           BOUNIS(:,:,:), BNES(:,:), dBdt(:,:)
-!
+                           BOUNIS(:,:,:), BNES(:,:), dBdt(:,:), dHdt(:,:,:)
+  real(DP), ALLOCATABLE :: NAllSum(:,:), DensO(:,:), DensH(:,:), DensHe(:,:), HPAllSum(:,:), &
+                           OPAllSum(:,:), HePAllSum(:,:), ePAllSum(:,:), HNAllSum(:,:), &
+                           ONAllSum(:,:), HeNAllSum(:,:)
 
 ! ModRamInit variables
   real(DP), ALLOCATABLE :: RMAS(:), V(:,:), VBND(:,:), GREL(:,:), GRBND(:,:), &
@@ -30,7 +35,7 @@ Module ModRamVariables
                            EKEV(:), EBND(:), PHI(:), LT(:), MLT(:), MU(:), DMU(:), &
                            WMU(:), PAbn(:), LZ(:), RLZ(:), AMLA(:), BE(:,:), &
                            GridExtend(:), ZRPabn(:,:,:), FFACTOR(:,:,:,:), PA(:)
-  real(DP) :: PHIOFS, IR1, DL1, MDR, dPhi, IP1, CONF1, CONF2, RFACTOR
+  real(DP) :: PHIOFS, IR1, DL1, MDR, IP1, CONF1, CONF2, RFACTOR
 
 ! ModRamWPI variables
   real(DP), ALLOCATABLE :: WALOS1(:,:), WALOS2(:,:), WALOS3(:,:), fpofc(:), &

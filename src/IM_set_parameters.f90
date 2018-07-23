@@ -17,6 +17,7 @@ subroutine IM_set_parameters
   use ModScbParams
 
 !!!! Module Subroutines and Functions
+  use ModRamIO,   ONLY: write_prefix
   use ModRamSats, ONLY: read_sat_params  
 
 !!!! External Modules (share/Library)
@@ -80,6 +81,9 @@ subroutine IM_set_parameters
      case('#USERAM')
         call read_var('DoUseRAM', DoUseRAM)
 
+     case('#CHECK_MAGNETOPAUSE')
+        checkMGNP = .true.
+
      case('#USEPLANE')
         call read_var('DoUsePlane_SCB', DoUsePlane_SCB)
 
@@ -116,15 +120,22 @@ subroutine IM_set_parameters
      case('#RESET')
         reset=.true.
 
+     case('#SCB_FIELD')
+        call read_var('constZ',constZ)
+        call read_var('constTheta', constTheta)
+
+     case('#SCB_CONVERGENCE')
+        call read_var('ConvergenceDistance',convergence)
+
      case('#SCBSMOOTHING')
         call read_var('PressureSmoothing', iSm2)
         call read_var('SavitzkyGolayIterations', SavGolIters)
 
      case('#SCBBOUNDARY')
         call read_var('FixedOuterShell', TempLogical)
-        if (.not.TempLogical) psiChange = 0
+        if (TempLogical) psiChange = 1
         call read_var('FixedFootPoints', TempLogical)
-        if (.not.TempLogical) theChange = 0
+        if (TempLogical) theChange = 1
 
      case('#SCBSETTINGS')
         call read_var('MinSCBIterations', MinSCBIterations)
@@ -244,6 +255,12 @@ subroutine IM_set_parameters
         if (DtW_EField.lt.1.0) DtW_EField = 9999999999.9
         call read_var('DtMAGxyzWrite', DtW_MAGxyz)
         if (DtW_MAGxyz.lt.1.0) DtW_MAGxyz = 9999999999.9
+
+     case('#WRITE_BOUNDARY')
+        WriteBoundary = .true.
+
+     case('#WRITE_POTENTIAL')
+        WritePotential = .true.
 
      case('#SATELLITE')
         call read_sat_params()
@@ -389,10 +406,10 @@ subroutine IM_set_parameters
   case('PTM')
      NEL = 36
      NTL = 25
-  case('QDMKP')
+  case('QDKP')
      NEL = 36
      NTL = 25
-  case('QDMVBZ')
+  case('QDBZ')
      NEL = 36
      NTL = 25
   case default
@@ -402,6 +419,10 @@ subroutine IM_set_parameters
   select case(NameBoundMag)
      case('SWMF')
         DoScbCalc = .true.
+        InnerMag  = 'SWMF'
+        OuterMag  = 'SWMF'
+     case('SWML')
+        DoScbCalc = .false.
         InnerMag  = 'SWMF'
         OuterMag  = 'SWMF'
      case('DIPL')
@@ -494,34 +515,5 @@ subroutine IM_set_parameters
   else
      method = 3
   endif
-
-  if (IsRestart) then
-     RestartFile=PathRestartIn//'/restart_info.txt'
-     open(unit=UnitTMP_, file=trim(RestartFile), status='old')
-     read(UnitTMP_,*)StringLine
-     read(UnitTMP_, '(a25,i4.4, 2i2.2, 1x, 3i2.2)')StringLine, &
-          TimeRamStart%iYear, TimeRamStart%iMonth, TimeRamStart%iDay, &
-          TimeRamStart%iHour, TimeRamStart%iMinute, TimeRamStart%iSecond
-     TimeRamStart%FracSecond=0.0
-     read(UnitTMP_,'(a25, f15.4)') StringLine, TimeRestart
-     read(UnitTMP_,'(a25, i15)') StringLine, nIter
-     read(UnitTMP_, *) StringLine
-     read(UnitTMP_, '(a25, 4i3)') StringLine, nrIn, ntIn, neIn, npaIn
-     close(UnitTMP_)
-     call time_int_to_real(TimeRamStart)
-     TimeRamRealStart%Time = TimeRamStart%Time + TimeRestart
-     TimeRamElapsed = TimeRestart
-     call time_real_to_int(TimeRamRealStart)
-  else
-     TimeRamElapsed = 0
-     TimeRamRealStart = TimeRamStart
-  end if
-  TimeRamNow = TimeRamRealStart
-  TOld = TimeRamElapsed
-
-  ! Calculate TimeMax
-  if (StopCommand)   TimeMax = TimeRamElapsed + TimeMax
-  If (IsStopTimeSet) TimeMax = TimeRamFinish%Time-TimeRamStart%Time
-  If (abs(TimeMax).le.1e-9) call con_stop('No stop time specified in PARAM.in! Use either #STOP or #STOPTIME')
 
 end subroutine IM_set_parameters

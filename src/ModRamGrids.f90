@@ -11,7 +11,7 @@ Module ModRamGrids
   
   !!! RAM Grids
   integer :: NR       = 20,  &  ! grid points in radial direction 
-             NT       = 49,  &  ! grid points in local time direction
+             NT       = 25,  &  ! grid points in local time direction
              NE       = 35,  &  ! number of energy bins
              NS       = 4,   &  ! number of species
              NPA      = 72,  &  ! grid points in pitch angle dimension
@@ -24,7 +24,7 @@ Module ModRamGrids
   
   
   ! For B coupling, we must request additional ghostcells.
-  integer :: nRextend! = NR+3
+  integer :: nRextend ! = NR+3
   
   integer :: Slen = 55, &
              ENG  = 45, &
@@ -32,13 +32,17 @@ Module ModRamGrids
              NCO  = 5
   
   real(DP), parameter :: RadiusMin = 1.75, & ! Min radius for RAM grid
-                         RadiusMax = 6.5, &  ! Max radius for RAM Grid
-                         RadOut = 6.75       ! Extended RAM grid for SCB use
+                         RadiusMax = 6.5,  & ! Max radius for RAM Grid
+                         RadOut    = 6.75, & ! SCB CANDIDATE FOR REMOVAL
+                         RadMaxScb = 9.00    ! Extended RAM grid for SCB use
   
   real(DP) :: EnergyMin = 0.1
   
   integer :: Nx = 72             ! Grid points for PA in mixed diffusion solver
   integer :: Ny = 37
   integer :: NyE = 300             ! Grid points for energy    "     "
+
+  ! Grid derivs
+  real(DP) :: dR, dPhi
 
 end Module ModRamGrids

@@ -53,7 +53,7 @@ module IM_wrapper
     case('VERSION')
        call put(CompInfo,                         &
             Use=.true.,                           &
-            NameVersion='RAM-SCB (Jordanova, Zaharia)', &
+            NameVersion='RAM-SCB (Jordanova, Zaharia, Engel)', &
             Version=2.0)
        
     case('MPI')
@@ -84,16 +84,15 @@ module IM_wrapper
 
   !============================================================================
   subroutine IM_set_grid
-    use ModNumConst, ONLY: cTwoPi
-    use ModRamMain,  ONLY: RadiusMin, RadiusMax, NR, NT, PI, LZ, PHI, DL1, &
-         DPHI, dR, nRextend, GridExtend
-    use CON_coupler, ONLY: set_grid_descriptor, is_proc, IM_
+    use ModNumConst,     ONLY: cTwoPi
+    use ModRamGrids,     ONLY: RadiusMin, RadiusMax, NR, NT, dPhi, dR, nRextend
+    use ModRamVariables, ONLY: LZ, PHI, DL1, GridExtend
+    use CON_coupler,     ONLY: set_grid_descriptor, is_proc, IM_
     implicit none
     
     character (len=*), parameter :: NameSub='IM_set_grid'
     logical :: IsInitialized=.false.
     logical :: DoTest, DoTestMe
-    real    :: RadMaxFull
     integer :: i, j, iS
     !--------------------------------------------------------------------------
     call CON_set_do_test(NameSub, DoTest, DoTestMe)
@@ -103,31 +102,53 @@ module IM_wrapper
 
     IsInitialized = .true.
     
-    RadMaxFull = RadiusMin + nRextend*dR
-    
     ! IM grid: the equatorial grid is described by Coord1_I and Coord2_I
     ! Occasional +0.0 is used to convert from single to double precision
     ! Grid information set here is shared with GM for coupling with BATS-R-US.
-    call set_grid_descriptor( IM_,           & ! component index
-         nDim     = 2,                       & ! dimensionality
-         nRootBlock_D = (/1,1/),             & ! number of blocks
-         nCell_D =(/nRextend, nT/),          & ! size of equatorial grid
-         XyzMin_D=(/RadiusMin+0.0,0.0/),     & ! min coordinates
-         XyzMax_D=(/RadMaxFull,cTwoPi/),     & ! max coordinates + radial ghost.
-         Coord1_I = GridExtend+0.0,          & ! radial coordinates
-         Coord2_I = Phi(1:nT)+0.0,           & ! longitudinal coordinates
-         TypeCoord= 'SMG',                   & ! solar magnetic coord
-         nVar=7,                             & ! Number of "fluid" vars.
-         NameVar = 'rho p ppar Hpp Opp Hprho Oprho')
-    ! For nVar/NameVar, RAM-SCB+BATS-R-US coupling does not need this
-    ! convention.  Placeholders are used ONLY.
-    
+
+    ! If we are on an IM block, we can use the RAM-SCB run-time generated grid.
+    if(is_proc(IM_))then
+       call set_grid_descriptor( IM_,           & ! component index
+            nDim     = 2,                       & ! dimensionality
+            nRootBlock_D = (/1,1/),             & ! number of blocks
+            nCell_D  =(/nRextend, nT/),         & ! size of equatorial grid
+            XyzMin_D =(/RadiusMin+0.0,0.0/),    & ! min coordinates
+            XyzMax_D =(/GridExtend(nRextend),cTwoPi/), & ! max coordinates+radial ghost
+            Coord1_I = GridExtend+0.0,          & ! radial coordinates
+            Coord2_I = Phi(1:nT)+0.0,           & ! longitudinal coordinates
+            TypeCoord= 'SMG',                   & ! solar magnetic coord
+            nVar=7,                             & ! Number of "fluid" vars.
+            NameVar = 'rho p ppar Hpp Opp Hprho Oprho')
+       ! For nVar/NameVar, RAM-SCB+BATS-R-US coupling does not need this
+       ! convention.  Placeholders are used ONLY.
+    else
+       ! Not on IM? Use dummy vars as we have not allocted grid.
+       call set_grid_descriptor( IM_,           & ! component index
+            nDim     = 2,                       & ! dimensionality
+            nRootBlock_D = (/1,1/),             & ! number of blocks
+            nCell_D  =(/nRextend, nT/),         & ! size of equatorial grid
+            XyzMin_D =(/RadiusMin+0.0,0.0/),    & ! min coordinates
+            XyzMax_D =(/6.5,cTwoPi/),           & ! max coordinates+radial ghost
+            Coord1_I =(/RadiusMin, RadiusMax/), & ! radial coordinates
+            Coord2_I =(/0.0, cTwoPi/),          & ! longitudinal coordinates
+            TypeCoord='SMG',                    & ! solar magnetic coord
+            nVar=7,                             & ! Number of "fluid" vars.
+            NameVar = 'rho p ppar Hpp Opp Hprho Oprho')
+    endif
+
+       
     if(DoTestMe)then
+       write(*,*)NameSub,' Setting RAM-SCB grid characteristics.'
+       write(*,*)NameSub,' Are we on an IM proc?  ', is_proc(IM_)
+    end if
+    if(DoTestMe .and. is_proc(IM_)) then
        write(*,*)NameSub,' NR =              ', NR
        write(*,*)NameSub,' NR + Ghostcells = ', nRextend
        write(*,*)NameSub,' NT =              ', NT
+       write(*,*)NameSub,' Phi grid = ', 360.*Phi/cTwoPi
+       write(*,*)NameSub,' Rad grid = ', GridExtend
     end if
-
+    
   end subroutine IM_set_grid
 
   !============================================================================
@@ -137,6 +158,8 @@ module IM_wrapper
     ! The value should be interpolated from nPoints with
     ! indexes stored in Index and weights stored in Weight
     ! The variables should be put into Buff_V
+    ! This is not implemented for RAM-SCB.  IM to IE coupling occurs
+    ! implicitly through IM-to-GM pressure coupling.
     
     use CON_router,   ONLY: IndexPtrType, WeightPtrType
     implicit none
@@ -147,15 +170,18 @@ module IM_wrapper
     type(IndexPtrType),intent(in) :: Index
     type(WeightPtrType),intent(in):: Weight
     !--------------------------------------------------------------------------
+
+    call CON_stop(NameSub//' Not implemented for RAM_SCB.')
     
   end subroutine IM_get_for_ie
 
   !============================================================================
   subroutine IM_put_from_ie_mpi(nTheta, nPhi, Potential_II)
     
-    use ModRamMain,  ONLY: Real8_, TimeRamElapsed, PathRamOut
-    use ModRamCouple,ONLY: SwmfIonoPot_II, nIePhi, nIeTheta
-    use ModPlotFile, ONLY: save_plot_file
+    use ModRamMain,   ONLY: Real8_,  PathRamOut
+    use ModRamTiming, ONLY: TimeRamElapsed
+    use ModRamCouple, ONLY: SwmfIonoPot_II, nIePhi, nIeTheta
+    use ModPlotFile,  ONLY: save_plot_file
     
     implicit none
     
@@ -226,10 +252,11 @@ module IM_wrapper
   
   !============================================================================
   
-  subroutine IM_put_from_gm(Buffer_IIV,iSizeIn,jSizeIn,nVarIn,NameVar)
+  subroutine IM_put_from_gm(Buffer_IIV,Kp,iSizeIn,jSizeIn,nVarIn,NameVar)
 
     integer, intent(in) :: iSizeIn,jSizeIn,nVarIn
     real, dimension(iSizeIn,jSizeIn,nVarIn), intent(in) :: Buffer_IIV
+    real, intent(in) :: Kp
     character (len=*),intent(in)       :: NameVar
 
     character (len=*),parameter :: NameSub = 'IM_put_from_gm'
@@ -243,12 +270,15 @@ module IM_wrapper
   subroutine IM_put_from_gm_line(nRadiusIn, nLonIn, Map_DSII, &
        nVarLineIn, nPointLineIn, BufferLine_VI, NameVar)
     
-    use ModRamMain,  ONLY: nR, nT, TimeRamElapsed, RadiusMin, RadiusMax, &
-         Real8_, PathRamOut, nRextend
-    use ModNumConst, ONLY: cRadToDeg
-    use ModIoUnit,   ONLY: UnitTmp_
-    use ModPlotFile, ONLY: save_plot_file
+    use ModRamMain,   ONLY: Real8_, PathRamOut
+    use ModRamGrids,  ONLY: nR, nT, RadiusMin, RadiusMax, RadMaxScb, nRextend
+    use ModRamVariables,ONLY: GridExtend, Phi
+    use ModRamTiming, ONLY: TimeRamElapsed
+    use ModNumConst,  ONLY: cRadToDeg
+    use ModIoUnit,    ONLY: UnitTmp_
+    use ModPlotFile,  ONLY: save_plot_file
     use ModRamCouple
+    use ModNumConst,  ONLY: cTwoPi
     
     implicit none
     
@@ -258,9 +288,11 @@ module IM_wrapper
     real,    intent(in) :: BufferLine_VI(nVarLineIn,nPointLineIn)
     character(len=*), intent(in) :: NameVar
     
-    integer           :: iR, iT, iDir, n
-    real(kind=Real8_) :: rotate_VII(3,nT,4) = 0.0
+    integer           :: iT, iR, iDir, iRot, iLine
+    real(kind=Real8_) :: rotate_VII(3,nT,4)
     logical, save     :: IsFirstCall = .true.
+
+    real, parameter :: sens=1E-5  ! Sensitivity for real differences.
     
     ! These variables should either be in a module, OR
     ! there is no need for them, and BufferLine_VI should be put 
@@ -268,7 +300,6 @@ module IM_wrapper
     ! Note that this routine is only called on the root processor !!!
     integer :: nVarLine   = 0          ! number of vars per line point
     integer :: nPointLine = 0          ! number of points in all lines
-    integer, save :: iLine_III(2,nRextend,nT)           ! line index 
     
     logical :: DoTest, DoTestMe
     character(len=*), parameter :: NameSub='IM_put_from_gm_line'
@@ -285,7 +316,9 @@ module IM_wrapper
        write(*,*)"RAM  nR, nT = ", nRextend,  nT
        call CON_stop(NameSub//': IM gridsize does not match SWMF description.')
     endif
-    
+
+    ! Initialize rotate array:
+    rotate_VII(3,nT,4) = 0.0
     
     ! Save total number of points along all field lines
     nPointLine = nPointLineIn
@@ -293,14 +326,6 @@ module IM_wrapper
     
     ! On first call, set run-specific information.
     if (IsFirstCall) then
-       ! Create index array that converts radial 
-       ! and local time index to line index.
-       n = 0
-       do iT = 1, nT; do iR = 1, nRextend; do iDir = 1, 2
-          n = n+1
-          iLine_III(iDir,iR,iT) = n
-       end do; end do; end do
-       
        ! These are used for building Euler potential surfaces:
        nRadSWMF = nRextend
        nLonSWMF = nT
@@ -355,7 +380,7 @@ module IM_wrapper
             TimeIn       = TimeRamElapsed+0.0, &
             NameVarIn    = 'r Lon rIono ThetaIono PhiIono', &
             CoordMinIn_D = (/RadiusMin+0.0,   0.0/), &
-            CoordMaxIn_D = (/RadiusMax+0.0, 360.0/), &
+            CoordMaxIn_D = (/RadMaxScb+0.0, 360.0/), &
             VarIn_VII    = Map_DSII(:,1,:,:))
        
        write(NameFile,'(a,i5.5,a)') &
@@ -367,75 +392,66 @@ module IM_wrapper
             TimeIn       = TimeRamElapsed+0.0, &
             NameVarIn    = 'r Lon rIono ThetaIono PhiIono', &
             CoordMinIn_D = (/RadiusMin+0.0,   0.0/), &
-            CoordMaxIn_D = (/RadiusMax+0.0, 360.0/), &
+            CoordMaxIn_D = (/RadMaxScb+0.0, 360.0/), &
             VarIn_VII    = Map_DSII(:,2,:,:))
     end if
     
     call sort_mhd_lines(nVarLine, nPointLine, BufferLine_VI)
-    
-    ! Extract BATS plasma density and pressure at the outer boundary.
-    ! Need values at first outer ghost cell.
-    iR = nR+2; iT=1  !!! CHECK HERE PLZ.
-    do iPoint = 1, nPointLine
-       ! Search for first point in line that matches
-       ! the line index for our current rad/lon pair:
-       if (BufferLine_VI(1,iPoint) .lt. iLine_III(1,iR+1,iT)) cycle
+
+    ! Extract MHD density and pressure at the outer ghost cell of RAM-SCB
+    ! This is at index nR+1 (one outer ghost cell).
+    do iT=1, nT
+       ! Get the number of the field line trace passing through the
+       ! RAM-SCB ghost cell center:
+       iLine = 2*(nRextend*(iT-1)+nR+1) - 1 ! Northern hemi trace.
+
+       ! Write some debug info to screen:
+       if(DoTest) write(*,'(a,1x,i2.2,1x,i4.4,4(2x,f6.3))') &
+            "iT, iLine, X, Y, Z, R = ", iT, iLine, &
+            MhdLines_IIV(iLine, 1, 5), &
+            MhdLines_IIV(iLine, 1, 4), &
+            MhdLines_IIV(iLine, 1, 3), &
+            sqrt( MhdLines_IIV(iLine, 1, 5)**2   &
+            +     MhdLines_IIV(iLine, 1, 4)**2   &
+            +     MhdLines_IIV(iLine, 1, 3)**2)
        
-       if(DoTest) write(*,'(a,1x,i2.2,1x,i4.4,1x,f5.0,1x, f5.3)') &
-            "iT, lineExpected, LineFound, R = ", &
-            iT, iLine_III(1,iR+1,iT), BufferLine_VI(1,iPoint), &
-            sqrt(BufferLine_VI(5,iPoint)**2 + BufferLine_VI(4,iPoint)**2 &
-            + BufferLine_VI(3,iPoint)**2)/ 6378100.0
-       
-       if(iLine_III(1,iR+1,iT) .ne. BufferLine_VI(1,iPoint)) then
-          write(*,*) "ERROR: Expected and actual line numbers don't match!"
-          write(*,*) "Expected, Actual = ", &
-               iLine_III(1,iR,iT), BufferLine_VI(1,iPoint)
-          write(*,*) "Likely cause is open field lines in IM domain."
-          call CON_stop('IM_put_from_gm_line')
-       endif
-       
-       ! Grab total dens and pressure
-       MhdDensPres_VII(1,iT,1) = BufferLine_VI(TotalRho_ , iPoint)
-       MhdDensPres_VII(2,iT,1) = BufferLine_VI(TotalPres_, iPoint)
-       PMhdGhost = BufferLine_VI(TotalPres_, iPoint)
+       ! Grab total dens and pressure, use first point in trace.
+       MhdDensPres_VII(1,iT,1) = MhdLines_IIV(iLine, 1, TotalRho_)
+       MhdDensPres_VII(2,iT,1) = MhdLines_IIV(iLine, 1, TotalPres_)
        
        if (TypeMhd .eq. 'anisoP')then
           ! anisotropic pressure from GM                           
-          MhdDensPres_VII(3,iT,1) = BufferLIne_VI(Ppar_,iPoint)
+          MhdDensPres_VII(3,iT,1) = MhdLines_IIV(iLine, 1, Ppar_)
        end if
        
        if (TypeMhd .ne. 'single') then
-          MhdDensPres_VII(1,iT,2) = BufferLine_VI(RhoH_ ,  iPoint)
-          MhdDensPres_VII(1,iT,4) = BufferLine_VI(RhoO_ ,  iPoint)
+          MhdDensPres_VII(1,iT,2) = MhdLines_IIV(iLine, 1, RhoH_)
+          MhdDensPres_VII(1,iT,4) = MhdLines_IIV(iLine, 1, RhoO_)
           ! Only MultiS has He; only Mult3F has Sw H+.
           ! Store it in Helium's slot.
           if (TypeMhd .eq. 'mult3F') then
-             MhdDensPres_VII(1,iT,3) = BufferLine_VI(RhoSw_ , iPoint)
+             MhdDensPres_VII(1,iT,3) = MhdLines_IIV(iLine, 1, RhoSw_)
           else
-             MhdDensPres_VII(1,iT,3) = BufferLine_VI(RhoHe_ , iPoint)
+             MhdDensPres_VII(1,iT,3) = MhdLines_IIV(iLine, 1, RhoHe_)
           end if
        end if
        
        if (TypeMhd .eq. 'multiF') then
-          MhdDensPres_VII(2,iT,2) = BufferLine_VI(PresH_,  iPoint)
-          MhdDensPres_VII(2,iT,3) = BufferLine_VI(PresHe_, iPoint)
-          MhdDensPres_VII(2,iT,4) = BufferLine_VI(PresO_,  iPoint)
+          MhdDensPres_VII(2,iT,2) = MhdLines_IIV(iLine, 1, PresH_)
+          MhdDensPres_VII(2,iT,3) = MhdLines_IIV(iLine, 1, PresHe_)
+          MhdDensPres_VII(2,iT,4) = MhdLines_IIV(iLine, 1, PresO_)
        end if
        if (TypeMhd .eq. 'mult3F') then
-          MhdDensPres_VII(2,iT,2) = BufferLine_VI(PresH_ , iPoint)
-          MhdDensPres_VII(2,iT,3) = BufferLine_VI(PresSw_, iPoint)
-          MhdDensPres_VII(2,iT,4) = BufferLine_VI(PresO_ , iPoint)
+          MhdDensPres_VII(2,iT,2) = MhdLines_IIV(iLine, 1, PresH_ )
+          MhdDensPres_VII(2,iT,3) = MhdLines_IIV(iLine, 1, PresSw_)
+          MhdDensPres_VII(2,iT,4) = MhdLines_IIV(iLine, 1, PresO_ )
        end if
-       
-       iT = iT + 1 ! Cycle to next logitude.
-       if (iT .gt. nT) exit
     end do
-    
+
     ! Rotate the local time coordinates by 12 Hours.
     do iT=1, nT
-       n = mod(iT+12-1,24)+1
-       rotate_VII(:,iT,:) = MhdDensPres_VII(:,n,:)
+       iRot = mod(iT+((nT-1)/2-1),nT-1) + 1 ! Even # of cells, 1 ghost cell.
+       rotate_VII(:,iT,:) = MhdDensPres_VII(:,iRot,:)
     end do
     MhdDensPres_VII = rotate_VII
     
@@ -447,17 +463,54 @@ module IM_wrapper
     ! Call routine that converts density/pressure into flux.
     call generate_flux
     
+    ! DEPRECIATED: This info no longer saved.
     ! Map_DSII will be used for mapping the pressure to the ionosphere
     ! so that BATS can use it as if it were RCM pressure.
     ! Start here by converting from colat/radiats to lat/degrees.
     ! Rotate the local time coordinates by 12 Hours.
-    !IonoMap_DSII =  Map_DSII
-    do iT=1, nT
-       n = mod(iT+12-1,24)+1
-       IonoMap_DSII(:,:,:,iT) = Map_DSII(:,:,:,n)
+    !do iT=1, nT
+    !   n = mod(iT+((nT-1)/2-1),nT-1) + 1 ! Even # of cells, 1 ghost cell.
+    !   IonoMap_DSII(:,:,:,iT) = Map_DSII(:,:,:,n)
+    !end do
+    !IonoMap_DSII(2,:,:,:) = 90.0 - cRadtoDeg * IonoMap_DSII(2,:,:,:)
+    !IonoMap_DSII(3,:,:,:) =        cRadtoDeg * IonoMap_DSII(3,:,:,:)
+
+
+    ! Sort lines one more time- this time for use by SCB.
+    do iT=1, nT-1
+       do iR=1, nRextend
+          ! Get the index that rotates in longitude 180 degrees.
+          iRot = mod(iT+((nT-1)/2-1),nT-1) + 1 ! Even # of cells, 1 ghost cell.
+          
+          ! Check if the line is open:
+          
+          if((Map_DSII(1,1,iR,iT)-1>sens).or.(Map_DSII(1,2,iR,iT)-1>sens))then
+             IsClosed_II(iR,iT) = .false.
+             if(DoTest) then
+                write(*,*)'OPEN FIELD LINE AT R, MLT = ', &
+                     GridExtend(iR), Phi(iRot)*24./cTwoPi
+                write(*,*)'Line ends at R (north, south) = ', Map_DSII(1,:,iR,iT)
+             end if
+             cycle
+          end if
+
+          ! Fill points from northern hemisphere:
+          iLine = 2*(nRextend*(iT-1)+iR) - 1          
+          Blines_DIII(1,iR,iRot,nPointsMax:) = MhdLines_IIV(iLine,:,3) !X
+          Blines_DIII(2,iR,iRot,nPointsMax:) = MhdLines_IIV(iLine,:,4) !Y
+          Blines_DIII(3,iR,iRot,nPointsMax:) = MhdLines_IIV(iLine,:,5) !Z
+
+          ! Fill points from southern hemisphere:
+          iLine = 2*(nRextend*(iT-1)+iR)          
+          Blines_DIII(1,iR,iRot,:nPointsMax-1) = MhdLines_IIV(iLine,nPointsMax-1:1:-1,3) !X
+          Blines_DIII(2,iR,iRot,:nPointsMax-1) = MhdLines_IIV(iLine,nPointsMax-1:1:-1,4) !Y
+          Blines_DIII(3,iR,iRot,:nPointsMax-1) = MhdLines_IIV(iLine,nPointsMax-1:1:-1,5) !Z
+
+          ! Meters to Re:
+          Blines_DIII(:,iR,iRot,:) = Blines_DIII(:,iR,iRot,:)/6378100.0
+
+       end do
     end do
-    IonoMap_DSII(2,:,:,:) = 90.0 - cRadtoDeg * IonoMap_DSII(2,:,:,:)
-    IonoMaP_DSII(3,:,:,:) =        cRadtoDeg * IonoMap_DSII(3,:,:,:)
     
     
   end subroutine IM_put_from_gm_line
@@ -484,13 +537,15 @@ module IM_wrapper
 
   subroutine IM_get_for_gm(Buffer_IIV,iSizeIn,jSizeIn,nVar,NameVar)
     
-    use CON_time,     ONLY: get_time
-    use ModRamMain,   ONLY: Real8_, nR, nT, PAllSum, HPAllSum, &
-         OPAllSum, PparSum, BNES, NAllSum, HNAllSum, ONAllSum, &
-         TimeRamNow, PathRamOut,nRextend, DoAnisoPressureGMCoupling
-    use ModRamCouple, ONLY: IonoMap_DSII, MhdDensPres_VII, PMhdGhost, &
-         DoMultiFluidGMCoupling
-    use ModIoUnit,    ONLY: UNITTMP_
+    use CON_time,        ONLY: get_time
+    use ModRamMain,      ONLY: Real8_, PathRamOut
+    use ModRamParams,    ONLY: DoAnisoPressureGMCoupling
+    use ModRamGrids,     ONLY: nR, nT, nRextend
+    use ModRamVariables, ONLY: PAllSum, HPAllSum, OPAllSum, PparSum, &
+         NAllSum, HNAllSum, ONAllSum, BNES
+    use ModRamTiming,    ONLY: TimeRamNow
+    use ModRamCouple,    ONLY: MhdDensPres_VII, DoMultiFluidGMCoupling
+    use ModIoUnit,       ONLY: UNITTMP_
     use ModRamFunctions, ONLY: ram_sum_pressure
     implicit none
     
@@ -509,6 +564,12 @@ module IM_wrapper
     
     !--------------------------------------------------------------------------
     call CON_set_do_test(NameSub, DoTest, DoTestMe)
+
+    ! Note that the coupler asks for values out to nRextend, or the
+    ! radial extent of SCB.  The radial extent of RAM is nR which is <nRextend.
+    ! We fill pressure values up to nR and leave the outer cells as negative
+    ! values.  BATS will not couple negative values.
+    
     ! Check to ensure that what we get is what GM wants.
     ! Include RAM's ghost cells for continuity with incoming coupling.
     if ( (iSizeIn .ne. nRextend) .or. (jSizeIn .ne. nT) ) then
@@ -516,6 +577,9 @@ module IM_wrapper
        write(*,*) 'iSizeIn, jSizeIn = ', iSizeIn, jSizeIn
        call CON_stop(NameSub//' ERROR: mismatched array sizes!')
     endif
+
+    ! Initialize all values to -1; MHD will not couple negative values.
+    Buffer_IIV=-1
     
     DoMultiFluidGMCoupling = .false.
     DoAnisoPressureGMCoupling = .false.
@@ -533,7 +597,7 @@ module IM_wrapper
     
     ! Fill pressure from computational cells; rotate 180.
     do iT=1, nT
-       iRot = mod(iT+11,nT-1) + 1
+       iRot = mod(iT+((nT-1)/2-1),nT-1) + 1 ! Even # of cells, 1 ghost cell.
        Buffer_IIV(1:nR,iRot,pres_) = PAllSum(1:nR,iT)
        Buffer_IIV(1:nR,iRot,dens_) = NAllSum(1:nR,iT)
        if (DoAnisoPressureGMCoupling)then
@@ -548,7 +612,7 @@ module IM_wrapper
        end if
     end do
     
-    ! Azimuthal symmetry.
+    ! Azimuthal continuity about zero:
     Buffer_IIV(1:nR,nT,pres_) = Buffer_IIV(1:nR,1,pres_)
     if (DoAnisoPressureGMCoupling)then
        Buffer_IIV(1:nR,nT,parpres_) = Buffer_IIV(1:nR,1,parpres_)
@@ -592,9 +656,18 @@ module IM_wrapper
   
   subroutine IM_init_session(iSession, TimeSimulation)
     
-    use ModRamMain, ONLY: iCal, IsComponent, &
-         TimeRamStart, StrRamDescription, TimeMax
-    use CON_time,   ONLY: get_time, tSimulationMax
+    use ModRamMain,   ONLY: iCal
+    use ModRamTiming, ONLY: TimeRamStart, TimeMax
+    use ModRamParams, ONLY: IsComponent, StrRamDescription, IsComponent
+    use ModRamCouple, ONLY: RAMCouple_Allocate
+    use ModRamGsl,    ONLY: gsl_initialize
+    use ModRamInit,   ONLY: ram_init, ram_allocate, init_input
+    use ModScbInit,   ONLY: scb_init, scb_allocate
+    use ModSceInit,   ONLY: sce_init, sce_allocate
+    use ModRamScb,    ONLY: ramscb_allocate
+    use ModRamIO,     ONLY: init_output
+    use CON_time,     ONLY: get_time, tSimulationMax
+    
     !use CON_variables, ONLY: StringDescription
     implicit none
     
@@ -620,31 +693,69 @@ module IM_wrapper
     
     ! Set starting time, using start time of simulation.
     call get_time(TimeStartOut=TimeRamStart)
+
+    if(DoTest) write(*,'(a,i4, 2("-",i2.2),1x, i2.2,2(":",i2.2)))') &
+         'IM: TimeRamStart = ', &
+         TimeRamStart%iYear, TimeRamStart%iMonth,  TimeRamStart%iDay, &
+         TimeRamStart%iHour, TimeRamStart%iMinute, TimeRamStart%iSecond
+    
     
     ! Set TimeMax from SWMF
     TimeMax = tSimulationMax
+
+    if(DoTest) write(*,'(a, E12.6, a)')'IM: Simulation duration (s) = ', TimeMax
     
-    call init_ramscb
+    ! Allocate Arrays
+    call ram_allocate
+    call scb_allocate
+    call ramscb_allocate
+    call sce_allocate
+
+    ! Initialize RAM_SCB
+    call ram_init
+    call scb_init
+    call sce_init
+    call GSL_Initialize
+
+    ! Allocate arrays for coupling:
+    call RAMCouple_Allocate
+
+    ! Initialize input and output:
+    call init_input
+    call init_output
     
   end subroutine IM_init_session
   
   !=============================================================================
   
   subroutine IM_finalize(TimeSimulation)
-    
+
+    use ModRamCouple, ONLY: RAMCouple_Deallocate
+    use ModRamInit,   ONLY: ram_deallocate
+    use ModScbInit,   ONLY: scb_deallocate
+    use ModSceInit,   ONLY: sce_deallocate
+    use ModRamScb,    ONLY: ramscb_deallocate
+
     implicit none
     
     !INPUT PARAMETERS:
     real,     intent(in) :: TimeSimulation   ! seconds from start time
     !---------------------------------------------------------------------------
-    call finalize_ramscb
+    
+    ! Deallocate arrays
+    call ram_deallocate
+    call scb_deallocate
+    call ramscb_deallocate
+    call sce_deallocate
+    call RAMCouple_Deallocate
+
   end subroutine IM_finalize
   
   !=============================================================================
   
   subroutine IM_save_restart(TimeSimulation)
     
-    use ModRamIO, ONLY: write_restart
+    use ModRamRestart, ONLY: write_restart
     
     implicit none
     
@@ -662,7 +773,8 @@ module IM_wrapper
   !INTERFACE:
   subroutine IM_run(TimeSimulation,TimeSimulationLimit)
     
-    use ModRamMain, ONLY: DtsMax, DtsFramework, TimeRamElapsed
+    use ModRamTiming, ONLY: DtsMax, DtsFramework, TimeRamElapsed
+    use ModRamScbRun, ONLY: run_ramscb
     
     implicit none
     
@@ -686,7 +798,7 @@ module IM_wrapper
     DtTotal = TimeSimulationLimit - TimeSimulation
     
     ! Multiply with 1.0 to avoid mixed real precision 
-    DtsFramework = min(1.0*DtsMax, 0.5 * DtTotal)
+    DtsFramework   = min(1.0*DtsMax, 0.5 * DtTotal)
     TimeRamElapsed = TimeSimulation
     
     call run_ramscb
@@ -696,21 +808,19 @@ module IM_wrapper
   end subroutine IM_run
   
   !=============================================================================
-  subroutine IM_put_from_gm_crcm(Integral_IIV, iSize, jSize, nIntegral, &
-       Bufferline_VI, nVarLine, nPointLine, NameVar, tSimulation)
-    ! Dummy routine to satisfy dependencies in SWMF.
-    use ModRamMain, ONLY: Real8_
-    
-    implicit none
-    
-    integer,           intent(in) :: iSize, jSize, nIntegral
-    integer,           intent(in) :: nVarLine, nPointLine
-    real(kind=Real8_), intent(in) :: Integral_IIV(iSize,jSize,nIntegral)
-    real(kind=Real8_), intent(in) :: BufferLine_VI(nVarLine, nPointLine)
-    character(len=100),intent(in) :: NameVar
-    real(kind=Real8_), intent(in) :: tSimulation
-    
-    character(len=*), parameter :: NameSub = 'IM_putfrom_gm_crcm'
+  subroutine IM_put_from_gm_crcm(Integral_IIV, Kp, iSizeIn, jSizeIn, &
+       nIntegralIn, BufferLine_VI, nVarLine, nPointLine, NameVar, tSimulation)
+
+    integer, intent(in) :: iSizeIn, jSizeIn, nIntegralIn
+    real,    intent(in) :: Integral_IIV(iSizeIn,jSizeIn,nIntegralIn)
+    real,    intent(in) :: Kp
+    integer, intent(in) :: nVarLine, nPointLine
+    real,    intent(in) :: BufferLine_VI(nVarLine, nPointLine)
+    real,    intent(in) :: tSimulation
+    character (len=*), intent(in) :: NameVar
+
+    character (len=*), parameter :: NameSub='IM_put_from_gm_crcm'
+
     !---------------------------------------------------------------------------
     call CON_stop(NameSub//': Do not call this routine from RAM-SCB!')
     

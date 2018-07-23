@@ -28,11 +28,9 @@
                                nisave, nitry
     use ModScbParams,    ONLY: decreaseConvAlphaMin, decreaseConvPsiMin, blendMin, &
                                decreaseConvAlphaMax, decreaseConvPsiMax, blendMax, &
-                               MinSCBIterations, &
-                               iAMR, isEnergDetailNeeded, isFBDetailNeeded, &
-                               method, isotropy
+                               MinSCBIterations, iAMR, isEnergDetailNeeded, &
+                               isFBDetailNeeded, method, isotropy, convergence
     !!!! Module Subroutine/Functions
-    USE ModRamGSL,      ONLY: GSL_Interpolation_1D, GSL_Smooth_1D
     USE ModScbCompute,  ONLY: computeBandJacob, compute_convergence, metrics
     USE ModScbEuler,    ONLY: alfges, psiges, mapalpha, mappsi, directAlpha, &
                               iterateAlpha, directPsi, iteratePsi, psiFunctions, &
@@ -66,21 +64,11 @@
     clock_max = 100000
 
     ALLOCATE(xStart(nthe,npsi,nzeta+1), yStart(nthe,npsi,nzeta+1), zStart(nthe,npsi,nzeta+1))
-    xStart = 0.0; yStart = 0.0; zStart = 0.0
     ALLOCATE(psiStart(nthe,npsi,nzeta+1), alphaStart(nthe,npsi,nzeta+1), fStart(npsi))
-    psiStart = 0.0; alphaStart = 0.0; fStart = 0.0
-    ALLOCATE(entropyFixed(npsi,nzeta))
-    entropyFixed = 0.0
-    IF (.NOT. ALLOCATED(xPrev)) ALLOCATE(xPrev(SIZE(x,1), SIZE(x,2), SIZE(x,3)))
-    xPrev = 0.0
-    IF (.NOT. ALLOCATED(yPrev)) ALLOCATE(yPrev(SIZE(x,1), SIZE(x,2), SIZE(x,3)))
-    yPrev = 0.0
-    IF (.NOT. ALLOCATED(zPrev)) ALLOCATE(zPrev(SIZE(x,1), SIZE(x,2), SIZE(x,3)))
-    zPrev = 0.0
-    IF (.NOT. ALLOCATED(alphaPrev)) ALLOCATE(alphaPrev(nthe,npsi,nzeta+1))
-    alphaPrev = 0.0
-    IF (.NOT. ALLOCATED(psiPrev)) ALLOCATE(psiPrev(nthe,npsi,nzeta+1))
-    psiPrev = 0.0
+    ALLOCATE(xPrev(nthe,npsi,nzeta+1), yPrev(nthe,npsi,nzeta+1), zPrev(nthe,npsi,nzeta+1))
+    ALLOCATE(alphaPrev(nthe,npsi,nzeta+1), psiPrev(nthe,npsi,nzeta+1), entropyFixed(npsi,nzeta))
+    xStart = 0.0; yStart = 0.0; zStart = 0.0; psiStart = 0.0; alphaStart = 0.0; fStart = 0.0
+    xPrev = 0.0; yPrev = 0.0; zPrev = 0.0; alphaPrev = 0.0; psiPrev = 0.0; entropyFixed = 0.0
 
     decreaseConvAlpha = decreaseConvAlphaMin + (decreaseConvAlphaMax - decreaseConvAlphaMin) &
                         *(MIN(Kp,6._dp))**2/36.
@@ -89,7 +77,7 @@
 
 !!!!! Recalculate the SCB outerboundary
     if (nIter.ne.0) then
-       call Update_Domain(check)
+       call Update_Domain(check,x,y,z,psiVal,f)
        IF ((iAMR == 1).and.(check)) THEN
           CALL InterpolatePsiR
           CALL mappsi
@@ -102,7 +90,7 @@
     nFail = 0
     SORFail = .false.
     hICalc = .true.
-    convDistance = 0.9
+    convDistance = convergence
 
     sumb1 = 0._dp
     sumdb1 = 0._dp
@@ -126,163 +114,146 @@
     call system_clock(time1,clock_rate,clock_max)
     starttime=time1/real(clock_rate,dp)
 
+    call computeBandJacob ! Get spatial gradients and jacobian
+    CALL pressure         ! Get pressure gradients
+    call compute_convergence
+
+    IF (isFBDetailNeeded == 1 .and. method /= 3) THEN
+       CALL Write_Convergence_Anisotropic('00')
+    END IF
+
+    ! This is a new method for dynamically calculating the blending
+    ! factors
+    ! based on the initial state of the convergence. Note that if the beta
+    ! check is changed in ModScbCompute then the ratio of normJxB to
+    ! normGradP will also have to be adjusted to lay within similar
+    ! boundaries. These blendings are conservative, and could be adjusted
+    ! to
+    ! be more exact, but for now are reasonable -ME
+    if (verbose) write(*,'(1x,a,2F10.2)') 'Starting normGradP and normJxB = ', normGradP, normJxB
+    if (normGradP.gt.80) then
+       blendInitial = 0.15
+       !convDistance = 0.2
+    elseif (normGradP.gt.40) then
+       blendInitial = 0.15
+    elseif (normGradP.gt.30) then
+       blendInitial = 0.15
+    elseif (normJxB.ge.2.*normGradP) then
+       blendInitial = 0.20
+    elseif (normJxB.ge.1.5*normGradP) then
+       blendInitial = 0.25
+    elseif (normJxB.ge.normGradP) then
+       blendInitial = 0.30
+    else
+       blendInitial = 0.20
+    endif
+    blendInitial = 0.5
+    blendAlpha = blendInitial
+    blendPsi = blendInitial
+
+    ! The "distance" is the amount "traveled" between the current solution
+    ! and the found solution. The value lies between 0 and 1 with 0
+    ! meaning
+    ! you completely use the old solution and 1 meaning you completely use
+    ! the new solution.
+    !! The total "distance" you want to achieve
+    !convDistance = 0.9 ! Moved to outside the loop so that it can be
+                        ! modified in the loop as needed
+    !! The number of iterations with the above blending parameter needed
+    !to
+    !! achieve the wanted "distance"
+    SCBIterNeeded = ceiling(log(1-convDistance)/log(1-blendInitial))
+    !! The "distance" currently traveled, this is for when we implement a
+    !! relaxation to the blending, but for now should just be set to > 1
+    !to
+    !! avoid it impacting the number of iterations performed.
+    outDistance = 1.1
+
+    iteration = 1
+    alfaSav1 = alfa
+    psiSav1 = psi
+
     Outeriters: DO 
+       IF (method == 3) exit Outeriters
 
-       call computeBandJacob
-       CALL metrica
-
-       ! Define the right-hand side of the betaEuler equation
-       CALL pressure
-
-       normDiffPrev = normDiff
-       call compute_convergence
-       IF (iteration == 0 .and. isFBDetailNeeded == 1 .and. method /= 3) THEN
-          CALL Write_Convergence_Anisotropic('00')
-       END IF
-       !IF (iteration.ge.1) THEN
-       !   if (normDiffPrev.lt.normDiff) exit OuterIters
-       !ENDIF
-
-       ! This is a new method for dynamically calculating the blending factors
-       ! based on the initial state of the convergence. Note that if the beta
-       ! check is changed in ModScbCompute then the ratio of normJxB to
-       ! normGradP will also have to be adjusted to lay within similar
-       ! boundaries. These blendings are conservative, and could be adjusted to
-       ! be more exact, but for now are reasonable -ME
-       if (iteration == 0) then
-          if (normGradP.gt.80) then
-             blendInitial = 0.15
-             !convDistance = 0.2
-          elseif (normGradP.gt.40) then
-             blendInitial = 0.15
-          elseif (normGradP.gt.30) then
-             blendInitial = 0.15
-          elseif (normJxB.ge.2.*normGradP) then
-             blendInitial = 0.20
-          elseif (normJxB.ge.1.5*normGradP) then
-             blendInitial = 0.25
-          elseif (normJxB.ge.normGradP) then
-             blendInitial = 0.30
-          else
-             blendInitial = 0.20
-          endif
-          blendAlpha = blendInitial
-          blendPsi = blendInitial
-
-          ! The "distance" is the amount "traveled" between the current solution
-          ! and the found solution. The value lies between 0 and 1 with 0 meaning
-          ! you completely use the old solution and 1 meaning you completely use
-          ! the new solution.
-          !! The total "distance" you want to achieve
-          !convDistance = 0.9 ! Moved to outside the loop so that it can be
-                              ! modified in the loop as needed
-          !! The number of iterations with the above blending parameter needed to
-          !! achieve the wanted "distance"
-          SCBIterNeeded = ceiling(log(1-convDistance)/log(1-blendInitial))
-          !! The "distance" currently traveled, this is for when we implement a
-          !! relaxation to the blending, but for now should just be set to > 1 to
-          !! avoid it impacting the number of iterations performed.
-          outDistance = 1.1
-       endif
-
-       if (iteration == 0) iteration = 1 ! Iteration 0 saves the full 3D pressure domain
-
-       SCB_CALCULATION: IF (method /= 3) then
-
-          CALL newk
-  
-          errorAlphaPrev = errorAlpha
-  
-          IF (iteration==1) alfaSav1 = alfa
-          IF (iteration==1) psiSav1 = psi
-
-          IF (MOD(iteration,nrelax) == 0) blendAlpha = relax * blendAlpha
-          IF (MOD(iteration,nrelax) == 0) blendPsi = relax * blendPsi
-
-          blendAlpha = MAX(blendAlpha,blendMin)
-          blendAlpha = MIN(blendAlpha,blendMax)
-          SELECT CASE (method)
-            CASE(1)
-               CALL directAlpha
-            CASE(2)
-               CALL iterateAlpha
-          END SELECT
-
-          if (SORFail) then
-             x    = xStart
-             y    = yStart
-             z    = zStart
-             psi  = psiStart
-             alfa = alphaStart
-             f = fStart
-             hICalc = .false.
-             exit OuterIters
-          endif
-
-          sumb1 = sumb
-          sumdb1 = sumdb
-          diffmx1 = diffmx
-          nisave1 = nisave  
-          errorAlpha = diffmx
-  
-          IF (iteration == 1) THEN
-             errorfirstalpha = sumdb1
-             diffmxfirstalpha = diffmx1
-             errorAlphaPrev = errorAlpha
-          END IF
-          IF (sumdb1 < sumdbconv) sumdbconv = sumdb1
-  
-          xPrev = x
-          yPrev = y
-          zPrev = z
-          alphaPrev = alfa
-
-          Move_points_in_alpha_theta: DO
-             ! move zeta grid points along constant alphaEuler and theta lines
-             CALL mapalpha
-             ! move theta grid points along constant alphaEuler and zeta lines
-             CALL maptheta
-             CALL metrica
-             IF (MINVAL(jacobian(2:nthe-1,2:npsi-1,:)) < 0._dp) THEN
-                ! Revert to previous point configuration
-                x = xPrev
-                y = yPrev
-                z = zPrev
-                alfa = alphaPrev
-                blendAlpha = damp * blendAlpha
-                alfa(:,:,:) = alfa(:,:,:)*blendAlpha + (1.-blendAlpha)*alfaSav1(:,:,:)
-                call metrica
-                if (blendAlpha.lt.blendMin) then
-                   !call CON_stop('Failed to converge Alpha potential with minimum blend size')
-                   x    = xStart
-                   y    = yStart
-                   z    = zStart
-                   psi  = psiStart
-                   alfa = alphaStart
-                   f = fStart
-                   hICalc = .false.
-                   exit OuterIters
-                endif
-                if (verbose) PRINT*, 'CE: Cycling alpha_theta pts, blendAlpha = ', blendAlpha
-                CYCLE Move_points_in_alpha_theta
-             END IF
-             EXIT Move_points_in_alpha_theta
-          END DO Move_points_in_alpha_theta
-  
-          IF (iAMR == 1) THEN
-             CALL InterpolatePsiR
-             CALL mappsi
-             CALL psifunctions
-             CALL maptheta
-             psisav1 = psi
-          ENDIF
-
-          !IF (isotropy == 1) CALL entropy(entropyFixed, fluxVolume, iCountEntropy)
-          IF (isFBDetailNeeded == 1) CALL Write_Convergence_Anisotropic('02')
+   !!!!! Start Equation 1 Section
+       call computeBandJacob ! Get spatial gradients and jacobian
+       CALL pressure         ! Get pressure gradients
+       CALL metrica          ! Calculates LHS of Equation 1
+       CALL newk             ! Calculates RHS of Equation 1
  
-          CALL metric
-          IF (MINVAL(jacobian(2:nthe-1,2:npsi-1,:)) < 0._dp) then
-             !call CON_STOP('CE: metric problem.')
+       ! Solve LHS = RHS for Equation 1 
+       blendAlpha = MAX(blendAlpha,blendMin)
+       blendAlpha = MIN(blendAlpha,blendMax)
+       errorAlphaPrev = errorAlpha
+       SELECT CASE (method)
+         CASE(1)
+            CALL directAlpha
+         CASE(2)
+            CALL iterateAlpha
+            if (SORFail) then
+               if (verbose) write(*,*) 'SOR Failed in IterateAlpha'
+               x    = xStart
+               y    = yStart
+               z    = zStart
+               psi  = psiStart
+               alfa = alphaStart
+               f = fStart
+               hICalc = .false.
+               exit OuterIters
+            endif
+       END SELECT
+       sumb1 = sumb
+       sumdb1 = sumdb
+       diffmx1 = diffmx
+       nisave1 = nisave  
+       errorAlpha = diffmx
+  
+       ! Now move x, y, z points to match Equation 1 changes
+       xPrev = x
+       yPrev = y
+       zPrev = z
+       alphaPrev = alfa
+       Move_points_in_alpha_theta: DO
+          CALL mapalpha
+          CALL maptheta
+          call computeBandJacob
+          IF (MINVAL(jacobian(2:nthe-1,2:npsi-1,2:nzeta)) < 0._dp) THEN
+             ! Revert to previous point configuration
+             x = xPrev
+             y = yPrev
+             z = zPrev
+             alfa = alphaPrev
+             blendAlpha = damp * blendAlpha
+             alfa(:,:,:) = alfa(:,:,:)*blendAlpha + (1.-blendAlpha)*alfaSav1(:,:,:)
+             if (blendAlpha.lt.blendMin) then
+                x    = xStart
+                y    = yStart
+                z    = zStart
+                psi  = psiStart
+                alfa = alphaStart
+                f = fStart
+                hICalc = .false.
+                SORFail = .true.
+                exit OuterIters
+             endif
+             if (verbose) write(*,*) 'CE: Cycling alpha_theta pts, blendAlpha = ', blendAlpha
+             CYCLE Move_points_in_alpha_theta
+          END IF
+          EXIT Move_points_in_alpha_theta
+       END DO Move_points_in_alpha_theta
+  
+       IF (iAMR == 1) THEN
+          ! Move points for "adaptive mesh refinement"
+          CALL InterpolatePsiR
+          CALL mappsi
+          CALL psifunctions
+          CALL maptheta
+          psisav1 = psi
+          ! Make sure "adaptive mesh refinement" didn t mess up
+          CALL computeBandJacob
+          IF (MINVAL(jacobian(2:nthe-1,2:npsi-1,2:nzeta)) < 0._dp) then
+             if (verbose) write(*,*) 'SOR Failed in 1st AMR step'
              x = xStart
              y = yStart
              z = zStart
@@ -290,117 +261,131 @@
              alfa = alphaStart
              f = fStart
              hICalc = .false.
+             SORFail = .true.
              exit OuterIters
           ENDIF
+       ENDIF
 
-          call computeBandJacob
-          CALL pressure
-          CALL compute_convergence
+       !IF (isotropy == 1) CALL entropy(entropyFixed, fluxVolume, iCountEntropy)
+       !IF (isFBDetailNeeded == 1) CALL Write_Convergence_Anisotropic('02')
+ 
 
-          !c  define the right-hand side of the alphaEuler equation
-          CALL newj
+   !!!!! Start of Equation 2 section
+       call computeBandJacob ! Get spatial gradients and jacobian
+       CALL pressure         ! Get pressure gradients
+       CALL Compute_Convergence
+       CALL metric           ! Calculates LHS of Equation 2
+       CALL newj             ! Calculates RHS of Equation 2
+
+       ! Solve LHS = RHS for Equation 2
+       blendPsi = MAX(blendPsi,blendMin)
+       blendPsi = MIN(blendPsi,blendMax)
+       errorPsiPrev = errorPsi
+       SELECT CASE (method)
+         CASE(1)
+           CALL directPsi
+         CASE(2)
+           CALL iteratePsi
+           if (SORFail) then
+              if (verbose) write(*,*) 'SOR Failed on IteratePsi'
+              x    = xStart
+              y    = yStart
+              z    = zStart
+              psi  = psiStart
+              alfa = alphaStart
+              f = fStart
+              hICalc = .false.
+              exit OuterIters
+           endif
+       END SELECT
+       errorPsi = diffmx
+ 
+       ! Now move x, y, z points to match Equation 2 changes 
+       xPrev = x
+       yPrev = y
+       zPrev = z
+       psiPrev = psi
+       Move_points_in_psi_theta: DO
+          CALL mappsi
+          CALL maptheta
+          CALL computeBandJacob
+          IF (MINVAL(jacobian(2:nthe-1,2:npsi-1,2:nzeta)) < 0._dp) THEN
+             ! Revert to previous point configuration
+             x = xPrev
+             y = yPrev
+             z = zPrev
+             psi = psiPrev
+             blendPsi = damp * blendPsi
+             psi(:,:,:) = psi(:,:,:)*blendPsi + (1.-blendPsi)*psiSav1(:,:,:)
+             if (blendPsi.lt.blendMin) then
+                x    = xStart
+                y    = yStart
+                z    = zStart
+                psi  = psiStart
+                alfa = alphaStart
+                f = fStart
+                hICalc = .false.
+                SORFail = .true.
+                exit OuterIters
+             endif
+             if (verbose) write(*,*) 'CE: Cycling psi_theta pts, blendPsi = ', blendPsi
+             CYCLE Move_points_in_psi_theta
+          END IF
+          EXIT Move_points_in_psi_theta
+       END DO Move_points_in_psi_theta
+ 
+       if (verbose) then
+          if (iteration == 1) WRITE(*,*) 'itout ',' blendAlpha ',' blendPsi ',' itAlpha ', &
+                                         ' diffAlpha ',' errorAlpha ', ' itPsi ',' diffPsi ', &
+                                         '   errorPsi '
+          WRITE(*,'(1x,I3,5x,F6.2,5x,F6.2,5x,I4,2x,F10.2,2x,E10.2,3x,I4,1x,F10.2,1x,E10.2)') &
+                iteration, blendAlpha, blendPsi, nisave1, sumdb1, errorAlpha/twopi_d, &
+                                                 nisave, sumdb, errorPsi/MAXVAL(ABS(psival))
+       endif
   
-          errorPsiPrev = errorPsi
-          blendPsi = MAX(blendPsi,blendMin)
-          blendPsi = MIN(blendPsi,blendMax)
-          SELECT CASE (method)
-            CASE(1)
-              CALL directPsi
-            CASE(2)
-              CALL iteratePsi
-          END SELECT
+       ! Need to set an actual convergence criteria using the JxB and GradP
+       ! values calculated in the Write_Convergence_Anisotropic subroutine.
+       ! For now we will just use the residuals of the SOR calculations
+       If ((errorAlpha.lt.decreaseConvAlpha).and.(errorPsi.lt.decreaseConvPsi)) then
+          iConvGlobal = 1
+       endif
 
-          if (SORFail) then
-             x    = xStart
-             y    = yStart
-             z    = zStart
-             psi  = psiStart
+       IF (((iteration.lt.numit).AND.(iConvGlobal.eq.0)) &
+           .OR.(iteration.lt.MinSCBIterations) &
+           .OR.(iteration.lt.SCBIterNeeded) &
+           .OR.(outDistance.lt.convDistance)) THEN
+          iteration = iteration + 1
+          CYCLE Outeriters
+       END IF
+
+       IF (iConvGlobal == 1) THEN
+          sumdbconv = sumdb1
+          EXIT Outeriters
+       END IF
+
+       IF (iAMR == 1) THEN
+          ! Move points for "adaptive mesh refinement"
+          CALL InterpolatePsiR
+          CALL mappsi
+          CALL psifunctions
+          CALL maptheta
+          psisav1 = psi
+          ! Make sure "adaptive mesh refinement" didn t mess up
+          CALL computeBandJacob
+          IF (MINVAL(jacobian(2:nthe-1,2:npsi-1,2:nzeta)) < 0._dp) then
+             if (verbose) write(*,*) 'SOR Failed on 2nd AMR step'
+             x = xStart
+             y = yStart
+             z = zStart
+             psi = psiStart
              alfa = alphaStart
              f = fStart
              hICalc = .false.
+             SORFail = .true.
              exit OuterIters
-          endif
-
-          errorPsi = diffmx
-          IF (iteration==1) errorPsiPrev = errorPsi
-  
-          xPrev = x
-          yPrev = y
-          zPrev = z
-          psiPrev = psi
-
-          Move_points_in_psi_theta: DO
-             CALL mappsi
-             CALL maptheta
-             CALL metric
-             IF (MINVAL(jacobian(2:nthe-1,2:npsi-1,:)) < 0._dp) THEN
-                ! Revert to previous point configuration
-                x = xPrev
-                y = yPrev
-                z = zPrev
-                psi = psiPrev
-                blendPsi = damp * blendPsi
-                psi(:,:,:) = psi(:,:,:)*blendPsi + (1.-blendPsi)*psiSav1(:,:,:)
-                if (blendPsi.lt.blendMin) then
-                   !call CON_stop('Failed to converge Psi potential with minimum blend size')
-                   x    = xStart
-                   y    = yStart
-                   z    = zStart
-                   psi  = psiStart
-                   alfa = alphaStart
-                   f = fStart
-                   hICalc = .false.
-                   exit OuterIters
-                endif
-                if (verbose) PRINT*, 'CE: Cycling psi_theta pts, blendPsi = ', blendPsi
-                CYCLE Move_points_in_psi_theta
-             END IF
-             EXIT Move_points_in_psi_theta
-          END DO Move_points_in_psi_theta
-  
-          IF (iteration == 1) THEN
-             errorfirstpsi = sumdb
-             diffmxfirstpsi = diffmx
-          END IF
-
-          if (verbose) then
-             WRITE(*,*) ' itout ',' blendAlpha ',' blendPsi ',' itAlpha ',' diffAlpha ',' errorAlpha ',&
-                        ' itPsi ',' diffPsi ',' errorPsi '
-             WRITE(*,*) iteration, blendAlpha, blendPsi, nisave1,sumdb1,errorAlpha/twopi_d, &
-                        nisave,sumdb,errorPsi/MAXVAL(ABS(psival))
-          endif
-  
-          IF (iAMR == 1) THEN
-             CALL InterpolatePsiR
-             CALL mappsi
-             CALL psiFunctions
-             CALL maptheta
-             psisav1 = psi
           ENDIF
-
-          ! Need to set an actual convergence criteria using the JxB and GradP
-          ! values calculated in the Write_Convergence_Anisotropic subroutine.
-          ! For now we will just use the residuals of the SOR calculations
-          If ((errorAlpha.lt.decreaseConvAlpha).and.(errorPsi.lt.decreaseConvPsi)) then
-             iConvGlobal = 1
-          endif
-
-          IF (((iteration.lt.numit).AND.(iConvGlobal.eq.0)) &
-              .OR.(iteration.lt.MinSCBIterations) &
-              .OR.(iteration.lt.SCBIterNeeded) &
-              .OR.(outDistance.lt.convDistance)) THEN
-             iteration = iteration + 1
-             CYCLE Outeriters
-          END IF
-
-          IF (iConvGlobal == 1) THEN
-             PRINT*, 'Approaching convergence.'
-             sumdbconv = sumdb1
-             EXIT Outeriters
-          END IF
+       ENDIF
  
-       END IF SCB_CALCULATION
-  
        EXIT Outeriters
     END DO Outeriters
   
@@ -411,10 +396,8 @@
        stoptime=time1/real(clock_rate,dp)
 
        !   The end of the iterative calculation
-       PRINT*, iteration, "outer iterations performed in", stoptime-starttime, "seconds."
-       IF (boundary /= 'SWMF') PRINT*, "End of calculation."
-       PRINT*, ' '
-       DEALLOCATE(xPrev, yPrev, zPrev, alphaPrev, psiPrev)
+       write(*,'(1x,a)',ADVANCE='NO') 'End of SCB Calculation: '
+       write(*,'(I3,1x,a,1x,F6.2,1x,a)'), iteration, "outer iterations performed in", stoptime-starttime, "seconds."
     end if
   
     IF (iteration > numit) lconv = 1
@@ -430,17 +413,11 @@
        hICalc = .false.
     endif
   
-    ! The following block should be uncommented for applications where equal-arc-length is needed or desirable
-    ! Equal arc-length helps with the h and I integrals -ME
-    !constTheta = 0.0_dp ! For equal-arc length
-    !chiVal = (thetaVal + constTheta * SIN(2.*thetaVal)) 
-    !CALL maptheta
-    !CALL metrica
-    ! This will compute the new Bfield on the new grid, to get the right pressure mapping
-
     CALL computeBandJacob
     CALL pressure
     CALL compute_convergence
+    if (verbose) write(*,'(1x,a,2F10.2)') 'Ending normGradP and normJxB = ', normGradP, normJxB
+
     CALL entropy(entropyFixed, fluxVolume, iCountEntropy)
 
     ! Compute physical quantities: currents, field components etc..
@@ -454,6 +431,7 @@
     IF (isotropy == 0 .AND. isEnergDetailNeeded == 1) CALL dps_general
 
     DEALLOCATE(xStart, yStart, zStart, psiStart, alphaStart, fStart, entropyFixed)
+    DEALLOCATE(xPrev, yPrev, zPrev, alphaPrev, psiPrev)
 
     RETURN
   
@@ -747,7 +725,8 @@
     totalEnergy = SUM(magneticEnergy) + SUM(thermalEnergy)
     DstDPS = 1.3_dp * (-BEarth) * (2._dp*SUM(thermalEnergy))/(3._dp*magneticEnergyDipole) * 1.E9_dp
     DstDPSInsideGeo = 1.3_dp * (-BEarth) * (2._dp*SUM(thermalEnergyInsideGeo))/(3._dp*magneticEnergyDipole) * 1.E9_dp
-    WRITE(*, '(A, 1X, F8.2, 1X, F8.2, 1X, F8.2, 1X, F8.2, A)') 'DstDPS, DstDPSGeo, DstBiot, DstBiotGeo = ', real(DstDPS), &
+    WRITE(*, '(1X, A, 1X, F8.2, 1X, F8.2, 1X, F8.2, 1X, F8.2, A)') &
+         'DstDPS, DstDPSGeo, DstBiot, DstBiotGeo = ', real(DstDPS), &
          real(DstDPSInsideGeo), real(DstBiot), real(DstBiotInsideGeo), ' nT' ! 1.3 factor due to currents induced in the Earth 
 
     DEALLOCATE(magneticEnergy,magneticEnergyInsideGeo,thermalEnergy,thermalEnergyInsideGeo)  
@@ -778,6 +757,7 @@ SUBROUTINE pressure
                                GSL_Smooth_1D
     USE ModSCBIO,        ONLY: write_scb_pressure
     USE ModScbFunctions, ONLY: SavGol7, pRoeRad, extap
+    use gaussian_filter, only: gaussian_kernel, convolve
     !!!! NR Modules
     use nrtype, ONLY: DP, pi_d, twopi_d
 
@@ -800,9 +780,11 @@ SUBROUTINE pressure
                              pressOxygenPerRaw(:,:), pressOxygenParRaw(:,:), pressHeliumPerRaw(:,:), &
                              pressHeliumParRaw(:,:), pressPerRaw(:,:), pressParRaw(:,:), &
                              pressEleParRaw(:,:), pressElePerRaw(:,:), radRaw_local(:), &
-                             ratioRaw(:,:)
-    REAL(DP), ALLOCATABLE :: pressPerRawExt(:,:), pressParRawExt(:,:), &
-                             radRawExt(:), azimRawExt(:)
+                             ratioRaw(:,:), azimRaw_local(:)
+    REAL(DP), ALLOCATABLE :: pressPerRawExt(:,:), pressParRawExt(:,:), outputPer(:,:), &
+                             outputPar(:,:), radRawExt(:), azimRawExt(:)
+
+    real, dimension(:,:), allocatable :: kernelPer, kernelPar
 
     iCountPressureCall = iCountPressureCall + 1 ! global variable, counts how many times pressure is called
 
@@ -817,9 +799,10 @@ SUBROUTINE pressure
              pressOxygenParRaw(nXRaw,nYRaw), pressHeliumPerRaw(nXRaw,nYRaw), &
              pressHeliumParRaw(nXRaw,nYRaw), pressPerRaw(nXRaw,nYRaw), pressParRaw(nXRaw,nYRaw), &
              pressEleParRaw(nXRaw,nYRaw), pressElePerRaw(nXRaw,nYRaw), &
-             radRaw_local(nXRaw), ratioRaw(nXRaw,nYRaw))
+             radRaw_local(nXRaw), azimRaw_local(nYRaw), ratioRaw(nXRaw,nYRaw))
     ALLOCATE(dipoleFactorMid(nthe,npsi),dipoleFactorNoo(nthe,npsi))
-    ALLOCATE(pressPerRawExt(nXRawExt,nAzimRAM), pressParRawExt(nXRawExt,nAzimRAM))
+    ALLOCATE(pressPerRawExt(nXRawExt,nAzimRAM), pressParRawExt(nXRawExt,nAzimRAM), &
+             outputPer(nXRawExt,nAzimRAM), outputPar(nXRawExt,nAzimRAM))
     ALLOCATE(radRawExt(nXRawExt), azimRawExt(nAzimRAM))
     pressPerRawExt = 0.0; pressParRawExt = 0.0; radRawExt = 0.0; azimRawExt = 0.0
     press = 0.0; dPresdRho = 0.0; dPresdZeta = 0.0; xEq = 0.0; yEq = 0.0; aratio = 0.0; aratioOld = 0.0
@@ -873,7 +856,7 @@ SUBROUTINE pressure
        DO j1 = 1, nXRaw
           DO k1 = 1, nYRaw
              radRaw_local(j1) = LZ(j1+1)
-             azimRaw(k1) = PHI(k1)*12/pi_d
+             azimRaw_local(k1) = PHI(k1)*12/pi_d
              pressProtonPerRaw(j1,k1) = PPERH(j1+1,k1)
              pressProtonParRaw(j1,k1) = PPARH(j1+1,k1)
              pressOxygenPerRaw(j1,k1) = PPERO(j1+1,k1)
@@ -885,14 +868,14 @@ SUBROUTINE pressure
           END DO
        END DO
 
-       azimRaw = azimRaw * 360./24 * pi_d / 180._dp ! In radians
+       azimRaw_local = azimRaw_local * 360./24 * pi_d / 180._dp ! In radians
 
        radRawExt(1:nXRaw) = radRaw_local(1:nXRaw)
        DO j1 = nXRaw+1, nXRawExt
           radRawExt(j1) = radRaw_local(nXRaw) + REAL(j1-nXRaw, DP)*(radRaw_local(nXRaw)-radRaw_local(1))/(REAL(nXRaw-1, DP))
        END DO
 
-       azimRawExt(1:nAzimRAM) = azimRaw(1:nYRaw) ! nYRaw = nAzimRAM
+       azimRawExt(1:nAzimRAM) = azimRaw_local(1:nYRaw) ! nYRaw = nAzimRAM
        IF (PressMode == 'SKD') then
           pressPerRaw = 0.16_dp * (pressProtonPerRaw + pressOxygenPerRaw + pressHeliumPerRaw) ! from keV/cm^3 to nPa
           pressParRaw = 0.16_dp * (pressProtonParRaw + pressOxygenParRaw + pressHeliumParRaw) ! from keV/cm^3 to nPa
@@ -943,17 +926,32 @@ SUBROUTINE pressure
        ELSEIF (iSm2 == 2) THEN ! B-Spline Fit
           DO j = 1,nXRawExt
              CALL GSL_Smooth_1D(azimRawExt(1:nAzimRAM),pressPerRawExt(j,1:nAzimRAM),aTemp(1:500),bTemp(1:500),GSLerr)
-             CALL GSL_Interpolation_1D('Cubic',aTemp(1:500),bTemp(1:500),azimRawExt(1:nAzimRAM),pressPerRawExt(j,1:nAzimRAM),GSLerr)
+             CALL GSL_Interpolation_1D(aTemp(1:500),bTemp(1:500),azimRawExt(1:nAzimRAM),pressPerRawExt(j,1:nAzimRAM),GSLerr)
              CALL GSL_Smooth_1D(azimRawExt(1:nAzimRAM),pressParRawExt(j,1:nAzimRAM),aTemp(1:500),bTemp(1:500),GSLerr)
-             CALL GSL_Interpolation_1D('Cubic',aTemp(1:500),bTemp(1:500),azimRawExt(1:nAzimRAM),pressParRawExt(j,1:nAzimRAM),GSLerr)
+             CALL GSL_Interpolation_1D(aTemp(1:500),bTemp(1:500),azimRawExt(1:nAzimRAM),pressParRawExt(j,1:nAzimRAM),GSLerr)
           ENDDO
           DO k = 1,nAzimRAM
              CALL GSL_Smooth_1D(radRawExt(1:nXRawExt),pressPerRawExt(1:nXRawExt,k),aTemp(1:500),bTemp(1:500),GSLerr)
-             CALL GSL_Interpolation_1D('Cubic',aTemp(1:500),bTemp(1:500),radRawExt(1:nXRawExt),pressPerRawExt(1:nXRawExt,k),GSLerr)
+             CALL GSL_Interpolation_1D(aTemp(1:500),bTemp(1:500),radRawExt(1:nXRawExt),pressPerRawExt(1:nXRawExt,k),GSLerr)
              CALL GSL_Smooth_1D(radRawExt(1:nXRawExt),pressParRawExt(1:nXRawExt,k),aTemp(1:500),bTemp(1:500),GSLerr)
-             CALL GSL_Interpolation_1D('Cubic',aTemp(1:500),bTemp(1:500),radRawExt(1:nXRawExt),pressParRawExt(1:nXRawExt,k),GSLerr)
+             CALL GSL_Interpolation_1D(aTemp(1:500),bTemp(1:500),radRawExt(1:nXRawExt),pressParRawExt(1:nXRawExt,k),GSLerr)
           ENDDO
-       !ELSEIF (iSm2 == 3) THEN ! Moving Average Filter
+       ELSEIF (iSm2 == 3) THEN ! Moving Average Filter
+          call gaussian_kernel(1.0, kernelPer)
+          call convolve(PressPerRawExt, kernelPer, outputPer)
+          PressPerRawExt = outputPer
+          call gaussian_kernel(1.0, kernelPar)
+          call convolve(PressParRawExt, kernelPar, outputPar)
+          PressParRawExt = outputPar
+       ELSEIF (iSm2 == 4) THEN
+          pressPerRawExt(1:nXRawExt,1:nAzimRAM) = SavGol7(pressPerRawExt(1:nXRawExt,1:nAzimRAM))
+          pressParRawExt(1:nXRawExt,1:nAzimRAM) = SavGol7(pressParRawExt(1:nXRawExt,1:nAzimRAM))
+          call gaussian_kernel(1.0, kernelPer)
+          call convolve(PressPerRawExt, kernelPer, outputPer)
+          PressPerRawExt = outputPer
+          call gaussian_kernel(1.0, kernelPar)
+          call convolve(PressParRawExt, kernelPar, outputPar)
+          PressParRawExt = outputPar
        ENDIF
     !endif
 
@@ -1033,7 +1031,7 @@ SUBROUTINE pressure
        pper = 2.0/3.0 * pressure3D
        ppar = 1.0/3.0 * pressure3D
     ELSE    ! Anisotropic pressure case
-       IF ((boundary.eq.'LANL').or.(boundary.eq.'SWMF')) THEN ! Calculation using RAM pressures
+       IF ((boundary.eq.'LANL').or.(boundary.eq.'QDKP').or.(boundary.eq.'SWMF')) THEN ! Calculation using RAM pressures
 
           ! Cubic interpolation
           CALL GSL_Interpolation_2D(radRawExt**2, azimRawExt, pressPerRawExt, &
@@ -1071,6 +1069,7 @@ SUBROUTINE pressure
                 aLiemohn(j,k) = - aratio(j,k) / (aratio(j,k)+1_dp)
                 DO i = 1, nthe
                    ratioB = bf(nThetaEquator,j,k) / bf(i,j,k)
+                   ratioB = min(ratioB, 1.0)
                    IF (iLossCone == 2) THEN
                       ! New reference values (Liemohn)
                       rBI = MAX(bf(1,j,k)/bf(i,j,k), 1._dp+1.E-9_dp)  ! Must be larger than 1, i.e. the field at "Earth" higher than last field value 
@@ -1092,7 +1091,7 @@ SUBROUTINE pressure
              END DO
           END DO
        ELSE     
-          STOP 'PROBLEM in pressure.f90'
+          call con_STOP('PROBLEM in pressure.f90')
        END IF
 
        pressure3D = 1.0/3.0*ppar + 2.0/3.0*pper
@@ -1136,71 +1135,24 @@ SUBROUTINE pressure
 
        CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, pper(1:nthe,1:npsi,1:nzeta), &
                        dPperdTheta, dPperdRho, dPperdZeta, GSLerr)
+       !dPperdTheta(:,:,1) = dPperdTheta(:,:,nzeta)
+       !dPperdRho(:,:,1) = dPperdRho(:,:,nzeta)
+       !dPperdZeta(:,:,1) = dPperdZeta(:,:,nzeta)
        CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, bsq(1:nthe,1:npsi,1:nzeta), &
                        dBsqdTheta, dBsqdRho, dBsqdZeta, GSLerr)
-  
+       !dBsqdTheta(:,:,1) = dBsqdTheta(:,:,nzeta)
+       !dBsqdRho(:,:,1) = dBsqdRho(:,:,nzeta)
+       !dBsqdZeta(:,:,1) = dBsqdZeta(:,:,nzeta)
+
        DO j = 1, npsi
-          !DO k = 1, nzeta
-          !   if (SQRT(x(nThetaEquator,j,k)**2+y(nThetaEquator,j,k)**2) > 7._dp) then
-          !      dPPerdRho(:,j,k) = dPPerdRho(:,j-1,k)
-          !   endif
-          !ENDDO
           dPperdPsi(:,j,:) = 1./f(j) * dPperdRho(:,j,:)
-          !IF (iOuterMethod == 2) dBBdPsi(:,j,:) = dBBdRho(:,j,:) / f(j)
           dBsqdPsi(:,j,:) = 1./f(j) * dBsqdRho(:,j,:)
        END DO
   
        DO k = 1, nzeta
-          !DO j = 1, npsi
-          !   if (SQRT(x(nThetaEquator,j,k)**2+y(nThetaEquator,j,k)**2) > 7._dp) then
-          !      dPPerdZeta(:,j,k) = dPPerdZeta(:,j-1,k)
-          !   endif
-          !END DO
           dPperdAlpha(:,:,k) = 1. / fzet(k) * dPperdZeta(:,:,k)
-          !IF (iOuterMethod == 2) dBBdAlpha(:,:,k) = dBBdZeta(:,:,k) / fzet(k)
           dBsqdAlpha(:,:,k) = 1. / fzet(k) * dBsqdZeta(:,:,k)
        END DO
-  
-       !IF (iOuterMethod == 2) THEN ! If using the Newton method, need these
-       !   ALLOCATE(BigBracketPsi(nthe,npsi,nzeta), stat = ierr)
-       !   ALLOCATE(BigBracketAlpha(nthe,npsi,nzeta), stat = ierr)
-       !   ALLOCATE(dBBdRho(nthe,npsi,nzeta), stat = ierr)
-       !   ALLOCATE(dBBdZeta(nthe,npsi,nzeta), stat = ierr)
-       !   ALLOCATE(dummy1(nthe,npsi,nzeta), stat = ierr)
-       !   ALLOCATE(dummy2(nthe,npsi,nzeta), stat = ierr)
-       !   BigBracketPsi = 0.0; BigBracketAlpha = 0.0; dBBdRho = 0.0
-       !   dBBdZeta = 0.0; dummy1 = 0.0; dummy2 = 0.0
-       !   DO k = 1, nzeta
-       !      DO j = 1, npsi
-       !         DO i = 1, nthe
-       !            BigBracketAlpha(i,j,k) = (-1./sigma(i,j,k) * dPperdAlpha(i,j,k) &
-       !                 - 1./(sigma(i,j,k)*bsq(i,j,k)) * f(j)**2 * fzet(k) * (gradRhoSq(i,j,k)* &
-       !                 gradThetaGradZeta(i,j,k) - gradRhoGradTheta(i,j,k)*gradRhoGradZeta(i,j,k)) * &
-       !                 (dPperdTheta(i,j,k) + (1.-sigma(i,j,k))*0.5*dBsqdTheta(i,j,k)) - &
-       !                 (1. - sigma(i,j,k)) / sigma(i,j,k) * 0.5 * dBsqdAlpha(i,j,k))
-       !            BigBracketPsi(i,j,k) = (1./sigma(i,j,k) * dPperdPsi(i,j,k) &
-       !                 - 1./(sigma(i,j,k)*bsq(i,j,k)) * f(j) * fzet(k)**2 * (gradRhoGradZeta(i,j,k)* &
-       !                 gradThetaGradZeta(i,j,k) - gradRhoGradTheta(i,j,k)*gradZetaSq(i,j,k)) * &
-       !                 (dPperdTheta(i,j,k) + (1.-sigma(i,j,k)) * 0.5_dp * dBsqdTheta(i,j,k)) + &
-       !                 (1.-sigma(i,j,k)) / sigma(i,j,k) * 0.5_dp * dBsqdPsi(i,j,k))
-       !         END DO
-       !      END DO
-       !   END DO
-       !   CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, &
-       !                   BigBracketAlpha(1:nthe,1:npsi,1:nzeta), &
-       !                   dummy1, dummy2, dBBdZeta, GSLerr)
-       !   CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, &
-       !                   BigBracketPsi(1:nthe,1:npsi,1:nzeta), &
-       !                   dummy1, dBBdRho, dummy2, GSLerr)
-
-       !   IF(ALLOCATED(BigBracketPsi)) DEALLOCATE(BigBracketPsi, stat = idealerr)
-       !   IF(ALLOCATED(BigBracketAlpha)) DEALLOCATE(BigBracketAlpha, stat = idealerr)
-       !   IF(ALLOCATED(dBBdRho)) DEALLOCATE(dBBdRho, stat = idealerr)
-       !   IF(ALLOCATED(dBBdZeta)) DEALLOCATE(dBBdZeta, stat = idealerr)
-       !   IF(ALLOCATED(dummy1)) DEALLOCATE(dummy1, stat = idealerr)
-       !   IF(ALLOCATED(dummy2)) DEALLOCATE(dummy2, stat = idealerr)
-       !END IF
-
     END IF Isotropy_choice
  
     DO j = 1, npsi
@@ -1221,7 +1173,8 @@ SUBROUTINE pressure
                pressOxygenParRaw, pressHeliumPerRaw, pressHeliumParRaw, pressPerRaw, &
                pressParRaw, pressEleParRaw, pressElePerRaw, radRaw_local, ratioRaw)
     DEALLOCATE(dipoleFactorMid, dipoleFactorNoo)
-    DEALLOCATE(pressPerRawExt, pressParRawExt, radRawExt, azimRawExt)
+    DEALLOCATE(pressPerRawExt, pressParRawExt, radRawExt, azimRawExt, outputPer, &
+               outputPar, azimraw_local)
 
     RETURN
   

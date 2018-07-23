@@ -636,7 +636,7 @@ module ModRamSats
                    if (((abs(xNear(iT)).le.1e-9).and.&
                         (abs(yNear(iT)).le.1e-9).and.&
                         (abs(zNear(iT)).le.1e-9)) &
-                       .or.(rNear.lt.2.0).or.(rNear.gt.6.75)) then
+                       .or.(rNear.lt.1.75).or.(rNear.gt.6.75)) then
                       iT = iT
                    else
                       iT = iT + 1
