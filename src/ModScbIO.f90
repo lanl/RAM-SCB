@@ -210,17 +210,27 @@ MODULE ModScbIO
        xpsiout = 8.0
        scanLeft  = nZetaMidnight/2
        scanRight = nZetaMidnight + scanLeft
-       do k = scanLeft,scanRight
-          x0 = 8._dp*cos(zetaVal(k))
-          y0 = 8._dp*sin(zetaVal(k))
-          z0 = 0._dp
-          call trace(x0,y0,z0,1.0_dp,xf,yf,zf,xx(:),yy(:),zz(:),LOUT,LMAX,bx,by,bz)
-          psitemp = 1./(1.-zf**2/(xf**2+yf**2+zf**2))
-          if (psitemp.lt.xpsiout) then
-             xpsiout = psitemp
-             kmax = k
+       r0 = 0.0
+       Find_Outer: Do
+          do k = scanLeft,scanRight
+             x0 = (8._dp-r0)*cos(zetaVal(k))
+             y0 = (8._dp-r0)*sin(zetaVal(k))
+             z0 = 0._dp
+             call trace(x0,y0,z0,1.0_dp,xf,yf,zf,xx(:),yy(:),zz(:),LOUT,LMAX,bx,by,bz)
+             psitemp = 1./(1.-zf**2/(xf**2+yf**2+zf**2))
+             if (psitemp.lt.xpsiout) then
+                xpsiout = psitemp
+                kmax = k
+             endif
+          enddo
+          if (xpsiout.gt.3.0) then
+             exit Find_Outer
+          else
+             r0 = r0 + 0.25
+             xpsiout = 8.0-r0
           endif
-       enddo
+          if (r0.gt.3.0) exit Find_Outer
+       enddo Find_Outer
        xpsiin = 1.75 ! Don't need to do tracing at inner boundary
 
        ! Calculate dipole starting points for given xpsiin and xpsiout
