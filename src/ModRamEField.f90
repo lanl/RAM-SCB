@@ -70,7 +70,7 @@ subroutine ram_get_electric(EOut_II)
   use ModRamMain,      ONLY: DP
   Use ModRamTiming,    ONLY: TimeRamElapsed, TimeRamNow
   use ModRamParams,    ONLY: electric, IsComponent
-  use ModRamGrids,     ONLY: NR, NT, RadiusMax
+  use ModRamGrids,     ONLY: NR, NT, RadiusMax, RadiusMin
   use ModRamVariables, ONLY: PHIOFS, Kp, F107
   use ModRamFunctions, ONLY: RamFileName
   use ModRamGSL,       ONLY: GSL_Interpolation_2D
@@ -100,9 +100,8 @@ subroutine ram_get_electric(EOut_II)
 
   EOut_II  = 0.0
   Epot_Cart = 0.0
-
   DO j = 0,nR
-     radRaw(j) = 1.75 + (radOut-1.75) * REAL(j,DP)/REAL(nR,DP)
+     radRaw(j) = RadiusMin + (radOut-RadiusMin) * REAL(j,DP)/REAL(nR,DP)
   END DO
   DO k = 1,nT
      azimRaw(k) = 24.0 * REAL(k-1,DP)/REAL(nT-1,DP)
@@ -126,10 +125,11 @@ subroutine ram_get_electric(EOut_II)
      EOut_II(1:nR+1,1:nT) = Epot_Cart(0:nR,  1:nT)
   ELSEIF (electric=='WESC' .or. electric=='W5SC') THEN
      EOut_II(1:nR+1,1:nT) = Epot_Cart(0:nR, 1:nT)
-     ! Sometimes Weimer gives field sizes that are way to large, cap at 300 kV
-     where (EOut_II.gt.300000) EOut_II = 300000
-     where (EOut_II.lt.-300000) EOUT_II = -300000
   END IF
+  ! Sometimes Weimer gives field sizes that are way to large, cap at 300 kV
+  if (maxval(abs(EOut_II)).gt.150000.0) then
+     EOut_II = EOut_II * 150000.0/maxval(abs(EOut_II))
+  endif
   write(*,'(1x,a,2F10.2)') 'EOut_II max and min', maxval(EOut_II), minval(EOut_II)
   write(*,*) ''
 
@@ -141,13 +141,15 @@ end subroutine ram_get_electric
 !==================================================================================================
 SUBROUTINE ionospheric_potential
   !!!! Module Variables
+  use ModRamMain,      ONLY: PathRamOut
   use ModRamTiming,    ONLY: TimeRamNow, TimeRamElapsed
   use ModRamParams,    ONLY: IsComponent, electric, UseSWMFFile, NameOmniFile, &
                              WritePotential
   use ModScbMain,      ONLY: iConvE
   use ModScbGrids,     ONLY: npsi, nzeta, nzetap
   use ModScbVariables, ONLY: phiiono, x, y, z, r0Start, dPhiIonodAlpha, &
-                             dPhiIonodBeta, f, fzet, zetaVal, rhoVal, tilt
+                             dPhiIonodBeta, f, fzet, zetaVal, rhoVal, tilt, &
+                             nThetaEquator
   use ModSceGrids,     ONLY: Iono_nTheta, Iono_nPsi
   use ModSceVariables, ONLY: IONO_NORTH_Phi, IONO_NORTH_JR, PhiIono_Weimer
   use ModRamCouple,    ONLY: SWMFIonoPot_II, nIeTheta, nIePhi
@@ -306,9 +308,6 @@ SUBROUTINE ionospheric_potential
            DO j = 1, npsi
               PhiIono(j,k) = 1.E3 * EpotVal(latGrid(j,k), lonGrid(j,k)) !!! Achtung RAM needs it in volts !!!
               bndylat = BoundaryLat(lonGrid(j,k))
-              ! Add corotation potential - only if RAM takes all E-field info from the equilibrium code 
-              ! PhiIono(j,k) = PhiIono(j,k) - 2._dp*pi_d*0.31_dp*6.4**2 *
-              ! 1.E3_dp/(24._dp*36._dp*SQRT(x(nThetaEquator,j,k)**2+y(nThetaEquator,j,k)**2))
            END DO
         END DO
      elseif (electric == 'W5SC') then
@@ -321,10 +320,6 @@ SUBROUTINE ionospheric_potential
            DO j = 1, npsi
               call EpotVal05(latGrid(j,k), lonGrid(j,k), 0.0_dp, PhiIono(j,k))
               PhiIono(j,k) = PhiIono(j,k) * 1.0e3   ! ram needs it in Volts
-              ! Add corotation potential - only if RAM takes all E-field info from
-              ! the equilibrium code 
-              ! PhiIono(j,k) = PhiIono(j,k) - 2._dp*pi_d*0.31_dp*6.4**2 *
-              ! 1.E3_dp/(24._dp*36._dp*SQRT(x(nThetaEquator,j,k)**2+y(nThetaEquator,j,k)**2))
            END DO
         END DO
      endif
@@ -334,6 +329,10 @@ SUBROUTINE ionospheric_potential
      call con_stop('Unrecognized electric field parameter')
 
   END SELECT
+
+  ! Add corotation potential - only if RAM takes all E-field info from SCB
+  PhiIono(:,:) = PhiIono(:,:) - 2._dp*pi_d*0.31_dp*6.4**2 * 1.E3_dp &
+                               /(24._dp*36._dp*SQRT(x(nThetaEquator,:,:)**2+y(nThetaEquator,:,:)**2))
 
   ! Azimuthal periodicity
   PhiIono(:,nzetap) = PhiIono(:,2)
@@ -354,7 +353,17 @@ SUBROUTINE ionospheric_potential
      dPhiIonodBeta(1:npsi, k) = dPhiIonodZeta(1:npsi,k) / fzet(k)
   END DO
 
-  if (WritePotential) call Write_Ionospheric_Potential
+  if (WritePotential) then 
+     call Write_Ionospheric_Potential
+     open(UNITTMP_,FILE=trim(PathRamOut)//RamFileName('potential','dat',TimeRamNow))
+     write(UNITTMP_,*) nzeta, npsi
+     do k = 1,nzeta
+      do j = 1, npsi
+       write(UNITTMP_,*) latgrid(j,k), longrid(j,k), phiiono(j,k)
+      enddo
+     enddo
+     close(UNITTMP_)
+  endif
 
   DEALLOCATE(dPhiIonodRho, dPhiIonodZeta, colatGrid, lonGrid,latGrid)
   RETURN
