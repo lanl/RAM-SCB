@@ -289,7 +289,7 @@ module IM_wrapper
     character(len=*), intent(in) :: NameVar
     
     integer           :: iT, iR, iDir, iRot, iLine
-    real(kind=Real8_) :: rotate_VII(3,nT,4)
+    real(kind=Real8_) :: rotate_VII(3,nT,4), rad(nPoints*2-1)
     logical, save     :: IsFirstCall = .true.
 
     real, parameter :: sens=1E-5  ! Sensitivity for real differences.
@@ -476,6 +476,11 @@ module IM_wrapper
     !IonoMap_DSII(3,:,:,:) =        cRadtoDeg * IonoMap_DSII(3,:,:,:)
 
 
+    ! Clear Blines_DIII and reallocate to match what is necessary:
+    if(allocated(Blines_DIII)) deallocate(Blines_DIII)
+    allocate(Blines_DIII(3, nRextend, iT-1, 2*nPoints-1))
+    Blines_DIII = 0
+    
     ! Sort lines one more time- this time for use by SCB.
     do iT=1, nT-1
        do iR=1, nRextend
@@ -496,18 +501,23 @@ module IM_wrapper
 
           ! Fill points from northern hemisphere:
           iLine = 2*(nRextend*(iT-1)+iR) - 1          
-          Blines_DIII(1,iR,iRot,nPointsMax:) = MhdLines_IIV(iLine,:,3) !X
-          Blines_DIII(2,iR,iRot,nPointsMax:) = MhdLines_IIV(iLine,:,4) !Y
-          Blines_DIII(3,iR,iRot,nPointsMax:) = MhdLines_IIV(iLine,:,5) !Z
+          Blines_DIII(1,iR,iRot,nPoints:) = MhdLines_IIV(iLine,1:nPoints,3) !X
+          Blines_DIII(2,iR,iRot,nPoints:) = MhdLines_IIV(iLine,1:nPoints,4) !Y
+          Blines_DIII(3,iR,iRot,nPoints:) = MhdLines_IIV(iLine,1:nPoints,5) !Z
 
+          write(*,*) 'Northern Hemi trace = ', sqrt(MhdLines_IIV(iLine,1:nPoints,3)**2 + &
+               MhdLines_IIV(iLine,1:nPoints,4)**2 + MhdLines_IIV(iLine,1:nPoints,5)**2)
+          
           ! Fill points from southern hemisphere:
           iLine = 2*(nRextend*(iT-1)+iR)          
-          Blines_DIII(1,iR,iRot,:nPointsMax-1) = MhdLines_IIV(iLine,nPointsMax-1:1:-1,3) !X
-          Blines_DIII(2,iR,iRot,:nPointsMax-1) = MhdLines_IIV(iLine,nPointsMax-1:1:-1,4) !Y
-          Blines_DIII(3,iR,iRot,:nPointsMax-1) = MhdLines_IIV(iLine,nPointsMax-1:1:-1,5) !Z
+          Blines_DIII(1,iR,iRot,1:nPoints-1) = MhdLines_IIV(iLine,nPoints-1:1:-1,3) !X
+          Blines_DIII(2,iR,iRot,1:nPoints-1) = MhdLines_IIV(iLine,nPoints-1:1:-1,4) !Y
+          Blines_DIII(3,iR,iRot,1:nPoints-1) = MhdLines_IIV(iLine,nPoints-1:1:-1,5) !Z
 
-          ! Meters to Re:
-          Blines_DIII(:,iR,iRot,:) = Blines_DIII(:,iR,iRot,:)/6378100.0
+          rad = sqrt(Blines_DIII(1,iR,iRot,:)**2+Blines_DIII(2,iR,iRot,:)**2+&
+               Blines_DIII(3,iR,iRot,:)**2)
+          write(*,*) rad
+          if(DoTest) write(*,*) 'Line runs from R=', rad(1), rad(2*nPoints-1)
 
        end do
     end do

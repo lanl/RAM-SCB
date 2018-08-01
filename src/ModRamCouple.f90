@@ -101,7 +101,7 @@ contains
          iEnd(2*(nRExtend)*nT), xEqSWMF(nRExtend,nT-1),  yEqSWMF(nRExtend,nT-1),&
          pEqSWMF(nRExtend,nT-1), nEqSWMF(nRExtend,nT-1), SwmfPot_II(nR+1, nT), &
          uEqSWMF_DII(3,nRExtend,nT-1),bEqSWMF_DII(3,nRExtend,nT-1), &
-         ETotal_DII(2,nR,nT), Blines_DIII(3,nRextend,nT-1,2*nPointsMax-1), IsClosed_II(nRextend,nT))
+         ETotal_DII(2,nR,nT), IsClosed_II(nRextend,nT))
 
     SWMFPot_II = 0.
     FluxBats_anis = 0.
