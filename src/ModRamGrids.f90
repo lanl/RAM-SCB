@@ -11,7 +11,7 @@ Module ModRamGrids
   
   !!! RAM Grids
   integer :: NR       = 20,  &  ! grid points in radial direction 
-             NT       = 49,  &  ! grid points in local time direction
+             NT       = 25,  &  ! grid points in local time direction
              NE       = 35,  &  ! number of energy bins
              NS       = 4,   &  ! number of species
              NPA      = 72,  &  ! grid points in pitch angle dimension

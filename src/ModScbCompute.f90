@@ -382,10 +382,9 @@ MODULE ModScbCompute
 
      IF (boundary/='SWMF' .AND. iteration/=1) THEN
         PRINT*, ' '
-        WRITE(*,*) &
-             'Total azimuthal J - midnight meridian (MA): ', totalCROSS
-        PRINT*, 'Total region 1 current in MA: ', region1FAC
-        PRINT*, 'Total region 2 current in MA: ', region2FAC
+        WRITE(*,'(1x,a,F10.2)') 'Total azimuthal J - midnight meridian (mA): ', totalCROSS
+        WRITE(*,'(1x,a,F10.2)') 'Total region 1 current in mA:               ', region1FAC
+        WRITE(*,'(1x,a,F10.2)') 'Total region 2 current in mA:               ', region2FAC
         PRINT*, ' '
      END IF
 
@@ -440,15 +439,15 @@ MODULE ModScbCompute
     CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, z(1:nthe, 1:npsi, 1:nzeta), &
                     derivZTheta, derivZRho, derivZZeta, GSLerr)
 
-    derivXTheta(:,:,1) = derivXTheta(:,:,nzeta)
-    derivXRho(:,:,1)   = derivXRho(:,:,nzeta)
-    derivXZeta(:,:,1)  = derivXZeta(:,:,nzeta)
-    derivYTheta(:,:,1) = derivYTheta(:,:,nzeta)
-    derivYRho(:,:,1)   = derivYRho(:,:,nzeta)
-    derivYZeta(:,:,1)  = derivYZeta(:,:,nzeta)
-    derivZTheta(:,:,1) = derivZTheta(:,:,nzeta)
-    derivZRho(:,:,1)   = derivZRho(:,:,nzeta)
-    derivZZeta(:,:,1)  = derivZZeta(:,:,nzeta)
+    !derivXTheta(:,:,1) = derivXTheta(:,:,nzeta)
+    !derivXRho(:,:,1)   = derivXRho(:,:,nzeta)
+    !derivXZeta(:,:,1)  = derivXZeta(:,:,nzeta)
+    !derivYTheta(:,:,1) = derivYTheta(:,:,nzeta)
+    !derivYRho(:,:,1)   = derivYRho(:,:,nzeta)
+    !derivYZeta(:,:,1)  = derivYZeta(:,:,nzeta)
+    !derivZTheta(:,:,1) = derivZTheta(:,:,nzeta)
+    !derivZRho(:,:,1)   = derivZRho(:,:,nzeta)
+    !derivZZeta(:,:,1)  = derivZZeta(:,:,nzeta)
 
     jacobian = derivXRho   * (derivYZeta  * derivZTheta - derivYTheta * derivZZeta)  &
              + derivXZeta  * (derivYTheta * derivZRho   - derivYRho   * derivZTheta) &
@@ -535,7 +534,7 @@ MODULE ModScbCompute
                              jGradThetaPartialRho(:,:,:), derivjGradThetaPartialRho(:,:,:), &
                              jGradThetaPartialZeta(:,:,:), derivjGradThetaPartialZeta(:,:,:), &
                              derivDiffPTheta(:,:,:), jCrossBMinusGradPMod(:,:,:), &
-                             derivNU1(:,:,:), derivNU2(:,:,:)
+                             derivNU1(:,:,:), derivNU2(:,:,:), jCrossBSq(:,:,:), gradPSq(:,:,:)
 
     !==============================================================================================
     ALLOCATE(jGradRhoPartialTheta(nthe,npsi,nzeta), derivjGradRhoPartialTheta(nthe,npsi,nzeta), &
@@ -545,7 +544,8 @@ MODULE ModScbCompute
              jGradThetaPartialRho(nthe,npsi,nzeta), derivjGradThetaPartialRho(nthe,npsi,nzeta), &
              jGradThetaPartialZeta(nthe,npsi,nzeta), derivjGradThetaPartialZeta(nthe,npsi,nzeta), &
              derivDiffPTheta(nthe,npsi,nzeta), jCrossBMinusGradPMod(nthe,npsi,nzeta), &
-             derivNU1(nthe,npsi,nzeta), derivNU2(nthe,npsi,nzeta))
+             derivNU1(nthe,npsi,nzeta), derivNU2(nthe,npsi,nzeta), jCrossBSq(nthe,npsi,nzeta), &
+             gradPSq(nthe,npsi,nzeta))
     jGradRhoPartialTheta = 0.0_dp; derivjGradRhoPartialTheta = 0.0_dp
     jGradRhoPartialZeta = 0.0_dp; derivjGradRhoPartialZeta = 0.0_dp
     jGradZetaPartialRho = 0.0_dp; derivjGradZetaPartialRho = 0.0_dp
@@ -556,24 +556,6 @@ MODULE ModScbCompute
     derivNU1 = 0.0_dp; derivNU2 = 0.0_dp
 
     ! j dot gradRho
-    !DO j = 1, npsi
-    !   DO k = 1, nzeta
-    !      jGradRhoPartialTheta(:,j,k) = jacobian(:,j,k) * f(j) * fzet(k) &
-    !                                  * (gradRhoSq(:,j,k) * gradThetaGradZeta(:,j,k) &
-    !                                  - gradRhoGradTheta(:,j,k) * gradRhoGradZeta(:,j,k))
-    !      jGradRhoPartialZeta(:,j,k) = jacobian(:,j,k) * f(j) * fzet(k) &
-    !                                 * (gradRhoSq(:,j,k) * gradZetaSq(:,j,k) &
-    !                                 - gradRhoGradZeta(:,j,k) **2)
-    !   END DO
-    !END DO
-
-    !CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, jGradRhoPartialTheta, &
-    !                derivjGradRhoPartialTheta, derivNU1, derivNU2, GSLerr)
-    !CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, jGradRhoPartialZeta, &
-    !                derivNU1, derivNU2, derivjGradRhoPartialZeta, GSLerr)
-
-    !jGradRho = (derivjGradRhoPartialTheta + derivjGradRhoPartialZeta)/jacobian
-
     IF (isotropy == 1) THEN 
        DO j = 1, npsi
           jGradRho(:,j,1:nzeta) = - 1._dp / f(j) * dpdAlpha(:,j,1:nzeta)
@@ -591,26 +573,9 @@ MODULE ModScbCompute
           END DO
        END DO
     END IF
+    !jGradRho(:,:,1) = jGradRho(:,:,nzeta)
 
     ! j dot gradZeta
-    !DO j = 1, npsi
-    !   DO k = 1, nzeta
-    !      jGradZetaPartialRho(:,j,k) = jacobian(:,j,k) * f(j) * fzet(k) &
-    !                                 * (gradRhoGradZeta(:,j,k)**2 &
-    !                                 - gradRhoSq(:,j,k) * gradZetaSq(:,j,k))
-    !      jGradZetaPartialTheta(:,j,k) = jacobian(:,j,k) * f(j) * fzet(k) &
-    !                                   * (gradRhoGradZeta(:,j,k) * gradThetaGradZeta(:,j,k) &
-    !                                   - gradRhoGradTheta(:,j,k) * gradZetaSq(:,j,k))
-    !   END DO
-    !END DO
-
-    !CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, jGradZetaPartialRho, &
-    !                derivNU1, derivjGradZetaPartialRho, derivNU2, GSLerr)
-    !CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, jGradZetaPartialTheta, &
-    !                derivjGradZetaPartialTheta, derivNU1, derivNU2, GSLerr)
-
-    !jGradZeta = (derivjGradZetaPartialRho + derivjGradZetaPartialTheta)/jacobian
-
     IF (isotropy == 1) THEN
        DO k = 1, nzeta
           jGradZeta(:,:,k) = 1._dp / fzet(k) * dpdPsi(:,:,k)
@@ -628,7 +593,8 @@ MODULE ModScbCompute
           END DO
        END DO
     END IF
-
+    !jGradZeta(:,:,1) = jGradZeta(:,:,nzeta)
+ 
     ! j dot gradTheta
     DO j = 1,npsi
        DO k = 1,nzeta
@@ -640,25 +606,39 @@ MODULE ModScbCompute
                                        - gradRhogradZeta(:,j,k) * gradThetagradZeta(:,j,k))
        ENDDO
     ENDDO
-
     CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, jGradThetaPartialRho, &
                     derivNU1, derivjGradThetaPartialRho, derivNU2, GSLerr)
     CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, jGradThetaPartialZeta, &
                     derivNU1, derivNU2, derivjGradThetaPartialZeta, GSLerr)
-
     jGradTheta = (derivjGradThetaPartialRho + derivjGradThetaPartialZeta)/jacobian
+    !jGradTheta(:,:,1) = jGradTheta(:,:,nzeta)
 
     ! The one below is for calculating \partial Pper/\partial \theta and
     ! \partial(J(Pper-Ppar))/\partial \theta for the anisotropic case  
     CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, jacobian(1:nthe,1:npsi,1:nzeta) * &
                     (pper(1:nthe,1:npsi,1:nzeta)-ppar(1:nthe,1:npsi,1:nzeta)), &
                     derivDiffPTheta, derivNU1, derivNU2, GSLerr)
+    !derivDiffPTheta(:,:,1) = derivDiffPTheta(:,:,nzeta)
 
     Jx = (JGradRho*derivXRho + JGradZeta*derivXZeta + JGradTheta*derivXTheta)
     Jy = (JGradRho*derivYRho + JGradZeta*derivYZeta + JGradTheta*derivYTheta)
     Jz = (JGradRho*derivZRho + JGradZeta*derivZZeta + JGradTheta*derivZTheta)
     DO k = 1, nzeta
        DO j = 1, npsi
+          jCrossBSq(:,j,k) = f(j)**2*fzet(k)**2 * (gradRhoSq(:,j,k)*jGradZeta(:,j,k)**2 &
+                                                  +gradZetaSq(:,j,k)*jGradRho(:,j,k)**2 &
+                                                  - 2._dp*jGradZeta(:,j,k)*jGradRho(:,j,k) &
+                                                         *gradRhoGradZeta(:,j,k))
+  
+          gradPSq(:,j,k) = gradRhoSq(:,j,k)*dPperdRho(:,j,k)**2 &
+                         + gradZetaSq(:,j,k)*dPperdZeta(:,j,k)**2 &
+                         + gradThetaSq(:,j,k)*dPperdTheta(:,j,k)**2 &
+                         + 2.*dPperdRho(:,j,k)*dPperdZeta(:,j,k)*gradRhoGradZeta(:,j,k) &
+                         + 2.*dPperdRho(:,j,k)*dPperdTheta(:,j,k)*gradRhoGradTheta(:,j,k) &
+                         + 2.*dPperdZeta(:,j,k)*dPperdTheta(:,j,k)*gradThetaGradzeta(:,j,k) &
+                         + (derivDiffPTheta(:,j,k)/jacobian(:,j,k))**2 &
+                         - 2.*dPperdTheta(:,j,k) * derivDiffPTheta(:,j,k)/jacobian(:,j,k)
+
           if (isotropy.eq.0) then
              GradPx(:,j,k) = (dPperdRho(:,j,k)*GradRhoSq(:,j,k) &
                             + dPperdZeta(:,j,k)*GradRhoGradZeta(:,j,k) &
@@ -723,18 +703,11 @@ MODULE ModScbCompute
     JxBy = Jz*Bx-Jx*Bz
     JxBz = Jx*By-Jy*Bx
 
-    jCrossB = sqrt(JxBx**2+JxBy**2+JxBz**2)
-    gradP = sqrt(GradPx**2+GradPy**2+GradPz**2)
+    !jCrossB = sqrt(JxBx**2+JxBy**2+JxBz**2)
+    !gradP = sqrt(GradPx**2+GradPy**2+GradPz**2)
+    jCrossB = sqrt(jCrossBSq)
+    gradP = sqrt(abs(gradPSq))
 
-    !GradPx = GradPx * pnormal*2
-    !GradPy = GradPy * pnormal*2
-    !GradPz = GradPz * pnormal*2
-    !Bx = Bx * bnormal
-    !By = By * bnormal
-    !Bz = Bz * bnormal
-    !Jx = Jx * pjconst*6.4
-    !Jy = Jy * pjconst*6.4
-    !Jz = Jz * pjconst*6.4
     jCrossB = jCrossB*bnormal*pjconst!/(1E6)
     GradP   = GradP*pnormal/6.4!/(1E6)
     jCrossBMinusGradPMod = jCrossB-GradP
@@ -766,7 +739,7 @@ MODULE ModScbCompute
     normGradP = normGradP/volume
  
     !  Norms of |jxB-grad P|,      |jxB|,      |gradP| 
-    if (verbose) WRITE(*, *) normDiff, normJxB, normGradP, normJxB/normGradP, normGradP/normJxB
+    !if (verbose) WRITE(*, '(5F6.2)') normDiff, normJxB, normGradP, normJxB/normGradP, normGradP/normJxB
     if (isnan(normDiff).or.isnan(normJxB).or.isnan(normGradP)) then
      if (verbose) write(*,*) 'NaN detected in Compute_Convergence'
      SORFail = .true.
@@ -779,7 +752,7 @@ MODULE ModScbCompute
                jGradThetaPartialRho, derivjGradThetaPartialRho, &
                jGradThetaPartialZeta, derivjGradThetaPartialZeta, &
                derivDiffPTheta, jCrossBMinusGradPMod, &
-               derivNU1, derivNU2)
+               derivNU1, derivNU2, jCrossBSq, gradPSq)
 
     return
 

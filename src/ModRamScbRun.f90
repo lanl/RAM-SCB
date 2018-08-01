@@ -80,8 +80,8 @@ MODULE ModRamScbRun
 !!!!!!!! RUN RAM
     ! Broadcast current call to ram_all
     call write_prefix
-    write(*,'(a, f7.1,1x,f6.2,1x,f3.1)') &
-         'Calling ram_run for UTs, DTs,Kp = ', UTs, Dts, Kp
+    write(*,'(a, f7.1,1x,f6.2,2x,f3.1)') &
+         'Calling ram_run for UTs, DTs, Kp = ', UTs, Dts, Kp
     ! Call RAM for each species.
     if (DoUseRAM) call ram_run
 
@@ -100,14 +100,15 @@ MODULE ModRamScbRun
        if (abs(mod(TimeRamElapsed, Dt_hI)).le.1e-9) triggerSCB = .true.
     endif
     if (triggerSCB) then
+       write(*,*) ''
        call write_prefix
-       write(*,*) 'Running SCB model to update B-field...'
+       write(*,'(a)') 'Running SCB model to update B-field...'
 
        call ram_sum_pressure
        call scb_run(nIter)
 
        if ((SORFail).and.(Reset)) then
-          if (verbose) print*, 'Error in SCB calculation, attempting a full reset'
+          if (verbose) write(*,*) 'Error in SCB calculation, attempting a full reset'
           call computational_domain
           call scb_run(0)
           if (SORFail) hICalc = .false.
@@ -115,7 +116,7 @@ MODULE ModRamScbRun
 
 
        ! Couple SCB -> RAM
-       if ((hICalc).and.(method.ne.3)) then ! Calculate full h's and I's if SCB was successful
+       if ((hICalc)) then ! Calculate full h's and I's if SCB was successful
           call computehI(nIter)
        else                                 ! If SCB wasn't successful use previous h's and I's
           dBdt = 0._dp                      ! which implies dXdt = 0
@@ -126,6 +127,7 @@ MODULE ModRamScbRun
 
        call write_prefix
        write(*,*) 'Finished 3D Equilibrium code.'
+       write(*,*) ''
        DtsNext = DtsMin ! This is so we don't accidently take to big of a step after an SCB call
     end if
 !!!!!!!

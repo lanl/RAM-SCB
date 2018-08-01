@@ -250,7 +250,7 @@ MODULE ModRamSce
           rr1 = sqrt(x(nthe,j,k)**2+y(nthe,j,k)**2+z(nthe,j,k)**2)
           thangle = asin(z(nthe,j,k)/rr1) ! latitude at the northest point
           thangleOnIono = acos(sqrt( (cos(thangle))**2 * rIono/rr1))!r0Start )) ! latitude at IonoAltitude
-          colatGrid(j,k) = 0.5*pi_d - thangleOnIono
+          colatGrid(j,k) = 0.5*pi_d - thangle!OnIono
        END DO
     END DO
 

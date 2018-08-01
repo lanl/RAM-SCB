@@ -19,7 +19,7 @@ subroutine get_boundary_flux
   use ModRamMain,   ONLY: S
   use ModRamTiming, ONLY: TimeRamElapsed
   use ModRamParams, ONLY: BoundaryFiles
-
+  use ModRamIO,     ONLY: write_prefix
 
   implicit none
  
@@ -29,7 +29,9 @@ subroutine get_boundary_flux
   do iS=1,4
      S = iS
      IF (S.EQ.1) THEN
-        if (BoundaryFiles) print*, 'RAM: calling GEOSB at time (hr) = ', TimeRamElapsed/3600.
+        write(*,*) ''
+        call write_prefix
+        write(*,'(a,F10.2)') 'Calling GEOSB at time:    ', TimeRamElapsed/3600.
      ENDIF
      CALL GEOSB
   end do
@@ -67,7 +69,7 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   real(DP), allocatable :: flux_II(:,:),logFlux_II(:,:),logELan(:),logERam(:)
 
   ! Usual debug variables.
-  logical :: DoTest, DoTestMe, IsInitialized=.true.
+  logical :: DoTest, DoTestMe, IsInitialized=.false.
   character(len=*), parameter :: NameSub='get_geomlt_flux'
   !------------------------------------------------------------------------
 
@@ -98,7 +100,7 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   if (NameParticleIn .eq. 'prot') then
      NEL_  = NEL_prot
      iSpec = 1
-  else
+  elseif (NameParticleIn.eq.'elec') then
      NEL_  = NEL
      iSpec = 2
   endif
@@ -143,16 +145,16 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   ! If at end of full day of flux, set fluxLast.
   if (iTime1==NBD) fluxLast_SII(iSpec,:,:)=flux_SIII(iSpec,NBD,:,:)
 
-  !if (iTime1.eq.iTime2) then
-     flux_II(1:24,1+lE:NEL_+le) = flux_SIII(iSpec,iTime1,:,1:NEL_)
-  !else
-  !   do j=1,NTL-1
-  !      do k=1,NEL_
-  !         CALL GSL_Interpolation_1D('Steffen',tGrid_SI(iSpec,:),flux_SIII(iSpec,:,j,k), &
-  !                                   TimeRamElapsed,flux_II(j,k+lE),GSLerr)
-  !      enddo
-  !   enddo
-  !endif
+  if (iTime1.eq.iTime2) then
+    flux_II(1:24,1+lE:NEL_+le) = flux_SIII(iSpec,iTime1,:,1:NEL_)
+  else
+     do j=1,NTL-1
+        do k=1,NEL_
+           CALL GSL_Interpolation_1D(tGrid_SI(iSpec,:),flux_SIII(iSpec,:,j,k), &
+                                     TimeRamElapsed,flux_II(j,k+lE),GSLerr)
+        enddo
+     enddo
+  endif
 
   ! If needed, extrapolate (for now just set to 10^8 and 0.1 for testing)
   if (lE.eq.1) then
@@ -179,7 +181,7 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   ! Interpolate in LT-space, get log for E-interpolation...
   do j=1,nT
      do k=1,NEL_+pE
-        call GSL_Interpolation_1D('Steffen',lGrid_SI(iSpec,:),flux_II(:,k), MLT(j), y, GSLerr)
+        call GSL_Interpolation_1D(lGrid_SI(iSpec,:),flux_II(:,k), MLT(j), y, GSLerr)
         logFlux_II(j,k)=log10(y)
      end do
   end do
@@ -198,11 +200,13 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   ! Interpolate/Extrapolate in energy space; return to normal units.
   do j=1,nT
      do k=1,nE
-        CALL GSL_Interpolation_1D('Steffen',logELan, logFlux_II(j,:), logERam(k), y, GSLerr)
+        CALL GSL_Interpolation_1D(logELan, logFlux_II(j,:), logERam(k), y, GSLerr)
         ! Moved this check to GEOSB
-        if (y.gt.8)  then
+        if ((NameParticleIn.eq.'prot').and.(y.gt.8))  then ! Limit proton flux to 10**8
            y=8
-           write(*,*) ' in ModRamBoundary: limit flux to 1e8'
+        end if
+        if ((NameParticleIn.eq.'elec').and.(y.gt.10)) then ! Limit electron flux to 10**10
+           y=10
         end if
         fluxOut_II(j,k)=10.**y
      end do
@@ -230,7 +234,8 @@ end subroutine get_geomlt_flux
 
 !!!! Module Variables
     use ModRamMain,      ONLY: DP, S
-    use ModRamParams,    ONLY: IsComponent, boundary, BoundaryFiles, WriteBoundary
+    use ModRamParams,    ONLY: IsComponent, boundary, BoundaryFiles, WriteBoundary, &
+                               verbose
     use ModRamGrids,     ONLY: NTL, NEL, NT, NE, NR
     use ModRamTiming,    ONLY: TimeRamElapsed
     use ModRamVariables, ONLY: FFACTOR, UPA, Kp, F107
@@ -241,6 +246,7 @@ end subroutine get_geomlt_flux
 
     implicit none
 
+    character(len=8) :: SpeciesName
     integer  :: ij, ik, l, u
     real(DP) :: bexp, ahe0, ahe1, gexp, fracComposition, T
     real(DP), ALLOCATABLE :: RELAN(:,:), FLAN(:,:), FluxLanl(:,:)
@@ -258,12 +264,16 @@ end subroutine get_geomlt_flux
     select case(s)
       case(2)! Fraction H+
         fracComposition=4./(4.+BEXP+2.*GEXP)
+        SpeciesName = 'Proton  '
       case(3)! Fraction He+
         fracComposition=2.*GEXP/(4.+BEXP+2.*GEXP)
+        SpeciesName = 'Helium+ '
       case(4)! Fraction O+
         fracComposition=BEXP/(4.+BEXP+2.*GEXP)
+        SpeciesName = 'Oxygen+ '
       case default ! Electrons.
         fracComposition=1.0
+        SpeciesName = 'Electron'
     end select
 
     ! Zero out FGEOS at this species.
@@ -287,64 +297,26 @@ end subroutine get_geomlt_flux
           u = int(upa(nR)-1,kind=4)
           do L=2,u
             FGEOS(s,iJ,iK,L)=FluxLanl(iJ,iK) * FFACTOR(S,NR,IK,L)
-            if ((S.eq.1).and.(FGEOS(s,iJ,iK,L).gt.1e10)) FGEOS(s,iJ,iK,L) = 1e10
-            if ((S.ne.1).and.(FGEOS(s,iJ,iK,L).gt.1e8)) FGEOS(s,iJ,iK,L) = 1e8
           end do
         end do
       end do
     ELSEIF (boundary .EQ. 'SWMF') THEN
-      !CALL CON_Stop('SWMF Flux Boundary not currently working')
       !! Read SWMF flux (1/cm2/s/sr/keV) assumed isotropic
-      !if (IsComponent) then ! If SWMF component, get flux from Bats.
       write(*,*) 'RAM_SCB: Getting flux from BATS-R-US'
       do iK=1, nE
         do iJ=1,nT
           u = int(UPA(NR)-1,kind=4)
           do L=2,u
-            !if (.not.DoAnisoPressureGMCoupling) then
             FGEOS(s,iJ,iK,L)=FluxBats_IIS(iK,iJ,s)*FFACTOR(S,NR,IK,L)
-            !else
-            !  ! anisotropy coupling is pitch angle dependent.
-            !  FGEOS(s,iJ,iK,L)=FluxBats_anis(iK,L,iJ,s)*FFACTOR(S,NR,iK,L)
-            !endif
           end do
         end do
       end do
-      !else ! Open file if running stand alone.
-      !  if (DoMultiBcsFile) then
-      !    write(NameFluxFile, "(a,'/',a,'_',i1,'.swf')") trim(PathSwmfOut), ST7, S
-      !    nlines = 25
-      !  else
-      !    write(NameFluxFile, "(a,'/',a,'.swf')") trim(PathSwmfOut), ST7
-      !    nlines=49
-      !  endif
-      !  write(*,'(2a)')'RAM_SCB: Loading flux from ',trim(NameFluxFile)
-      !  OPEN(UNIT=UNITTMP_,FILE=trim(NameFluxFile),STATUS='OLD')
-      !  READ(UNITTMP_,*) HEADER
-      !  DO IJ=1,nLines
-      !    READ(UNITTMP_,*) DOY,AZIR,(RELAN(IJ,IK),IK=1,NE)
-      !  ENDDO
-      !  CLOSE(UNITTMP_)
-      !  DO IK=1,NE
-      !    DO IJ=1,NT
-      !      IF (NT.EQ.49) JW=IJ
-      !      if ((NT.EQ.25) .and. DoMultiBcsFile) then
-      !        JW=IJ
-      !      else
-      !        JW=2*IJ-1
-      !      end if
-      !      FLAN(IJ,IK) = RELAN(JW,IK)
-      !     ! same mass density at geo as without composition
-      !      IF ((S.EQ.2) .and. .not.DoMultiBcsFile) FLAN(IJ,IK) = FLAN(IJ,IK)/(1+16*BEXP+4*GEXP)
-      !      IF ((S.EQ.3) .and. .not.DoMultiBcsFile) FLAN(IJ,IK) = FLAN(IJ,IK)*GEXP/(2+32*BEXP+8*GEXP)
-      !      IF ((S.EQ.4) .and. .not.DoMultiBcsFile) FLAN(IJ,IK) = FLAN(IJ,IK)*BEXP/(4+64*BEXP+16*GEXP)
-      !      DO L=2,UPA(NR)-1
-      !        FGEOS(S,IJ,IK,L)=FLAN(IJ,IK)*FFACTOR(S,NR,IK,L)
-      !      ENDDO
-      !    ENDDO
-      !  ENDDO
-      !end if
     END IF
+
+    if (verbose) then
+       write(*,'(1x,a,2E10.2)') 'Max, Min '//SpeciesName//' boundary flux = ', &
+             maxval(FGEOS(s,:,:,:)), minval(FGEOS(s,:,:,:), MASK=FGEOS(s,:,:,:).GT.0)
+    endif
 
     ! Write interpolated dfluxes to file.
     if (WriteBoundary) call write_dsbnd

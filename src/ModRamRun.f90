@@ -60,7 +60,8 @@ MODULE ModRamRun
        DAY = TimeRamNow%iMonth*30 + TimeRamNow%iDay
        CALL APFMSIS(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay,TimeRamNow%iHour,IAPO)
        CALL TCON(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay,DAY,RZ,IG,rsn,nmonth)
-       CALL PLANE(TimeRamNow%iYear,DAY,T,KP,IAPO(2),RZ(3),F107,2.*DTs,NECR,VT/1e3)
+       !CALL PLANE(TimeRamNow%iYear,DAY,T,KP,IAPO(2),RZ(3),F107,2.*DTs,NECR,VT/1e3)
+       CALL CARPENTER(NECR,Kp,DAY,RZ(3))
     END IF
 
   !$OMP PARALLEL DO
@@ -134,15 +135,17 @@ MODULE ModRamRun
   !$OMP END PARALLEL DO
 
     !!!! For now set the flux to 0 outside magnetopause.
-    DO I = 1, nR
-       DO J = 1, nT
-          if (outsideMGNP(I,J) == 1) F2(:,I,J,:,:) = 1.d-31
-       ENDDO
-    ENDDO
+    ! Setting to 0 was causing issues, instead keep the flux but track the
+    ! magnetopause in all output routines. This is a bad fix, but works for now.
+    ! We will want to change this later. -ME
+    !DO I = 1, nR
+    !   DO J = 1, nT
+    !      if (outsideMGNP(I,J) == 1) F2(:,I,J,:,:) = 1.d-31
+    !   ENDDO
+    !ENDDO
     !!!!
 
     DtsNext = min(minval(DtDriftR), minval(DtDriftP), minval(DtDriftE), minval(DtDriftMu))
-    if (verbose) write(*,*) minval(DtDriftR), minval(DtDriftP), minval(DtDriftE), minval(DtDriftMu)
     DtsNext = max(DtsNext, DtsMin)
 
     ! Update flux and pressure totals
@@ -323,7 +326,7 @@ MODULE ModRamRun
        ! linear interpolation for CHORUS b-aver diff coefficients
 
        DO L=1,NPA
-          PA(L)=ACOSD(MU(L))
+          PA(L)=ACOSD(MU(nPa-L+1))
           DO IZ=1,NCO
              DAMR(L,IZ)=0.
           ENDDO
@@ -338,15 +341,15 @@ MODULE ModRamRun
                 DO K=2,NE
                    DO L=1,NPA
                       IF (DoUseBASdiff) THEN
-                         DAMR1(L)=LOG10(CDAAR(I,J,K,L))
+                         DAMR1(L)=CDAAR(I,J,K,nPa-L+1)
                       ELSE
                          DAMR1(L)=LOG10(BDAAR(I,J,K,L))
                       ENDIF
                    ENDDO
                    DO L=1,NPA
                       MUBOUN=MU(L)+0.5*WMU(L)
-                      CALL GSL_Interpolation_1D('Steffen',PA,DAMR1,PAbn(L),Y,GSLerr)
-                      taudaa=10.**Y*fnorm ! <Daa/p2> [1/s]
+                      CALL GSL_Interpolation_1D(PA,DAMR1,PAbn(L),Y,GSLerr)
+                      taudaa=Y*fnorm ! <Daa/p2> [1/s]
                       if (taudaa.gt.1e0) then
                          print*,'taudaa=',taudaa,' L=',LZ(I),' MLT=',MLT(J)
                          taudaa=1e-1

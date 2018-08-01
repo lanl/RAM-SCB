@@ -44,7 +44,7 @@ Module ModRamScb
   subroutine Compute3DFlux
   
     use ModRamVariables, ONLY: FLUX, MU, FFACTOR, FNHS, F2
-    use ModRamGrids,     ONLY: nR, nT, nPa, nE, radout
+    use ModRamGrids,     ONLY: nR, nT, nPa, nE, radout, RadiusMin
   
     use ModScbGrids,     ONLY: nthe, npsi, nzeta
     use ModScbVariables, ONLY: bf, radGrid, angleGrid, radRaw, azimRaw, &
@@ -58,7 +58,7 @@ Module ModRamScb
     implicit none
   
     integer :: i, j, k, L, iS, GSLErr
-    real(DP) :: MuEq, radius, angle
+    real(DP) :: MuEq
   
     DO iS = 1,4
        DO I = 2, NR
@@ -71,35 +71,21 @@ Module ModRamScb
           ENDDO
        ENDDO
     ENDDO
-  
-    DO j = 0, nR
-       radRaw(j) = 1.75_dp + (radOut-1.75_dp) * REAL(j,DP)/REAL(nR,DP)
+ 
+    DO j = 0,nR
+       radRaw(j) = RadiusMin + (radOut-RadiusMin) * REAL(j,DP)/REAL(nR,DP)
     END DO
-    DO k = 1, nT
-       azimRaw(k) = 24._dp * REAL(k-1,DP)/REAL(nT-1,DP)
+    DO k = 1,nT
+       azimRaw(k) = 24.0 * REAL(k-1,DP)/REAL(nT-1,DP)
     END DO
-  
-    DO k = 2, nzeta
-       DO j = 1, npsi
-          radius = SQRT((x(nThetaEquator,j,k))**2 + y(nThetaEquator,j,k)**2)
-          angle = ASIN(y(nThetaEquator,j,k) / radius) + pi_d
-          IF ((x(nThetaEquator,j,k) .LE. 0) .AND. (y(nThetaEquator,j,k) .GE.0)) &
-               angle = twopi_d - ASIN(y(nThetaEquator,j,k) / radius)
-          IF ((x(nThetaEquator,j,k) .LE. 0) .AND. (y(nThetaEquator,j,k) .LE.0)) &
-               angle = - ASIN(y(nThetaEquator,j,k) / radius)
-          radGrid(j,k) = radius
-          angleGrid(j,k) = angle
-       END DO
-    END DO
-  
+ 
     ! Always fill this matrix; it's used by RAM outputs
     ! Interpolate RAM flux on 3DEQ grid, for mapping
     DO iS = 1, 4 ! ions & electrons
        DO L = 1, NPA
           DO K = 1, NE
              !Cubic GSL interpolation
-             CALL GSL_Interpolation_2D(radRaw(1:nR), azimRaw*pi_d/12.0, &
-                                       FLUX(iS,1:nR,1:nT,K,L), &
+             CALL GSL_Interpolation_2D(radRaw(1:nR), azimRaw*pi_d/12.0, FLUX(iS,1:nR,1:nT,K,L), &
                                        radGrid(1:npsi,2:nzeta), angleGrid(1:npsi,2:nzeta), &
                                        flux3DEQ(iS,1:npsi,2:nzeta,K,L),GSLerr)
           END DO
@@ -110,41 +96,6 @@ Module ModRamScb
   
     DO k = 2, nzeta
        DO j = 1, npsi
-          ! If bf(theta) not strictly increasing; to weed out very small
-          ! differences  
-          ! Generally if needed it means have to increase number of theta
-          ! points (or crowd them more near the equatorial plane)
-  
-          !! Do nThetaEquator -> nthe
-          Monotonicity_up: DO
-             i = nThetaEquator
-             L = 0
-             fixMonotonicity_up: DO WHILE (i < nthe)
-                IF (bf(i+1,j,k) < bf(i,j,k)) THEN
-                   bf(i+1,j,k) = bf(i,j,k)*(1._dp+1.E-15_dp)
-                   L = 1
-                END IF
-                i = i+1
-             END DO fixMonotonicity_up
-             IF (L == 0) EXIT Monotonicity_up
-             CYCLE Monotonicity_up
-          END DO Monotonicity_up
-  
-          !! Do nThetaEquator -> 1
-          Monotonicity_down: DO
-             i = nThetaEquator
-             L = 0
-             fixMonotonicity_down: DO WHILE (i > 1)
-                IF (bf(i-1,j,k) < bf(i,j,k)) THEN
-                   bf(i-1,j,k) = bf(i,j,k)*(1._dp+1.E-15_dp)
-                   L = 1
-                END IF
-                i = i-1
-             END DO fixMonotonicity_down
-             IF (L == 0) EXIT Monotonicity_down
-             CYCLE Monotonicity_down
-          END DO Monotonicity_down
-  
   !!!!! Compute IndexPA to go along with Flux3D
           ! Define indexPA for 90 degree pitch angle (-1 for all distances
           ! along field line except equatorial plane)
@@ -182,27 +133,27 @@ Module ModRamScb
     use ModRamTiming,    ONLY: TimeRamElapsed, TOld
     use ModRamConst,     ONLY: b0dip
     use ModRamParams,    ONLY: NameBoundMag, verbose, checkMGNP
-    use ModRamGrids,     ONLY: nR, nT, nPa, radout
+    use ModRamGrids,     ONLY: nR, nT, nPa, radiusMax, radiusMin
   
     use ModScbGrids,     ONLY: nthe, npsi, nzeta
-    use ModScbVariables, ONLY: bf, chiVal, x, y, z, bnormal, &
-                               h_Cart, I_Cart, h_Cart_interp, &
+    use ModScbParams,    ONLY: method, constTheta
+    use ModScbVariables, ONLY: bf, chiVal, x, y, z, bnormal, h_Cart, I_Cart, h_Cart_interp, &
                                i_Cart_interp, bZEq_Cart, flux_vol_cart, bZ, &
                                hdens_Cart, radRaw, azimRaw, nThetaEquator, fluxVolume, &
-                               thetaVal
+                               thetaVal, psi, alfa
   
     use ModRamGSL,       ONLY: GSL_Interpolation_2D, GSL_Interpolation_1D, &
                                GSL_Integration_hI
     use ModRamFunctions, ONLY: RamFileName, FUNT, FUNI
-    use ModScbFunctions, ONLY: extap, locate
+    use ModScbFunctions, ONLY: extap, locate, get_dipole_lines
     use ModScbIO,        ONLY: trace, PARMOD, IOPT
   
-    use nrtype,    ONLY: DP, pi_d
+    use nrtype,    ONLY: DP, pi_d, twopi_d
   
     implicit none
   
     INTEGER, INTENT(IN) :: iter
-    INTEGER :: ii, j, GSLerr
+    INTEGER :: i, L, ii, GSLerr
     
     ! Variables for timing
     integer :: time1, clock_rate, clock_max
@@ -217,15 +168,12 @@ Module ModRamScb
   
     ! Variables for RAM
     integer  :: nEquator
-    integer, ALLOCATABLE :: ScaleAt(:)
-    REAL(DP) :: wn, xo, xn, xp, yo, yn, yp, t0, t1, rt, tt, zt
-    REAL(DP) :: r0_RAM, length_RAM
-    REAL(DP), ALLOCATABLE :: BeqDip_Cart(:), bfMirror_RAM(:), yI_RAM(:), yH_RAM(:), &
-                             yD_RAM(:), bbx(:), bby(:), bbz(:), bb(:), dd(:), &
-                             cVal(:), xx(:), yy(:), zz(:)
-    REAL(DP), ALLOCATABLE :: BzeqDiff_Cart(:,:), BNESPrev(:,:)
-    REAL(DP), ALLOCATABLE :: FNISPrev(:,:,:), BOUNISPrev(:,:,:), FNHSPrev(:,:,:), &
-                             BOUNHSPrev(:,:,:), dHbndt(:,:,:)
+    integer, ALLOCATABLE :: ScaleAt(:), outsideSCB(:,:)
+    REAL(DP) :: t0, t1, rt, tt, zt
+    REAL(DP), ALLOCATABLE :: bbx(:), bby(:), bbz(:), xx(:), yy(:), zz(:), cval(:)
+    REAL(DP), ALLOCATABLE :: BNESPrev(:,:), FNISPrev(:,:,:), BOUNISPrev(:,:,:), &
+                             FNHSPrev(:,:,:), BOUNHSPrev(:,:,:), dHbndt(:,:,:)
+    REAL(DP), ALLOCATABLE :: xRAM(:,:,:), yRAM(:,:,:), zRAM(:,:,:), bRAM(:,:,:)
     REAL(DP) :: scalingI, scalingH, scalingD, I_Temp, H_Temp, D_Temp
   
     ! Variables for Tracing
@@ -234,223 +182,68 @@ Module ModRamScb
     REAL(DP) :: x0, y0, z0, xe, ye, ze, xf, yf, zf
     REAL(DP) :: ER, DSMAX, RLIM, DIR
     REAL(DP) :: PDyn, BzIMF, DIST, XMGNP, YMGNP, ZMGNP
-    REAL(DP), DIMENSION(200) :: xtemp, ytemp, ztemp, bxtemp, bytemp, bztemp, dtemp
+    REAL(DP), DIMENSION(1000) :: xtemp, ytemp, ztemp, bxtemp, bytemp, bztemp, dtemp
   
-    integer, save :: i, k, L
-    !$OMP THREADPRIVATE(i, k, L)
+    integer, save :: j, k
+    REAL(DP), save :: wn, xo, xn, xp, yo, yn, yp, psiRAM, alphaRAM
+    !$OMP THREADPRIVATE(k, j, wn, xo, xn, xp, yo, yn, yp, psiRAM, alphaRAM)
 
-    ! Don't need to run if using Dipole magnetic field boundary
-    ! unless it is run from the initialization step
+    ! Don't need to run if using Dipole magnetic field boundary unless it is run from the initialization step
     if ((NameBoundMag.eq.'DIPL').and.(iter.ne.0)) return
 
     clock_rate = 1000
     clock_max = 100000
-    LMAX = 200
+    LMAX = 1000
   
     !!! Initialize Allocatable Arrays
-    ALLOCATE(length(npsi,nzeta+1), r0(npsi,nzeta+1), BeqDip(npsi,nzeta+1))
-    ALLOCATE(distance(nthe,npsi,nzeta))
-    ALLOCATe(H_value(npsi,nzeta,NPA), I_value(npsi,nzeta,NPA), HDens_value(npsi,nzeta,NPA), &
-             yI(npsi,nzeta,NPA), yH(npsi,nzeta,NPA), yD(npsi,nzeta,NPA), bfmirror(npsi,nzeta,NPA))
-    ALLOCATE(BeqDip_Cart(nR))
-    ALLOCATE(ScaleAt(nT))
-    ALLOCATE(bfMirror_RAM(nPa), yI_RAM(nPA), yH_RAM(nPA), yD_RAM(nPA))
-    ALLOCATE(bbx(nthe), bby(nthe), bbz(nthe), bb(nthe), dd(nthe), cVal(nthe), &
-             xx(nthe), yy(nthe), zz(nthe))
-    ALLOCATE(BzeqDiff_Cart(nR,nT))
-    ALLOCATE(BNESPrev(nR+1,nT))
-    ALLOCATE(FNHSPrev(nR+1,nT,nPa),FNISPrev(nR+1,nT,nPa),BOUNISPrev(nR+1,nT,nPa), &
-             BOUNHSPrev(nR+1,nT,nPa), dHbndt(nR+1,nT,nPa))
-    length = 0._dp; r0 = 0._dp; BEqDip = 0._dp; distance = 0._dp
-    H_value = 0._dp; I_value = 0._dp; HDens_Value = 0._dp; yI = 0._dp; yH = 0._dp; yD = 0._dp
-    bfMirror = 0._dp; BEqDip_Cart = 0._dp; bfMirror_RAM = 0._dp; yI_RAM = 0._dp
-    yH_RAM = 0._dp; yD_RAM = 0._dp; bbx = 0._dp; bby = 0._dp; bbz = 0._dp; bb = 0._dp
-    dd = 0._dp; cVal = 0._dp; xx = 0._dp; yy = 0._dp; zz = 0._dp; BzEqDiff_Cart = 0._dp
-    BNESPrev = 0._dp; FNISPrev = 0._dp; BOUNISPrev = 0._dp; FNHSPrev = 0._dp
-    ScaleAt = 0
+    ALLOCATE(ScaleAt(nT), outsideSCB(nR,nT), bbx(nthe), bby(nthe), bbz(nthe), xx(nthe), &
+             yy(nthe), zz(nthe), cval(nthe), distance(nthe,nR,nT), length(nR,nT), &
+             r0(nR,nT), bfMirror(nR,nT,nPa), yI(nR,nT,NPA), yH(nR,nT,NPA), yD(nR,nT,NPA), &
+             BNESPrev(nR+1,nT), FNHSPrev(nR+1,nT,nPa),FNISPrev(nR+1,nT,nPa), &
+             BOUNISPrev(nR+1,nT,nPa), BOUNHSPrev(nR+1,nT,nPa), dHbndt(nR+1,nT,nPa), &
+             xRAM(nthe,nR,nT),yRAM(nthe,nR,nT),zRAM(nthe,nR,nT),bRAM(nthe,nR,nT))
     !!!
 
-    h_Cart = 0._dp
-    I_Cart = 0._dp
-    bZEq_Cart = 0._dp
-    flux_vol_Cart = 0._dp
-    bZEqDiff_Cart = 0._dp  
-    h_value = 0._dp
-    hdens_value = 0._dp
-    I_value = 0._dp
-  
-    DO j = 0, nR
-       radRaw(j) = 1.75_dp + (radOut-1.75_dp) * REAL(j,DP)/REAL(nR,DP)
-    END DO
-    DO k = 1, nT
-       azimRaw(k) = 24._dp * REAL(k-1,DP)/REAL(nT-1,DP)
-    END DO
-  
-    Operational_or_research: SELECT CASE (NameBoundMag)
-    CASE('DIPL') ! Dipole without SCB calculation
-       ! Start RAM Timing
-       call system_clock(time1,clock_rate,clock_max)
-       starttime=time1/real(clock_rate,dp)
-       ! Loop over RAM grid
-       do i = 1,nR
-          do j = 1,1 ! Dipole is azimuthially symmetric, only need to calculate one MLT
-             ! Calculate h and I at RAM grid point
-             zt = MLT(j)*2._dp*pi_d/24._dp - pi_d
-             t1 = asin(sqrt(1.0/LZ(i+1)))
-             t0 = pi_d-t1
-             do k=1,nthe
-                tt = t0 + REAL(k-1,DP)/REAL(nthe-1,DP)*(t1-t0) 
-                rt = LZ(i+1)*sin(tt)**2
-                xx(k) = (rt)*cos(zt)*sin(tt)
-                yy(k) = (rt)*sin(zt)*sin(tt)
-                zz(k) = (rt)*cos(tt)
-                dd(k) = rt ! Distance from center of earth
-                bb(k) = (b0dip/bnormal)*sqrt(1+3*cos(tt)**2)/rt**3
-             enddo
-  
-             cVal(1) = 0._dp
-             length_RAM = 0._dp
-             nEquator = (nthe+1)/2
-             do k = 2,nthe
-                cVal(k) = cVal(k-1) + SQRT((xx(k)-xx(k-1))**2 &
-                                         + (yy(k)-yy(k-1))**2 &
-                                         + (zz(k)-zz(k-1))**2)
-                length_RAM = length_RAM + SQRT((xx(k)-xx(k-1))**2 &
-                                             + (yy(k)-yy(k-1))**2 &
-                                             + (zz(k)-zz(k-1))**2)
-              enddo
-             bZEq_Cart(i,j) = bb(nEquator)*bnormal !Since in a dipole Beq = Bzeq
-             cVal(1:nthe) = pi_d*cVal(1:nthe)/cVal(nthe)
-             r0_RAM = SQRT(xx(nEquator)**2+yy(nEquator)**2)
-  
-             bfmirror_RAM(1:NPA-1) = bb(nEquator)/(1._dp - mu(1:NPA-1)**2)
-             bfmirror_RAM(NPA) = bb(nthe)
-  
-             CALL GSL_Integration_hI(bfMirror_RAM(:),cVal(1:nthe),bb(1:nthe), &
-                                     dd(1:nthe), yI_RAM(:), yH_RAM(:), yD_RAM(:))
-  
-             I_cart(i,j,:) = (length_RAM/(pi_d*r0_RAM)) * yI_RAM(:)/SQRT(Bfmirror_RAM(:))
-             H_cart(i,j,:) = (length_RAM/(pi_d*2*r0_RAM)) * yH_RAM(:)*SQRT(Bfmirror_RAM(:))
-             HDens_cart(i,j,:) = 1.E5_dp * yD_RAM(:)/yH_RAM(:) ! Re-normalize
-  
-             CALL GSL_Interpolation_1D('Cubic',PA(NPA:1:-1),h_Cart(i,j,NPA:1:-1),&
-                                       PAbn(NPA-1:2:-1),h_Cart_interp(i,j,NPA-1:2:-1),GSLerr)
-             CALL GSL_Interpolation_1D('Cubic',PA(NPA:1:-1),I_Cart(i,j,NPA:1:-1),&
-                                       PAbn(NPA-1:2:-1),I_Cart_interp(i,j,NPA-1:2:-1),GSLerr)
-          enddo
-          do j = 2,nT ! Now apply the one MLT to the rest of the MLTs
-            bZEq_Cart(i,j) = bZEq_Cart(i,1)
-            I_cart(i,j,:) = I_cart(i,1,:)
-            H_cart(i,j,:) = H_cart(i,1,:)
-            HDens_cart(i,j,:) = HDens_cart(i,1,:)
-            h_cart_interp(i,j,:) = h_cart_interp(i,1,:)
-            I_cart_interp(i,j,:) = I_cart_interp(i,1,:)
-          enddo
-       enddo
-  
-       h_Cart_interp(:,:,NPA) = h_Cart_interp(:,:,NPA-1)
-       I_Cart_interp(:,:,NPA) = I_Cart_interp(:,:,NPA-1)
-       h_Cart_interp(:,:,1) = h_Cart_interp(:,:,2)
-       I_Cart_interp(:,:,1) = I_Cart_interp(:,:,2)
-  
-       ! End RAM Timing
-       call system_clock(time1,clock_rate,clock_max)
-       stoptime=time1/real(clock_rate,dp)
-       write(*,*) 'RAM h and I: ',stoptime-starttime
-  
-       ! Make sure all H and I integrals have been filled in correctly
-       IF (MINVAL(h_Cart) < 0._dp .OR. MINVAL(I_Cart)<0._dp) THEN
-          if (verbose) PRINT*, 'computehI: minval(h) = ', MINVAL(h_Cart)
-          if (verbose) PRINT*, 'computehI: minval(I) = ', MINVAL(I_Cart)
-       END IF
-  
-    CASE default  ! Regular calculation of h, I, bounce-averaged charge xchange etc.
-  !!!!! BEGIN SCB INTEGRAl CALCULATION
-       write(*,*) 'Calculating h and I integrals'
-  
+    h_Cart = 0._dp; I_Cart = 0._dp
+    bZEq_Cart = 0._dp; flux_vol_Cart = 0._dp
+    outsideMGNP = 0; outsideSCB  = 0; ScaleAt = 0
+    xRAM = 0._dp; yRAM = 0._dp; zRAM = 0._dp; bRAM = 0._dp
+
+    ! Start timing
+    call system_clock(time1,clock_rate,clock_max)
+    starttime=time1/real(clock_rate,dp)
+
+    SELECT CASE (NameBoundMag)
+    CASE('DIPL') ! Dipole without SCB calculation (only run on initialization step)
+       call get_dipole_lines(radiusMin,radiusMax,constTheta,nthe,nR,nT,xRAM,yRAM,zRAM,bRAM,.true.)
+       bRAM = bRAM*(b0dip/bnormal)
+
+    CASE default  ! Convert SCB field lines to RAM field lines
        ! Start timing
+       write(*,'(1x,a)',ADVANCE='NO') 'Converting SCB field lines to RAM field lines'
        call system_clock(time1,clock_rate,clock_max)
        starttime=time1/real(clock_rate,dp)
-  
-       ! Start parallel loop
+
+       ! If using SWMF without SCB calculation just take directly from grids
+       if ((NameBoundMag.eq.'SWMF').and.(method == 3)) then
+          xRAM(:,:,:) = x(:,1:nR,:)
+          yRAM(:,:,:) = y(:,1:nR,:)
+          zRAM(:,:,:) = z(:,1:nR,:)
+          bRAM(:,:,:) = bf(:,1:nR,:)
+       endif
+   
   !$OMP PARALLEL DO
-       RhoLoop: DO j = 2,npsi
-          PhiLoop: DO k = 2,nzeta
-             r0(j, k) = SQRT(x(nThetaEquator,j,k)**2 + y(nThetaEquator,j,k)**2)
-             !if (r0(j,k).gt.7.25) then ! Don't do the exterior field lines outside RAM domain
-             !   I_value(j,k,:) = 0._dp
-             !   H_value(j,k,:) = 0._dp
-             !   HDens_value(j,k,:) = 0._dp
-             !   cycle PhiLoop
-             !endif
-             DO i = 1, nthe
-                distance(i,j,k) = SQRT(x(i,j,k)**2+y(i,j,k)**2+z(i,j,k)**2) ! Distance from center of Earth
-             END DO
-             ! Compute length of field line (j,k)
-             length(j,k) = 0._dp
-             DO i = 1, nthe-1
-                length(j,k) = length(j,k) + SQRT((x(i+1,j,k)-x(i,j,k))**2 + (y(i+1,j,k)-y(i,j,k))**2 + (z(i+1,j,k)-z(i,j,k))**2)
-             END DO
-  
-             bfmirror(j,k,1:NPA-1) = bf(nThetaEquator,j,k)/(1._dp - mu(1:NPA-1)**2)
-             bfmirror(j,k,NPA) = bf(nthe,j,k)
-  
-             CALL GSL_Integration_hI(bfMirror(j,k,:),chiVal(:),bf(:,j,k),distance(:,j,k), &
-                                     yI(j,k,:), yH(j,k,:), yD(j,k,:))
-             do L = 2,NPA
-                if (isnan(yI(j,k,L))) yI(j,k,L) = yI(j,k-1,L)
-                if (isnan(yH(j,k,L))) yH(j,k,L) = yH(j,k-1,L)
-                if (isnan(yD(j,k,L))) yD(j,k,L) = yD(j,k-1,L)
-             enddo
-             I_value(j,k,:) = (length(j,k)/(pi_d*r0(j,k))) * yI(j,k,:)/SQRT(Bfmirror(j,k,:))
-             H_value(j,k,:) = (length(j,k)/(pi_d*2*r0(j,k))) * yH(j,k,:)*SQRT(Bfmirror(j,k,:))
-             HDens_value(j,k,:) = 1.E5_dp * yD(j,k,:)/yH(j,k,:) ! Re-normalize
-  
-          END DO PhiLoop
-       END DO RhoLoop
-  !$OMP END PARALLEL DO
-  
-       ! Handle periodicity
-       I_value(:,1,:) = I_value(:,nzeta,:)
-       H_value(:,1,:) = H_value(:,nzeta,:)
-  
-       ! End Timing
-       call system_clock(time1,clock_rate,clock_max)
-       stoptime=time1/real(clock_rate,dp)
-       write(*,*) 'SCB h and I: ',stoptime-starttime
-  !!!!! END SCB INTEGRAl CALCULATION
-  
-  !!!!! BEGIN SCB -> RAM CONVERSION
-       ! Check if RAM point is inside or outside SCB domain
-       ! If inside then interpolate to the the point
-       ! If outside then use SCB magnetic field model to calculate h and I
-       ScaleAt = 0
-       scalingI = 0._dp
-       scalingH = 0._dp
-       scalingD = 0._dp
-  
-       ! Start RAM Timing
-       call system_clock(time1,clock_rate,clock_max)
-       starttime=time1/real(clock_rate,dp)
-  
-       ! Interpolation will be for B - Bdip
-       beqdip(1:npsi,2:nzeta)=b0dip/(x(nThetaEquator,1:npsi,2:nzeta)**2+y(nThetaEquator,1:npsi,2:nzeta)**2)**1.5
-       beqdip_Cart(1:nR) = b0dip/radRaw(1:nR)**3
-  
-       ! Loop over RAM grid
-       outsideMGNP = 0
-       do j = 1,nT
-          do i = 1,nR
-             xo = radRaw(i) * COS(azimRaw(j)*2._dp*pi_d/24._dp - pi_d)
-             yo = radRaw(i) * SIN(azimRaw(j)*2._dp*pi_d/24._dp - pi_d)
-  
+       do i = 1,nR
+          do j = 2,nT
              ! Convex hull calculation
+             xo = LZ(i+1) * COS(MLT(j)*2._dp*pi_d/24._dp - pi_d)
+             yo = LZ(i+1) * SIN(MLT(j)*2._dp*pi_d/24._dp - pi_d)
              wn = 0 ! wn =/= 0 means the point is inside the SCB domain
              DO k = 1,nzeta
-                yn = y(nThetaEquator,npsi,k)
-                yp = y(nThetaEquator,npsi,k+1)
-                xn = x(nThetaEquator,npsi,k)
-                xp = x(nThetaEquator,npsi,k+1)
+                yn = y(nThetaEquator,npsi-1,k)
+                yp = y(nThetaEquator,npsi-1,k+1)
+                xn = x(nThetaEquator,npsi-1,k)
+                xp = x(nThetaEquator,npsi-1,k+1)
                 if (yn.le.yo) then
                    if (yp.gt.yo) then
                       if (((xp-xn)*(yo-yn)-(yp-yn)*(xo-xn)).gt.0) wn = wn + 1
@@ -461,211 +254,241 @@ Module ModRamScb
                    endif
                 endif
              ENDDO
-             if ((abs(wn).gt.1e-9).or.(NameBoundMag.eq.'DIPS')) then
-                ! Interpolate from SCB -> RAM grid
-                DO L = 2,NPA
-                   CALL GSL_Interpolation_2D(x(nThetaEquator,:,2:nzeta), y(nThetaEquator,:,2:nzeta), &
-                                             h_Value(:,2:nzeta,L), xo, yo, h_Cart(i,j,L),GSLerr)
-                   CALL GSL_Interpolation_2D(x(nThetaEquator,:,2:nzeta), y(nThetaEquator,:,2:nzeta), &
-                                             I_Value(:,2:nzeta,L), xo, yo, I_Cart(i,j,L),GSLerr)
-                   CALL GSL_Interpolation_2D(x(nThetaEquator,:,2:nzeta), y(nThetaEquator,:,2:nzeta), &
-                                             hDens_Value(:,2:nzeta,L), xo, yo, hDens_Cart(i,j,L),GSLerr)
-                ENDDO
+             if (abs(wn).gt.1e-9) then ! Boundary overlap
+                ! Step 1: Get psi and alpha value for the equatorial point
+                !! alpha should just be the MLT stuff rotated
+                alphaRAM = MLT(j)*pi_d/12._dp + pi_d
+                if (alphaRAM > twopi_d) alphaRAM = alphaRAM - twopi_d
+                !! psi can be gotten from interpolation
                 CALL GSL_Interpolation_2D(x(nThetaEquator,:,2:nzeta), y(nThetaEquator,:,2:nzeta), &
-                                          bZ(nThetaEquator,:,2:nzeta)*bnormal-beqdip(:,2:nzeta), &
-                                          xo, yo, bZEqDiff_Cart(i,j),GSLerr)
-                CALL GSL_Interpolation_2D(x(nThetaEquator,:,2:nzeta), y(nThetaEquator,:,2:nzeta), &
-                                          fluxVolume(:,2:nzeta)/bnormal, xo, yo, flux_vol_Cart(i,j),GSLerr)
-                bZEq_Cart(i,j) = bZEqDiff_Cart(i,j) + beqdip_Cart(i)
+                                          psi(nThetaEquator,:,2:nzeta), xo, yo, psiRAM, GSLerr)
+                ! Step 2: Interpolate from old (psi, alfa) grid onto psiRAM, alphaRAM point
+                do k = 1,nthe
+                   CALL GSL_Interpolation_2D(psi(k,:,2:nzeta), alfa(k,:,2:nzeta), x(k,:,2:nzeta), &
+                                             psiRAM, alphaRAM, xRAM(k,i,j), GSLerr)
+                   CALL GSL_Interpolation_2D(psi(k,:,2:nzeta), alfa(k,:,2:nzeta), y(k,:,2:nzeta), &
+                                             psiRAM, alphaRAM, yRAM(k,i,j), GSLerr)
+                   CALL GSL_Interpolation_2D(psi(k,:,2:nzeta), alfa(k,:,2:nzeta), z(k,:,2:nzeta), &
+                                             psiRAM, alphaRAM, zRAM(k,i,j), GSLerr)
+                   CALL GSL_Interpolation_2D(psi(k,:,2:nzeta), alfa(k,:,2:nzeta), bf(k,:,2:nzeta), &
+                                             psiRAM, alphaRAM, bRAM(k,i,j), GSLerr)
+
+                enddo
              else
+                outsideSCB(i,j) = 1
+             endif
+          enddo
+       enddo
+  !$OMP END PARALLEL DO
+
+       ! End Timing
+       call system_clock(time1,clock_rate,clock_max)
+       stoptime=time1/real(clock_rate,dp)
+       write(*,'(a,1x,F6.2,1x,a)') ': Completed in', stoptime-starttime, 'seconds'
+
+       ! If a point on the RAM grid lies outside the SCB grid then we need to
+       ! calculate the scaling parameters (if still inside the magnetopause) or
+       ! set the outsideMGNP flag to 1 so we can track it in RAM
+       do j = 2,nT
+          do i = 1,nR
+             xo = LZ(i+1) * COS(MLT(j)*2._dp*pi_d/24._dp - pi_d)
+             yo = LZ(i+1) * SIN(MLT(j)*2._dp*pi_d/24._dp - pi_d)
+             if (outsideSCB(i,j) == 1) then
+                if (ScaleAt(j) == 0) ScaleAt(j) = i
                 Pdyn = PARMOD(1)
                 BzIMF = PARMOD(4)
                 call SHUETAL_MGNP_08(PDyn,-1.0_dp,BzIMF,xo,yo,0.0_dp,XMGNP,YMGNP,ZMGNP,DIST,ID)
                 if ((CheckMGNP).and.((ID.lt.0).or.(DIST.lt.DL1))) then
-                   if (verbose) write(*,*) 'Point outside magnetopause', xo, yo, DIST
+                   if (verbose) write(*,'(2x,a,3F6.2)') 'Point outside magnetopause', xo, yo, DIST
                    outsideMGNP(i,j) = 1
-                   bZEq_Cart(i,j) = bZEq_Cart(i-1,j)
-                   I_cart(i,j,:) = I_cart(i-1,j,:)
-                   H_cart(i,j,:) = H_cart(i-1,j,:)
-                   HDens_cart(i,j,:) = HDens_Cart(i-1,j,:)
                 else
-                   ! Calculate h and I at RAM grid point
-                   !! Get equatorial point
-                   x0 = LZ(i+1) * COS(MLT(j)*2._dp*pi_d/24._dp - pi_d)
-                   y0 = LZ(i+1) * SIN(MLT(j)*2._dp*pi_d/24._dp - pi_d)
-                   z0 = 0._dp
-  
                    !! Trace from equatorial point to pole then pole to other pole
-                   CALL trace(x0,y0,z0,xe,ye,ze,xtemp(:),ytemp(:),ztemp(:),LOUT,LMAX, &
+                   CALL trace(xo,yo,0._dp,1.0_dp,xe,ye,ze,xtemp(:),ytemp(:),ztemp(:),LOUT,LMAX, &
                               bxtemp(:),bytemp(:),bztemp(:))
-                   CALL trace(xe,ye,ze,xf,yf,zf,xtemp(:),ytemp(:),ztemp(:),LOUT,-LMAX, &
+                   CALL trace(xe,ye,ze,-1.0_dp,xf,yf,zf,xtemp(:),ytemp(:),ztemp(:),LOUT,-LMAX, &
                               bxtemp(:),bytemp(:),bztemp(:))
-                   ! We have a problem now, LOUT is often only ~30 which is to few
-                   ! points to get a good integral solution. For now I will just fit
-                   ! the new points to the same grid as SCB. Can look into changing
-                   ! this later. -ME
+                   ! If the tracing fails for some reason assume we are on open field lines
+                   if (LOUT.ge.LMAX) then
+                      outsideMGNP(i,j) = 1
+                      cycle
+                   endif
                    dtemp(1) = 0._dp
                    do k = 2,LOUT
                       dtemp(k) = dtemp(k-1) + SQRT((xtemp(k)-xtemp(k-1))**2 &
                                                   +(ytemp(k)-ytemp(k-1))**2 &
                                                   +(ztemp(k)-ztemp(k-1))**2)
                    enddo
-                   cVal(:) = thetaVal(:)*dtemp(LOUT)/pi_d
-                   CALL GSL_Interpolation_1D('Cubic',dtemp(1:LOUT),xtemp(1:LOUT),cVal(:),xx(:),GSLerr)
-                   CALL GSL_Interpolation_1D('Cubic',dtemp(1:LOUT),ytemp(1:LOUT),cVal(:),yy(:),GSLerr)
-                   CALL GSL_Interpolation_1D('Cubic',dtemp(1:LOUT),ztemp(1:LOUT),cVal(:),zz(:),GSLerr)
-                   CALL GSL_Interpolation_1D('Cubic',dtemp(1:LOUT),bxtemp(1:LOUT),cVal(:),bbx(:),GSLerr)
-                   CALL GSL_Interpolation_1D('Cubic',dtemp(1:LOUT),bytemp(1:LOUT),cVal(:),bby(:),GSLerr)
-                   CALL GSL_Interpolation_1D('Cubic',dtemp(1:LOUT),bztemp(1:LOUT),cVal(:),bbz(:),GSLerr)
-  
-                   !! Get necessary information at each point along the trace
-                   dd(:) = SQRT(xx(:)**2+yy(:)**2+zz(:)**2) ! Distance from center of earth
-                   bb(:) = SQRT(bbx(:)**2+bby(:)**2+bbz(:)**2)/bnormal
-  
-                   length_RAM = 0._dp
-                   do k = 2,nthe
-                      length_RAM = length_RAM + SQRT((xx(k)-xx(k-1))**2 &
-                                                   + (yy(k)-yy(k-1))**2 &
-                                                   + (zz(k)-zz(k-1))**2)
-                   enddo
-                   bZEq_Cart(i,j) = bbz(nThetaEquator)
-                   cVal(:) = thetaVal(:)
-                   r0_RAM = SQRT(xx(nThetaEquator)**2+yy(nThetaEquator)**2)
-  
-                   bfmirror_RAM(1:NPA-1) = bb(nThetaEquator)/(1._dp - mu(1:NPA-1)**2)
-                   bfmirror_RAM(NPA) = bb(nthe)
-  
-                   CALL GSL_Integration_hI(bfMirror_RAM(:),cVal(:),bb(:),dd(:), &
-                                           yI_RAM(:),yH_RAM(:),yD_RAM(:))
-  
-                   I_cart(i,j,:) = (length_RAM/(pi_d*r0_RAM)) * yI_RAM(:)/SQRT(Bfmirror_RAM(:))
-                   H_cart(i,j,:) = (length_RAM/(pi_d*2*r0_RAM)) * yH_RAM(:)*SQRT(Bfmirror_RAM(:))
-                   HDens_cart(i,j,:) = 1.E5_dp * yD_RAM(:)/yH_RAM(:) ! Re-normalize
-  
-                   if (ScaleAt(j).eq.0) ScaleAt(j) = i
+
+                   cVal(:) = chiVal(:)*dtemp(LOUT)/pi_d
+                   CALL GSL_Interpolation_1D(dtemp(1:LOUT),xtemp(1:LOUT),cVal(:),xRAM(:,i,j),GSLerr)
+                   CALL GSL_Interpolation_1D(dtemp(1:LOUT),ytemp(1:LOUT),cVal(:),yRAM(:,i,j),GSLerr)
+                   CALL GSL_Interpolation_1D(dtemp(1:LOUT),ztemp(1:LOUT),cVal(:),zRAM(:,i,j),GSLerr)
+                   CALL GSL_Interpolation_1D(dtemp(1:LOUT),bxtemp(1:LOUT),cVal(:),bbx(:),GSLerr)
+                   CALL GSL_Interpolation_1D(dtemp(1:LOUT),bytemp(1:LOUT),cVal(:),bby(:),GSLerr)
+                   CALL GSL_Interpolation_1D(dtemp(1:LOUT),bztemp(1:LOUT),cVal(:),bbz(:),GSLerr)
+                   bRAM(:,i,j) = SQRT(bbx(:)**2+bby(:)**2+bbz(:)**2)/bnormal
                 endif
              endif
           enddo
        enddo
+
+    END SELECT
+
+    !!!!! BEGIN INTEGRAl CALCULATION
+    write(*,'(1x,a)',ADVANCE='NO') 'Calculating h and I integrals'
+    ! Start timing
+    call system_clock(time1,clock_rate,clock_max)
+    starttime=time1/real(clock_rate,dp)
+
+  !$OMP PARALLEL DO
+    do i = 1, nR
+       do j = 2, nT
+          if (outsideMGNP(i,j) == 0) then
+             distance(:,i,j) = SQRT(xRAM(:,i,j)**2+yRAM(:,i,j)**2+zRAM(:,i,j)**2) ! Distance from center of earth
+             length(i,j) = 0._dp
+             do k = 2,nthe
+                length(i,j) = length(i,j) + SQRT((xRAM(k,i,j)-xRAM(k-1,i,j))**2 &
+                                               + (yRAM(k,i,j)-yRAM(k-1,i,j))**2 &
+                                               + (zRAM(k,i,j)-zRAM(k-1,i,j))**2)
+             enddo
+             r0(i,j) = SQRT(xRAM(nThetaEquator,i,j)**2+yRAM(nThetaEquator,i,j)**2)
+             bfmirror(i,j,1:NPA-1) = minval(bRAM(:,i,j))/(1._dp -mu(1:NPA-1)**2)
+             bfmirror(i,j,NPA)     = bRAM(nthe,i,j)
+
+             CALL GSL_Integration_hI(bfMirror(i,j,:),chiVal(:),bRAM(:,i,j),distance(:,i,j),&
+                                     yI(i,j,:),yH(i,j,:),yD(i,j,:))
+
+             I_cart(i,j,:) = (length(i,j)/(pi_d*r0(i,j))) *yI(i,j,:)/SQRT(Bfmirror(i,j,:))
+             H_cart(i,j,:) = (length(i,j)/(pi_d*2*r0(i,j))) *yH(i,j,:)*SQRT(Bfmirror(i,j,:))
+             HDens_cart(i,j,:) = 1.E5_dp * yD(i,j,:)/yH(i,j,:) !Re-normalize
+             bZEq_Cart(i,j) = bRAM(nThetaEquator,i,j)*bnormal
+
+          end if
+       enddo
+    enddo
+  !$OMP END PARALLEL DO
+
+    ! End Timing
+    call system_clock(time1,clock_rate,clock_max)
+    stoptime=time1/real(clock_rate,dp)
+    write(*,'(a,1x,F6.2,1x,a)') ': Completed in', stoptime-starttime, 'seconds'
+    !!!!! END SCB INTEGRAl CALCULATION
+
+    ! Scale based on outer SCB boundary. This is needed if the RAM grid has
+    ! points that lay outside the SCB grid.
+    scalingI = 0._dp
+    scalingH = 0._dp
+    scalingD = 0._dp
+    do j = 2,nT
+       if (ScaleAt(j).ne.0) then
+          ii = ScaleAt(j)
+          do L = 2, NPA
+             I_Temp = I_cart(ii-1,j,L) + (Lz(ii)-Lz(ii-1))/(Lz(ii-2)-Lz(ii-1)) &
+                                        *(I_Cart(ii-2,j,L)-I_Cart(ii-1,j,L))
+             if (I_Temp.le.0) then
+                scalingI = I_Cart(ii-1,j,L)/I_Cart(ii,j,L)
+             else
+                scalingI = I_Temp/I_cart(ii,j,L)
+             endif
   
-       !! Scale based on outer SCB boundary
-       !Moved to it's own loop in case we want to add different scaling options later -ME
-       do j = 1,nT
-          if (ScaleAt(j).ne.0) then
-             ii = ScaleAt(j)
-             do L = 2, NPA
-                I_Temp = I_cart(ii-1,j,L) + (Lz(ii)-Lz(ii-1)) &
-                                           /(Lz(ii-2)-Lz(ii-1)) &
-                                           *(I_Cart(ii-2,j,L)-I_Cart(ii-1,j,L))
-                if (I_Temp.le.0) then
-                   scalingI = I_Cart(ii-1,j,L)/I_Cart(ii,j,L)
-                else
-                   scalingI = I_Temp/I_cart(ii,j,L)
-                endif
-                !if (scalingI.le.0) write(*,*) j,L,scalingI,I_cart(ii,j,L),I_cart(ii-1,j,L),I_cart(ii-2,j,L)
+             H_Temp = H_cart(ii-1,j,L) + (Lz(ii)-Lz(ii-1))/(Lz(ii-2)-Lz(ii-1)) &
+                                        *(H_Cart(ii-2,j,L)-H_Cart(ii-1,j,L))
+             if (H_Temp.le.0) then
+                scalingH = H_Cart(ii-1,j,L)/H_Cart(ii,j,L)
+             else
+                scalingH = H_Temp/H_cart(ii,j,L)
+             endif
   
-                H_Temp = H_cart(ii-1,j,L) + (Lz(ii)-Lz(ii-1)) &
-                                           /(Lz(ii-2)-Lz(ii-1)) &
-                                           *(H_Cart(ii-2,j,L)-H_Cart(ii-1,j,L))
-                if (H_Temp.le.0) then
-                   scalingH = H_Cart(ii-1,j,L)/H_Cart(ii,j,L)
-                else
-                   scalingH = H_Temp/H_cart(ii,j,L)
-                endif
-                !if (scalingH.le.0) write(*,*) j,L,scalingH,H_cart(ii,j,L),H_cart(ii-1,j,L),H_cart(ii-2,j,L)
-  
-                D_Temp = HDens_cart(ii-1,j,L) + (Lz(ii)-Lz(ii-1)) &
-                                               /(Lz(ii-2)-Lz(ii-1)) &
-                                               *(HDens_Cart(ii-2,j,L)-HDens_Cart(ii-1,j,L))
-                if (D_Temp.le.0) then
-                   scalingD = HDens_Cart(ii-1,j,L)/HDens_Cart(ii,j,L)
-                else
-                   scalingD = D_Temp/HDens_cart(ii,j,L)
-                endif
-                !if (scalingD.le.0) write(*,*) j,L,scalingD,HDens_cart(ii,j,L),HDens_cart(ii-1,j,L),HDens_cart(ii-2,j,L)
-  
-                do i = ii, nR
+             D_Temp = HDens_cart(ii-1,j,L) + (Lz(ii)-Lz(ii-1))/(Lz(ii-2)-Lz(ii-1)) &
+                                            *(HDens_Cart(ii-2,j,L)-HDens_Cart(ii-1,j,L))
+             if (D_Temp.le.0) then
+                scalingD = HDens_Cart(ii-1,j,L)/HDens_Cart(ii,j,L)
+             else
+                scalingD = D_Temp/HDens_cart(ii,j,L)
+             endif
+
+             do i = ii, nR
+                if (outsideMGNP(i,j) == 0) then
+                   ! If inside Magnetopause but outside SCB domain then scale h
+                   ! and I integrals based on the last SCB radial point
                    I_cart(i,j,L) = I_cart(i,j,L)*scalingI
                    H_cart(i,j,L) = H_cart(i,j,L)*scalingH
                    HDens_cart(i,j,L) = HDens_cart(i,j,L)*scalingD
-                enddo
+                   bZEq_Cart(i,j) = bZEq_Cart(i-1,j)
+                else 
+                   ! If outside Magnetopause then set h and I integrals to 
+                   ! the previous radial point
+                   I_cart(i,j,L) = I_cart(i-1,j,L)
+                   H_cart(i,j,L) = H_cart(i-1,j,L)
+                   HDens_cart(i,j,L) = HDens_cart(i-1,j,L)
+                   bZEq_Cart(i,j) = bZEq_Cart(i-1,j)
+                endif
              enddo
-          endif
+          enddo
+       endif
+    enddo
+  
+    ! Continuity across MLT of 0
+    I_Cart(:,1,:) = I_Cart(:,nT,:)
+    H_Cart(:,1,:) = H_Cart(:,nT,:)
+    HDens_Cart(:,1,:) = HDens_Cart(:,nT,:)
+    bZEq_Cart(:,1) = bZEq_Cart(:,nT)
+
+    ! Near 90 degree pitch angle corrections
+    I_cart(:,:,3) = 0.99*I_cart(:,:,4)
+    I_cart(:,:,2) = 0.99*I_cart(:,:,3)
+    I_cart(:,:,1) = 0._dp
+    H_cart(:,:,3) = 0.99*H_cart(:,:,4)
+    H_cart(:,:,2) = 0.99*H_cart(:,:,3)
+    H_cart(:,:,1) = 0.99*H_cart(:,:,2)
+    HDens_cart(:,:,3) = 0.999*HDens_cart(:,:,4)
+    HDens_cart(:,:,2) = 0.999*HDens_cart(:,:,3)
+    HDens_cart(:,:,1) = 0.999*HDens_cart(:,:,2)
+  
+    ! Make sure all H and I integrals have been filled in correctly
+    !! First Check for Negatives
+    IF (MINVAL(h_Cart) < 0._dp .OR. MINVAL(I_Cart)<0._dp .OR. MINVAL(HDens_Cart)<0._dp) THEN
+       if (verbose) PRINT*, 'computehI: minval(h) = ', MINVAL(h_Cart), minloc(H_Cart)
+       if (verbose) PRINT*, 'computehI: minval(I) = ', MINVAL(I_Cart), minloc(I_Cart)
+       if (verbose) print*, 'computehI: minval(D) = ', MINVAL(HDens_Cart), minloc(HDens_Cart)
+       do j = 1, nT
+          do i = 2, nR
+             do L = 1, nPa
+                if (h_Cart(i,j,L).lt.0) h_Cart(i,j,L) = h_Cart(i-1,j,L)
+                if (I_Cart(i,j,L).lt.0) I_Cart(i,j,L) = I_Cart(i-1,j,L)
+                if (HDens_Cart(i,j,L).lt.0) HDens_Cart(i,j,L) = HDens_Cart(i-1,j,L)
+             enddo
+          enddo
        enddo
-  
-       I_cart(:,:,3) = 0.99*I_cart(:,:,4)
-       I_cart(:,:,2) = 0.99*I_cart(:,:,3)
-       I_cart(:,:,1) = 0._dp
-       H_cart(:,:,3) = 0.99*H_cart(:,:,4)
-       H_cart(:,:,2) = 0.99*H_cart(:,:,3)
-       H_cart(:,:,1) = 0.99*H_cart(:,:,2)
-       HDens_cart(:,:,3) = 0.999*HDens_cart(:,:,4)
-       HDens_cart(:,:,2) = 0.999*HDens_cart(:,:,3)
-       HDens_cart(:,:,1) = 0.999*HDens_cart(:,:,2)
-  
-       ! End RAM Timing
-       call system_clock(time1,clock_rate,clock_max)
-       stoptime=time1/real(clock_rate,dp)
-       write(*,*) 'RAM h and I: ',stoptime-starttime
-  !!!!! END SCB -> RAM CONVERSION
-  
-       ! Make sure all H and I integrals have been filled in correctly
-       !! First Check for Negatives
-       IF (MINVAL(h_Cart) < 0._dp .OR. MINVAL(I_Cart)<0._dp .OR. MINVAL(HDens_Cart)<0._dp) THEN
-          if (verbose) PRINT*, 'computehI: minval(h) = ', MINVAL(h_Cart), minloc(H_Cart)
-          if (verbose) PRINT*, 'computehI: minval(I) = ', MINVAL(I_Cart), minloc(I_Cart)
-          if (verbose) print*, 'computehI: minval(D) = ', MINVAL(HDens_Cart), minloc(HDens_Cart)
-          do j = 1, nT
-             do i = 2, nR
-                do L = 1, nPa
-                   if (h_Cart(i,j,L).lt.0) h_Cart(i,j,L) = h_Cart(i-1,j,L)
-                   if (I_Cart(i,j,L).lt.0) I_Cart(i,j,L) = I_Cart(i-1,j,L)
-                   if (HDens_Cart(i,j,L).lt.0) HDens_Cart(i,j,L) = HDens_Cart(i-1,j,L)
-                enddo
-             enddo
+       if (verbose) PRINT*, 'computehI: minval(h) = ', MINVAL(h_Cart), minloc(H_Cart)
+       if (verbose) PRINT*, 'computehI: minval(I) = ', MINVAL(I_Cart), minloc(I_Cart)
+       if (verbose) print*, 'computehI: minval(D) = ', MINVAL(HDens_Cart), minloc(HDens_Cart)
+    END IF
+    !! Now check for bad integrals (integrals that are too large)
+    do i = 1, nR
+       do j = 1, nT
+          do L = nPa-1,1,-1
+             if (i_Cart(i,j,L).gt.i_Cart(i,j,L+1)) i_Cart(i,j,L) = 0.99*i_Cart(i,j,L+1)
+             if (H_Cart(i,j,L).gt.H_Cart(i,j,L+1)) H_Cart(i,j,L) = 0.99*H_Cart(i,j,L+1)
+             if (HDens_Cart(i,j,L).gt.HDens_Cart(i,j,L+1)) HDens_Cart(i,j,L) = 0.999*HDens_Cart(i,j,L+1)
           enddo
-          if (verbose) PRINT*, 'computehI: minval(h) = ', MINVAL(h_Cart), minloc(H_Cart)
-          if (verbose) PRINT*, 'computehI: minval(I) = ', MINVAL(I_Cart), minloc(I_Cart)
-          if (verbose) print*, 'computehI: minval(D) = ', MINVAL(HDens_Cart), minloc(HDens_Cart)
-       END IF
-       !! Now check for bad integrals
-       IF (MAXVAL(h_Cart) > 3._dp) THEN
-          if (verbose) PRINT*, 'computehI: maxval(h) = ', MAXVAL(h_Cart), maxloc(H_Cart)
-          if (verbose) PRINT*, 'computehI: maxval(I) = ', MAXVAL(I_Cart), maxloc(I_Cart)
-          do j = 1, nT
-             do i = 1, nR
-                do L = 2, nPa
-                   if (h_Cart(i,j,L).gt.3) then 
-                      h_Cart(i,j,L) = h_Cart(i,j,L-1)
-                      hDens_Cart(i,j,L) = hDens_Cart(i,j,L-1)
-                   endif
-                enddo
-             enddo
-          enddo
-       ENDIF
+       enddo
+    enddo
   
-       ! Cubic GSL interpolation with natural boundaries to get h and I at muboun 
-       DO j = 1, nT
-          DO i = 1, nR
-             CALL GSL_Interpolation_1D('Cubic',PA(NPA:1:-1),h_Cart(i,j,NPA:1:-1),&
-                                       PAbn(NPA-1:2:-1),h_Cart_interp(i,j,NPA-1:2:-1),GSLerr)
-             if (GSLerr.ne.0) then
-                if (verbose) write(*,*) "  ModRamScb: Issue calculating BOUNHS; i,j = ", i, j
-             endif
-             CALL GSL_Interpolation_1D('Cubic',PA(NPA:1:-1),I_Cart(i,j,NPA:1:-1),&
-                                       PAbn(NPA-1:2:-1),I_Cart_interp(i,j,NPA-1:2:-1),GSLerr)
-             if (GSLerr.ne.0) then
-                if (verbose) write(*,*) "  ModRamScb: Issue calculating BOUNIS; i,j = ", i, j
-             endif
-             ! Do not do the NPA inclusive in the not-a-knot interpolation above -> can lead to negative h,I(NPA)
-             h_Cart_interp(i,j,NPA) = h_Cart_interp(i,j,NPA-1)
-             I_Cart_interp(i,j,NPA) = I_Cart_interp(i,j,NPA-1)
-             h_Cart_interp(i,j,1) = h_Cart_interp(i,j,2)
-             I_Cart_interp(i,j,1) = I_Cart_interp(i,j,2)
-          END DO
+    ! Cubic GSL interpolation with natural boundaries to get h and I at muboun 
+    DO j = 1, nT
+       DO i = 1, nR
+          CALL GSL_Interpolation_1D(PA(NPA:1:-1),h_Cart(i,j,NPA:1:-1),&
+                                    PAbn(NPA-1:2:-1),h_Cart_interp(i,j,NPA-1:2:-1),GSLerr)
+          CALL GSL_Interpolation_1D(PA(NPA:1:-1),I_Cart(i,j,NPA:1:-1),&
+                                    PAbn(NPA-1:2:-1),I_Cart_interp(i,j,NPA-1:2:-1),GSLerr)
+          ! Do not do the NPA inclusive in the not-a-knot interpolation above -> can lead to negative h,I(NPA)
+          h_Cart_interp(i,j,NPA) = h_Cart_interp(i,j,NPA-1)
+          I_Cart_interp(i,j,NPA) = I_Cart_interp(i,j,NPA-1)
+          h_Cart_interp(i,j,1) = h_Cart_interp(i,j,2)
+          I_Cart_interp(i,j,1) = I_Cart_interp(i,j,2)
        END DO
- 
-    END SELECT Operational_or_research
+    END DO
  
     ! Update h and I values for RAM (note that the output of the hI files
     ! now uses RAM variables so the numbers will be different
@@ -699,13 +522,6 @@ Module ModRamScb
              endif
              !
           ENDDO
-          IF (J.LT.8.or.J.GT.18) THEN
-             DO L=15,2,-1
-                if (FNHS(I,J,L-1).gt.FNHS(I,J,L)) then
-                   FNHS(I,J,L-1)=0.99*FNHS(I,J,L)
-                endif
-             ENDDO
-          ENDIF
           BNES(I,J)=BNES(I,J)/1e9 ! to convert in [T]
           if (abs(DthI).le.1e-9) then
              dBdt(I,J) = 0._dp
@@ -732,51 +548,25 @@ Module ModRamScb
     ENDDO
     TOld = TimeRamElapsed
 
-    do i = 2, nR
+    ! Check for NaN's
+    do i = 2, nR+1
        do j = 1, nT
           do L = 1, nPa
-             ! TEST -ME
-             if (abs(dIdt(I,J,L)) > 1.e-5) then
-                if (J.eq.1) then
-                   if (abs(dIdt(I,nT,L)) > 1.e-5) then
-                      dIdt(I,J,L) = 1.e-5 * (abs(dIdt(I,J,L))/dIdt(I,J,L))
-                      dIbndt(I,J,L) = 1.e-5 * (abs(dIbndt(I,J,L))/dIbndt(I,J,L))
-                   else
-                      dIdt(I,J,L) = dIdt(I,nT,L)
-                      dIbndt(I,J,L) = dIbndt(I,nT,L)
-                   endif
-                else
-                   dIdt(I,J,L) = dIdt(I,J-1,L)
-                   dIbndt(I,J,L) = dIbndt(I,J-1,L)
-                endif
-                FNIS(I,J,L) = FNISPrev(I,J,L) + dIdt(I,J,L)*dThI
-                BOUNIS(I,J,L) = BOUNISPrev(I,J,L) + dIbndt(I,J,L)*dThI
-             endif
-             if (abs(dHdt(I,J,L)) > 1.e-5) then
-                if (j.eq.1) then
-                   if (abs(dHdt(I,nT,L)) > 1.e-5) then
-                      dHdt(I,J,L) = 1.e-5 * (abs(dHdt(I,J,L))/dHdt(I,J,L))
-                      dHbndt(I,J,L) = 1.e-5 * (abs(dHbndt(I,J,L))/dHbndt(I,J,L))
-                   else
-                      dHdt(I,J,L) = dHdt(I,nT,L)
-                      dHbndt(I,J,L) = dHbndt(I,nT,L)
-                   endif
-                else
-                   dHdt(I,J,L) = dHdt(I,J-1,L)
-                   dHbndt(I,J,L) = dHbndt(I,J-1,L)
-                endif
-                FNHS(I,J,L) = FNHSPrev(I,J,L) + dHdt(I,J,L)*dThI
-                BOUNHS(I,J,L) = BOUNHSPrev(I,J,L) + dHbndt(I,J,L)*dThI
-             endif
+             if (isnan(FNIS(I,J,L))) FNIS(I,J,L) = FNIS(I-1,J,L)
+             if (isnan(FNHS(I,J,L))) FNHS(I,J,L) = FNHS(I-1,J,L)
+             if (isnan(BOUNIS(I,J,L))) BOUNIS(I,J,L) = BOUNIS(I-1,J,L)
+             if (isnan(BOUNHS(I,J,L))) BOUNHS(I,J,L) = BOUNHS(I-1,J,L)
+             if (isnan(HDNS(I,J,L))) HDNS(I,J,L) = HDNS(I-1,J,L)
+             if (isnan(dIdt(I,J,L))) dIdt(I,J,L) = 0._dp
+             if (isnan(dIbndt(I,J,L))) dIbndt(I,J,L) = 0._dp
           enddo
        enddo
     enddo
 
-    DEALLOCATE(length,r0,BeqDip,distance,H_value,I_value,HDens_value,yI,yH,yD, &
-               bfmirror,BeqDip_Cart,bfMirror_RAM,yI_RAM,yH_RAM,yD_RAM,bbx,bby, &
-               bbz,bb,dd,cVal,xx,yy,zz,BzeqDiff_Cart,BNESPrev,FNISPrev,ScaleAt,&
-               BOUNISPrev,FNHSPrev,BOUNHSPrev,dHbndt)
-  
+    DEALLOCATE(length,r0,distance,yI,yH,yD,bfmirror,bbx,bby,bbz,cVal,xx,yy,zz, &
+               BNESPrev,FNISPrev,ScaleAt,BOUNISPrev,FNHSPrev,BOUNHSPrev,dHbndt)
+    DEALLOCATE(xRAM,yRAM,zRAM,bRAM,outsideSCB)
+ 
     RETURN
   
   END SUBROUTINE computehI

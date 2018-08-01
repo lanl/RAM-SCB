@@ -142,6 +142,7 @@ MODULE ModRamInit
                                PPerE, LSDR, LSCHA, LSATM, LSCOE, LSCSC, LSWAE, ELORC, &
                                SETRC, XNN, XND, ENERN, ENERD, LNCN, LNCD, LECN, LECD, &
                                Lz, GridExtend, Phi, kp, F107
+    use ModScbVariables, ONLY: radRaw, azimRaw
     !!!! Modules Subroutines/Functions
     use ModRamWPI,     ONLY: WAPARA_HISS, WAPARA_BAS, WAPARA_CHORUS, WAVEPARA1, WAVEPARA2
     use ModRamIndices, ONLY: init_indices, get_indices
@@ -156,7 +157,7 @@ MODULE ModRamInit
   
     real(DP) :: dPh
   
-    integer :: iR, iPhi
+    integer :: iR, iPhi, j, k
     integer :: nrIn, ntIn, neIn, npaIn
     logical :: TempLogical
     logical :: StopCommand, IsStopTimeSet
@@ -196,9 +197,11 @@ MODULE ModRamInit
     if (IsComponent) then
        TimeRamNow = TimeRamRealStart
     else
-       TimeMax = TimeRamElapsed + TimeMax
-       !If (IsStopTimeSet) TimeMax = TimeRamFinish%Time-TimeRamStart%Time
-       !If (abs(TimeMax).le.1e-9) call con_stop('No stop time specified in PARAM.in! Use either #STOP or #STOPTIME')
+       If (abs(TimeMax).le.1e-9) then
+          TimeMax = TimeRamFinish%Time-TimeRamStart%Time
+       else
+          TimeMax = TimeRamElapsed + TimeMax
+       endif
     endif
 
     TimeRamStop%Time = TimeRamStart%Time + TimeMax
@@ -208,20 +211,14 @@ MODULE ModRamInit
   
   !!!!!!!!! Zero Values
     ! Initialize Pressures.
-    PPerH  = 0._dp
-    PParH  = 0._dp
-    PPerO  = 0._dp
-    PParO  = 0._dp
-    PPerHe = 0._dp
-    PParHe = 0._dp
-    PPerE  = 0._dp
-    PParE  = 0._dp
+    PPerH  = 0._dp; PParH  = 0._dp
+    PPerO  = 0._dp; PParO  = 0._dp
+    PPerHe = 0._dp; PParHe = 0._dp
+    PPerE  = 0._dp; PParE  = 0._dp
   
     ! Initial loss is zero
-    LNCN  = 0._dp
-    LNCD  = 0._dp
-    LECN  = 0._dp
-    LECD  = 0._dp
+    LNCN  = 0._dp; LNCD  = 0._dp
+    LECN  = 0._dp; LECD  = 0._dp
     LSDR  = 0._dp
     LSCHA = 0._dp
     LSATM = 0._dp
@@ -232,10 +229,8 @@ MODULE ModRamInit
     SETRC = 0._dp
   
     ! Initial energy and density
-    XNN   = 0._dp
-    XND   = 0._dp
-    ENERN = 0._dp
-    ENERD = 0._dp
+    XNN   = 0._dp; XND   = 0._dp
+    ENERN = 0._dp; ENERD = 0._dp
   !!!!!!!!!
   
   !!!!!!!!!! Initialize grid.
@@ -264,7 +259,15 @@ MODULE ModRamInit
        write(*,*)'  Lz (Ram-only grid) = ', Lz
        write(*,*)'  Phi = ', phi
     end if
-    
+
+    ! Arrays that are needed in the SCB calculations.
+    DO j = 0,nR
+       radRaw(j) = RadiusMin + ((RadiusMax+dR)-RadiusMin) * REAL(j,DP)/REAL(nR,DP)
+    END DO
+    DO k = 1,nT
+       azimRaw(k) = 24.0 * REAL(k-1,DP)/REAL(nT-1,DP)
+    END DO
+
     ! Intialize arrays
     do S=1,4
        call Arrays
@@ -272,16 +275,13 @@ MODULE ModRamInit
           if (S.EQ.1) then
              CALL WAPARA_HISS
              IF (DoUseBASdiff) then
-                print*, 'RAM-e: using BAS diff coeffic '
                 CALL WAPARA_BAS
              ELSE
-                print*, 'RAM-e: user-supplied diff coeffic '
                 CALL WAPARA_CHORUS
              ENDIF
           end if
        ELSE
           if (S.EQ.1) then
-             print*, 'RAM-e: using electron lifetimes '
              CALL WAVEPARA1
              CALL WAVEPARA2
           end if
@@ -513,7 +513,7 @@ MODULE ModRamInit
     use ModRamGrids,     ONLY: NL, NLT, nR, nT
     use ModRamTiming,    ONLY: DtEfi, TimeRamNow, TimeRamElapsed
     use ModRamVariables, ONLY: Kp, F107, TOLV, NECR, IP1, IR1, XNE
-    use ModScbParams,    ONLY: method
+    use ModScbParams,    ONLY: method, constTheta
     !!!! Module Subroutines/Functions
     use ModRamRun,       ONLY: ANISCH
     use ModRamIO,        ONLY: write_prefix
@@ -578,13 +578,17 @@ MODULE ModRamInit
        TOLV = 0.0
   
        ! Compute the SCB computational domain
+       write(*,*) ''
        call write_prefix
-       write(*,*) 'Running SCB model with Dipole to initialize B-field...'
- 
+       write(*,'(a)') 'Running SCB model to initialize B-field...'
+
        NameBoundMagTemp = NameBoundMag
-       methodTemp = method
-       NameBoundMag = 'DIPL'
-       method = 3 
+       if (NameBoundMag.eq.'SWMF') then
+          NameBoundMagTemp = NameBoundMag
+          methodTemp = method
+          NameBoundMag = 'DIPL'
+          method = 3 
+       endif
        call computational_domain
   
        call ram_sum_pressure
@@ -594,16 +598,18 @@ MODULE ModRamInit
        call computehI(0)
 
        call compute3DFlux
-       method = methodTemp
-       NameBoundMag = NameBoundMagTemp 
-  
-       !if (DoUsePlane_SCB) then
-       !   write(*,*) "Reading in initial plasmasphere density model"
-          OPEN(UNITTMP_,FILE='ne_full.dat',STATUS='OLD') ! Kp=1-2 (quiet)
-          READ(UNITTMP_,'(A)') HEADER
-          READ(UNITTMP_,*) ((NECR(I,J),I=1,NL),J=0,NLT)  ! L= 1.5 to 10
-          CLOSE(UNITTMP_)
-       !endif
+       if (NameBoundMagTemp.eq.'SWMF') then
+          method = methodTemp
+          NameBoundMag = NameBoundMagTemp 
+       endif
+ 
+       ! NECR needed for the plasmasphere model (PLANE)
+       ! XNE needed for wave particle interactions (WPI)
+       ! Initialize both of them even if not using WPI or PLANE 
+       OPEN(UNITTMP_,FILE='ne_full.dat',STATUS='OLD') ! Kp=1-2 (quiet)
+       READ(UNITTMP_,'(A)') HEADER
+       READ(UNITTMP_,*) ((NECR(I,J),I=1,NL),J=0,NLT)  ! L= 1.5 to 10
+       CLOSE(UNITTMP_)
        DO I=2,NR
          I1=int((I-2)*IR1+3,kind=4)
          DO J=1,NT

@@ -49,9 +49,9 @@ MODULE ModScbEuler
 
           i1 = 1 + theChange
           i2 = nthe - theChange
-          CALL GSL_Interpolation_1D('Cubic',chiValOld,xOld,chiVal(i1:i2),x(i1:i2,j,k),GSLerr)
-          CALL GSL_Interpolation_1D('Cubic',chiValOld,yOld,chiVal(i1:i2),y(i1:i2,j,k),GSLerr)
-          CALL GSL_Interpolation_1D('Cubic',chiValOld,zOld,chiVal(i1:i2),z(i1:i2,j,k),GSLerr)
+          CALL GSL_Interpolation_1D(chiValOld,xOld,chiVal(i1:i2),x(i1:i2,j,k),GSLerr)
+          CALL GSL_Interpolation_1D(chiValOld,yOld,chiVal(i1:i2),y(i1:i2,j,k),GSLerr)
+          CALL GSL_Interpolation_1D(chiValOld,zOld,chiVal(i1:i2),z(i1:i2,j,k),GSLerr)
        END DO fluxloop
     END DO zetaloop
 
@@ -128,9 +128,9 @@ MODULE ModScbEuler
           !   endif
           !ENDDO
 
-          CALL GSL_Interpolation_1D('Cubic',alfaOld,xOld,alphaVal(2:nzeta),x(i,j,2:nzeta),GSLerr)
-          CALL GSL_Interpolation_1D('Cubic',alfaOld,yOld,alphaVal(2:nzeta),y(i,j,2:nzeta),GSLerr)
-          CALL GSL_Interpolation_1D('Cubic',alfaOld,zOld,alphaVal(2:nzeta),z(i,j,2:nzeta),GSLerr)
+          CALL GSL_Interpolation_1D(alfaOld,xOld,alphaVal(2:nzeta),x(i,j,2:nzeta),GSLerr)
+          CALL GSL_Interpolation_1D(alfaOld,yOld,alphaVal(2:nzeta),y(i,j,2:nzeta),GSLerr)
+          CALL GSL_Interpolation_1D(alfaOld,zOld,alphaVal(2:nzeta),z(i,j,2:nzeta),GSLerr)
        END DO iloop
     END DO jloop
 
@@ -225,7 +225,7 @@ MODULE ModScbEuler
                                  - vecx(iz,jz,k)
                 alfa(iz,jz,k) = alfa(iz,jz,k) + om(jz) * (resid(iz,jz,k) / vecd(iz,jz,k))
                 if (isnan(alfa(iz,jz,k))) then
-                   if (verbose) write(*,*) iz,jz,k,alfa(iz,jz,k), resid(iz,jz,k), vecd(iz,jz,k)
+                   if (verbose) write(*,*) iz,jz,k, alfa(iz,jz,k), resid(iz,jz,k), vecd(iz,jz,k)
                    if (verbose) write(*,*) 'NaN encountered in ModScbEuler iterateAlpha'
                    alfa(iz,jz,k) = alfaprev(iz,jz,k)
                    resid(iz,jz,k) = 0._dp
@@ -363,7 +363,7 @@ MODULE ModScbEuler
     radEqmid = SQRT(x(nThetaEquator,:,kMax)**2 + y(nThetaEquator,:,kMax)**2)
 
     psival1D = psival
-    CALL GSL_Interpolation_1D('Cubic',radEqMid, psiVal1D, radEqMidNew(2:npsi), psiVal(2:npsi), GSLerr)
+    CALL GSL_Interpolation_1D(radEqMid, psiVal1D, radEqMidNew(2:npsi), psiVal(2:npsi), GSLerr)
 
     DEALLOCATE(radEqMid,psiVal1D,radius)
     RETURN
@@ -429,9 +429,9 @@ MODULE ModScbEuler
 
           i1 = 1 + psiChange
           i2 = npsi - psiChange
-          CALL GSL_Interpolation_1D('Cubic',psiOld, xOld, psiVal(i1:i2), x(i,i1:i2,k), GSLerr)
-          CALL GSL_Interpolation_1D('Cubic',psiOld, yOld, psiVal(i1:i2), y(i,i1:i2,k), GSLerr)
-          CALL GSL_Interpolation_1D('Cubic',psiOld, zOld, psiVal(i1:i2), z(i,i1:i2,k), GSLerr)
+          CALL GSL_Interpolation_1D(psiOld, xOld, psiVal(i1:i2), x(i,i1:i2,k), GSLerr)
+          CALL GSL_Interpolation_1D(psiOld, yOld, psiVal(i1:i2), y(i,i1:i2,k), GSLerr)
+          CALL GSL_Interpolation_1D(psiOld, zOld, psiVal(i1:i2), z(i,i1:i2,k), GSLerr)
        END DO iloop
     END DO kloop
   
