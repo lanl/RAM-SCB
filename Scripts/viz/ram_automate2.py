@@ -404,11 +404,11 @@ def gen_viz(fileName):
 	bLUT.RescaleTransferFunction(1.97797401027, 591.487212231)
 
 	# convert to log space
-	pressureLUT.MapControlPointsToLogSpace()
+	bLUT.MapControlPointsToLogSpace()
 
 	# Properties modified on pressureLUT
-	pressureLUT.UseLogScale = 1
-	pressureLUT.ApplyPreset('Blues', True)
+	bLUT.UseLogScale = 1
+	bLUT.ApplyPreset('Blues', True)
 
 	# Rescale transfer function
 	pressureLUT.RescaleTransferFunction(0.178525596857, 1.18874013424)
@@ -450,14 +450,14 @@ def gen_viz(fileName):
 	bLUTColorBar.TitleColor = [0.0, 0.0, 0.0]
 	bLUTColorBar.LabelColor = [0.0, 0.0, 0.0]
 	#bLUTColorBar.AspectRatio = 25
-	bLUTColorBar.add_attribute('AspectRatio', 70)
+	bLUTColorBar.add_attribute('AspectRatio', 90)
 	pressureLUTColorBar = GetScalarBar(pressureLUT, renderView1)
 	pressureLUTColorBar.TitleFontSize = 7
 	pressureLUTColorBar.LabelFontSize = 7
 	pressureLUTColorBar.TitleColor = [0.0, 0.0, 0.0]
 	pressureLUTColorBar.LabelColor = [0.0, 0.0, 0.0]
 	#pressureLUTColorBar.AspectRatio = 25
-	pressureLUTColorBar.add_attribute('AspectRatio', 70)
+	pressureLUTColorBar.add_attribute('AspectRatio', 90)
 
 	bLUT.add_attribute('Position2', [200,900])
 
@@ -467,19 +467,19 @@ def gen_viz(fileName):
 	if properties['Scale'] == 'on':
 		renderView1.AxesGrid.Visibility = 1
 		renderView1.AxesGrid.XTitleColor = [0.0, 0.0, 0.0]
-		renderView1.AxesGrid.XTitleFontSize = 11
+		renderView1.AxesGrid.XTitleFontSize = 9
 		renderView1.AxesGrid.YTitleColor = [0.0, 0.0, 0.0]
-		renderView1.AxesGrid.YTitleFontSize = 11
+		renderView1.AxesGrid.YTitleFontSize = 9
 		renderView1.AxesGrid.ZTitleColor = [0.0, 0.0, 0.0]
-		renderView1.AxesGrid.ZTitleFontSize = 11
+		renderView1.AxesGrid.ZTitleFontSize = 9
 		renderView1.AxesGrid.XLabelColor = [0.0, 0.0, 0.0]
-		renderView1.AxesGrid.XLabelFontSize = 11
+		renderView1.AxesGrid.XLabelFontSize = 9
 		renderView1.AxesGrid.YLabelColor = [0.0, 0.0, 0.0]
-		renderView1.AxesGrid.YLabelFontSize = 11
+		renderView1.AxesGrid.YLabelFontSize = 9
 		renderView1.AxesGrid.ZLabelColor = [0.0, 0.0, 0.0]
-		renderView1.AxesGrid.ZLabelFontSize = 11
+		renderView1.AxesGrid.ZLabelFontSize = 9
 
-	SaveScreenshot('images/' +  fileName + '_viz.png', magnification=2, quality=600, view=renderView1)
+	SaveScreenshot('images/' +  fileName + '_viz.png', magnification=1.75, quality=600, view=renderView1)
 #========================================================================================================
 if __name__ == '__main__':
 	read_config()	
