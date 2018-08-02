@@ -1,0 +1,5 @@
+Anything before the colon is the property name, after the colon is the property value. Property values are case-sensitive
+Streamline source type (sphere or slice): slice
+Plasma pressure display (electron/proton/heliumion/oxygenion): proton
+Camera angle:
+Scale (on/off): on
