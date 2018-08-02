@@ -285,18 +285,19 @@ def gen_viz(fileName):
 	# get color transfer function/color map for 'electronpressure'
 	#pressureLUT = GetColorTransferFunction('electronpressure')
 	pressureLUT = GetColorTransferFunction(properties['Plasma pressure display'] + 'pressure')
+	pressureLUT.RescaleOnVisibilityChange = 1
 
 	# show data in view
 	pressure_20130317_T04D_RSCE_GEO_t02000vtsDisplay = Show(pressure_20130317_T04D_RSCE_GEO_t02000vts, renderView1)
 	# trace defaults for the display properties.
 	pressure_20130317_T04D_RSCE_GEO_t02000vtsDisplay.AmbientColor = [0.0, 0.0, 0.0]
-	pressure_20130317_T04D_RSCE_GEO_t02000vtsDisplay.ColorArrayName = ['POINTS', 'electron pressure']
+	pressure_20130317_T04D_RSCE_GEO_t02000vtsDisplay.ColorArrayName = ['POINTS', properties['Plasma pressure display'] + 'pressure']
 	pressure_20130317_T04D_RSCE_GEO_t02000vtsDisplay.LookupTable = pressureLUT
-	pressure_20130317_T04D_RSCE_GEO_t02000vtsDisplay.OSPRayScaleArray = 'electron pressure'
+	pressure_20130317_T04D_RSCE_GEO_t02000vtsDisplay.OSPRayScaleArray = properties['Plasma pressure display'] + 'pressure'
 	pressure_20130317_T04D_RSCE_GEO_t02000vtsDisplay.OSPRayScaleFunction = 'PiecewiseFunction'
 	pressure_20130317_T04D_RSCE_GEO_t02000vtsDisplay.SelectOrientationVectors = 'None'
 	pressure_20130317_T04D_RSCE_GEO_t02000vtsDisplay.ScaleFactor = 1.35
-	pressure_20130317_T04D_RSCE_GEO_t02000vtsDisplay.SelectScaleArray = 'electron pressure'
+	pressure_20130317_T04D_RSCE_GEO_t02000vtsDisplay.SelectScaleArray = properties['Plasma pressure display'] + 'pressure'
 	pressure_20130317_T04D_RSCE_GEO_t02000vtsDisplay.GlyphType = 'Arrow'
 	pressure_20130317_T04D_RSCE_GEO_t02000vtsDisplay.ScalarOpacityUnitDistance = 2.480431009474945
 
@@ -331,13 +332,13 @@ def gen_viz(fileName):
 	# trace defaults for the display properties.
 	pointVolumeInterpolator1Display.Representation = 'Outline'
 	pointVolumeInterpolator1Display.AmbientColor = [0.0, 0.0, 0.0]
-	pointVolumeInterpolator1Display.ColorArrayName = ['POINTS', 'electron pressure']
+	pointVolumeInterpolator1Display.ColorArrayName = ['POINTS', properties['Plasma pressure display'] + 'pressure']
 	pointVolumeInterpolator1Display.LookupTable = pressureLUT
-	pointVolumeInterpolator1Display.OSPRayScaleArray = 'electron pressure'
+	pointVolumeInterpolator1Display.OSPRayScaleArray = properties['Plasma pressure display'] + 'pressure'
 	pointVolumeInterpolator1Display.OSPRayScaleFunction = 'PiecewiseFunction'
 	pointVolumeInterpolator1Display.SelectOrientationVectors = 'None'
 	pointVolumeInterpolator1Display.ScaleFactor = 1.35
-	pointVolumeInterpolator1Display.SelectScaleArray = 'electron pressure'
+	pointVolumeInterpolator1Display.SelectScaleArray = properties['Plasma pressure display'] + 'pressure'
 	pointVolumeInterpolator1Display.GlyphType = 'Arrow'
 	pointVolumeInterpolator1Display.ScalarOpacityUnitDistance = 0.1909188309203679
 	pointVolumeInterpolator1Display.Slice = 50
@@ -354,7 +355,7 @@ def gen_viz(fileName):
 	# create a new 'Clip'
 	clip1 = Clip(Input=pointVolumeInterpolator1)
 	clip1.ClipType = 'Plane'
-	clip1.Scalars = ['POINTS', 'electron pressure']
+	clip1.Scalars = ['POINTS', properties['Plasma pressure display'] + 'pressure']
 	clip1.Value = 5.546324253082275
 
 	# Rescale transfer function
@@ -365,25 +366,32 @@ def gen_viz(fileName):
 
 	# Properties modified on clip1
 	clip1.ClipType = 'Sphere'
+	clip1.ClipType.Radius = 6.75
 
 	# show data in view
 	clip1Display = Show(clip1, renderView1)
 	# trace defaults for the display properties.
 	clip1Display.AmbientColor = [0.0, 0.0, 0.0]
-	clip1Display.ColorArrayName = ['POINTS', 'electron pressure']
+	clip1Display.ColorArrayName = ['POINTS', properties['Plasma pressure display'] + 'pressure']
 	clip1Display.LookupTable = pressureLUT
-	clip1Display.OSPRayScaleArray = 'electron pressure'
+	clip1Display.OSPRayScaleArray = properties['Plasma pressure display'] + 'pressure'
 	clip1Display.OSPRayScaleFunction = 'PiecewiseFunction'
 	clip1Display.SelectOrientationVectors = 'None'
 	clip1Display.ScaleFactor = 1.35
-	clip1Display.SelectScaleArray = 'electron pressure'
+	clip1Display.SelectScaleArray = properties['Plasma pressure display'] + 'pressure'
 	clip1Display.GlyphType = 'Arrow'
 	clip1Display.ScalarOpacityUnitDistance = 0.3035512141561865
 	clip1Display.GaussianRadius = 0.675
-	clip1Display.SetScaleArray = ['POINTS', 'electron pressure']
+	clip1Display.SetScaleArray = ['POINTS', properties['Plasma pressure display'] + 'pressure']
 	clip1Display.ScaleTransferFunction = 'PiecewiseFunction'
-	clip1Display.OpacityArray = ['POINTS', 'electron pressure']
+	clip1Display.OpacityArray = ['POINTS', properties['Plasma pressure display'] + 'pressure']
 	clip1Display.OpacityTransferFunction = 'PiecewiseFunction'
+
+	if properties['Plasma pressure display'][-3:] == 'ion':
+		species = properties['Plasma pressure display'][:-4] + ' ion pressure'  
+	else:
+		species = properties['Plasma pressure display'] + ' pressure'
+	ColorBy(clip1Display, ('POINTS', species))
 
 	# init the 'PiecewiseFunction' selected for 'OSPRayScaleFunction'
 	clip1Display.OSPRayScaleFunction.Points = [0.00253301385078493, 0.0, 0.5, 0.0, 553.421725972081, 1.0, 0.5, 0.0]
@@ -406,7 +414,7 @@ def gen_viz(fileName):
 	# convert to log space
 	bLUT.MapControlPointsToLogSpace()
 
-	# Properties modified on pressureLUT
+	# Properties modified on bLUT
 	bLUT.UseLogScale = 1
 	bLUT.ApplyPreset('Blues', True)
 
@@ -450,14 +458,14 @@ def gen_viz(fileName):
 	bLUTColorBar.TitleColor = [0.0, 0.0, 0.0]
 	bLUTColorBar.LabelColor = [0.0, 0.0, 0.0]
 	#bLUTColorBar.AspectRatio = 25
-	bLUTColorBar.add_attribute('AspectRatio', 90)
+	bLUTColorBar.add_attribute('AspectRatio', 130)
 	pressureLUTColorBar = GetScalarBar(pressureLUT, renderView1)
 	pressureLUTColorBar.TitleFontSize = 7
 	pressureLUTColorBar.LabelFontSize = 7
 	pressureLUTColorBar.TitleColor = [0.0, 0.0, 0.0]
 	pressureLUTColorBar.LabelColor = [0.0, 0.0, 0.0]
 	#pressureLUTColorBar.AspectRatio = 25
-	pressureLUTColorBar.add_attribute('AspectRatio', 90)
+	pressureLUTColorBar.add_attribute('AspectRatio', 130)
 
 	bLUT.add_attribute('Position2', [200,900])
 
@@ -479,6 +487,8 @@ def gen_viz(fileName):
 		renderView1.AxesGrid.ZLabelColor = [0.0, 0.0, 0.0]
 		renderView1.AxesGrid.ZLabelFontSize = 9
 
+	renderView1.ViewSize = [600, 600]
+	#renderView1.add_attribute('ViewSize', [400, 400])
 	SaveScreenshot('images/' +  fileName + '_viz.png', magnification=1.75, quality=600, view=renderView1)
 #========================================================================================================
 if __name__ == '__main__':

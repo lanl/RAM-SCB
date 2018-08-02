@@ -50,13 +50,13 @@ def gen_vts(fileName):
 			to_write +=  '\t\t\t\t\t' + str(par_data[i][j][1] + 2*per_data[i][j][1]) + '\n'
 	to_write += '\t\t\t\t</DataArray>\n'
 
-	to_write += '\t\t\t\t<DataArray type="Float32" Name="helium ion pressure" NumberOfComponents="1" format="ascii">\n'
+	to_write += '\t\t\t\t<DataArray type="Float32" Name="heliumion pressure" NumberOfComponents="1" format="ascii">\n'
 	for i in range(25):
 		for j in range(20):
 			to_write +=  '\t\t\t\t\t' + str(par_data[i][j][2] + 2*per_data[i][j][2]) + '\n'
 	to_write += '\t\t\t\t</DataArray>\n'
 
-	to_write += '\t\t\t\t<DataArray type="Float32" Name="oxygen ion pressure" NumberOfComponents="1" format="ascii">\n'
+	to_write += '\t\t\t\t<DataArray type="Float32" Name="oxygenion pressure" NumberOfComponents="1" format="ascii">\n'
 	for i in range(25):
 		for j in range(20):
 			to_write +=  '\t\t\t\t\t' + str(par_data[i][j][3] + 2*per_data[i][j][3]) + '\n'
