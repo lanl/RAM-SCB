@@ -1,4 +1,5 @@
 '''Creates the .png (image)/ .avi (video) visualizations in the images directory'''
+
 #### import the simple module from the paraview
 from paraview.simple import *
 import os, sys
@@ -9,6 +10,7 @@ def read_config():
 	global properties, state_written
 	state_written = False
 	property_labels = ['Streamline source type', 'Plasma pressure display', 'Camera Position', 'Camera Focal Point', 'Camera View Up', 'Scale', 'Movie', 'SaveState']
+
 	with open('config.txt', 'r') as to_read:
 		lines = to_read.readlines()
 	lines = map(lambda x: x[x.find(':')+1:].strip(), lines)
@@ -38,7 +40,6 @@ def gen_viz(fileName):
 
 		animationScene1 = GetAnimationScene()
 		animationScene1.UpdateAnimationUsingDataTimeSteps()
-
 
 	# get active view
 	renderView1 = GetActiveViewOrCreate('RenderView')
@@ -321,13 +322,14 @@ def gen_viz(fileName):
 				array.append(item)
 		array = map(lambda x: 'vts_files/' + x, array)
 		pressure_20130317_T04D_RSCE_GEO_t02000vts = XMLStructuredGridReader(FileName=array)
-		
+
 	pressure_20130317_T04D_RSCE_GEO_t02000vts.PointArrayStatus = ['electron pressure', 'proton pressure', 'helium ion pressure', 'oxygen ion pressure']
 
 	# get color transfer function/color map for 'electronpressure'
 	#pressureLUT = GetColorTransferFunction('electronpressure')
 	pressureLUT = GetColorTransferFunction(properties['Plasma pressure display'] + 'pressure')
 	pressureLUT.RescaleOnVisibilityChange = 1
+
 	# convert to log space
 	pressureLUT.MapControlPointsToLogSpace()
 

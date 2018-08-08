@@ -17,4 +17,3 @@ Camera View Up: TODO
 Scale: Indicate if you choose to see the scale
 Movie: To generate images, set it to 'no'. To generate a movie, specify the groupname (first few characters that are common to all the restart files) whose movie is to be generated.
 SaveState: Setting this to True will save the state in the images directory, so that the state can be loaded in the Paraview GUI later
-
