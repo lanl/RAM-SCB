@@ -1,4 +1,5 @@
-'''Creates the .png visualizations in the images directory'''
+'''Creates the .png (image)/ .avi (video) visualizations in the images directory'''
+
 #### import the simple module from the paraview
 from paraview.simple import *
 import os, sys
@@ -6,8 +7,10 @@ import os, sys
 #========================================================================================================
 def read_config():
 	'''Reads configurations from config.txt'''
-	global properties
-	property_labels = ['Streamline source type', 'Plasma pressure display', 'Camera angle', 'Scale']
+	global properties, state_written
+	state_written = False
+	property_labels = ['Streamline source type', 'Plasma pressure display', 'Camera Position', 'Camera Focal Point', 'Camera View Up', 'Scale', 'Movie', 'SaveState']
+
 	with open('config.txt', 'r') as to_read:
 		lines = to_read.readlines()
 	lines = map(lambda x: x[x.find(':')+1:].strip(), lines)
@@ -16,12 +19,27 @@ def read_config():
 		properties[property_labels[i]] = lines[i+1]
 #========================================================================================================
 def gen_viz(fileName):
-	#### disable automatic camera reset on 'Show'
+	'''Reads the .vts files, applies filters and saves the visualizations'''
+	global state_written
+
 	paraview.simple._DisableFirstRenderCameraReset()
 
-	# create a new 'XML Structured Grid Reader'
-	field_20130317_T04D_RSCE_GEO_t02000vts = XMLStructuredGridReader(FileName=['vts_files/' + fileName + '_field.vts'])
-	field_20130317_T04D_RSCE_GEO_t02000vts.PointArrayStatus = ['B']
+	#------------------------------------Reading field data-------------------------------------
+	if properties['Movie'] == 'no':
+		field_20130317_T04D_RSCE_GEO_t02000vts = XMLStructuredGridReader(FileName=['vts_files/' + fileName + '_field.vts'])
+		field_20130317_T04D_RSCE_GEO_t02000vts.PointArrayStatus = ['B']
+	else:
+		array = []	
+		files = os.listdir('vts_files')
+		for item in files:
+			if item[:len(fileName)] == fileName and item [-10:] == '_field.vts':
+				array.append(item)
+		array = map(lambda x: 'vts_files/' + x, array)
+		field_20130317_T04D_RSCE_GEO_t02000vts = XMLStructuredGridReader(FileName=array)
+		field_20130317_T04D_RSCE_GEO_t02000vts.PointArrayStatus = ['B']
+
+		animationScene1 = GetAnimationScene()
+		animationScene1.UpdateAnimationUsingDataTimeSteps()
 
 	# get active view
 	renderView1 = GetActiveViewOrCreate('RenderView')
@@ -30,7 +48,7 @@ def gen_viz(fileName):
 	# renderView1.ViewSize = [989, 703]
 
 	# show data in view
-	field_20130317_T04D_RSCE_GEO_t02000vtsDisplay = Show(field_20130317_T04D_RSCE_GEO_t02000vts, renderView1)
+	'''field_20130317_T04D_RSCE_GEO_t02000vtsDisplay = Show(field_20130317_T04D_RSCE_GEO_t02000vts, renderView1)
 	# trace defaults for the display properties.
 	field_20130317_T04D_RSCE_GEO_t02000vtsDisplay.Representation = 'Outline'
 	field_20130317_T04D_RSCE_GEO_t02000vtsDisplay.AmbientColor = [0.0, 0.0, 0.0]
@@ -44,7 +62,7 @@ def gen_viz(fileName):
 	field_20130317_T04D_RSCE_GEO_t02000vtsDisplay.ScalarOpacityUnitDistance = 0.28164403662270693
 
 	# init the 'PiecewiseFunction' selected for 'OSPRayScaleFunction'
-	field_20130317_T04D_RSCE_GEO_t02000vtsDisplay.OSPRayScaleFunction.Points = [0.00253301385078493, 0.0, 0.5, 0.0, 553.421725972081, 1.0, 0.5, 0.0]
+	field_20130317_T04D_RSCE_GEO_t02000vtsDisplay.OSPRayScaleFunction.Points = [0.00253301385078493, 0.0, 0.5, 0.0, 553.421725972081, 1.0, 0.5, 0.0]'''
 
 	# reset view to fit data
 	renderView1.ResetCamera()
@@ -52,15 +70,16 @@ def gen_viz(fileName):
 	#changing interaction mode based on data extents
 	renderView1.InteractionMode = '3D'
 
+	#--------------------------Generating streamline source and the streamlines-------------------------------------
 	#if slice:
 	if properties['Streamline source type'] == 'slice':
 		# create a new 'Slice'
 		slice1 = Slice(Input=field_20130317_T04D_RSCE_GEO_t02000vts)
-		slice1.SliceType = 'Plane'
-		slice1.SliceOffsetValues = [0.0]
+		slice1.SliceType = 'Sphere'
+		#slice1.SliceOffsetValues = [0.0]
 
 		# init the 'Plane' selected for 'SliceType'
-		slice1.SliceType.Origin = [-0.6482846736907959, 0.25454020500183105, -0.00968027114868164]
+		#slice1.SliceType.Origin = [-0.6482846736907959, 0.25454020500183105, -0.00968027114868164]
 
 		# toggle 3D widget visibility (only when running from the GUI)
 		Show3DWidgets(proxy=slice1.SliceType)
@@ -68,18 +87,18 @@ def gen_viz(fileName):
 		# Properties modified on slice1.SliceType
 		#slice1.SliceType.Center = [0.0, 0.0, 0.0]
 		#slice1.SliceType.Radius = 1.01
-		slice1.add_attribute('Center', [0.0, 0.0, 0.0])
-		slice1.add_attribute('Radius', 1.01)
+		#slice1.add_attribute('Center', [0.0, 0.0, 0.0])
+		#slice1.add_attribute('Radius', 1.01)
 
 		# Properties modified on slice1
-		slice1.SliceType = 'Sphere'
+		#slice1.SliceType = 'Sphere'
 
 		# Properties modified on slice1.SliceType
 		slice1.SliceType.Center = [0.0, 0.0, 0.0]
 		slice1.SliceType.Radius = 1.01
 
 		# show data in view
-		slice1Display = Show(slice1, renderView1)
+		'''slice1Display = Show(slice1, renderView1)
 		# trace defaults for the display properties.
 		slice1Display.AmbientColor = [0.0, 0.0, 0.0]
 		slice1Display.ColorArrayName = [None, '']
@@ -102,13 +121,13 @@ def gen_viz(fileName):
 		slice1Display.ScaleTransferFunction.Points = [0.00253301385078493, 0.0, 0.5, 0.0, 553.421725972081, 1.0, 0.5, 0.0]
 
 		# init the 'PiecewiseFunction' selected for 'OpacityTransferFunction'
-		slice1Display.OpacityTransferFunction.Points = [0.00253301385078493, 0.0, 0.5, 0.0, 553.421725972081, 1.0, 0.5, 0.0]
+		slice1Display.OpacityTransferFunction.Points = [0.00253301385078493, 0.0, 0.5, 0.0, 553.421725972081, 1.0, 0.5, 0.0]'''
 
 		# set active source
 		SetActiveSource(field_20130317_T04D_RSCE_GEO_t02000vts)
 
 		# hide data in view
-		Hide(slice1, renderView1)
+		#Hide(slice1, renderView1)
 
 		# create a new 'Stream Tracer With Custom Source'
 		streamTracerWithCustomSource1 = StreamTracerWithCustomSource(Input=field_20130317_T04D_RSCE_GEO_t02000vts,
@@ -124,7 +143,7 @@ def gen_viz(fileName):
 		# show data in view
 		streamTracerWithCustomSource1Display = Show(streamTracerWithCustomSource1, renderView1)
 		# trace defaults for the display properties.
-		streamTracerWithCustomSource1Display.AmbientColor = [0.0, 0.0, 0.0]
+		#streamTracerWithCustomSource1Display.AmbientColor = [0.0, 0.0, 0.0]
 		streamTracerWithCustomSource1Display.ColorArrayName = [None, '']
 		streamTracerWithCustomSource1Display.OSPRayScaleArray = 'AngularVelocity'
 		streamTracerWithCustomSource1Display.OSPRayScaleFunction = 'PiecewiseFunction'
@@ -156,7 +175,7 @@ def gen_viz(fileName):
 		spherevts.PointArrayStatus = ['dummy']
 
 		# show data in view
-		spherevtsDisplay = Show(spherevts, renderView1)
+		'''spherevtsDisplay = Show(spherevts, renderView1)
 		# trace defaults for the display properties.
 		spherevtsDisplay.Representation = 'Outline'
 		spherevtsDisplay.ColorArrayName = ['POINTS', '']
@@ -169,7 +188,7 @@ def gen_viz(fileName):
 		spherevtsDisplay.ScalarOpacityUnitDistance = 0.04663026724290165
 
 		# init the 'PiecewiseFunction' selected for 'OSPRayScaleFunction'
-		spherevtsDisplay.OSPRayScaleFunction.Points = [0.00253301385078493, 0.0, 0.5, 0.0, 553.421725972081, 1.0, 0.5, 0.0]
+		spherevtsDisplay.OSPRayScaleFunction.Points = [0.00253301385078493, 0.0, 0.5, 0.0, 553.421725972081, 1.0, 0.5, 0.0]'''
 
 		# set active source
 		SetActiveSource(field_20130317_T04D_RSCE_GEO_t02000vts)
@@ -181,7 +200,7 @@ def gen_viz(fileName):
 
 		# Properties modified on streamTracerWithCustomSource1
 		#streamTracerWithCustomSource1.SurfaceStreamlines = 1
-		streamTracerWithCustomSource1.IntegratorType = 'Runge-Kutta 4'
+		streamTracerWithCustomSource1.IntegratorType = 'Runge-Kutta 2'
 
 		# show data in view
 		streamTracerWithCustomSource1Display = Show(streamTracerWithCustomSource1, renderView1)
@@ -209,26 +228,33 @@ def gen_viz(fileName):
 		streamTracerWithCustomSource1Display.OpacityTransferFunction.Points = [0.00253301385078493, 0.0, 0.5, 0.0, 553.421725972081, 1.0, 0.5, 0.0]
 
 		# hide data in view
-		Hide(field_20130317_T04D_RSCE_GEO_t02000vts, renderView1)
+		#Hide(field_20130317_T04D_RSCE_GEO_t02000vts, renderView1)
 
 		# hide data in view
 		Hide(spherevts, renderView1)
 	else:
 		raise ValueError('Streamline source should be either sphere or slice')
 		sys.exit(1)
-	#------------------------------------------------------------------------------------------------------
+	#----------------------------Applying tube filter to streamlines to make them more visible-----------------------------
 
 	# set scalar coloring
-	ColorBy(streamTracerWithCustomSource1Display, ('POINTS', 'B'))
+	#ColorBy(streamTracerWithCustomSource1Display, ('POINTS', 'B'))
 
 	# rescale color and/or opacity maps used to include current data range
-	streamTracerWithCustomSource1Display.RescaleTransferFunctionToDataRange(True, False)
+	#streamTracerWithCustomSource1Display.RescaleTransferFunctionToDataRange(True, False)
 
 	# show color bar/color legend
-	streamTracerWithCustomSource1Display.SetScalarBarVisibility(renderView1, True)
+	#streamTracerWithCustomSource1Display.SetScalarBarVisibility(renderView1, True)
 
 	# get color transfer function/color map for 'B'
 	bLUT = GetColorTransferFunction('B')
+
+	# convert to log space
+	bLUT.MapControlPointsToLogSpace()
+
+	# Properties modified on bLUT
+	bLUT.UseLogScale = 1
+	bLUT.ApplyPreset('Blues', True)
 
 	# get opacity transfer function/opacity map for 'B'
 	bPWF = GetOpacityTransferFunction('B')
@@ -240,7 +266,7 @@ def gen_viz(fileName):
 	tube1 = Tube(Input=streamTracerWithCustomSource1)
 	tube1.Scalars = ['POINTS', 'AngularVelocity']
 	tube1.Vectors = ['POINTS', 'Normals']
-	tube1.Radius = 0.09971208572387695
+	#tube1.Radius = 0.09971208572387695
 
 	# Properties modified on tube1
 	tube1.Radius = 0.016951054573059083
@@ -248,16 +274,17 @@ def gen_viz(fileName):
 	# show data in view
 	tube1Display = Show(tube1, renderView1)
 	# trace defaults for the display properties.
-	tube1Display.AmbientColor = [0.0, 0.0, 0.0]
-	tube1Display.ColorArrayName = ['POINTS', 'B']
+	#tube1Display.AmbientColor = [0.0, 0.0, 0.0]
+	#tube1Display.ColorArrayName = ['POINTS', 'B']
+	tube1Display.ColorArrayName = [None, '']
 	tube1Display.LookupTable = bLUT
 	tube1Display.OSPRayScaleArray = 'AngularVelocity'
 	tube1Display.OSPRayScaleFunction = 'PiecewiseFunction'
 	tube1Display.SelectOrientationVectors = 'Normals'
-	tube1Display.ScaleFactor = 1.0000883102416993
+	tube1Display.ScaleFactor = 0.824
 	tube1Display.SelectScaleArray = 'AngularVelocity'
 	tube1Display.GlyphType = 'Arrow'
-	tube1Display.GaussianRadius = 0.5000441551208497
+	tube1Display.GaussianRadius = 0.412
 	tube1Display.SetScaleArray = ['POINTS', 'AngularVelocity']
 	tube1Display.ScaleTransferFunction = 'PiecewiseFunction'
 	tube1Display.OpacityArray = ['POINTS', 'AngularVelocity']
@@ -275,11 +302,27 @@ def gen_viz(fileName):
 	# hide data in view
 	Hide(streamTracerWithCustomSource1, renderView1)
 
+	# set scalar coloring
+	ColorBy(tube1Display, ('POINTS', 'B'))
+
+	# rescale color and/or opacity maps used to include current data range
+	tube1Display.RescaleTransferFunctionToDataRange(True, False)
+
 	# show color bar/color legend
 	tube1Display.SetScalarBarVisibility(renderView1, True)
 
-	# create a new 'XML Structured Grid Reader'
-	pressure_20130317_T04D_RSCE_GEO_t02000vts = XMLStructuredGridReader(FileName=['vts_files/' + fileName + '_pressure.vts'])
+	#------------------------Reading pressure data, applying PointVolumeInterpolator and Clip filters---------------------------
+	if properties['Movie'] == 'no':
+		pressure_20130317_T04D_RSCE_GEO_t02000vts = XMLStructuredGridReader(FileName=['vts_files/' + fileName + '_pressure.vts'])
+	else:
+		array = []	
+		files = os.listdir('vts_files')
+		for item in files:
+			if item[:len(fileName)] == fileName and item[-13:] == '_pressure.vts':
+				array.append(item)
+		array = map(lambda x: 'vts_files/' + x, array)
+		pressure_20130317_T04D_RSCE_GEO_t02000vts = XMLStructuredGridReader(FileName=array)
+
 	pressure_20130317_T04D_RSCE_GEO_t02000vts.PointArrayStatus = ['electron pressure', 'proton pressure', 'helium ion pressure', 'oxygen ion pressure']
 
 	# get color transfer function/color map for 'electronpressure'
@@ -287,8 +330,16 @@ def gen_viz(fileName):
 	pressureLUT = GetColorTransferFunction(properties['Plasma pressure display'] + 'pressure')
 	pressureLUT.RescaleOnVisibilityChange = 1
 
+	# convert to log space
+	pressureLUT.MapControlPointsToLogSpace()
+
+	# Properties modified on pressureLUT
+	pressureLUT.UseLogScale = 1
+	pressureLUT.ApplyPreset('Inferno (matplotlib)', True)
+
+
 	# show data in view
-	pressure_20130317_T04D_RSCE_GEO_t02000vtsDisplay = Show(pressure_20130317_T04D_RSCE_GEO_t02000vts, renderView1)
+	'''pressure_20130317_T04D_RSCE_GEO_t02000vtsDisplay = Show(pressure_20130317_T04D_RSCE_GEO_t02000vts, renderView1)
 	# trace defaults for the display properties.
 	pressure_20130317_T04D_RSCE_GEO_t02000vtsDisplay.AmbientColor = [0.0, 0.0, 0.0]
 	pressure_20130317_T04D_RSCE_GEO_t02000vtsDisplay.ColorArrayName = ['POINTS', properties['Plasma pressure display'] + 'pressure']
@@ -305,14 +356,13 @@ def gen_viz(fileName):
 	pressure_20130317_T04D_RSCE_GEO_t02000vtsDisplay.OSPRayScaleFunction.Points = [0.00253301385078493, 0.0, 0.5, 0.0, 553.421725972081, 1.0, 0.5, 0.0]
 
 	# show color bar/color legend
-	pressure_20130317_T04D_RSCE_GEO_t02000vtsDisplay.SetScalarBarVisibility(renderView1, True)
+	pressure_20130317_T04D_RSCE_GEO_t02000vtsDisplay.SetScalarBarVisibility(renderView1, True)'''
 
 	# Rescale transfer function
-	bLUT.RescaleTransferFunction(1.97797401027, 591.487212231)
-	pressureLUT.MapControlPointsToLogSpace()
+	#bLUT.RescaleTransferFunction(1.97797401027, 591.487212231)
 
 	# Rescale transfer function
-	bPWF.RescaleTransferFunction(1.97797401027, 591.487212231)
+	#bPWF.RescaleTransferFunction(1.97797401027, 591.487212231)
 
 	# get opacity transfer function/opacity map for 'electronpressure'
 	pressurePWF = GetOpacityTransferFunction(properties['Plasma pressure display'] + 'pressure')
@@ -328,7 +378,7 @@ def gen_viz(fileName):
 	pointVolumeInterpolator1.Source.Scale = [13.5, 13.5, 0.0]
 
 	# show data in view
-	pointVolumeInterpolator1Display = Show(pointVolumeInterpolator1, renderView1)
+	'''pointVolumeInterpolator1Display = Show(pointVolumeInterpolator1, renderView1)
 	# trace defaults for the display properties.
 	pointVolumeInterpolator1Display.Representation = 'Outline'
 	pointVolumeInterpolator1Display.AmbientColor = [0.0, 0.0, 0.0]
@@ -344,22 +394,22 @@ def gen_viz(fileName):
 	pointVolumeInterpolator1Display.Slice = 50
 
 	# init the 'PiecewiseFunction' selected for 'OSPRayScaleFunction'
-	pointVolumeInterpolator1Display.OSPRayScaleFunction.Points = [0.00253301385078493, 0.0, 0.5, 0.0, 553.421725972081, 1.0, 0.5, 0.0]
+	pointVolumeInterpolator1Display.OSPRayScaleFunction.Points = [0.00253301385078493, 0.0, 0.5, 0.0, 553.421725972081, 1.0, 0.5, 0.0]'''
 
 	# hide data in view
-	Hide(pressure_20130317_T04D_RSCE_GEO_t02000vts, renderView1)
+	#Hide(pressure_20130317_T04D_RSCE_GEO_t02000vts, renderView1)
 
 	# show color bar/color legend
-	pointVolumeInterpolator1Display.SetScalarBarVisibility(renderView1, True)
+	#pointVolumeInterpolator1Display.SetScalarBarVisibility(renderView1, True)
 
 	# create a new 'Clip'
 	clip1 = Clip(Input=pointVolumeInterpolator1)
-	clip1.ClipType = 'Plane'
-	clip1.Scalars = ['POINTS', properties['Plasma pressure display'] + 'pressure']
-	clip1.Value = 5.546324253082275
+	#clip1.ClipType = 'Plane'
+	#clip1.Scalars = ['POINTS', properties['Plasma pressure display'] + 'pressure']
+	#clip1.Value = 5.546324253082275
 
 	# Rescale transfer function
-	bLUT.RescaleTransferFunction(1.97797401027, 591.487212231)
+	#bLUT.RescaleTransferFunction(1.97797401027, 591.487212231)
 
 	# toggle 3D widget visibility (only when running from the GUI)
 	Show3DWidgets(proxy=clip1.ClipType)
@@ -367,6 +417,7 @@ def gen_viz(fileName):
 	# Properties modified on clip1
 	clip1.ClipType = 'Sphere'
 	clip1.ClipType.Radius = 6.75
+	clip1.InsideOut = 1
 
 	# show data in view
 	clip1Display = Show(clip1, renderView1)
@@ -406,49 +457,44 @@ def gen_viz(fileName):
 	clip1Display.SetScalarBarVisibility(renderView1, True)
 
 	# hide data in view
-	Hide(pointVolumeInterpolator1, renderView1)
+	#Hide(pointVolumeInterpolator1, renderView1)
 
 	# Rescale transfer function
-	bLUT.RescaleTransferFunction(1.97797401027, 591.487212231)
+	'''bLUT.RescaleTransferFunction(1.97797401027, 591.487212231)
 
 	# convert to log space
 	bLUT.MapControlPointsToLogSpace()
 
 	# Properties modified on bLUT
 	bLUT.UseLogScale = 1
-	bLUT.ApplyPreset('Blues', True)
+	bLUT.ApplyPreset('Blues', True)'''
 
 	# Rescale transfer function
-	pressureLUT.RescaleTransferFunction(0.178525596857, 1.18874013424)
+	#pressureLUT.RescaleTransferFunction(0.178525596857, 1.18874013424)
 
 	# Rescale transfer function
-	pressurePWF.RescaleTransferFunction(0.178525596857, 1.18874013424)
+	#pressurePWF.RescaleTransferFunction(0.178525596857, 1.18874013424)
 
 	# Properties modified on clip1
-	clip1.InsideOut = 1
+	# Rescale transfer function
+	#pressureLUT.RescaleTransferFunction(0.0, 11.0926485062)
 
 	# Rescale transfer function
-	pressureLUT.RescaleTransferFunction(0.0, 11.0926485062)
-
-	# Rescale transfer function
-	pressurePWF.RescaleTransferFunction(0.0, 11.0926485062)
+	#pressurePWF.RescaleTransferFunction(0.0, 11.0926485062)
 
 	# toggle 3D widget visibility (only when running from the GUI)
 	Hide3DWidgets(proxy=clip1.ClipType)
-
-	# convert to log space
-	pressureLUT.MapControlPointsToLogSpace()
-
-	# Properties modified on pressureLUT
-	pressureLUT.UseLogScale = 1
-	pressureLUT.ApplyPreset('Inferno (matplotlib)', True)
+	Show(tube1, renderView1)
 
 	#### saving camera placements for all active views
 
 	# current camera placement for renderView1
-	renderView1.CameraPosition = [-15.328799375388362, -23.58278282367084, 28.387079424203996]
+	renderView1.CameraPosition = map(float, properties['Camera Position'].split(',')	)
+	renderView1.CameraFocalPoint = map(float, properties['Camera Focal Point'].split(',')	)
+	renderView1.CameraViewUp = map(float, properties['Camera View Up'].split(',')	)
+	'''renderView1.CameraPosition = [-15.328799375388362, -23.58278282367084, 28.387079424203996]
 	renderView1.CameraFocalPoint = [-0.43224358558654785, 0.200559139251709, -0.006810903549194211]
-	renderView1.CameraViewUp = [-0.019392088078452663, 0.7714426265022851, 0.6360033183366368]
+	renderView1.CameraViewUp = [-0.019392088078452663, 0.7714426265022851, 0.6360033183366368]'''
 	renderView1.CameraParallelScale = 5.332579277749032
 
 	#Adjusting color legend properties
@@ -467,11 +513,15 @@ def gen_viz(fileName):
 	#pressureLUTColorBar.AspectRatio = 25
 	pressureLUTColorBar.add_attribute('AspectRatio', 130)
 
-	bLUT.add_attribute('Position2', [200,900])
+	#bLUT.add_attribute('Position2', [200,900])
 
 	renderView1.OrientationAxesLabelColor = [0.0, 0.0, 0.0]
 	renderView1.OrientationAxesOutlineColor = [0.0, 0.0, 0.0]
+	renderView1.ViewSize = [600, 600]
+	Show(tube1, renderView1)
+	#renderView1.add_attribute('ViewSize', [400, 400])
 
+	#--------------------------------Setting the scale and saving state-----------------------------------
 	if properties['Scale'] == 'on':
 		renderView1.AxesGrid.Visibility = 1
 		renderView1.AxesGrid.XTitleColor = [0.0, 0.0, 0.0]
@@ -487,14 +537,25 @@ def gen_viz(fileName):
 		renderView1.AxesGrid.ZLabelColor = [0.0, 0.0, 0.0]
 		renderView1.AxesGrid.ZLabelFontSize = 9
 
-	renderView1.ViewSize = [600, 600]
-	#renderView1.add_attribute('ViewSize', [400, 400])
-	SaveScreenshot('images/' +  fileName + '_viz.png', magnification=1.75, quality=600, view=renderView1)
+	if properties['SaveState'] == 'True' and state_written == False:
+		SaveState('images/' +  fileName+ '_state.pvsm')
+		state_written = True
+
+	#-----------------------------------------Saving the image/video--------------------------------------------
+	if properties['Movie'] == 'no':
+		SaveScreenshot('images/' +  fileName + '_viz.png', magnification=1.75, quality=100, view=renderView1) #later add image resolution?
+	else:
+		SaveAnimation(filename = 'images/' + properties['Movie'] + '_movie.avi', FrameRate=2)	
+
 #========================================================================================================
 if __name__ == '__main__':
 	read_config()	
 
 	files = os.listdir('vts_files')
-	for item in files:
-		if item[-10:] == '_field.vts':
-			gen_viz(item[:-10])
+
+	if properties['Movie'] == 'no':
+		for item in files:
+			if item[-10:] == '_field.vts':
+				gen_viz(item[:-10])
+	else:
+		gen_viz(properties['Movie'])

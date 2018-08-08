@@ -12,7 +12,7 @@ import spacepy.datamodel as dm
 def read_config():
 	'''Reads configurations from config.txt'''
 	global properties
-	property_labels = ['Streamline source type', 'Plasma pressure display', 'Camera angle', 'Scale']
+	property_labels = ['Streamline source type', 'Plasma pressure display', 'Camera Position',  'Camera Focal Point', 'Camera View Up', 'Scale', 'Movie', 'SaveState']
 	with open('config.txt', 'r') as to_read:
 		lines = to_read.readlines()
 	if len(lines) - 1 != len(property_labels):
@@ -39,26 +39,30 @@ def gen_vts(fileName):
 	par_data = data['PParT'].tolist(); per_data = data['PPerT'].tolist()
 
 	to_write += '\t\t\t\t<DataArray type="Float32" Name="electron pressure" NumberOfComponents="1" format="ascii">\n'
-	for i in range(25):
-		for j in range(20):
+
+	for i in range(nT):
+		for j in range(nR):
 			to_write +=  '\t\t\t\t\t' + str(par_data[i][j][0] + 2*per_data[i][j][0]) + '\n'
 	to_write += '\t\t\t\t</DataArray>\n'
 
 	to_write += '\t\t\t\t<DataArray type="Float32" Name="proton pressure" NumberOfComponents="1" format="ascii">\n'
-	for i in range(25):
-		for j in range(20):
+
+	for i in range(nT):
+		for j in range(nR):
 			to_write +=  '\t\t\t\t\t' + str(par_data[i][j][1] + 2*per_data[i][j][1]) + '\n'
 	to_write += '\t\t\t\t</DataArray>\n'
 
 	to_write += '\t\t\t\t<DataArray type="Float32" Name="heliumion pressure" NumberOfComponents="1" format="ascii">\n'
-	for i in range(25):
-		for j in range(20):
+
+	for i in range(nT):
+		for j in range(nR):
 			to_write +=  '\t\t\t\t\t' + str(par_data[i][j][2] + 2*per_data[i][j][2]) + '\n'
 	to_write += '\t\t\t\t</DataArray>\n'
 
 	to_write += '\t\t\t\t<DataArray type="Float32" Name="oxygenion pressure" NumberOfComponents="1" format="ascii">\n'
-	for i in range(25):
-		for j in range(20):
+
+	for i in range(nT):
+		for j in range(nR):
 			to_write +=  '\t\t\t\t\t' + str(par_data[i][j][3] + 2*per_data[i][j][3]) + '\n'
 	to_write += '\t\t\t\t</DataArray>\n'
 
@@ -195,8 +199,16 @@ if __name__ == '__main__':
 	read_config() #read configurations from config.txt
 	#Get vts files for all netcdf files in the given directory:
 	files = os.listdir(sys.argv[1])
-	for item in files:
-		if item[-3:] == '.nc':
-			gen_vts(item)
+
+	if properties['Movie'] == 'no':
+		for item in files:
+			if item[-3:] == '.nc':
+				gen_vts(item)
+	else:
+		grp = properties['Movie']
+		for item in files:
+			if item[-3:] == '.nc' and item[:len(grp)] == grp:
+				gen_vts(item)
+		
 	if properties['Streamline source type'] == 'sphere':
 		gen_sphere() #generates sphere.vts in vts_files directory
