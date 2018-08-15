@@ -171,7 +171,8 @@ def gen_viz(fileName):
 
 	elif properties['Streamline source type'] == 'sphere':
 		# create a new 'XML Structured Grid Reader'
-		spherevts = XMLStructuredGridReader(FileName=['vts_files/sphere.vts'])
+		#spherevts = XMLStructuredGridReader(FileName=['vts_files/sphere.vts'])
+		spherevts = XMLPolyDataReader(FileName=['vts_files/sphere.vtp'])
 		spherevts.PointArrayStatus = ['dummy']
 
 		# show data in view
