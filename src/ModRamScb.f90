@@ -143,10 +143,11 @@ Module ModRamScb
                                thetaVal, psi, alfa
   
     use ModRamGSL,       ONLY: GSL_Interpolation_2D, GSL_Interpolation_1D, &
-                               GSL_Integration_hI
+                               GSL_Integration_hI, GSL_Smooth_1D
     use ModRamFunctions, ONLY: RamFileName, FUNT, FUNI
     use ModScbFunctions, ONLY: extap, locate, get_dipole_lines
     use ModScbIO,        ONLY: trace, PARMOD, IOPT
+    use gaussian_filter, only: gaussian_kernel, convolve
   
     use nrtype,    ONLY: DP, pi_d, twopi_d
   
@@ -175,7 +176,9 @@ Module ModRamScb
                              FNHSPrev(:,:,:), BOUNHSPrev(:,:,:), dHbndt(:,:,:)
     REAL(DP), ALLOCATABLE :: xRAM(:,:,:), yRAM(:,:,:), zRAM(:,:,:), bRAM(:,:,:)
     REAL(DP) :: scalingI, scalingH, scalingD, I_Temp, H_Temp, D_Temp
-  
+ 
+    REAL(DP), ALLOCATABLE :: kernel(:,:), output(:,:)
+ 
     ! Variables for Tracing
     INTEGER :: LMAX, LOUT
     INTEGER :: ID
@@ -536,10 +539,18 @@ Module ModRamScb
        EIR(1,J) = 0._dp
        EIP(1,J) = 0._dp
        DO L=1,NPA
-          FNHS(1,J,L) = FUNT(MU(L))
-          FNIS(1,J,L) = FUNI(MU(L))
-          BOUNHS(1,J,L)=FUNT(cos(PAbn(L)*180.0/pi_d))
-          BOUNIS(1,J,L)=FUNI(cos(PAbn(L)*180.0/pi_d))
+          FNHS(1,J,L) = FNHS(2,J,L)
+          FNIS(1,J,L) = FNIS(2,J,L)
+          BOUNHS(1,J,L)=BOUNHS(2,J,L)
+          BOUNIS(1,J,L)=BOUNIS(2,J,L)
+          !call extap(FNHS(4,j,l),FNHS(3,j,l),FNHS(2,j,l),FNHS(1,j,l))
+          !call extap(FNIS(4,j,l),FNIS(3,j,l),FNIS(2,j,l),FNIS(1,j,l))
+          !call extap(BOUNHS(4,j,l),BOUNHS(3,j,l),BOUNHS(2,j,l),BOUNHS(1,j,l))
+          !call extap(BOUNIS(4,j,l),BOUNIS(3,j,l),BOUNIS(2,j,l),BOUNIS(1,j,l))
+          !FNHS(1,J,L) = FUNT(MU(L))
+          !FNIS(1,J,L) = FUNI(MU(L))
+          !BOUNHS(1,J,L)=FUNT(cos(PAbn(L)*180.0/pi_d))
+          !BOUNIS(1,J,L)=FUNI(cos(PAbn(L)*180.0/pi_d))
           HDNS(1,J,L)=HDNS(2,J,L)
           dIdt(1,J,L)=0._dp
           dHdt(1,J,L)=0._dp
@@ -547,6 +558,30 @@ Module ModRamScb
        ENDDO
     ENDDO
     TOld = TimeRamElapsed
+
+    !allocate(output(nR+1,nT))
+    !do L = 2,NPA
+    !   call gaussian_kernel(1.0, kernel)
+    !   call convolve(FNHS(:,:,L), kernel, output)
+    !   FNHS(:,:,L) = output
+
+    !   call gaussian_kernel(1.0, kernel)
+    !   call convolve(FNIS(:,:,L), kernel, output)
+    !   FNIS(:,:,L) = output
+
+    !   call gaussian_kernel(1.0, kernel)
+    !   call convolve(BOUNHS(:,:,L), kernel, output)
+    !   BOUNHS(:,:,L) = output
+
+    !   call gaussian_kernel(1.0, kernel)
+    !   call convolve(BOUNIS(:,:,L), kernel, output)
+    !   BOUNIS(:,:,L) = output
+
+    !   call gaussian_kernel(1.0, kernel)
+    !   call convolve(HDNS(:,:,L), kernel, output)
+    !   HDNS(:,:,L) = output
+    !ENDDO
+    !deallocate(output)
 
     ! Check for NaN's
     do i = 2, nR+1
