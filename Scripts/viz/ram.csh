@@ -6,9 +6,10 @@ if (! -f config.txt) then
 endif
 
 if (-d vts_files) then
-	rm vts_files/*
+	rm vts_files/restart_*
 else
 	mkdir vts_files
+        python makeCustomSource.py
 endif
 
 if (! -d images) then
@@ -16,6 +17,6 @@ if (! -d images) then
 endif
 
 module load paraview
-python ram_automate1.py nc_files #populates vts_files
-pvpython ram_automate2.py #populates images
+python convertRAMrestart.py nc_files #populates vts_files
+pvpython visualizeRAM.py #populates images
 exit 0
