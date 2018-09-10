@@ -173,7 +173,7 @@ def gen_viz(fileName):
 		# create a new 'XML Structured Grid Reader'
 		#spherevts = XMLStructuredGridReader(FileName=['vts_files/sphere.vts'])
 		spherevts = XMLPolyDataReader(FileName=['vts_files/sphere.vtp'])
-		spherevts.PointArrayStatus = ['dummy']
+		#spherevts.PointArrayStatus = ['dummy']
 
 		# show data in view
 		'''spherevtsDisplay = Show(spherevts, renderView1)

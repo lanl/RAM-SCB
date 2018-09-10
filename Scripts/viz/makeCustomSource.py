@@ -12,12 +12,17 @@ import spacepy.datamodel as dm
 #=================================================================================================
 def gen_sphere():
     '''Generating the sphere source for streamlines as sphere.vts in vts_files directory'''
-    n = 1 #how much denser points on sphere are, compared to the magnetic field
     #----------------------------generate the points describing the sphere--------------------------
-    r = 1.1
-    points = []
+    xyz = pointsGen(r=1.1, minL=2.0, maxL=7.0, dL=0.25)
 
-    Ls = np.arange(2,7.0,0.25)
+    #----------------------------generate the sphere.vtx file--------------------------
+    to_write = xmlPolyGen(xyz)
+    with open('vts_files/sphere.vtp', 'wb') as fh:
+        fh.write(to_write)
+
+def pointsGen(r=1.1, minL=2.0, maxL=7.0, dL=0.25):
+    points = []
+    Ls = np.arange(minL, maxL, dL)
     Lats = np.arccos(np.sqrt(1./Ls)) #N.Hem latitudes in radians
     Lats = np.concatenate([-1*Lats[::-1], Lats]) #add S.Hem
     Colats = (np.pi/2.)-Lats #Colatitudes in radians
@@ -28,12 +33,7 @@ def gen_sphere():
         xyz[idx,0] = r*np.cos(LatLon[0])*np.sin(LatLon[1])
         xyz[idx,1] = r*np.sin(LatLon[0])*np.sin(LatLon[1])
         xyz[idx,2] = r*np.cos(LatLon[1])
-
-    #----------------------------generate the sphere.vtx file--------------------------
-    to_write = xmlPolyGen(xyz)
-    with open('vts_files/sphere.vtp', 'wb') as fh:
-        fh.write(to_write)
-
+    return xyz
 
 def xmlPolyGen(xyz):
     import lxml.etree
@@ -77,7 +77,7 @@ def xmlPolyGen(xyz):
         piece.append(part)
 
     #Print to a string, include XML declaration and "pretty print" to get newlines and indentation.
-    out = lxml.etree.tostring(fulltree, xml_declaration=True, pretty_print=True)
+    out = lxml.etree.tostring(fulltree, xml_declaration=False, pretty_print=True)
     return out
 
 
