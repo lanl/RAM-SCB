@@ -1,22 +1,19 @@
-#!/bin/bash
+#!/bin/tcsh
 
-if [[ ! -f 'config.txt' ]]
-then
+if (! -f config.txt) then
    echo 'Please create a config.txt in this directory'
    exit 1
-fi
+endif
 
-if [[ -d 'vts_files' ]]
-then
+if (-d vts_files) then
 	rm vts_files/*
 else
 	mkdir vts_files
-fi
+endif
 
-if [[ ! -d 'images' ]]
-then
+if (! -d images) then
    mkdir images
-fi
+endif
 
 module load paraview
 python ram_automate1.py nc_files #populates vts_files
