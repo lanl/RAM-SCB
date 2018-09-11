@@ -31,12 +31,15 @@ def gen_vts(fileName):
     '''Generates fn_pressure.vts and fn_field.vts in the vts_files directory, given the filename'''
 
     data = dm.fromHDF5(sys.argv[1] + '/' + fileName)
-    nT = len(data['nT'].tolist())
-    nR = len(data['nR'].tolist())
-    nS = len(data['nS'].tolist())
-    par_data = data['PParT'].tolist(); per_data = data['PPerT'].tolist()
+    nT = len(data['nT'])
+    nR = len(data['nR'])
+    nS = len(data['nS'])
+    rnT = range(nT)
+    rnR = range(nR)
+    par_data = data['PParT']; per_data = data['PPerT']
 
     #-----------------------Generating fn_pressure.vts----------------------------------
+    #Set up XML tree structure
     fulltree = lxml.etree.ElementTree(lxml.etree.Element('VTKFile', type='StructuredGrid', version='1.0', byte_order='LittleEndian'))
     parent = fulltree.getroot()
     RAMdata = lxml.etree.Element('StructuredGrid', WholeExtent='0 {} 0 {} 0 0'.format(nT-1, nR-1))
@@ -49,20 +52,21 @@ def gen_vts(fileName):
     hpress  = lxml.etree.Element('DataArray', type='Float64', Name='proton pressure', NumberOfComponents='1', format='ascii')
     hepress = lxml.etree.Element('DataArray', type='Float64', Name='heliumion pressure', NumberOfComponents='1', format='ascii')
     opress  = lxml.etree.Element('DataArray', type='Float64', Name='oxygenion pressure', NumberOfComponents='1', format='ascii')
-    to_write = ''
-    for i, j in itertools.product(range(nT),range(nR)):
+    #write data to XML tree
+    to_write = '\n'
+    for i, j in itertools.product(rnT,rnR):
         to_write +=  '\t\t\t\t\t' + str(par_data[i][j][0] + 2*per_data[i][j][0]) + '\n'
     epress.text = to_write
-    to_write = ''
-    for i, j in itertools.product(range(nT),range(nR)):
+    to_write = '\n'
+    for i, j in itertools.product(rnT,rnR):
         to_write +=  '\t\t\t\t\t' + str(par_data[i][j][1] + 2*per_data[i][j][1]) + '\n'
     hpress.text = to_write
-    to_write = ''
-    for i, j in itertools.product(range(nT),range(nR)):
+    to_write = '\n'
+    for i, j in itertools.product(rnT,rnR):
         to_write +=  '\t\t\t\t\t' + str(par_data[i][j][2] + 2*per_data[i][j][2]) + '\n'
     hepress.text = to_write
-    to_write = ''
-    for i, j in itertools.product(range(nT),range(nR)):
+    to_write = '\n'
+    for i, j in itertools.product(rnT,rnR):
         to_write +=  '\t\t\t\t\t' + str(par_data[i][j][3] + 2*per_data[i][j][3]) + '\n'
     opress.text = to_write
     for el in [epress, hpress, hepress, opress]:
@@ -76,7 +80,7 @@ def gen_vts(fileName):
     theta_list = np.arange(0, (2*np.pi) + (2*np.pi/(nT-1)), 2*np.pi/(nT-1))
     step = (6.75 - 1.75)/nR
     r_list = np.arange(1.75 + step, 6.75 + step, step)
-    to_write = ''
+    to_write = '\n'
     for i in range(nT*nR):
         r = r_list[i%nR]; theta = theta_list[i//nR]
         to_write += '\t\t\t\t\t' + str(r*np.cos(theta)) + '  ' + str(r*np.sin(theta)) + '  0.00\n'
