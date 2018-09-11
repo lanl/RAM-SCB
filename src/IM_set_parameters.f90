@@ -400,6 +400,7 @@ subroutine IM_set_parameters
      NEL = NEL
      NTL = NTL
      BoundaryFiles = .false.
+     !PressMode = 'BAT'
   case('LANL')
      NEL = 36
      NTL = 25

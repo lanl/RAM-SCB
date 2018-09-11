@@ -31,7 +31,7 @@ subroutine get_boundary_flux
      IF (S.EQ.1) THEN
         write(*,*) ''
         call write_prefix
-        write(*,'(a,F10.2)') 'Calling GEOSB at time:    ', TimeRamElapsed/3600.
+        write(*,'(a,F10.2)') 'Calling GEOSB at time:    ', TimeRamElapsed
      ENDIF
      CALL GEOSB
   end do

@@ -289,7 +289,7 @@ module IM_wrapper
     character(len=*), intent(in) :: NameVar
     
     integer           :: iT, iR, iDir, iRot, iLine
-    real(kind=Real8_) :: rotate_VII(3,nT,4), rad(nPoints*2-1)
+    real(kind=Real8_) :: rotate_VII(3,nT,4), rad(399)
     logical, save     :: IsFirstCall = .true.
 
     real, parameter :: sens=1E-5  ! Sensitivity for real differences.
@@ -501,22 +501,25 @@ module IM_wrapper
 
           ! Fill points from northern hemisphere:
           iLine = 2*(nRextend*(iT-1)+iR) - 1          
-          Blines_DIII(1,iR,iRot,nPoints:) = MhdLines_IIV(iLine,1:nPoints,3) !X
-          Blines_DIII(2,iR,iRot,nPoints:) = MhdLines_IIV(iLine,1:nPoints,4) !Y
-          Blines_DIII(3,iR,iRot,nPoints:) = MhdLines_IIV(iLine,1:nPoints,5) !Z
+          Blines_DIII(1,iR,iRot,nPoints:2*nPoints-1) = MhdLines_IIV(iLine,1:nPoints,3) !X
+          Blines_DIII(2,iR,iRot,nPoints:2*nPoints-1) = MhdLines_IIV(iLine,1:nPoints,4) !Y
+          Blines_DIII(3,iR,iRot,nPoints:2*nPoints-1) = MhdLines_IIV(iLine,1:nPoints,5) !Z
 
-          write(*,*) 'Northern Hemi trace = ', sqrt(MhdLines_IIV(iLine,1:nPoints,3)**2 + &
-               MhdLines_IIV(iLine,1:nPoints,4)**2 + MhdLines_IIV(iLine,1:nPoints,5)**2)
+          if(DoTest) write(*,*) 'Northern Hemi trace = ', &
+               sqrt(MhdLines_IIV(iLine,1:nPoints,3)**2 + &
+                    MhdLines_IIV(iLine,1:nPoints,4)**2 + &
+                    MhdLines_IIV(iLine,1:nPoints,5)**2)
           
           ! Fill points from southern hemisphere:
-          iLine = 2*(nRextend*(iT-1)+iR)          
-          Blines_DIII(1,iR,iRot,1:nPoints-1) = MhdLines_IIV(iLine,nPoints-1:1:-1,3) !X
-          Blines_DIII(2,iR,iRot,1:nPoints-1) = MhdLines_IIV(iLine,nPoints-1:1:-1,4) !Y
-          Blines_DIII(3,iR,iRot,1:nPoints-1) = MhdLines_IIV(iLine,nPoints-1:1:-1,5) !Z
+          iLine = 2*(nRextend*(iT-1)+iR)
+          Blines_DIII(1,iR,iRot,1:nPoints-1) = MhdLines_IIV(iLine,nPoints:1:-1,3) !X
+          Blines_DIII(2,iR,iRot,1:nPoints-1) = MhdLines_IIV(iLine,nPoints:1:-1,4) !Y
+          Blines_DIII(3,iR,iRot,1:nPoints-1) = MhdLines_IIV(iLine,nPoints:1:-1,5) !Z
 
-          rad = sqrt(Blines_DIII(1,iR,iRot,:)**2+Blines_DIII(2,iR,iRot,:)**2+&
-               Blines_DIII(3,iR,iRot,:)**2)
-          write(*,*) rad
+          rad(1:2*nPoints-1) = sqrt(Blines_DIII(1,iR,iRot,:)**2 &
+                                   +Blines_DIII(2,iR,iRot,:)**2 &
+                                   +Blines_DIII(3,iR,iRot,:)**2)
+          
           if(DoTest) write(*,*) 'Line runs from R=', rad(1), rad(2*nPoints-1)
 
        end do
@@ -733,7 +736,7 @@ module IM_wrapper
     ! Initialize input and output:
     call init_input
     call init_output
-    
+
   end subroutine IM_init_session
   
   !=============================================================================

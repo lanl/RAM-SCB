@@ -752,6 +752,8 @@ SUBROUTINE pressure
                                dSqPdPsiSq, dpdAlpha, dSqPdAlphaSq, pressure3D, ppar, &
                                pper, dPperdPsi, bsq, dBsqdPsi, dPperdAlpha, &
                                dBsqdAlpha, dBsqdTheta, sigma, tau
+    !!!! SWMF Coupling Stuff
+    use ModRamCouple, ONLY: pEqSWMF
     !!!! Module Subroutines/Functions
     USE ModRamGSL,       ONLY: GSL_Derivs, GSL_Interpolation_2D, GSL_Interpolation_1D, &
                                GSL_Smooth_1D
@@ -917,7 +919,13 @@ SUBROUTINE pressure
                                                                   *(pressParRawExt(j1-2,k1)-pressParRawExt(j1-1,k1))
              END DO
           END DO
-
+       ELSEIF (PressMode == 'BAT') then
+          DO k1 = 1, nAzimRAM
+             DO j1 = nXRaw+1, nXRawExt
+                pressPerRawExt(j1,k1) = 2.0/3.0 * pEqSWMF(j1,k1)
+                pressParRawExt(j1,k1) = 1.0/3.0 * pEqSWMF(j1,k1)
+             END DO
+          END DO
        ENDIF
 
        IF (iSm2 == 1) THEN ! Savitzky-Golay smoothing (possibly multiple) for the pressure

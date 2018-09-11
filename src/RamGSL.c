@@ -88,9 +88,9 @@ void interpolation_1d_c(int n, int i1, int i2,
       err = gsl_spline_init (spline, xa, fa, i1);
       if (err) { 
          printf("interp error: Array not in ascending order ");
-         //for ( i=1; i<i1; i++ ) {
-         //    printf("%f ",xa[i]);
-         //} 
+         for ( i=1; i<i1; i++ ) {
+             printf("%f ",xa[i]);
+         } 
          printf("\n");
       }
 
