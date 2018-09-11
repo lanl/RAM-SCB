@@ -6,6 +6,7 @@
     Input: directory containing .nc files'''
 
 import os, sys, itertools, io
+import lxml.etree
 import numpy as np
 import spacepy.datamodel as dm
 
@@ -64,7 +65,6 @@ def pointsGenDisc(minL=2.0, maxL=7.0, dL=0.25):
 
 
 def xmlPolyGen(xyz, dim1, dim2):
-    import lxml.etree
     npts = len(xyz)
 
     #convenience handles
