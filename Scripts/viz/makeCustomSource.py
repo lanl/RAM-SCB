@@ -67,6 +67,10 @@ def xmlPolyGen(xyz, dim1, dim2):
     import lxml.etree
     npts = len(xyz)
 
+    #convenience handles
+    indent3 = '\n\t\t\t'
+    indent2 = '\n\t\t'
+
     #Set up element tree for XML
     fulltree = lxml.etree.ElementTree(lxml.etree.Element('VTKFile', type='PolyData', version='1.0', byte_order='LittleEndian'))
     parent = fulltree.getroot()
@@ -84,15 +88,18 @@ def xmlPolyGen(xyz, dim1, dim2):
     #Now we add the actual point locations
     points = lxml.etree.Element('Points') #points needs a "DataArray" element with the point locations
     xyzlocations = lxml.etree.Element('DataArray', type='Float64', NumberOfComponents='3', format='ascii')
-    xyzlocations.text = '\n'+''.join(['\t\t\t{} {} {}\n'.format(a,b,c) for (a,b,c) in xyz.tolist()])
+    xyzlocations.text = '\n'+''.join(['\t\t\t{} {} {}\n'.format(a,b,c) for (a,b,c) in xyz.tolist()]) + '\t\t'
     points.append(xyzlocations)
     piece.append(points)
     #PolyData requires other elements: Verts, Lines, Strips, Polys. These can mostly be empty.
     verts = lxml.etree.Element('Verts')
     verts_c = lxml.etree.Element('DataArray', type='Int64', Name='connectivity', RangeMax='{}'.format(npts-1), RangeMin='0')
     verts_o = lxml.etree.Element('DataArray', type='Int64', Name='offsets', RangeMin='{}'.format(npts), RangeMax='{}'.format(npts))
-    verts_c.text = '\n' + ' '.join(['{}'.format(i) for i in range(npts)]) + '\n'
-    verts_o.text = '\n{}'.format(npts) +'\n'
+    vertnums = ['{}'.format(i) for i in range(npts)]
+    for i in range(npts//8)[::-1]:
+        vertnums.insert((i+1)*8, indent3)
+    verts_c.text = indent3 + ' ' + ' '.join(vertnums) + indent2
+    verts_o.text = indent3+ '{}'.format(npts) + indent2
     verts.append(verts_c)
     verts.append(verts_o)
     piece.append(verts)
@@ -100,19 +107,20 @@ def xmlPolyGen(xyz, dim1, dim2):
         dac = lxml.etree.Element('DataArray', type='Int64', Name='connectivity', RangeMax='{}'.format(npts), RangeMin='0')
         dao = lxml.etree.Element('DataArray', type='Int64', Name='offsets', RangeMin='{}'.format(0), RangeMax='{}'.format(npts))
         if partname is 'Polys':
+            #write the polygons that connect the points together, defining the grid
             polyconn = getPolyVertOrder(xyz, dim1, dim2)
             nconn = len(polyconn)
             npolys = dim1*(dim2-1)
             for i in range(nconn//4)[::-1]:
-                polyconn.insert((i+1)*4, '\n')
-            connstr = ' '.join(polyconn)
+                polyconn.insert((i+1)*4, indent3)
+            connstr = ' ' + ' '.join(polyconn)
             #offsets are 4, 8, 12, ...
             polyoffset = ['{}'.format(4*(n+1)) for n in range(nconn//4)]
             for i in range(nconn//4)[::-1]:
-                polyoffset.insert((i+1)*4, '\n')
-            offstr = ' '.join(polyoffset)
-            dac.text = '\n' + connstr
-            dao.text = '\n' + offstr
+                polyoffset.insert((i+1)*4, indent3)
+            offstr = ' ' + ' '.join(polyoffset)
+            dac.text = indent3 + connstr.rstrip() + indent2
+            dao.text = indent3 + offstr.rstrip() + indent2
             dao.set('RangeMax', '{}'.format(nconn))
             piece.set('NumberOfPolys', '{}'.format(npolys))
         part = lxml.etree.Element(partname)
@@ -120,7 +128,7 @@ def xmlPolyGen(xyz, dim1, dim2):
         part.append(dao)
         piece.append(part)
 
-    #Print to a string, include XML declaration and "pretty print" to get newlines and indentation.
+    #Print to a string, EXclude XML declaration and "pretty print" to get newlines and indentation.
     out = lxml.etree.tostring(fulltree, xml_declaration=False, pretty_print=True)
     return out
 
