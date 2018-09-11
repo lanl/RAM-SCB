@@ -98,7 +98,7 @@ CPL_OBJECTS=            \
         ModRamScbRun.o  \
         ModRamScb.o     \
         ModRamSce.o     \
-        ModRamCouple.o
+	ModRamCouple.o 
 
 EXT_OBJECTS=              \
         gaussian_filter.o \

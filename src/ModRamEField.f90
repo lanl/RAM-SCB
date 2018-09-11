@@ -35,7 +35,7 @@ subroutine get_electric_field
   VTOL = VTN
   write(*,*) ''
   call write_prefix
-  write(*,'(a,F10.2)')'Updating E field at time: ', TimeRamElapsed/3600.
+  write(*,'(a,F10.2)')'Updating E field at time: ', TimeRamElapsed
 
   ! Open this file and save contents.
   if(electric .ne. 'VOLS') call ram_get_electric(vtn)

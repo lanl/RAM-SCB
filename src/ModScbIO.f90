@@ -23,7 +23,7 @@ MODULE ModScbIO
     USE ModRamVariables, ONLY: Kp, MLT
     use ModRamParams,    ONLY: IsComponent, NameBoundMag, verbose
     use ModRamTiming,    ONLY: TimeRamNow
-    use ModRamGrids,     ONLY: nRExtend, nT, nR
+    use ModRamGrids,     ONLY: nRExtend, nT, nR, RadiusMax, RadiusMin
     USE ModScbParams,    ONLY: Symmetric, constZ, constTheta
     USE ModScbGrids,     ONLY: npsi, nthe, nzeta
     USE ModScbVariables, ONLY: xpsiin, xpsiout, r0Start, bf, &
@@ -31,7 +31,7 @@ MODULE ModScbIO
                                kmax, nZetaMidnight, xzero3, f, fzet, fp, &
                                fzetp, psiVal, alphaVal, psiin, psiout, psitot
     !!!! SMWF Variables
-    use ModRamCouple,    ONLY: BLines_DIII, IsClosed_II, nPointsMax
+    use ModRamCouple,    ONLY: BLines_DIII, IsClosed_II, nPointsMax, nPoints
     !!!! Module Subroutines/Functions
     use ModRamGSL,       ONLY: GSL_Interpolation_1D
     use ModRamFunctions, ONLY: RamFileName
@@ -46,7 +46,7 @@ MODULE ModScbIO
 
     implicit none
 
-    INTEGER :: i, j, k, scanLeft, scanRight, GSLerr
+    INTEGER :: i, ii, j, k, scanLeft, scanRight, GSLerr
 
     REAL(DP) :: dphi, phi, psis, xpsitot, xpl
     REAL(DP) :: r0, t0, t1, tt, zt, b, rr, rt, psitemp
@@ -84,9 +84,9 @@ MODULE ModScbIO
        z(:,:,nzeta+1) = z(:,:,2)
     elseif (NameBoundMag.eq.'SWMF') then
        ! For generating x, y, and z arrays using the Space Weather Modelling Framework
-       nSWMF = 2*nPointsMax-1
-       ALLOCATE(xTemp(nSWMF), yTemp(nSWMF), zTemp(nSWMF))
-       ALLOCATE(aTemp(nT-1), pTemp(nRExtend), cTemp(nSWMF))
+       nSWMF = 2*nPoints-1
+       ALLOCATE(xTemp(0:1000), yTemp(0:1000), zTemp(0:1000))
+       ALLOCATE(aTemp(0:nT), pTemp(nRExtend), cTemp(nSWMF))
        ALLOCATE(x1(nRExtend,nZeta,nSWMF), y1(nRExtend,nZeta,nSWMF), z1(nRExtend,nZeta,nSWMF))
        ALLOCATE(x2(npsi,nzeta,nSWMF), y2(npsi,nzeta,nSWMF), z2(npsi,nzeta,nSWMF))
 
@@ -100,22 +100,19 @@ MODULE ModScbIO
           alphaVal(k) = phi + constZ*sin(phi)
        END DO
        !! PsiVal
+       xpsiout = 9999.9
+       ii = nR + floor((8.0 - RadiusMax)/((RadiusMax - RadiusMin)/(nR - 1)))
        do j = 1, nT-1
-          if (IsClosed_II(nRExtend,j)) then
-             xf = BLines_DIII(1,nRExtend,j,1)
-             yf = BLines_DIII(2,nRExtend,j,1)
-             zf = BLines_DIII(3,nRExtend,j,1)
+          if (IsClosed_II(ii,j)) then
+             xf = BLines_DIII(1,ii,j,1)
+             yf = BLines_DIII(2,ii,j,1)
+             zf = BLines_DIII(3,ii,j,1)
              psitemp = 1./(1.-zf**2/(xf**2+yf**2+zf**2))
           else
-             psitemp = -1
+             psitemp = 9999.9
           endif
-          x0 = BLines_DIII(1,nR,j,1)
-          y0 = BLines_DIII(2,nR,j,1)
-          z0 = BLines_DIII(3,nR,j,1)
-          xpsiout = 1./(1.-z0**2/(x0**2+y0**2+z0**2))
-          write(*,*)  'MLT, xpsiout(nRExtend), xpsiout(nR) = ', MLT(j), psitemp, xpsiout
+          xpsiout = min(xpsiout,psitemp)
        enddo
-       xpsiout = psitemp
        xpsiin  = 1.75
        psiin   = -xzero3/xpsiin
        psiout  = -xzero3/xpsiout
@@ -128,36 +125,55 @@ MODULE ModScbIO
        ENDDO
 
        ! Step 1: Take xF, yF, zF (nRExtend, nT, nSWMF) and put on x1, y1, z1 (nRExtend, nzeta, nSWMF) [MapAlpha]
-       do j = 1, nT-1
-          aTemp(j) = MLT(j)*pi_d/12._dp + pi_d
-          if (aTemp(j) > twopi_d) aTemp(j) = aTemp(j) - twopi_d
+       do j = 0, nT
+          aTemp(j) = twopi_d * REAL(j-1, DP)/REAL(nT-1, DP)
        enddo
        do i = 1, nRExtend
           do k = 1, nSWMF
-             xTemp(1:nT-1) = BLines_DIII(1,i,1:nT-1,k)
-             yTemp(1:nT-1) = BLines_DIII(2,i,1:nT-1,k)
-             zTemp(1:nT-1) = BLines_DIII(3,i,1:nT-1,k)
-             CALL GSL_Interpolation_1D(aTemp(1:nT-1),xTemp(1:nT-1), &
-                                       alphaVal(2:nzeta),x1(i,2:nzeta,k),GSLerr)
-             CALL GSL_Interpolation_1D(aTemp(1:nT-1),yTemp(1:nT-1), &
-                                       alphaVal(2:nzeta),y1(i,2:nzeta,k),GSLerr)
-             CALL GSL_Interpolation_1D(aTemp(1:nT-1),zTemp(1:nT-1), &
-                                       alphaVal(2:nzeta),z1(i,2:nzeta,k),GSLerr) 
+             xTemp(1:(nT-1)/2) = BLines_DIII(1,i,(nT-1)/2+1:nT-1,k)
+             xTemp((nT-1)/2+1:nT-1) = BLines_DIII(1,i,1:(nT-1)/2,k)
+             xTemp(0) = xTemp(nT-1)
+             xTemp(nT) = xTemp(1)
+
+             yTemp(1:(nT-1)/2) = BLines_DIII(2,i,(nT-1)/2+1:nT-1,k)
+             yTemp((nT-1)/2+1:nT-1) = BLines_DIII(2,i,1:(nT-1)/2,k)
+             yTemp(0) = yTemp(nT-1)
+             yTemp(nT) = yTemp(1)
+
+             zTemp(1:(nT-1)/2) = BLines_DIII(3,i,(nT-1)/2+1:nT-1,k)
+             zTemp((nT-1)/2+1:nT-1) = BLines_DIII(3,i,1:(nT-1)/2,k)
+             zTemp(0) = zTemp(nT-1)
+             zTemp(nT) = zTemp(1)
+
+             CALL GSL_Interpolation_1D(aTemp(1:nT),xTemp(1:nT), &
+                                       alphaVal(2:nzeta),x1(i,2:nzeta,k),GSLerr,'Cubic')
+             CALL GSL_Interpolation_1D(aTemp(1:nT),yTemp(1:nT), &
+                                       alphaVal(2:nzeta),y1(i,2:nzeta,k),GSLerr,'Cubic')
+             CALL GSL_Interpolation_1D(aTemp(1:nT),zTemp(1:nT), &
+                                       alphaVal(2:nzeta),z1(i,2:nzeta,k),GSLerr,'Cubic') 
           enddo
        enddo 
 
        ! Step 2: Take x1, y1, z1 (nRExtend, nzeta, nSWMF) and put on x2, y2, z2 (npsi, nzeta, nSWMF) [MapPsi]
        do j = 2, nzeta
+          ii = nRExtend
           do k = 1, nSWMF
-             xTemp(1:nRExtend) = x1(1:nRExtend,j,k)
-             yTemp(1:nRExtend) = y1(1:nRExtend,j,k)
-             zTemp(1:nRExtend) = z1(1:nRExtend,j,k)
-             pTemp(1:nRExtend) = 0._dp ! NEED TO SET PTEMP!!!! -ME
-             CALL GSL_Interpolation_1D(pTemp(1:nRExtend),xTemp(1:nRExtend), &
+             xTemp(1:ii) = x1(1:ii,j,k)
+             yTemp(1:ii) = y1(1:ii,j,k)
+             zTemp(1:ii) = z1(1:ii,j,k)
+             pTemp(1:ii) = 1./(1.-z1(1:ii,j,1)**2/(x1(1:ii,j,1)**2+y1(1:ii,j,1)**2+z1(1:ii,j,1)**2))
+             pTemp(1:ii) = -xzero3 / pTemp(1:ii)
+             monoticity_check: do i = 2, ii
+              if (pTemp(i) <= pTemp(i-1)) then
+                 ii = i-1
+                 exit monoticity_check
+              endif
+             enddo monoticity_check
+             CALL GSL_Interpolation_1D(pTemp(1:ii),xTemp(1:ii), &
                                        psiVal(1:npsi),x2(1:npsi,j,k),GSLerr)
-             CALL GSL_Interpolation_1D(pTemp(1:nRExtend),yTemp(1:nRExtend), &
+             CALL GSL_Interpolation_1D(pTemp(1:ii),yTemp(1:ii), &
                                        psiVal(1:npsi),y2(1:npsi,j,k),GSLerr)
-             CALL GSL_Interpolation_1D(pTemp(1:nRExtend),zTemp(1:nRExtend), &
+             CALL GSL_Interpolation_1D(pTemp(1:ii),zTemp(1:ii), &
                                        psiVal(1:npsi),z2(1:npsi,j,k),GSLerr)
           enddo
        enddo
@@ -166,15 +182,15 @@ MODULE ModScbIO
        do i = 1, npsi
           do j = 2, nzeta
              distance(1) = 0._dp
-             xTemp(1:nSWMF) = x2(i,j,nSWMF)
-             yTemp(1:nSWMF) = y2(i,j,nSWMF)
-             zTemp(1:nSWMF) = z2(i,j,nSWMF)
+             xTemp(1:nSWMF) = x2(i,j,1:nSWMF)
+             yTemp(1:nSWMF) = y2(i,j,1:nSWMF)
+             zTemp(1:nSWMF) = z2(i,j,1:nSWMF)
              DO k = 2, nSWMF
-                distance(i) = distance(i-1) + SQRT((xTemp(k)-xTemp(k-1))**2 &
+                distance(k) = distance(k-1) + SQRT((xTemp(k)-xTemp(k-1))**2 &
                                                   +(yTemp(k)-yTemp(k-1))**2 &
                                                   +(zTemp(k)-zTemp(k-1))**2)
              END DO
-             cTemp = distance / distance(2*nPointsMax-1) * pi_d
+             cTemp = distance(1:nSWMF) / distance(nSWMF) * pi_d
              CALL GSL_Interpolation_1D(cTemp,xTemp(1:nSWMF), &
                                        chiVal(1:nthe),x(1:nthe,i,j),GSLerr)
              CALL GSL_Interpolation_1D(cTemp,yTemp(1:nSWMF), &
@@ -280,7 +296,7 @@ MODULE ModScbIO
     endif
 
     ! Output magnetic field for testing
-    !call Write_MAGxyz('ComputeDomain')
+    call Write_MAGxyz('ComputeDomain')
 
     ! Get the Psi (Alpha) Euler Potential
     ! This is done by assuming a dipole on the field line foot points
@@ -926,9 +942,9 @@ MODULE ModScbIO
 
     open(UNITTMP_,FILE=trim(PathScbOut)//RamFileName(trim(FileName),'dat',TimeRamNow))
     write(UNITTMP_,*) nthe, npsi, nzeta
-    do i = nThetaEquator, nThetaEquator
-     do j = 1,npsi
-      do k = 1,nzeta
+    do i = 1, nthe
+     do j = 1, npsi
+      do k = 1, nzeta
        write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
       enddo
      enddo

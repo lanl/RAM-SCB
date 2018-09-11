@@ -141,7 +141,9 @@ Module ModRamScb
                                i_Cart_interp, bZEq_Cart, flux_vol_cart, bZ, &
                                hdens_Cart, radRaw, azimRaw, nThetaEquator, fluxVolume, &
                                thetaVal, psi, alfa
-  
+ 
+    use ModRamCouple,    ONLY: BLines_DIII, nPoints, IsClosed_II
+
     use ModRamGSL,       ONLY: GSL_Interpolation_2D, GSL_Interpolation_1D, &
                                GSL_Integration_hI, GSL_Smooth_1D
     use ModRamFunctions, ONLY: RamFileName, FUNT, FUNI
@@ -180,7 +182,7 @@ Module ModRamScb
     REAL(DP), ALLOCATABLE :: kernel(:,:), output(:,:)
  
     ! Variables for Tracing
-    INTEGER :: LMAX, LOUT
+    INTEGER :: LMAX, LOUT, nSWMF
     INTEGER :: ID
     REAL(DP) :: x0, y0, z0, xe, ye, ze, xf, yf, zf
     REAL(DP) :: ER, DSMAX, RLIM, DIR
@@ -304,6 +306,19 @@ Module ModRamScb
                 if ((CheckMGNP).and.((ID.lt.0).or.(DIST.lt.DL1))) then
                    if (verbose) write(*,'(2x,a,3F6.2)') 'Point outside magnetopause', xo, yo, DIST
                    outsideMGNP(i,j) = 1
+                   cycle
+                endif
+                if (NameBoundMag.eq.'SWMF') then
+                   if (IsClosed_II(i,j)) then
+                      nSWMF = 2*nPoints-1
+                      xtemp(1:nSWMF) = BLines_DIII(1,i,j,1:nSWMF)
+                      ytemp(1:nSWMF) = BLines_DIII(2,i,j,1:nSWMF)
+                      ztemp(1:nSWMF) = BLines_DIII(3,i,j,1:nSWMF)
+                      LOUT = nSWMF
+                   else
+                      outsideMGNP(i,j) = 1
+                      cycle
+                   endif
                 else
                    !! Trace from equatorial point to pole then pole to other pole
                    CALL trace(xo,yo,0._dp,1.0_dp,xe,ye,ze,xtemp(:),ytemp(:),ztemp(:),LOUT,LMAX, &
@@ -315,22 +330,22 @@ Module ModRamScb
                       outsideMGNP(i,j) = 1
                       cycle
                    endif
-                   dtemp(1) = 0._dp
-                   do k = 2,LOUT
-                      dtemp(k) = dtemp(k-1) + SQRT((xtemp(k)-xtemp(k-1))**2 &
-                                                  +(ytemp(k)-ytemp(k-1))**2 &
-                                                  +(ztemp(k)-ztemp(k-1))**2)
-                   enddo
-
-                   cVal(:) = chiVal(:)*dtemp(LOUT)/pi_d
-                   CALL GSL_Interpolation_1D(dtemp(1:LOUT),xtemp(1:LOUT),cVal(:),xRAM(:,i,j),GSLerr)
-                   CALL GSL_Interpolation_1D(dtemp(1:LOUT),ytemp(1:LOUT),cVal(:),yRAM(:,i,j),GSLerr)
-                   CALL GSL_Interpolation_1D(dtemp(1:LOUT),ztemp(1:LOUT),cVal(:),zRAM(:,i,j),GSLerr)
-                   CALL GSL_Interpolation_1D(dtemp(1:LOUT),bxtemp(1:LOUT),cVal(:),bbx(:),GSLerr)
-                   CALL GSL_Interpolation_1D(dtemp(1:LOUT),bytemp(1:LOUT),cVal(:),bby(:),GSLerr)
-                   CALL GSL_Interpolation_1D(dtemp(1:LOUT),bztemp(1:LOUT),cVal(:),bbz(:),GSLerr)
-                   bRAM(:,i,j) = SQRT(bbx(:)**2+bby(:)**2+bbz(:)**2)/bnormal
                 endif
+                dtemp(1) = 0._dp
+                do k = 2,LOUT
+                   dtemp(k) = dtemp(k-1) + SQRT((xtemp(k)-xtemp(k-1))**2 &
+                                               +(ytemp(k)-ytemp(k-1))**2 &
+                                               +(ztemp(k)-ztemp(k-1))**2)
+                enddo
+
+                cVal(:) = chiVal(:)*dtemp(LOUT)/pi_d
+                CALL GSL_Interpolation_1D(dtemp(1:LOUT),xtemp(1:LOUT),cVal(:),xRAM(:,i,j),GSLerr)
+                CALL GSL_Interpolation_1D(dtemp(1:LOUT),ytemp(1:LOUT),cVal(:),yRAM(:,i,j),GSLerr)
+                CALL GSL_Interpolation_1D(dtemp(1:LOUT),ztemp(1:LOUT),cVal(:),zRAM(:,i,j),GSLerr)
+                CALL GSL_Interpolation_1D(dtemp(1:LOUT),bxtemp(1:LOUT),cVal(:),bbx(:),GSLerr)
+                CALL GSL_Interpolation_1D(dtemp(1:LOUT),bytemp(1:LOUT),cVal(:),bby(:),GSLerr)
+                CALL GSL_Interpolation_1D(dtemp(1:LOUT),bztemp(1:LOUT),cVal(:),bbz(:),GSLerr)
+                bRAM(:,i,j) = SQRT(bbx(:)**2+bby(:)**2+bbz(:)**2)/bnormal
              endif
           enddo
        enddo

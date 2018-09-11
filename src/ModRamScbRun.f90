@@ -102,7 +102,7 @@ MODULE ModRamScbRun
     if (triggerSCB) then
        write(*,*) ''
        call write_prefix
-       write(*,'(a)') 'Running SCB model to update B-field...'
+       write(*,'(a,F10.2)') 'Running SCB model to update B-field at time: ', TimeRamElapsed
 
        call ram_sum_pressure
        call scb_run(nIter)

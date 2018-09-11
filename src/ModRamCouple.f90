@@ -93,15 +93,21 @@ contains
 
     use ModRamGrids, ONLY: nT, nE, nRExtend, nR
 
-
     implicit none
 
     ALLOCATE(MhdDensPres_VII(3,nT,4), &
-         FluxBats_IIS(nE, nT, 1:4), FluxBats_anis(nE,nPa,nT,1:4),&
-         iEnd(2*(nRExtend)*nT), xEqSWMF(nRExtend,nT-1),  yEqSWMF(nRExtend,nT-1),&
-         pEqSWMF(nRExtend,nT-1), nEqSWMF(nRExtend,nT-1), SwmfPot_II(nR+1, nT), &
-         uEqSWMF_DII(3,nRExtend,nT-1),bEqSWMF_DII(3,nRExtend,nT-1), &
-         ETotal_DII(2,nR,nT), IsClosed_II(nRextend,nT))
+             FluxBats_IIS(nE, nT, 1:4), &
+             FluxBats_anis(nE,nPa,nT,1:4), &
+             iEnd(2*(nRExtend)*nT), &
+             xEqSWMF(nRExtend,nT-1), &
+             yEqSWMF(nRExtend,nT-1), &
+             pEqSWMF(nRExtend,nT-1), &
+             nEqSWMF(nRExtend,nT-1), &
+             SwmfPot_II(nR+1, nT), &
+             uEqSWMF_DII(3,nRExtend,nT-1), &
+             bEqSWMF_DII(3,nRExtend,nT-1), &
+             ETotal_DII(2,nR,nT), &
+             IsClosed_II(nRextend,nT))
 
     SWMFPot_II = 0.
     FluxBats_anis = 0.
@@ -112,7 +118,6 @@ contains
     nEqSWMF = 0.
     uEqSWMF_DII = 0.
     bEqSWMF_DII = 0.
-    Blines_DIII = 0.
     IsClosed_II  = .true.
     
   end subroutine RAMCouple_Allocate
