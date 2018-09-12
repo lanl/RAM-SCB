@@ -108,7 +108,7 @@ def xmlPolyGen(xyz, dim1, dim2):
         dao = lxml.etree.Element('DataArray', type='Int64', Name='offsets', RangeMin='{}'.format(0), RangeMax='{}'.format(npts))
         if partname is 'Polys':
             #write the polygons that connect the points together, defining the grid
-            polyconn = getPolyVertOrder(xyz, dim1, dim2)
+            polyconn = getPolyVertOrder(len(xyz), dim1, dim2)
             nconn = len(polyconn)
             npolys = dim1*(dim2-1)
             for i in range(nconn//4)[::-1]:
@@ -132,7 +132,7 @@ def xmlPolyGen(xyz, dim1, dim2):
     out = lxml.etree.tostring(fulltree, xml_declaration=False, pretty_print=True)
     return out
 
-def getPolyVertOrder(xyz, dim1, dim2):
+def getPolyVertOrder(ncoords, dim1, dim2):
     # x, y, z are calculated using itertools.product
     # given (for disc) Lon, L, the loop order is all L for each Lon, iterating over Lon
     # i.e. (Lon1, L1), (Lon1, L2), (Lon1, L3), ..., (Lon2, L1), (Lon2, L2), ...
@@ -147,8 +147,8 @@ def getPolyVertOrder(xyz, dim1, dim2):
     for idx in range(dim2-1):
         vert1 = idx
         vert2 = idx+1
-        vert3 = len(xyz)-dim2+idx+1
-        vert4 = len(xyz)-dim2+idx
+        vert3 = ncoords-dim2+idx+1
+        vert4 = ncoords-dim2+idx
         cells.append([vert1, vert2, vert3, vert4])
     flat_cells = [str(item) for sublist in cells for item in sublist]
     return flat_cells
