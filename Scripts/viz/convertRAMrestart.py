@@ -153,34 +153,75 @@ def gen_vts(fileName, pressure=True, field=True):
         y = data['y'].tolist()
         z = data['z'].tolist()
 
-        to_write = '<?xml version="1.0"?>\n'
-        to_write += '<VTKFile type="StructuredGrid" version="0.1" byte_order="LittleEndian">\n'
-        to_write += '\t<StructuredGrid WholeExtent="0 {} 0 {} 0 {}">\n'.format(nZeta-1, nPsi-1, nTheta-1)
-        to_write += '\t\t<Piece Extent="0 {} 0 {} 0 {}">\n'.format(nZeta-1, nPsi-1, nTheta-1)
-        to_write += '\t\t\t<PointData Vectors="B">\n'
-        to_write += '\t\t\t\t<DataArray type="Float32" Name="B" NumberOfComponents="3" format="ascii">\n'
+        npts = nZeta*nPsi*nTheta
 
+        #Set up XML tree structure
+        fulltree = lxml.etree.ElementTree(lxml.etree.Element('VTKFile', type='PolyData', version='1.0', byte_order='LittleEndian'))
+        parent = fulltree.getroot()
+        SCBdata = lxml.etree.Element('PolyData')
+        parent.append(SCBdata)
+        piece = lxml.etree.Element('Piece', NumberOfPoints='{}'.format(npts), NumberOfVerts='1', NumberOfLines='0', NumberOfStrips='0', NumberOfPolys='0')
+        SCBdata.append(piece)
+        pointdata = lxml.etree.Element('PointData', Vectors='B')
+        piece.append(pointdata)
+        Bvec = lxml.etree.Element('DataArray', type='Float64', Name='B', NumberOfComponents='3', format='ascii')
+        #write data to XML tree
+        to_write = '\n'
         for i, j, k in itertools.product(rnZeta, rnPsi, rnTheta):
-            to_write += '\t\t\t\t\t{} {} {}\n'.format(Bx[i][j][k], By[i][j][k], Bz[i][j][k]) + '\n'
-        to_write += '\t\t\t\t</DataArray>\n'
+            to_write += '\t\t\t\t\t{} {} {}\n'.format(Bx[i][j][k], By[i][j][k], Bz[i][j][k])
+        Bvec.text = to_write
 
-        to_write += '\t\t\t</PointData>\n'
-        to_write += '\t\t\t<CellData>\n'
-        to_write += '\t\t\t</CellData>\n'
-        to_write += '\t\t\t<Points>\n'
-        to_write += '\t\t\t\t<DataArray type="Float32" NumberOfComponents="3" format="ascii">\n'
-
+        #Now we add the actual point locations
+        points = lxml.etree.Element('Points') #points needs a "DataArray" element with the point locations
+        xyzlocations = lxml.etree.Element('DataArray', type='Float64', NumberOfComponents='3', format='ascii')
+        to_write = '\n'
         for i, j, k in itertools.product(rnZeta, rnPsi, rnTheta):
             to_write += '\t\t\t\t\t{} {} {} \n'.format(x[i][j][k], y[i][j][k], z[i][j][k])
-        to_write += '\t\t\t\t</DataArray>\n'
+        xyzlocations.text = to_write
+        points.append(xyzlocations)
+        piece.append(points)
 
-        to_write += '\t\t\t</Points>\n'
-        to_write += '\t\t</Piece>\n'
-        to_write += '\t</StructuredGrid>\n'
-        to_write += '\t</VTKFile>\n'
+        #PolyData requires other elements: Verts, Lines, Strips, Polys. These can mostly be empty.
+        verts = lxml.etree.Element('Verts')
+        verts_c = lxml.etree.Element('DataArray', type='Int64', Name='connectivity', RangeMax='{}'.format(npts-1), RangeMin='0')
+        verts_o = lxml.etree.Element('DataArray', type='Int64', Name='offsets', RangeMin='{}'.format(npts), RangeMax='{}'.format(npts))
+        vertnums = ['{}'.format(i) for i in range(npts)]
+        for i in range(npts//8)[::-1]:
+            vertnums.insert((i+1)*8, indent3)
+        verts_c.text = indent3 + ' ' + ' '.join(vertnums) + indent2
+        verts_o.text = indent3+ '{}'.format(npts) + indent2
+        verts.append(verts_c)
+        verts.append(verts_o)
+        piece.append(verts)
+        for partname in ['Lines', 'Strips', 'Polys']:
+            dac = lxml.etree.Element('DataArray', type='Int64', Name='connectivity', RangeMax='{}'.format(npts), RangeMin='0')
+            dao = lxml.etree.Element('DataArray', type='Int64', Name='offsets', RangeMin='{}'.format(0), RangeMax='{}'.format(npts))
+            #if partname is 'Polys':
+            #    #write the polygons that connect the points together, defining the grid
+            #    polyconn = getPolyVertOrder(npts, nT, nR)
+            #    nconn = len(polyconn)
+            #    npolys = nT*(nR-1)
+            #    for i in range(nconn//4)[::-1]:
+            #        polyconn.insert((i+1)*4, indent3)
+            #    connstr = ' ' + ' '.join(polyconn)
+            #    #offsets are 4, 8, 12, ...
+            #    polyoffset = ['{}'.format(4*(n+1)) for n in range(nconn//4)]
+            #    for i in range(nconn//4)[::-1]:
+            #        polyoffset.insert((i+1)*4, indent3)
+            #    offstr = ' ' + ' '.join(polyoffset)
+            #    dac.text = indent3 + connstr.rstrip() + indent2
+            #    dao.text = indent3 + offstr.rstrip() + indent2
+            #    dao.set('RangeMax', '{}'.format(nconn))
+            #    piece.set('NumberOfPolys', '{}'.format(npolys))
+            part = lxml.etree.Element(partname)
+            part.append(dac)
+            part.append(dao)
+            piece.append(part)
 
-        with open('vts_files/' + outfn + '_field.vts', 'w') as fh:
-            fh.write(to_write)
+        out = lxml.etree.tostring(fulltree, xml_declaration=False, pretty_print=True)
+
+        with open('vts_files/' + outfn + '_field.vtp', 'w') as fh:
+            fh.write(out)
 
 #=================================================================================================
 if __name__ == '__main__':
@@ -191,8 +232,10 @@ if __name__ == '__main__':
     #Get vts files for all netcdf files in the given directory:
     files = glob.glob(os.path.join(sys.argv[1], '*.nc'))
  
+    print(properties['Movie'])
     if properties['Movie'] == 'no':
         for item in files:
+            print(item)
             gen_vts(item)
     else:
         grp = properties['Movie']
