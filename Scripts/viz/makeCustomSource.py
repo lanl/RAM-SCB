@@ -14,7 +14,7 @@ import spacepy.datamodel as dm
 def gen_sphere():
     '''Generating a spherical source for streamlines as sphere.vts in vts_files directory'''
     #----------------------------generate the points describing the sphere--------------------------
-    xyz, nLons, nLats = pointsGenSphere(r=1.1, minL=2.0, maxL=7.0, dL=0.25)
+    xyz, nLons, nLats = pointsGenSphere(r=2.0, minL=3.0, maxL=7.0, dL=0.25)
 
     #----------------------------generate the sphere.vtx file--------------------------
     to_write = xmlPolyGen(xyz, dim1=nLons, dim2=nLats)
@@ -25,7 +25,7 @@ def gen_sphere():
 def gen_disc():
     '''Generating a disc source for streamlines as disc.vts in vts_files directory'''
     #----------------------------generate the points describing the sphere--------------------------
-    xyz, nLons, nL = pointsGenDisc(minL=4.0, maxL=6.5, dL=0.25)
+    xyz, nLons, nL = pointsGenDisc(minL=3.0, maxL=7.5, dL=0.25)
 
     #----------------------------generate the sphere.vtx file--------------------------
     to_write = xmlPolyGen(xyz, dim1=nLons, dim2=nL)
@@ -34,6 +34,7 @@ def gen_disc():
 
 
 def pointsGenSphere(r=1.1, minL=2.0, maxL=7.0, dL=0.25):
+    '''generates Cartesian coordinates for points on a spherical surface given extent/resolution'''
     points = []
     Ls = np.arange(minL, maxL, dL)
     Lats = np.arccos(np.sqrt(1./Ls)) #N.Hem latitudes in radians
@@ -50,11 +51,12 @@ def pointsGenSphere(r=1.1, minL=2.0, maxL=7.0, dL=0.25):
 
 
 def pointsGenDisc(minL=2.0, maxL=7.0, dL=0.25):
+    '''generates Cartesian coordinates for points on an annular disc given extent/resolution'''
     points = []
     Ls = np.arange(minL, maxL, dL)
     Lats = np.zeros(len(Ls))
     Colats = (np.pi/2.)-Lats #Colatitudes in radians
-    Lons = np.deg2rad(np.arange(0,360,30))
+    Lons = np.deg2rad(np.arange(0,360,10))
     npts = len(Lats)*len(Lons)
     xyz = np.zeros([npts,3])
     for idx, LonL in enumerate(itertools.product(Lons,Ls)):
@@ -65,6 +67,7 @@ def pointsGenDisc(minL=2.0, maxL=7.0, dL=0.25):
 
 
 def xmlPolyGen(xyz, dim1, dim2):
+    '''writes Cartesian coordinates of 2D surface to VTK PolyData XML, including connectivity'''
     npts = len(xyz)
 
     #convenience handles
@@ -150,6 +153,50 @@ def getPolyVertOrder(ncoords, dim1, dim2):
         vert3 = ncoords-dim2+idx+1
         vert4 = ncoords-dim2+idx
         cells.append([vert1, vert2, vert3, vert4])
+    flat_cells = [str(item) for sublist in cells for item in sublist]
+    return flat_cells
+
+def getCellVertOrder(ncoords, dim1, dim2, dim3, wrap=False):
+    #order is (Lon1, L1, lat1), (Lon1, L1, Lat2), ...
+    cells = []
+    if wrap:
+        ivert1, fvert1 = np.zeros((dim2,dim3)).astype(int), np.zeros((dim2,dim3)).astype(int)
+        ivert2, fvert2 = np.zeros((dim2,dim3)).astype(int), np.zeros((dim2,dim3)).astype(int)
+        ivert3, fvert3 = np.zeros((dim2,dim3)).astype(int), np.zeros((dim2,dim3)).astype(int)
+        ivert4, fvert4 = np.zeros((dim2,dim3)).astype(int), np.zeros((dim2,dim3)).astype(int)
+    for idx1, idx2, idx3 in itertools.product(range(dim1-1), range(dim2-1), range(dim3-1)):
+        vert1 = idx1*dim2*dim3 +idx2*dim3 + idx3 #(npts to skip to reach LT) + (nFLs to skip to reach FL) + (npts along FL)
+        vert2 = vert1+1 #pts 1 and 2 are adjacent in 3rd dimension
+        vert3 = idx1*dim2*dim3 +(idx2+1)*dim3 + idx3 +1 #same LT, next FL out in radius
+        vert4 = vert3-1 #this is 1 less than vert 3 to get correct cell ordering for VTK hexahedra
+        vert5 = (idx1+1)*dim2*dim3 +idx2*dim3 + idx3 #as above, but 1 LT further around
+        vert6 = vert5+1
+        vert7 = (idx1+1)*dim2*dim3 +(idx2+1)*dim3 + idx3+1
+        vert8 = vert7-1
+        if wrap and idx1==0:
+            ivert1[idx2,idx3] = vert1
+            ivert2[idx2,idx3] = vert2
+            ivert3[idx2,idx3] = vert3
+            ivert4[idx2,idx3] = vert4
+        if wrap and idx1==dim1-1:
+            fvert1[idx2,idx3] = vert5
+            fvert2[idx2,idx3] = vert6
+            fvert3[idx2,idx3] = vert7
+            fvert4[idx2,idx3] = vert8
+        cells.append([vert1, vert2, vert3, vert4, vert5, vert6, vert7, vert8])
+    #add cells that wrap in Longitude
+    if wrap:
+        #TODO: The connectivity for cells at the wrap boundary is untested, and likely wrong.
+        for idx2,idx3 in itertools.product(range(dim2-1), range(dim3-1)):
+            vert1 = ivert1[idx2,idx3]
+            vert2 = ivert2[idx2,idx3]
+            vert3 = ivert3[idx2,idx3]
+            vert4 = ivert4[idx2,idx3]
+            vert5 = fvert1[idx2,idx3]
+            vert6 = fvert2[idx2,idx3]
+            vert7 = fvert3[idx2,idx3]
+            vert8 = fvert4[idx2,idx3]
+            cells.append([vert1, vert2, vert3, vert4, vert5, vert6, vert7, vert8])
     flat_cells = [str(item) for sublist in cells for item in sublist]
     return flat_cells
 
