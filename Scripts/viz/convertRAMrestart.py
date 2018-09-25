@@ -27,9 +27,8 @@ def read_config():
         properties[property_labels[i]] = lines[i+1]
                 
 #========================================================================================================
-def gen_vts(fileName, pressure=True, field=True):
-    '''Generates fn_pressure.vtp and fn_field.vts in the vts_files directory, given the filename'''
-    #TODO: RAM pressure is now a VTP, SCB field should be converted to VTU
+def gen_vts(fileName, pressure=True, field=True, verbose=False):
+    '''Generates fn_pressure.vtp and fn_field.vtu in the vts_files directory, given the filename fn'''
 
     data = dm.fromHDF5(fileName)
     outfn = os.path.split(os.path.splitext(fileName)[0])[1]
@@ -140,7 +139,7 @@ def gen_vts(fileName, pressure=True, field=True):
     if field:
         #-----------------------Generating fn_field.py----------------------------------
         nZeta = len(data['nZeta'])-1 #SCB uses a ghost point in local timea
-        nZeta = nZeta//2 #only use half...
+        #nZeta = nZeta//2 #only use half...
         nPsi = len(data['nPsi'])
         nTheta = len(data['nTheta'])
         rnZeta = range(nZeta)
@@ -156,10 +155,10 @@ def gen_vts(fileName, pressure=True, field=True):
 
         npts = nZeta*nPsi*nTheta
         ncells = (nZeta-1)*(nPsi-1)*(nTheta-1)+((nPsi-1)*(nTheta-1))
-        print('nPts = {}\nnCells = {}'.format(npts, ncells))
+        if verbose: print('nPts = {}\nnCells = {}'.format(npts, ncells))
 
         #Set up XML tree structure
-        print('Setting up field XML structure')
+        if verbose: print('Setting up field XML structure')
         fulltree = lxml.etree.ElementTree(lxml.etree.Element('VTKFile', type='UnstructuredGrid', version='1.0', byte_order='LittleEndian'))
         parent = fulltree.getroot()
         SCBdata = lxml.etree.Element('UnstructuredGrid')
@@ -174,7 +173,7 @@ def gen_vts(fileName, pressure=True, field=True):
         piece.append(celldata)
         #Populate the point data
         Bvec = lxml.etree.Element('DataArray', type='Float64', Name='B', NumberOfComponents='3', format='ascii')
-        print('Writing B vector to XML structure')
+        if verbose: print('Writing B vector to XML structure')
         to_write = '\n'
         for i, j, k in itertools.product(rnZeta, rnPsi, rnTheta):
             to_write += '\t\t\t\t\t{} {} {}\n'.format(Bx[i][j][k], By[i][j][k], Bz[i][j][k])
@@ -184,7 +183,7 @@ def gen_vts(fileName, pressure=True, field=True):
         points = lxml.etree.Element('Points') #points needs a "DataArray" element with the point locations
         xyzlocations = lxml.etree.Element('DataArray', type='Float64', NumberOfComponents='3', format='ascii')
         to_write = '\n'
-        print('Writing grid points to XML structure')
+        if verbose: print('Writing grid points to XML structure')
         for i, j, k in itertools.product(rnZeta, rnPsi, rnTheta):
             to_write += '\t\t\t\t\t{} {} {} \n'.format(x[i][j][k], y[i][j][k], z[i][j][k])
         xyzlocations.text = to_write
@@ -197,15 +196,15 @@ def gen_vts(fileName, pressure=True, field=True):
         celloffs = lxml.etree.Element('DataArray', Name='offsets', type='Int32')
         celltype = lxml.etree.Element('DataArray', Name='types', type='Int32')
         #write the hexahedrons that connect the points together, defining the grid
-        print('Calculating cell connectivity')
-        connarr = getCellVertOrder(npts, nZeta, nPsi, nTheta)
+        if verbose: print('Calculating cell connectivity')
+        connarr = getCellVertOrder(npts, nZeta, nPsi, nTheta, wrap=True)
         nconn = len(connarr)
-        print('connarr has length {}'.format(len(connarr)))
-        print('nCells (nConn//8) = {}'.format(nconn//8))
+        if verbose: print('connarr has length {}'.format(len(connarr)))
+        if verbose: print('nCells (nConn//8) = {}'.format(nconn//8))
         #for i in range(nconn)[::-1]:
         #    connarr.insert((i+1)*8, indent3) ###TODO: This is absurdly slow--- needs fixing. removal just makes the files illegible
         connstr = ' ' + ' '.join(connarr)
-        print('Writing cell connectivity to XML structure')
+        if verbose: print('Writing cell connectivity to XML structure')
         #offsets are 4, 8, 12, ...
         celloffset = ['{}'.format(8*(n+1)) for n in range(nconn//8)]
         #for i in range(nconn//8)[::-1]:
