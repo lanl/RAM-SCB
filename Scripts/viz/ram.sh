@@ -6,11 +6,9 @@ then
    exit 1
 fi
 
-if [[ -d 'vts_files' ]]
+if [[ ! -d 'vtk_files' ]]
 then
-	rm vts_files/restart_*
-else
-	mkdir vts_files
+	mkdir vtk_files
         python makeCustomSource.py
 fi
 
@@ -20,6 +18,6 @@ then
 fi
 
 module load paraview
-python convertRAMrestart.py nc_files #populates vts_files
+python convertRAMrestart.py nc_files #populates vtk_files
 pvpython visualizeRAM.py #populates images
 exit 0

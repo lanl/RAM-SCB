@@ -393,12 +393,18 @@ def generateVisualization(pressurefile, fieldfile, pointsfile, opacity=True):
 if __name__=='__main__':
     read_config()
 
-    vtxpath = os.path.abspath('vts_files')
+    #check for output directory
+    figpath = 'images'
+    if not os.path.isdir(figpath):
+        os.mkdir(figpath)
+    #temporary hardcode of input files - this needs to be moved back out to config
+    vtxpath = os.path.abspath('vtk_files')
     pressurefile = os.path.join(vtxpath, 'restart_d20130317_t060500_pressure.vtp')
     fieldfile = os.path.join(vtxpath, 'restart_d20130317_t060500_field.vtu')
     pointsfile = os.path.join(vtxpath, 'sphere.vtp')
     pointsfile = os.path.join(vtxpath, 'disc.vtp')
 
+    #generate either images or animations
     if properties['Movie'] == 'no':
         generateVisualization(pressurefile, fieldfile, pointsfile, opacity=False)
     else:
