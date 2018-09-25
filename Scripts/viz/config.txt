@@ -5,5 +5,5 @@ Camera Position: 30, 30, 30
 Camera Focal Point: 2, 2, 2
 Camera View Up: 0, 0.8, 0.6
 Scale (on/off): off
-Movie (no/groupName): restart_d20130317
+Movie (no/groupName): no
 SaveState (True/False): True

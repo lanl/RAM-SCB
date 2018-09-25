@@ -156,7 +156,7 @@ def getPolyVertOrder(ncoords, dim1, dim2):
     flat_cells = [str(item) for sublist in cells for item in sublist]
     return flat_cells
 
-def getCellVertOrder(ncoords, dim1, dim2, dim3, wrap=False):
+def getCellVertOrder(ncoords, dim1, dim2, dim3, wrap=False, verbose=False):
     #order is (Lon1, L1, lat1), (Lon1, L1, Lat2), ...
     cells = []
     if wrap:
@@ -178,7 +178,7 @@ def getCellVertOrder(ncoords, dim1, dim2, dim3, wrap=False):
             ivert2[idx2,idx3] = vert2
             ivert3[idx2,idx3] = vert3
             ivert4[idx2,idx3] = vert4
-        if wrap and idx1==dim1-1:
+        if wrap and idx1==dim1-2:
             fvert1[idx2,idx3] = vert5
             fvert2[idx2,idx3] = vert6
             fvert3[idx2,idx3] = vert7
@@ -186,17 +186,19 @@ def getCellVertOrder(ncoords, dim1, dim2, dim3, wrap=False):
         cells.append([vert1, vert2, vert3, vert4, vert5, vert6, vert7, vert8])
     #add cells that wrap in Longitude
     if wrap:
-        #TODO: The connectivity for cells at the wrap boundary is untested, and likely wrong.
+        wrap_counter = 0
         for idx2,idx3 in itertools.product(range(dim2-1), range(dim3-1)):
-            vert1 = ivert1[idx2,idx3]
-            vert2 = ivert2[idx2,idx3]
-            vert3 = ivert3[idx2,idx3]
-            vert4 = ivert4[idx2,idx3]
-            vert5 = fvert1[idx2,idx3]
-            vert6 = fvert2[idx2,idx3]
-            vert7 = fvert3[idx2,idx3]
-            vert8 = fvert4[idx2,idx3]
+            vert1 = fvert1[idx2,idx3]
+            vert2 = fvert2[idx2,idx3]
+            vert3 = fvert3[idx2,idx3]
+            vert4 = fvert4[idx2,idx3]
+            vert5 = ivert1[idx2,idx3]
+            vert6 = ivert2[idx2,idx3]
+            vert7 = ivert3[idx2,idx3]
+            vert8 = ivert4[idx2,idx3]
             cells.append([vert1, vert2, vert3, vert4, vert5, vert6, vert7, vert8])
+            wrap_counter += 1
+        if verbose: print('Adding {} cells at the wraparound'.format(wrap_counter))
     flat_cells = [str(item) for sublist in cells for item in sublist]
     return flat_cells
 
