@@ -1,14 +1,13 @@
-'''Creates the .vts files in vts_files directory for generating RAM-SCB visualizations
-   1) Generates fn_field.vts and fn_pressure.vts
-        2) Generates the sphere source to get streamlines, if streamline source is sphere
-        Usage: python ram_automate1.py <directory_with_NETCDF_files>
-        Input: directory containing .nc files'''
+'''Creates the .vtx files in vtk_files directory for generating RAM-SCB visualizations
+   1) Generates fn_field.vtu and fn_pressure.vtp
+   Usage: python convertRAMrestart.py <directory_with_NETCDF_files>
+   Input: directory containing .nc files'''
 
 import os, sys, itertools, glob
 import lxml.etree
 import numpy as np
 import spacepy.datamodel as dm
-from makeCustomSource import gen_sphere, getPolyVertOrder, getCellVertOrder
+from makeCustomSource import getPolyVertOrder, getCellVertOrder
 
 #========================================================================================================
 def read_config():
@@ -27,8 +26,8 @@ def read_config():
         properties[property_labels[i]] = lines[i+1]
                 
 #========================================================================================================
-def gen_vts(fileName, pressure=True, field=True, verbose=False):
-    '''Generates fn_pressure.vtp and fn_field.vtu in the vts_files directory, given the filename fn'''
+def gen_vtx(fileName, pressure=True, field=True, verbose=False):
+    '''Generates fn_pressure.vtp and fn_field.vtu in the vtk_files directory, given the filename fn'''
 
     data = dm.fromHDF5(fileName)
     outfn = os.path.split(os.path.splitext(fileName)[0])[1]
@@ -44,7 +43,7 @@ def gen_vts(fileName, pressure=True, field=True, verbose=False):
         npts = nT*nR
         par_data = data['PParT']; per_data = data['PPerT']
 
-        #-----------------------Generating fn_pressure.vts----------------------------------
+        #-----------------------Generating fn_pressure.vtp----------------------------------
         #Set up XML tree structure
         fulltree = lxml.etree.ElementTree(lxml.etree.Element('VTKFile', type='PolyData', version='1.0', byte_order='LittleEndian'))
         parent = fulltree.getroot()
@@ -132,12 +131,14 @@ def gen_vts(fileName, pressure=True, field=True, verbose=False):
             piece.append(part)
 
         out = lxml.etree.tostring(fulltree, xml_declaration=False, pretty_print=True)
-
-        with open('vts_files/' + outfn + '_pressure.vtp', 'w') as fh:
+        outdir = 'vtk_files'
+        if not os.path.isdir(outdir):
+            os.mkdir(outdir)
+        with open(os.path.join(outdir, outfn + '_pressure.vtp'), 'w') as fh:
             fh.write(out)
 
     if field:
-        #-----------------------Generating fn_field.py----------------------------------
+        #-----------------------Generating fn_field.vtu----------------------------------
         nZeta = len(data['nZeta'])-1 #SCB uses a ghost point in local timea
         #nZeta = nZeta//2 #only use half...
         nPsi = len(data['nPsi'])
@@ -221,25 +222,27 @@ def gen_vts(fileName, pressure=True, field=True, verbose=False):
         piece.set('NumberOfCells', '{}'.format(nconn//8))
 
         out = lxml.etree.tostring(fulltree, xml_declaration=False, pretty_print=True)
-
-        with open('vts_files/' + outfn + '_field.vtu', 'w') as fh:
+        outdir = 'vtk_files'
+        if not os.path.isdir(outdir):
+            os.mkdir(outdir)
+        with open(os.path.join(outdir, outfn + '_field.vtu'), 'w') as fh:
             fh.write(out)
 
 #=================================================================================================
 if __name__ == '__main__':
     if len(sys.argv) != 2:
-        print('Usage: python ram_automate1.py <directory_with_NETCDF_files>')
+        print('Usage: python convertRAMrestart.py <directory_with_NETCDF_files>')
         sys.exit(1)
     read_config() #read configurations from config.txt
-    #Get vts files for all netcdf files in the given directory:
+    #Make vtk files for all netcdf files in the given directory:
     files = glob.glob(os.path.join(sys.argv[1], '*.nc'))
  
     if properties['Movie'] == 'no':
         for item in files:
             print(item)
-            gen_vts(item)
+            gen_vtx(item)
     else:
         grp = properties['Movie']
         for item in files:
             if item[:len(grp)] == grp:
-                gen_vts(item)
+                gen_vtx(item)

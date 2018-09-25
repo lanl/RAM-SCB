@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-'''Creates the .vts files in vts_files directory for generating RAM-SCB visualizations
-   1) Generates fn_field.vts and fn_pressure.vts
-    2) Generates the sphere source to get streamlines, if streamline source is sphere
-    Usage: python ram_automate1.py <directory_with_NETCDF_files>
-    Input: directory containing .nc files'''
+'''Creates the .vtp files with seed locations in vtk_files directory 
+   for generating RAM-SCB visualizations
+
+   Usage: python makeCustomSource.py
+'''
 
 import os, sys, itertools, io
 import lxml.etree
@@ -12,24 +12,30 @@ import spacepy.datamodel as dm
 
 #=================================================================================================
 def gen_sphere():
-    '''Generating a spherical source for streamlines as sphere.vts in vts_files directory'''
+    '''Generating a spherical source for streamlines as sphere.vtp in vtk_files directory'''
     #----------------------------generate the points describing the sphere--------------------------
     xyz, nLons, nLats = pointsGenSphere(r=2.0, minL=3.0, maxL=7.0, dL=0.25)
 
-    #----------------------------generate the sphere.vtx file--------------------------
+    #----------------------------generate the sphere.vtp file--------------------------
     to_write = xmlPolyGen(xyz, dim1=nLons, dim2=nLats)
-    with open('vts_files/sphere.vtp', 'wb') as fh:
+    outdir = 'vtk_files'
+    if not os.path.isdir(outdir):
+        os.mkdir(outdir)
+    with open(os.path.join(outdir, 'sphere.vtp'), 'wb') as fh:
         fh.write(to_write)
 
 
 def gen_disc():
-    '''Generating a disc source for streamlines as disc.vts in vts_files directory'''
-    #----------------------------generate the points describing the sphere--------------------------
-    xyz, nLons, nL = pointsGenDisc(minL=3.0, maxL=7.5, dL=0.25)
+    '''Generating a disc source for streamlines as disc.vtp in vtk_files directory'''
+    #----------------------------generate the points describing the disc--------------------------
+    xyz, nLons, nL = pointsGenDisc(minL=2.5, maxL=8.5, dL=0.5)
 
-    #----------------------------generate the sphere.vtx file--------------------------
+    #----------------------------generate the disc.vtp file--------------------------
     to_write = xmlPolyGen(xyz, dim1=nLons, dim2=nL)
-    with open('vts_files/disc.vtp', 'wb') as fh:
+    outdir = 'vtk_files'
+    if not os.path.isdir(outdir):
+        os.mkdir(outdir)
+    with open(os.path.join(outdir, 'disc.vtp'), 'wb') as fh:
         fh.write(to_write)
 
 
@@ -204,5 +210,5 @@ def getCellVertOrder(ncoords, dim1, dim2, dim3, wrap=False, verbose=False):
 
 #=================================================================================================
 if __name__ == '__main__':
-    gen_sphere() #generates sphere.vtp in vts_files directory
+    gen_sphere() #generates sphere.vtp in vtk_files directory
     gen_disc()
