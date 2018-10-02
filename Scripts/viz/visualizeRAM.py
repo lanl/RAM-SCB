@@ -81,7 +81,7 @@ def generateVisualization(pressurefile, fieldfile, pointsfile, opacity=True):
     # create a new 'XML PolyData Reader'
     # RAM domain data
     pressurevtp = XMLPolyDataReader(FileName=[pressurefile])
-    pressurevtp.PointArrayStatus = ['electron pressure', 'proton pressure', 'heliumion pressure', 'oxygenion pressure']
+    pressurevtp.PointArrayStatus = ['electron pressure', 'proton pressure', 'heliumion pressure', 'oxygenion pressure', 'pressure anisotropy']
     
     # create a new 'XML PolyData Reader'
     # Seed points for streamline tracing
