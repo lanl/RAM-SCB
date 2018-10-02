@@ -57,6 +57,7 @@ def gen_vtx(fileName, pressure=True, field=True, verbose=False):
         hpress  = lxml.etree.Element('DataArray', type='Float64', Name='proton pressure', NumberOfComponents='1', format='ascii')
         hepress = lxml.etree.Element('DataArray', type='Float64', Name='heliumion pressure', NumberOfComponents='1', format='ascii')
         opress  = lxml.etree.Element('DataArray', type='Float64', Name='oxygenion pressure', NumberOfComponents='1', format='ascii')
+        anisot  = lxml.etree.Element('DataArray', type='Float64', Name='pressure anisotropy', NumberOfComponents='1', format='ascii')
         #write data to XML tree
         to_write = '\n'
         for i, j in itertools.product(rnT,rnR):
@@ -76,13 +77,25 @@ def gen_vtx(fileName, pressure=True, field=True, verbose=False):
         opress.text = to_write
         for el in [epress, hpress, hepress, opress]:
             pointdata.append(el)
+        to_write = '\n'
+        for i, j in itertools.product(rnT,rnR):
+            para = par_data[i,j,0] + par_data[i,j,1] + par_data[i,j,2] + par_data[i,j,3]
+            perp = per_data[i,j,0] + per_data[i,j,1] + per_data[i,j,2] + per_data[i,j,3]
+            if para==0 and perp==0:
+                to_write +=  '\t\t\t\t\t-99.0\n'
+            else:
+                to_write +=  '\t\t\t\t\t' + str(para/perp) + '\n'
+        anisot.text = to_write
+        for el in [epress, hpress, hepress, opress, anisot]:
+            pointdata.append(el)
         celldata = lxml.etree.Element('CellData')
         piece.append(celldata)
 
         #Now we add the actual point locations
         points = lxml.etree.Element('Points') #points needs a "DataArray" element with the point locations
         xyzlocations = lxml.etree.Element('DataArray', type='Float64', NumberOfComponents='3', format='ascii')
-        theta_list = np.arange(0, (2*np.pi) + (2*np.pi/(nT-1)), 2*np.pi/(nT-1))
+        #theta_list = np.arange(np.pi, (3*np.pi) + (2*np.pi/(nT-1)), 2*np.pi/(nT-1))
+        theta_list = [np.pi+np.deg2rad(15*idx*24.0/nT) for idx in range(nT)]
         step = (6.75 - 1.75)/nR
         r_list = np.arange(1.75 + step, 6.75 + step, step)
         to_write = '\n'
