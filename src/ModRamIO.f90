@@ -23,6 +23,18 @@ module ModRamIO
 !============================!
 !===== BASE SUBROUTINES =====!
 !============================!
+  subroutine write_prefix
+
+    use ModRamParams, ONLY: IsComponent
+
+    implicit none
+
+    character(len=7) :: StringPrefix = 'IM:'
+
+    if(.not. IsComponent) RETURN
+    write(*,'(a)',ADVANCE='NO')trim(StringPrefix)
+
+  end subroutine write_prefix
 !==============================================================================
   function RamFileName(PrefixIn, SuffixIn, TimeIn)
     ! Create a file name using the new RAM-SCB I/O filename standards:
@@ -128,12 +140,13 @@ module ModRamIO
        ! Get current Dst.
        call get_ramdst(dst)
        open(UNITTMP_, FILE=NameFileLog, POSITION='APPEND')
-       write(UNITTMP_, *) TimeIn, TimeRamNow%iYear, TimeRamNow%iMonth, &
-                         TimeRamNow%iDay, TimeRamNow%iHour, TimeRamNow%iMinute, &
-                         TimeRamNow%iSecond, floor(TimeRamNow%FracSecond*1000.0), &
-                         dst, DstBiot, sum(PParH)/(nR*nT), sum(PPerH)/(nR*nT), &
-                         sum(PParO)/(nR*nT), sum(PPerO)/(nR*nT), sum(PParHe)/(nR*nT), &
-                         sum(PPerHe)/(nR*nT), sum(PParE)/(nR*nT), sum(PPerE)/(nR*nT)
+       write(UNITTMP_, '(E13.6,1x,i4,5(1x,i2.2),1x,i3.3,10(1x,E13.6))') &
+            TimeIn, TimeRamNow%iYear, TimeRamNow%iMonth, &
+            TimeRamNow%iDay, TimeRamNow%iHour, TimeRamNow%iMinute, &
+            TimeRamNow%iSecond, floor(TimeRamNow%FracSecond*1000.0), &
+            dst, DstBiot, sum(PParH)/(nR*nT), sum(PPerH)/(nR*nT), &
+            sum(PParO)/(nR*nT), sum(PPerO)/(nR*nT), sum(PParHe)/(nR*nT), &
+            sum(PPerHe)/(nR*nT), sum(PParE)/(nR*nT), sum(PPerE)/(nR*nT)
        close(UNITTMP_)
     end if
 
@@ -156,16 +169,20 @@ module ModRamIO
     end if
 
     ! Write MAGxyz File
-    if ((abs(mod(TimeIn, DtW_MAGxyz))<=1e-9).and.(NameBoundMag.ne.'DIPL')) call Write_MAGxyz
+    if ((abs(mod(TimeIn, DtW_MAGxyz))<=1e-9).and.(NameBoundMag.ne.'DIPL')) &
+       call Write_MAGxyz(NameBoundMag)
 
     ! Write hI File
-    if ((abs(mod(TimeIn, DtW_hI))<=1e-9).and.(NameBoundMag.ne.'DIPL')) call ram_write_hI
+    if ((abs(mod(TimeIn, DtW_hI))<=1e-9).and.(NameBoundMag.ne.'DIPL')) &
+       call ram_write_hI
 
     ! Write efield file
-    if (abs(mod(TimeIn, DtW_Efield)).le.1e-9) call ram_epot_write
+    if (abs(mod(TimeIn, DtW_Efield)).le.1e-9) &
+       call ram_epot_write
 
     ! Update Satellite Files
-    if (DoSaveRamSats .and. (abs(mod(TimeRamElapsed,DtWriteSat)) .le. 1e-9)) call fly_sats
+    if (DoSaveRamSats .and. (abs(mod(TimeRamElapsed,DtWriteSat)) .le. 1e-9)) &
+       call fly_sats
 
     ! Write restarts.
     if (abs(mod(TimeIn,DtRestart)).le.1e-9) call write_restart()
@@ -191,8 +208,9 @@ subroutine read_geomlt_file(NameParticle)
   use ModRamTiming,    ONLY: TimeRamNow, TimeRamStart
   use ModRamGrids,     ONLY: NEL, NEL_prot, NTL, NBD
   use ModRamParams,    ONLY: boundary, BoundaryPath
-  use ModRamVariables, ONLY: StringFileDate, flux_SIII, fluxLast_SII, eGrid_SI, &
-                             avgSats_SI, lGrid_SI, tGrid_SI
+  use ModRamVariables, ONLY: flux_SIII, fluxLast_SII, eGrid_SI, &
+                             avgSats_SI, lGrid_SI, tGrid_SI, &
+                             StringFileDate
   !!!! Share Modules
   use ModIOUnit,      ONLY: UNITTMP_
   use ModTimeConvert, ONLY: TimeType, time_int_to_real
@@ -224,9 +242,7 @@ subroutine read_geomlt_file(NameParticle)
   !------------------------------------------------------------------------
   call CON_set_do_test(NameSub, DoTest, DoTestMe)
 
-  ! Save file date.
-  write(StringFileDate,'(i4.4,i2.2,i2.2)') &
-       TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay
+  write(StringFileDate,'(i4.4,i2.2,i2.2)') TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay
 
   ! Build file name using current date.  NameParticle decides if we open
   ! electrons or protons.
@@ -247,7 +263,7 @@ subroutine read_geomlt_file(NameParticle)
         write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a)') trim(BoundaryPath)//'/', &
               TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay, &
               '_ptm_', NameParticle, '_geomlt_5-min.txt'
-     case('QDMKP')
+     case('QDKP')
         write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a)') trim(BoundaryPath)//'/', &
               TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay, &
               '_qdm-kp_', NameParticle, '_geomlt_5-min.txt'
@@ -321,8 +337,8 @@ subroutine read_geomlt_file(NameParticle)
   endif
 
   ! Set species index.
-  iSpec=1 !Protons.
-  if(NameParticle.eq.'elec') iSpec=2 !electrons.
+  if (NameParticle.eq.'prot') iSpec=1 !Protons.
+  if (NameParticle.eq.'elec') iSpec=2 !electrons.
 
   ! Put data into proper array according to NameParticle.
   lGrid_SI(iSpec,1:NTL-1)     = MLTBuffer
@@ -361,17 +377,18 @@ end subroutine read_geomlt_file
 !===========================================================================
   subroutine read_hI_file
      !!!! Module Variables
-     use ModRamMain,      ONLY: DP,PathScbIn
+     use ModRamMain,      ONLY: PathScbIn
      use ModRamTiming,    ONLY: TimeRamNow
      use ModRamParams,    ONLY: NameBoundMag, UseEfInd
      use ModRamGrids,     ONLY: NR, NT, NPA
      use ModRamVariables, ONLY: FNHS, FNIS, BOUNHS, BOUNIS, BNES, HDNS, dIdt, &
                                 dBdt, dIbndt, LZ, MU, PAbn, EIR, EIP
      !!!! Module Subroutines/Functions
-     use ModRamFunctions, ONLY: COSD, FUNT, FUNI
+     use ModRamFunctions, ONLY: FUNT, FUNI, COSD
      !!!! Share Modules
      use ModIoUnit,       ONLY: UNITTMP_
 
+     use nrtype, ONLY: DP, pi_d
      implicit none
 
      logical :: THERE
@@ -433,8 +450,8 @@ end subroutine read_geomlt_file
         DO L=1,NPA
            FNHS(1,J,L) = FUNT(MU(L))
            FNIS(1,J,L) = FUNI(MU(L))
-           BOUNHS(1,J,L)=FUNT(COSD(PAbn(L)))
-           BOUNIS(1,J,L)=FUNI(COSD(PAbn(L)))
+           BOUNHS(1,J,L)=FUNT(cosd(PAbn(L)))
+           BOUNIS(1,J,L)=FUNI(cosd(PAbn(L)))
            HDNS(1,J,L)=HDNS(2,J,L)
            dIdt(1,J,L)=0.
            dIbndt(1,J,L)=0.
@@ -483,7 +500,8 @@ end subroutine read_geomlt_file
 
     call write_prefix
     NameFile = trim(InitializationPath)//'/initialization.nc'
-    write(*,*) 'Loading initial condition files '//trim(NameFile)
+    write(*,*) ''
+    write(*,'(a)') 'Loading initial condition files...'
     ! LOAD INITIAL FILE
     iStatus = nf90_open(trim(NameFile),nf90_nowrite,iFileID)
     call ncdf_check(iStatus, NameSub)
@@ -560,15 +578,15 @@ end subroutine read_geomlt_file
           angleGrid(:,j) = MLT(j)*2*PI_d/24
        ENDDO
        do iS=1,4
-          CALL GSL_Interpolation_2D(iLz, iMLT, iPParT(iS,:,:), radGrid(1:nR,:), &
+          CALL GSL_Interpolation_2D(iLz(1:iR), iMLT, iPParT(iS,:,:), radGrid(1:nR,:), &
                                     angleGrid(1:nR,:), PParT(iS,:,:), GSLerr)
-          CALL GSL_Interpolation_2D(iLz, iMLT, iPPerT(iS,:,:), radGrid(1:nR,:), & 
+          CALL GSL_Interpolation_2D(iLz(1:iR), iMLT, iPPerT(iS,:,:), radGrid(1:nR,:), & 
                                     angleGrid(1:nR,:), PPerT(iS,:,:), GSLerr)
        enddo
        do l=1,nPa
           do k=1,nE
              do iS=1,4
-                CALL GSL_Interpolation_2D(iLz, iMLT, iF2(iS,:,:,k,l), radGrid(1:nR,:), &
+                CALL GSL_Interpolation_2D(iLz(1:iR), iMLT, iF2(iS,:,:,k,l), radGrid(1:nR,:), &
                                           angleGrid(1:nR,:), F2(iS,1:nR,:,k,l), GSLerr)
              enddo
           enddo
@@ -627,17 +645,14 @@ end subroutine read_geomlt_file
     NameFileOut=trim(PathRamOut)//RamFileName('efield','in',TimeRamNow)
     OPEN(UNIT=UNITTMP_,FILE=NameFileOut,STATUS='UNKNOWN')
     WRITE(UNITTMP_,*)'UT(hr)    Kp   F107   VTmax   VTmin   Date=',StringDate
-    WRITE(UNITTMP_,31) T/3600.,KP,F107,maxval(VT)/1e3,minval(VT)/1e3
+    WRITE(UNITTMP_,*) T/3600.,KP,F107,maxval(VT)/1e3,minval(VT)/1e3
     WRITE(UNITTMP_,*) ' L     MLT        Epot(kV)'
     DO I=1,NR+1
       DO J=1,NT
-        WRITE (UNITTMP_,22) LZ(I),MLT(J),VT(I,J)/1e3
+        WRITE (UNITTMP_,*) LZ(I),MLT(J),VT(I,J)/1e3
       END DO
     END DO
     CLOSE(UNITTMP_)
-
-22  FORMAT(F5.2,F10.6,E13.4)
-31  FORMAT(F6.2,1X,F6.2,2X,F6.2,1X,F7.2,1X,F7.2,1X,1PE11.3)
 
     RETURN
 
@@ -650,7 +665,7 @@ end subroutine read_geomlt_file
     use ModRamGrids,     ONLY: nR, nE, nPA, nT
     use ModRamVariables, ONLY: F2, FFACTOR, FNHS, WE, WMU, XNN, XND, ENERN,   &
                                ENERD, EkeV, UPA, LNCN, LNCD, Kp, MLT, LZ, &
-                               LECD, LECN
+                               LECD, LECN, outsideMGNP
     use ModRamTiming,    ONLY: TimeRamNow
 
     use ModRamFunctions
@@ -726,6 +741,7 @@ end subroutine read_geomlt_file
     DO I=4,NR,IW
       DO 25 J=1,NT-1,JW
         WRITE(UNITTMP_,32) StringDate,LZ(I),KP,MLT(J)
+        if (outsideMGNP(I,J) == 1) F(I,J,:,:) = 1e-31
         DO 27 K=4,NE-1
 27      WRITE(UNITTMP_,30) EKEV(K),(F(I,J,K,L),L=2,NPA-2)
 25    CONTINUE
@@ -784,7 +800,8 @@ end subroutine read_geomlt_file
     use ModRamParams,    ONLY: DoAnisoPressureGMCoupling
     use ModRamGrids,     ONLY: NR, NT
     use ModRamVariables, ONLY: PParH, PPerH, PParHe, PPerHe, PParO, PPerO, &
-                               PPerE, PParE, PAllSum, PParSum, KP, LZ, PHI
+                               PPerE, PParE, PAllSum, PParSum, KP, LZ, PHI, &
+                               outsideMGNP
     !!!! Share Modules
     use ModIOUnit, ONLY: UNITTMP_
 
@@ -819,7 +836,10 @@ end subroutine read_geomlt_file
     end if
     do i=2, NR
        do j=1, NT
-          if (.not.DoAnisoPressureGMCoupling) then
+          if (outsideMGNP(I,J) == 1) then
+             write(UNITTMP_,*) LZ(I),PHI(J)*12/PI_d,1e-31,1e-31,1e-31,1e-31, &
+                               1e-31,1e-31,1e-31,1e-31,1e-31,1e-31
+          elseif (.not.DoAnisoPressureGMCoupling) then
              write(UNITTMP_,*) LZ(I),PHI(J)*12/PI_d,PPERH(I,J),PPARH(I,J), &
                                PPERO(I,J),PPARO(I,J), PPERHE(I,J),PPARHE(I,J), &
                                PPERE(I,J),PPARE(I,J),PAllSum(i,j)
@@ -840,7 +860,8 @@ subroutine ram_write_hI
   use ModRamMain,      ONLY: PathScbOut
   use ModRamGrids,     ONLY: nR, nT, nPA
   use ModRamTiming,    ONLY: TimeRamNow, TimeRamElapsed
-  use ModRamVariables, ONLY: LZ, MLT, FNHS, BOUNHS, FNIS, BOUNIS, BNES, HDNS
+  use ModRamVariables, ONLY: LZ, MLT, FNHS, BOUNHS, FNIS, BOUNIS, BNES, HDNS, &
+                             dIdt, dHdt, dBdt
 
   use ModIOUnit, ONLY: UNITTMP_
 

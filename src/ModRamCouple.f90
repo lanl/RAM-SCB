@@ -8,7 +8,7 @@ module ModRamCouple
 
   use ModRamMain, ONLY: Real8_, PathRamOut
   use ModRamConst, ONLY: M1
-  use ModRamGrids, ONLY: NR, NE, NT, NPA, NRExtend
+  use ModRamGrids, ONLY: NR, NE, NT, NPA, nRextend
   use ModRamTiming, ONLY: TimeRamElapsed, TimeRamNow
   use ModRamVariables, ONLY: KP, F107, EKEV, MU, PHI, LZ
 
@@ -36,18 +36,14 @@ module ModRamCouple
        Ux_=-1, Uy_=-1, Uz_=-1
 
   logical :: DoMultiFluidGMCoupling = .false.
-  logical :: DoPassJr  = .false.
+  logical :: DoPassJr   = .false.
   logical :: DoIEPrecip = .false.
 
   ! Coupling P to SWMF:
-  ! The iono footprints from BATS should be stored here:
-  real(kind=Real8_), public, allocatable :: IonoMap_DSII(:,:,:,:)
-
   ! Container for MHD density and pressure at outer boundary.
   ! Indices are (dens:pres,Local Time,species[all, h, he, O])
   real(kind=Real8_), public, allocatable :: MhdDensPres_VII(:,:,:)
   real(kind=Real8_), public, allocatable :: FluxBats_IIS(:,:,:)
-  real(kind=Real8_), public, allocatable :: PMhdGhost(:)! MHD pressure at RAM ghost cells.
   real(kind=Real8_), public, allocatable :: FluxBats_anis(:,:,:,:)
 
   ! Variables for E-field coupling with MHD (E=UxB):
@@ -55,6 +51,14 @@ module ModRamCouple
   real(kind=Real8_), public, allocatable :: ETotal_DII(:,:,:)
   
   ! Variables for B-field coupling with MHD:
+  ! Tracing info is stored in MhdLines_IIV(nLines, nPointsMax, nVarLine).
+  ! Lines progress from 1 to nLines such that a line passing through radius
+  ! index iR and MLT index iT is stored in iLine = 2*((nRextend)*(iT-1) + iR)-1
+  ! (for trace from equatorial plane to northern hemisphere) and in
+  ! iLine = 2*((nRextend)*(iT-1) + iR) (to southern hemisphere).  Each line has
+  ! up to nPointsMax; iEnd(iLine) has index of where to stop.  As MhdLines_IIV
+  ! is filled, points are added between the MHD inner boundary and R=1RE to
+  ! give all lines nPointsMax points.
   integer, public, parameter   :: nPointsMax = 200
   integer, public :: nRadSWMF, nRadSwmfVar, nRadSwmfVarInner, &
        nLonSWMF, nLinesSWMF, nPoints
@@ -66,6 +70,14 @@ module ModRamCouple
        pEqSWMF(:,:), nEqSWMF(:,:)
   real(kind=Real8_), public, allocatable :: uEqSWMF_DII(:,:,:), bEqSWMF_DII(:,:,:)
 
+  ! Updated MHD-> SCB coupling variables: Blines has the X, Y, and Z coordinates along each
+  ! magnetic field line.  Example: the X-coords of the line passing through RAM cell iR, iT
+  ! is stored in Blines_DIII(1, iR, iT, :).  Tracing happens from southern (index 1) to
+  ! northern hemisphere in the final dimension.
+  ! Corresponding logical variable denotes if line is close (.true.) or open (.false.).
+  real(kind=Real8_), public, allocatable :: Blines_DIII(:,:,:,:)
+  logical,           public, allocatable :: IsClosed_II(:,:)
+  
   ! Variables for coupling to SWMF-IE component:
   integer, public :: nIePhi=0, nIeTheta=0
   real(kind=Real8_), public, allocatable :: SwmfIonoPot_II(:,:)
@@ -84,33 +96,38 @@ contains
 
     implicit none
 
-    ALLOCATE(IonoMap_DSII(3,2,nRextend,nT), MhdDensPres_VII(3,nT,4), FluxBats_IIS(nE, nT, 1:4), &
-             PMhdGhost(nT), FluxBats_anis(nE,nPa,nT,1:4), iEnd(2*(nRExtend)*nT), xEqSWMF(nRExtend,nT-1), &
-             yEqSWMF(nRExtend,nT-1), pEqSWMF(nRExtend,nT-1), nEqSWMF(nRExtend,nT-1), SwmfPot_II(nR+1, nT), &
-             uEqSWMF_DII(3,nRExtend,nT-1),bEqSWMF_DII(3,nRExtend,nT-1),ETotal_DII(2,nR,nT))
+    ALLOCATE(MhdDensPres_VII(3,nT,4), &
+         FluxBats_IIS(nE, nT, 1:4), FluxBats_anis(nE,nPa,nT,1:4),&
+         iEnd(2*(nRExtend)*nT), xEqSWMF(nRExtend,nT-1),  yEqSWMF(nRExtend,nT-1),&
+         pEqSWMF(nRExtend,nT-1), nEqSWMF(nRExtend,nT-1), SwmfPot_II(nR+1, nT), &
+         uEqSWMF_DII(3,nRExtend,nT-1),bEqSWMF_DII(3,nRExtend,nT-1), &
+         ETotal_DII(2,nR,nT), Blines_DIII(3,nRextend,nT-1,2*nPointsMax-1), IsClosed_II(nRextend,nT))
 
     SWMFPot_II = 0.
     FluxBats_anis = 0.
-    PMhdGhost = 0.
     FluxBats_IIS = 0.
-    IonoMap_DSII = 0.
     xEqSWMF = 0.
     yEqSWMF = 0.
     pEqSWMF = 0.
     nEqSWMF = 0.
     uEqSWMF_DII = 0.
     bEqSWMF_DII = 0.
-
+    Blines_DIII = 0.
+    IsClosed_II  = .true.
+    
   end subroutine RAMCouple_Allocate
 
 !==============================================================================
   subroutine RAMCouple_Deallocate
 
-
     implicit none
+    
+    ! Items that may not have been allocated:
+    if(allocated(MHDLines_IIV)) deallocate(MHDLines_IIV)
 
-    DEALLOCATE(IonoMap_DSII, MhdDensPres_VII, FluxBats_IIS, PMhdGhost, iEnd, &
-               FluxBats_anis, xEqSWMF, yEqSWMF, pEqSWMF, nEqSWMF, SwmfPot_II)
+    DEALLOCATE(MhdDensPres_VII, FluxBats_IIS, iEnd, &
+         FluxBats_anis, xEqSWMF, yEqSWMF, pEqSWMF, nEqSWMF, SwmfPot_II, &
+         uEqSWMF_DII, bEqSWMF_DII, ETotal_DII)
 
   end subroutine RAMCouple_Deallocate
 
@@ -174,35 +191,38 @@ contains
           Ppar_ = i
        case('ppar')
           Ppar_ = i
-       case('ux')
+       case('Ux')
           Ux_=i
-       case('uy')
+       case('Uy')
           Uy_=i
-       case('uz')
+       case('Uz')
           Uz_=i  
-       case('bx')
+       case('Bx')
           Bx_=i
-       case('by')
+       case('By')
           By_=i
-       case('bz')
+       case('Bz')
           Bz_=i
        end select
        NameVar = trim( NameVar(nChar + 1:len(NameVar)) )
     end do
 
-    if ( all((/ RhoH_,  RhoHe_, RhoO_ /)  .ne. -1) ) TypeMhd = 'multiS'
+    if ( all((/ RhoH_,  RhoHe_, RhoO_  /) .ne. -1) ) TypeMhd = 'multiS'
     if ( all((/ PresH_, PresHe_,PresO_ /) .ne. -1) ) TypeMhd = 'multiF'
     if ( all((/ PresSw_,PresH_ ,PresO_ /) .ne. -1) ) TypeMhd = 'mult3F'
     if ( Ppar_ .ne. -1) TypeMhd = 'anisoP'
 
     if(DoTestMe) then
+       write(*,*) 'RAM_SCB: NameVarIn = ', NameVarIn
        write(*,*) 'RAM_SCB: TypeMhd = ', TypeMhd
        write(*,*) 'RAM_SCB: MHD Indices = ', &
             'total = ', TotalRho_, TotalPres_, &
             'H+    = ', RhoH_, PresH_, &
             'He+   = ', RhoHe_,PresHe_, &
             'O+    = ', RhoO_, PresO_, &
-            'Sw H+ = ', RhoSw_,PresSw_
+            'Sw H+ = ', RhoSw_,PresSw_, &
+            'Bx, By, Bz = ', Bx_, By_, Bz_, &
+            'Ux, Uy, Uz = ', Ux_, Uy_, Uz_
     end if
 
   end subroutine set_type_mhd
@@ -234,9 +254,14 @@ contains
     MhdLines_IIV = 0.0
 
     if(DoTestMe) write(*,*)'IM:'//NameSub//'nLinesSWMF = ', nLinesSWMF
-    
+
+    ! Loop through lines, find the number of points in each line (stored in
+    ! iEnd), determine missing lines, etc.  Sort from big 2D array to
+    ! 3D array.  2D array has all tracing info for all field lines on one
+    ! dimension; 3D array has info for each tracing segregated.
     NewLine: do iLine=1, nLinesSWMF
-       ! Skip missing lines (i.e., inside MHD boundary)
+       ! Skip missing lines (i.e., inside MHD boundary) by checking the
+       ! line number reported by the MHD tracer:
        if (iLine<BufferLine_VI(1, iPointBuff)) then
           iEnd(iLine) = -1
           cycle NewLine
@@ -244,6 +269,7 @@ contains
 
        ! Grab all points on current line:
        do while(BufferLine_VI(1,iPointBuff)==iLine)
+          ! Extract values into 3D array:
           MhdLines_IIV(iLine, iPointLine, :) = BufferLine_VI(:, iPointBuff)
           ! Do not exceed buffer:
           if (iPointBuff == nPointIn) exit
@@ -268,8 +294,9 @@ contains
 
     MhdLines_IIV(:,:,3:5) = MhdLines_IIV(:,:,3:5)/6378100.0 !XYZ in R_E.
 
-    ! Now, extend lines to ionosphere.  Fill in missing lines w/ dipole lines.
-    nPoints = int(maxval(iEnd)+5,kind=4)
+    ! Now, extend lines from MHD inner boundary to ionosphere.
+    ! Fill in missing lines w/ dipole lines.
+    nPoints = int(maxval(iEnd)+5) ! Find the longest line in array + extra points
     iLon=1; iRad=1
     do iLine=1, nLinesSWMF
        ! If line is missing...
@@ -295,7 +322,7 @@ contains
           MhdLines_IIV(iLine,1,Uy_) = corot*lz(iRad)*cos(phi(iLon))
           MhdLines_IIV(iLine,1,Uz_) = 0.0
        else
-          i = int(iEnd(iLine),kind=4)
+          i = int(iEnd(iLine))
           !write(*,*)'Extending!'
           !write(*,*)'Adding ', nPoints-i, 'points.'
           !write(*,'(a,3f9.6)') '...from ', x(iLine,i),y(iLine,i),z(iLine,i)
@@ -318,9 +345,6 @@ contains
        end if
     end do
 
-    !write(*,*) MhdLines_IIV(1,:nPoints,3)
-    !write(*,*) MhdLines_IIV(nLinesSWMF, :nPoints, 3)
-
     ! Save equatorial values, working backwards towards missing values.
     ! Note that the repeated longitude (0 and 2*pi) is skipped the 2nd time.
     ! This section is for debug file writing and is not currently leveraged by
@@ -332,7 +356,7 @@ contains
     do j=1, nT-1
        do i=1, nRextend
           ! Find corresponding trace.
-          iLine = 2*((nRextend+1)*(j-1) + i)-1 
+          iLine = 2*((nRextend)*(j-1) + i)-1 
           ! Collect scalar equatorial values (iLine, 1st trace point, variable):
           xEqSWMF(i,j) = MhdLines_IIV(iLine,1,3)
           yEqSWMF(i,j) = MhdLines_IIV(iLine,1,4)
@@ -546,6 +570,7 @@ contains
     gamma3 = 0.886  ! gamma(1.5)
     factor1 = gamma1/gamma2/gamma3*sqrt(2*cPi)/(2*kappa-3)**1.5
 
+    ! Convert from moments to fluxes:
     do iE=1, nE
        eCent = 1000.0 * Ekev(iE) ! Center of energy bin in eV.
        factor=4.0E6*Ekev(iE)     ! Unit conversion factor * eCent in KeV.

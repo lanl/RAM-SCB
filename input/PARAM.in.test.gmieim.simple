@@ -1,10 +1,9 @@
 Begin session: 1
-
 #ECHO
 T
 
 #TEST
-IM_put_from_gm_line couple_gm_im			StringTest
+IM_put_from_gm_line couple_gm_im IM_set_grid ram_init
 
 #TIMEACCURATE
 T			DoTimeAccurate
@@ -89,6 +88,17 @@ sphere0                 NameArea
 
 !refine the magnetotail
 
+#OUTERBOUNDARY
+outflow			TypeBc1
+vary			TypeBc2
+float			TypeBc3
+float			TypeBc4
+float			TypeBc5
+float			TypeBc6
+
+#INNERBOUNDARY
+ionosphere		TypeBcInner
+
 #GRIDRESOLUTION
 4.0                     Resolution
 box                     NameArea
@@ -153,9 +163,10 @@ Rusanov			TypeFlux
 
 #SAVELOGFILE
 T
-RAW			StringLogfile
+VAR step date		StringLogfile
 1			DnSaveLogfile
--1.			DtSaveLogfile
+-1.			DtSaveLogfile.
+dt rho mx my mz p bx by bz pmin pmax dst
 
 #SOLARWIND
 5.0			SwNDim  [n/cc]
@@ -211,20 +222,24 @@ min idl                 StringPlot
 
 #BEGIN_COMP IM ----------------------------------------
 
-#EVENT
-sep_05			NameEvent
+#WRITE_BOUNDARY
 
 #OUTERBOUNDARY
 SWMF			NameBoundPlasma
 SWMF 			NameBoundMag
 MAXW			NameDistribution
 
+#COMPONENT_TIMESTEPS
+5.0			SCBTimeStep
+5.0			BCTimeStep
+5.0			EFTimeStep
+
 #EFIELD
-IE89			NameEfield
+IESC			NameEfield
 F			UseEfind
 
 #END_COMP IM   ----------------------------------------
 
 #STOP
 -1			MaxIter
-10.0			TimeMax
+300.0			TimeMax

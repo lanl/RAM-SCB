@@ -54,7 +54,7 @@ Module ModScbVariables
   REAL(DP), ALLOCATABLE :: f(:), fp(:), rhoVal(:), chiVal(:), thetaVal(:), zetaVal(:), &
                            fzet(:), fzetp(:), chi(:,:,:)
   REAL(DP) :: xzero, xzero3, dphi, bnormal, pnormal, enormal, pjconst, psiin, &
-              psiout, psitot, bzero, constZ, constTheta, pressurequot, re1, &
+              psiout, psitot, bzero, pressurequot, re1, &
               xpsiin, xpsiout, r0Start, byimfglobal, bzimfglobal, pdynglobal, &
               blendGlobal, blendGlobalInitial
   REAL(DP) :: p_dyn      = 0._dp, &

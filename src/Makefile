@@ -83,32 +83,44 @@ SCB_OBJECTS=                  \
 	w2k_r8.o	      \
 	w05.o
 
+SCE_OBJECTS=                  \
+	ModSceVariables.o     \
+	ModSceGrids.o         \
+	ModSceInit.o          \
+        ModSceRun.o           \
+	ModSceIono.o
+
 GSL_OBJECTS=		\
 	ModRamGSL.o	\
 	RamGSL.o
 
 CPL_OBJECTS=            \
-        ModRamCouple.o  \
+        ModRamScbRun.o  \
         ModRamScb.o     \
-        ModScbCouple.o
+        ModRamSce.o     \
+        ModRamCouple.o
 
-EXT_OBJECTS=       \
-	nrtype.o   \
-	mpi.o      \
+EXT_OBJECTS=              \
+        gaussian_filter.o \
+	nrtype.o          \
+	mpi.o             \
 	ModRamMpi.o 
 
-OBJECTS = ${RAM_OBJECTS} ${SCB_OBJECTS} ${EXT_OBJECTS} ${GSL_OBJECTS} ${CPL_OBJECTS} ${PLE_OBJECTS}
+OBJECTS = ${RAM_OBJECTS} ${SCB_OBJECTS} ${SCE_OBJECTS} ${EXT_OBJECTS} ${GSL_OBJECTS} ${CPL_OBJECTS} ${PLE_OBJECTS}
 
 # List of objects required for executable:
 OBJECTS_EXE = Main.o
 
 DEPEND:
-	@${SCRIPTDIR}/depend.pl ${SEARCH} ${OBJECTS}
+	${SCRIPTDIR}/depend.pl ${SEARCH} ${OBJECTS}
 
 help: 
 	echo Help forthcoming.
 
-# Rules for cleaning: 
+# Rules for cleaning:
+clean:
+	rm -f *~ core *.o *.mod fort.* a.out *.exe *.a *.so *.protex
+
 distclean:
 	/bin/rm -f ../LibLocations.txt
 	/bin/rm -f core *.o *.mod

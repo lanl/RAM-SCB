@@ -41,8 +41,7 @@ module ModRamFunctions
 
     use ModRamMain, ONLY: Real8_
     use ModRamGrids, ONLY: NR, NE, NT, NPA
-    use ModRamVariables, ONLY: f2, rfactor, upa, we, wmu, ekev
-
+    use ModRamVariables, ONLY: f2, rfactor, upa, we, wmu, ekev, outsideMGNP
 
     implicit none
 
@@ -59,7 +58,9 @@ module ModRamFunctions
     do s=1,4; do i=2,nR; do k=2,nE; do l=1,nPa
        if(l.ge.uPa(i))cycle
        do j=1, nT-1
-          sumEnergy=sumEnergy+f2(s,i,j,k,l)*wE(k)*wMu(L)*eKeV(k)
+          if (outsideMGNP(i,j) == 0) then
+             sumEnergy=sumEnergy+f2(s,i,j,k,l)*wE(k)*wMu(L)*eKeV(k)
+          endif
        end do
     end do; end do; end do; end do
 
@@ -319,27 +320,28 @@ module ModRamFunctions
   !=============================================================================
   subroutine ram_sum_pressure
 
-    use ModRamMain,      ONLY: Real8_
     use ModRamVariables, ONLY: PAllSum, PParH, PPerH, PParO, PPerO, &
-                               PParE, PPerE, PParHe, PPerHe, PParSum
+                               PParE, PPerE, PParHe, PPerHe, PParSum, &
+                               NAllSum, HPAllSum, OPAllSum, HePAllSum, &
+                               ePAllSum, HNAllSum, ONAllSum, HeNAllSum
     use ModRamParams,    ONLY: DoAnisoPressureGMCoupling
     use ModRamGrids,     ONLY: NR, NT
     
+    use nrtype, ONLY: DP
 
     implicit none
     
-    real(kind=Real8_), parameter :: onethird=1.0/3.0, twothird=2.0/3.0
+    real(DP), parameter :: onethird=1.0/3.0, twothird=2.0/3.0
     integer :: i, j
     !------------------------------------------------------------------------
-    
+   
     do i=1, nR; do j=1, nT
        PAllSum(i,j) = &
             twothird * PPerO( i,j) + onethird * PParO( i,j) + &
             twothird * PPerH( i,j) + onethird * PParH( i,j) + &
             twothird * PPerE( i,j) + onethird * PParE( i,j) + &
             twothird * PPerHe(i,j) + onethird * PParHe(i,j)
-       if (DoAnisoPressureGMCoupling)&
-            PparSum(i,j) = PParO(i,j) + PParH(i,j) + PparE(i,J) + PParHe(i,j)
+       PparSum(i,j) = PParO(i,j) + PParH(i,j) + PparE(i,J) + PParHe(i,j)
     end do; end do
     
   end subroutine ram_sum_pressure

@@ -1,0 +1,9 @@
+Anything before the colon is the property name, after the colon is the property value. Property values are case-sensitive
+Streamline source type (sphere or slice): slice
+Plasma pressure display (electron/proton/heliumion/oxygenion): proton
+Camera Position: 30, 30, 30
+Camera Focal Point: 2, 2, 2
+Camera View Up: 0, 0.8, 0.6
+Scale (on/off): off
+Movie (no/groupName): restart_d20130317
+SaveState (True/False): True

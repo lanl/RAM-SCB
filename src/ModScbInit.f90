@@ -149,7 +149,7 @@ MODULE ModScbInit
 
   nAzimRAM = NT
   nXRaw    = NR-1
-  nXRawExt = NR+floor(1.5/(5./nR))
+  nXRawExt = NR+2*floor(1.5/(5./nR))
   nYRaw    = NT
 
   end subroutine scb_allocate

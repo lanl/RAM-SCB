@@ -198,6 +198,7 @@ MODULE ModRamWPI
     character(len=3) ST4
     character(len=2) ST3, ST2
 
+    ST2 = '_e'
     DO I=1,NR
       fpofc(1)=2.
       write(ST4,'(I3.3)') INT(LZ(I)*100)
@@ -247,6 +248,8 @@ MODULE ModRamWPI
     character(len=1) ST3
     character(len=2) ST2
     character(len=80) HEADER
+
+    ST2 = '_e'
 
     ALLOCATE(RLDAA(ENG,NPA),RUDAA(ENG,NPA))
     RLDAA = 0.0; RUDAA = 0.0
