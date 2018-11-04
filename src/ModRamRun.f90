@@ -27,7 +27,7 @@ MODULE ModRamRun
                                DtDriftE, DtDriftMu, NECR, F107, RZ, IG, rsn, &
                                IAPO, LSDR, ELORC, LSCHA, LSWAE, LSATM, PPerT, &
                                PParT, PPerO, PParO, PPerH, PParH, PPerE, PParE, &
-                               PPerHe, PParHe, F2, outsideMGNP
+                               PPerHe, PParHe, F2, outsideMGNP, Upa, wMu, Mu
     !!!! Module Subroutines/Functions
     use ModRamDrift, ONLY: DRIFTPARA, DRIFTR, DRIFTP, DRIFTE, DRIFTMU, DRIFTEND
     use ModRamLoss,  ONLY: CEPARA, CHAREXCHANGE, ATMOL
@@ -58,10 +58,14 @@ MODULE ModRamRun
     IF (DoUsePlane_SCB) THEN
        ! Need total number of days from TimeRamNow
        DAY = TimeRamNow%iMonth*30 + TimeRamNow%iDay
-       CALL APFMSIS(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay,TimeRamNow%iHour,IAPO)
+
+       ! For now we will just use the Carpenter model so that we can test the
+       ! effects of a plasmasphere. -ME
        CALL TCON(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay,DAY,RZ,IG,rsn,nmonth)
-       !CALL PLANE(TimeRamNow%iYear,DAY,T,KP,IAPO(2),RZ(3),F107,2.*DTs,NECR,VT/1e3)
        CALL CARPENTER(NECR,Kp,DAY,RZ(3))
+
+       !CALL APFMSIS(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay,TimeRamNow%iHour,IAPO)
+       !CALL PLANE(TimeRamNow%iYear,DAY,T,KP,IAPO(2),RZ(3),F107,2.*DTs,NECR,VT/1e3)
     END IF
 
   !$OMP PARALLEL DO
@@ -133,16 +137,17 @@ MODULE ModRamRun
        CALL DRIFTEND
     end do
   !$OMP END PARALLEL DO
+    F2(:,:,nT,:,:) = F2(:,:,1,:,:)
 
     !!!! For now set the flux to 0 outside magnetopause.
     ! Setting to 0 was causing issues, instead keep the flux but track the
     ! magnetopause in all output routines. This is a bad fix, but works for now.
     ! We will want to change this later. -ME
-    !DO I = 1, nR
-    !   DO J = 1, nT
-    !      if (outsideMGNP(I,J) == 1) F2(:,I,J,:,:) = 1.d-31
-    !   ENDDO
-    !ENDDO
+    DO I = 1, nR
+       DO J = 1, nT
+          if (outsideMGNP(I,J) == 1) F2(:,I,J,:,:) = 1.d-31
+       ENDDO
+    ENDDO
     !!!!
 
     DtsNext = min(minval(DtDriftR), minval(DtDriftP), minval(DtDriftE), minval(DtDriftMu))
