@@ -58,7 +58,7 @@ Module ModRamScb
     implicit none
   
     integer :: i, j, k, L, iS, GSLErr
-    real(DP) :: MuEq
+    real(DP) :: MuEq, radius, angle
   
     DO iS = 1,4
        DO I = 2, NR
@@ -71,7 +71,8 @@ Module ModRamScb
           ENDDO
        ENDDO
     ENDDO
- 
+
+    ! RAM Grid 
     DO j = 0,nR
        radRaw(j) = RadiusMin + (radOut-RadiusMin) * REAL(j,DP)/REAL(nR,DP)
     END DO
@@ -79,6 +80,20 @@ Module ModRamScb
        azimRaw(k) = 24.0 * REAL(k-1,DP)/REAL(nT-1,DP)
     END DO
  
+    ! SCB Grid
+    DO k = 2, nzeta
+       DO j = 1, npsi
+          radius = SQRT((x(nThetaEquator,j,k))**2 + y(nThetaEquator,j,k)**2)
+          angle = ASIN(y(nThetaEquator,j,k) / radius) + pi_d
+          IF ((x(nThetaEquator,j,k) .LE. 0) .AND. (y(nThetaEquator,j,k) .GE.0)) &
+               angle = twopi_d - ASIN(y(nThetaEquator,j,k) / radius)
+          IF ((x(nThetaEquator,j,k) .LE. 0) .AND. (y(nThetaEquator,j,k) .LE.0)) &
+               angle = - ASIN(y(nThetaEquator,j,k) / radius)
+          radGrid(j,k) = radius
+          angleGrid(j,k) = angle
+       END DO
+    END DO
+
     ! Always fill this matrix; it's used by RAM outputs
     ! Interpolate RAM flux on 3DEQ grid, for mapping
     DO iS = 1, 4 ! ions & electrons
