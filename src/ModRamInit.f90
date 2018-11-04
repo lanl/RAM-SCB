@@ -371,8 +371,8 @@ MODULE ModRamInit
     ELB=EnergyMin ! Lower limit of energy in keV
     IF (abs(ELB-0.01).le.1e-9) THEN
       WE(1)=2.8E-3 !  |_._|___.___|____.____|______.______|
-      RW=1.36 !    .     <   DE   >    <      WE     >
-    END IF                  !   EKEV                EBND
+      RW=1.36      !    .     <   DE   >    <      WE     >
+    END IF         !   EKEV                EBND
     IF (abs(ELB-0.1).le.1e-9) THEN ! relativistic
       WE(1)=3E-2
       RW=1.27
@@ -563,7 +563,7 @@ MODULE ModRamInit
           call computehI(0)
           call compute3DFlux
        else
-          call ComputeBandJacob
+          call computeBandJacob
           call compute3DFlux
        endif
   

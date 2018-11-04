@@ -25,7 +25,7 @@ module ModRamTiming
   !!!!! TEMPORAL GRIDS
   real(DP) :: DTs          = 5.0,    &  ! Variable that stores the current time step (changes during run)
               DTsNext      = 5.0,    &  ! Variable that decides the next time step (changes during run)
-              DTsMin       = 1.0,    &  ! Minimum time step the code will take (doesn't actually adhear to this)
+              DTsMin       = 0.1,    &  ! Minimum time step the code will take (doesn't actually adhear to this)
               DTsMax       = 100.0,  &  ! Max time step the code will take (configurable in PARAM)
               DTsFramework = 1000.0, &  ! Variable that dictates SWMF time steps (changes during run)
               DTOutput     = 3600.0, &  ! How often certain outputs are written
@@ -45,16 +45,16 @@ module ModRamTiming
 
   ! Variables for writing efficiency file:
   logical :: DoWriteEffFile = .true.
-  integer :: iUnitEffFile
   real(DP) :: dtEffFile = 300.0
 
   character(len=*), parameter :: NameMod='ModRamTiming'
+  character(len=100) :: NameEffFile
 
   contains
 !==================================================================================================
   subroutine init_timing()
 
-    use ModIoUnit,  ONLY: io_unit_new
+    use ModIoUnit,  ONLY: UNITTMP_
 
     implicit none
 
@@ -70,24 +70,26 @@ module ModRamTiming
     SysTimeStart = t1/clock_rate
 
     ! Initialize efficiency file.
-    write(NameFile, '(a,a,i8.8,a)') &
+    write(NameEffFile, '(a,a,i8.8,a)') &
          trim(PathRamOut), '/efficiency_n', nIter, '.txt'
 
     ! Open file:
-    iUnitEffFile = io_unit_new()
-    open(unit=iUnitEffFile, file=NameFile, status='REPLACE', &
+    open(unit=UNITTMP_, file=NameEffFile, status='REPLACE', &
          action='WRITE', iostat=iError)
     if(iError .ne. 0) call CON_stop(NameSub// 'cannot open file '//NameFile)
 
     ! Write header:
-    write(iUnitEffFile, '(a,f10.1)')'Run started at t=',TimeRestart
-    write(iUnitEffFile, *)'SysTime  RunTime  Efficiency=Run/Sys'
-    write(iUnitEffFile, *)'------------------------------------'
+    write(UNITTMP_, '(a,f10.1)')'Run started at t=',TimeRestart
+    write(UNITTMP_, *)'SysTime  RunTime  Efficiency=Run/Sys'
+    write(UNITTMP_, *)'------------------------------------'
+    close(UNITTMP_)
 
   end subroutine init_timing
 
   !===========================================================================
   subroutine do_timing()
+
+    use ModIoUnit,  ONLY: UNITTMP_
 
     implicit none
 
@@ -105,9 +107,11 @@ module ModRamTiming
     ! Update timing metrics (only efficiency so far...)
     Efficiency = (TimeRamElapsed-TimeRestart)/SysTimeNow
 
-    if(DoWriteEffFile .and. (abs(mod(TimeRamElapsed, dtEffFile)) .le. 1e-9) ) &
-         write(iUnitEffFile, '(2(f12.2, 1x), f12.8)') &
-         SysTimeNow, TimeRamElapsed, Efficiency
+    if (DoWriteEffFile.and.(abs(mod(TimeRamElapsed, dtEffFile)).le.1e-9)) then
+       open(UNITTMP_,FILE=NameEffFile,ACCESS='APPEND')
+       write(UNITTMP_, '(2(f12.2, 1x), f12.8)') SysTimeNow, TimeRamElapsed, Efficiency
+       close(UNITTMP_)
+    endif
 
     ! Write timing report.
     if(abs(mod(TimeRamElapsed, dtPrintTiming)) .le. 1e-9) then
@@ -128,8 +132,6 @@ module ModRamTiming
     !-------------------------------------------------------------------------
     clock_rate = 1000
     clock_max = 100000
-
-    close(iUnitEffFile)
 
     ! Update system time.
     !call cpu_time(CpuTimeNow)
