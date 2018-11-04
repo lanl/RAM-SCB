@@ -17,14 +17,14 @@ module ModScbParams
 
   logical :: Symmetric = .false., DoScbCalc = .true.
 
-  character(len=3) :: PressMode = 'SKD'
+  character(len=3) :: PressMode = 'FLT'
   character(len=3) :: Isotropic = 'RAM'
 
   integer :: psiChange = 0
   integer :: theChange = 0
 
   integer :: iDumpRAMFlux = 0 ! Writes RAM flux mapped along 3D field lines in NetCDF format
-  integer :: MinSCBIterations = 5
+  integer :: MinSCBIterations = 11
 
   real(DP) :: decreaseConvAlphaMin = 5e-1,  &
               decreaseConvAlphaMax = 5e-1,  &
@@ -34,10 +34,10 @@ module ModScbParams
               blendPsiInit         = 0.25,  &
               blendMin             = 0.01,  &
               blendMax             = 1.0,   &
-              InConAlpha           = 1e-8,  &
-              InConPsi             = 1e-7,  &
+              InConAlpha           = 1e-6,  &
+              InConPsi             = 1e-6,  &
               convergence          = 0.9,   &
-              constTheta           = 0.0,   &
+              constTheta           = 0.2,   &
               constZ               = 0.0
 
  !integer  :: method = 1 ! Direct matrix inversion calculation of Euler Potentials
