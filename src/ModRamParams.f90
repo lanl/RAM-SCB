@@ -14,7 +14,7 @@ module ModRamParams
   logical :: TimedRestarts = .true.
   logical :: Optim = .false.
   logical :: verbose = .false.
-  logical :: Reset = .false.
+  logical :: Reset = .true.
   logical :: SCBonRAMTime = .false.
   integer :: RAMTie = 300
   logical :: checkMGNP = .false.
@@ -90,7 +90,7 @@ module ModRamParams
   character(len=4) :: NameBoundMag
   character(len=6) :: InnerMag, OuterMag
  
-  character(len=6) :: event = 'de_flt'
+  character(len=6) :: event = ''
   character(len=4) :: boundary, electric, NameDistrib
  
   character(len=200) :: NameIndexFile = 'RamIndices.txt'

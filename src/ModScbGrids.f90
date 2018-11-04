@@ -11,9 +11,9 @@ Module ModScbGrids
   
   !!! SCB Grids
   ! Must match the computational boundary input file (*.cdf)
-  integer :: nthe   = 71, &  !  nthe is the number of theta grid points
+  integer :: nthe   = 101, &  !  nthe is the number of theta grid points
              npsi   = 45, &  !  npsi is the number of psi surfaces
-             nzeta  = 73     !  nzeta is the number of zeta surfaces 
+             nzeta  = 97     !  nzeta is the number of zeta surfaces 
   
   integer :: nthem, nthep, npsim, npsip, nzetam, nzetap, nq, ny, na, nm, nyp2
   
