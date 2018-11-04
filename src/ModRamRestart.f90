@@ -527,10 +527,10 @@ module ModRamRestart
        EIR(1,J) = 0._dp
        EIP(1,J) = 0._dp
        DO L=1,NPA
-          FNHS(1,J,L) = FUNT(MU(L))
-          FNIS(1,J,L) = FUNI(MU(L))
-          BOUNHS(1,J,L)=FUNT(cos(PAbn(L)*180.0/pi_d))
-          BOUNIS(1,J,L)=FUNI(cos(PAbn(L)*180.0/pi_d))
+          FNHS(1,J,L) = FNHS(2,J,L)
+          FNIS(1,J,L) = FNIS(2,J,L)
+          BOUNHS(1,J,L)=BOUNHS(2,J,L)
+          BOUNIS(1,J,L)=BOUNIS(2,J,L)
           HDNS(1,J,L)=HDNS(2,J,L)
           dIdt(1,J,L)=0._dp
           dIbndt(1,J,L)=0._dp
@@ -541,9 +541,9 @@ module ModRamRestart
     iStatus = nf90_get_var(iFileID, iXVar, x(:,:,1:nzeta))
     iStatus = nf90_get_var(iFileID, iYVar, y(:,:,1:nzeta))
     iStatus = nf90_get_var(iFileID, iZVar, z(:,:,1:nzeta))
-    x(:,:,nzeta+1) = x(:,:,1)
-    y(:,:,nzeta+1) = y(:,:,1)
-    z(:,:,nzeta+1) = z(:,:,1)
+    x(:,:,nzeta+1) = x(:,:,2)
+    y(:,:,nzeta+1) = y(:,:,2)
+    z(:,:,nzeta+1) = z(:,:,2)
 
     iStatus = nf90_get_var(iFileID, iThetaVar, thetaVal(:))
     iStatus = nf90_get_var(iFileID, iRhoVar, rhoVal(:))
@@ -552,10 +552,11 @@ module ModRamRestart
     !! ALPHA/BETA
     iStatus = nf90_get_var(iFileID, iAValVar,  psival(:))
     iStatus = nf90_get_var(iFileID, iBValVar,  alphaval(1:nzeta))
-    alphaVal(nzeta+1) = alphaVal(1) + twopi_d
+    alphaVal(nzeta+1) = alphaVal(2) + twopi_d
     iStatus = nf90_get_var(iFileID, iCValVar,  chiVal(:))
     iStatus = nf90_get_var(iFileID, idAdRVar,  f(:))
-    iStatus = nf90_get_var(iFileID, idBdPVar,  fzet(:))
+    iStatus = nf90_get_var(iFileID, idBdPVar,  fzet(1:nzeta))
+    fzet(nZeta+1) = fzet(2)
     fp = 0._dp
     fzetp = 0._dp
 
