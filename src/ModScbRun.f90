@@ -19,13 +19,12 @@
     use ModRamVariables, ONLY: KP
     USE ModScbMain,      ONLY: damp, nrelax, numit, relax
     USE ModScbGrids,     ONLY: nthe, npsi, nzeta
-    USE ModScbVariables, ONLY: alfa, alfaSav1, psi, psiSav1, psiVal, &
-                               blendAlpha, blendPsi, &
+    USE ModScbVariables, ONLY: alfa, alfaSav1, psi, psiSav1, psiVal, blendAlpha, blendPsi, &
                                decreaseConvAlpha, decreaseConvPsi, errorAlpha, errorPsi, &
                                diffmx, errorAlphaPrev, errorPsiPrev, x, y, z, sumb, &
                                sumdb, jacobian, f, fluxVolume, normJxB, normGradP, &
                                SORFail, nFail, hICalc, normDiff, iConvGlobal, lconv, &
-                               nisave, nitry
+                               nisave, nitry, alphaVal, fp, fzet
     use ModScbParams,    ONLY: decreaseConvAlphaMin, decreaseConvPsiMin, blendMin, &
                                decreaseConvAlphaMax, decreaseConvPsiMax, blendMax, &
                                MinSCBIterations, iAMR, isEnergDetailNeeded, &
@@ -54,7 +53,9 @@
     REAL(DP), ALLOCATABLE :: xPrev(:,:,:), yPrev(:,:,:), zPrev(:,:,:), &
                              alphaPrev(:,:,:), psiPrev(:,:,:), xStart(:,:,:), &
                              yStart(:,:,:), zStart(:,:,:), psiStart(:,:,:), &
-                             alphaStart(:,:,:), fStart(:), entropyFixed(:,:)
+                             alphaStart(:,:,:), fStart(:), entropyFixed(:,:), &
+                             psiValStart(:), alphaValStart(:), fpStart(:), &
+                             fzetStart(:)
     LOGICAL :: check
 
     ! Variables for timing
@@ -65,10 +66,20 @@
 
     ALLOCATE(xStart(nthe,npsi,nzeta+1), yStart(nthe,npsi,nzeta+1), zStart(nthe,npsi,nzeta+1))
     ALLOCATE(psiStart(nthe,npsi,nzeta+1), alphaStart(nthe,npsi,nzeta+1), fStart(npsi))
+    ALLOCATE(psiValStart(npsi), alphaValStart(nzeta+1), fpStart(npsi), fzetStart(nzeta+1))
     ALLOCATE(xPrev(nthe,npsi,nzeta+1), yPrev(nthe,npsi,nzeta+1), zPrev(nthe,npsi,nzeta+1))
     ALLOCATE(alphaPrev(nthe,npsi,nzeta+1), psiPrev(nthe,npsi,nzeta+1), entropyFixed(npsi,nzeta))
-    xStart = 0.0; yStart = 0.0; zStart = 0.0; psiStart = 0.0; alphaStart = 0.0; fStart = 0.0
     xPrev = 0.0; yPrev = 0.0; zPrev = 0.0; alphaPrev = 0.0; psiPrev = 0.0; entropyFixed = 0.0
+    xStart = x
+    yStart = y
+    zStart = z
+    psiStart = psi
+    psiValStart = psiVal
+    alphaStart = alfa
+    alphaValStart = alphaVal
+    fStart = f
+    fpStart = fp
+    fzetStart = fzet
 
     decreaseConvAlpha = decreaseConvAlphaMin + (decreaseConvAlphaMax - decreaseConvAlphaMin) &
                         *(MIN(Kp,6._dp))**2/36.
@@ -77,12 +88,25 @@
 
 !!!!! Recalculate the SCB outerboundary
     if (nIter.ne.0) then
-       call Update_Domain(check,x,y,z,psiVal,f)
+       call Update_Domain(check)
        IF ((iAMR == 1).and.(check)) THEN
           CALL InterpolatePsiR
           CALL mappsi
           CALL psiFunctions
           CALL maptheta
+       elseif (SORFail) then
+          x = xStart
+          y = yStart
+          z = zStart
+          psi = psiStart
+          psiVal = psiValStart
+          alfa = alphaStart
+          alphaVal = alphaValStart
+          f = fStart
+          fp = fpStart
+          fzet = fzetStart
+          SORFail = .false.
+          return
        ENDIF
     endif
 !!!!!
@@ -108,8 +132,12 @@
     yStart = y
     zStart = z
     psiStart = psi
+    psiValStart = psiVal
     alphaStart = alfa
+    alphaValStart = alphaVal
     fStart = f
+    fpStart = fp
+    fzetStart = fzet
 
     call system_clock(time1,clock_rate,clock_max)
     starttime=time1/real(clock_rate,dp)
@@ -162,7 +190,7 @@
     !! The number of iterations with the above blending parameter needed
     !to
     !! achieve the wanted "distance"
-    SCBIterNeeded = ceiling(log(1-convDistance)/log(1-blendInitial))
+    SCBIterNeeded = 1 !ceiling(log(1-convDistance)/log(1-blendInitial))
     !! The "distance" currently traveled, this is for when we implement a
     !! relaxation to the blending, but for now should just be set to > 1
     !to
@@ -193,13 +221,6 @@
             CALL iterateAlpha
             if (SORFail) then
                if (verbose) write(*,*) 'SOR Failed in IterateAlpha'
-               x    = xStart
-               y    = yStart
-               z    = zStart
-               psi  = psiStart
-               alfa = alphaStart
-               f = fStart
-               hICalc = .false.
                exit OuterIters
             endif
        END SELECT
@@ -215,25 +236,26 @@
        zPrev = z
        alphaPrev = alfa
        Move_points_in_alpha_theta: DO
+          alfa(:,:,:) = alphaPrev(:,:,:)*blendAlpha + alfasav1(:,:,:)*(1._dp - blendAlpha)
           CALL mapalpha
+          if (SORFail) then
+            if (verbose) write(*,*) 'SOR failed on mapalpha'
+            exit OuterIters
+          endif
           CALL maptheta
+          if (SORFail) then
+            if (verbose) write(*,*) 'SOR failed on maptheta1'
+            exit OuterIters
+          endif
           call computeBandJacob
           IF (MINVAL(jacobian(2:nthe-1,2:npsi-1,2:nzeta)) < 0._dp) THEN
              ! Revert to previous point configuration
              x = xPrev
              y = yPrev
              z = zPrev
-             alfa = alphaPrev
              blendAlpha = damp * blendAlpha
-             alfa(:,:,:) = alfa(:,:,:)*blendAlpha + (1.-blendAlpha)*alfaSav1(:,:,:)
              if (blendAlpha.lt.blendMin) then
-                x    = xStart
-                y    = yStart
-                z    = zStart
-                psi  = psiStart
-                alfa = alphaStart
-                f = fStart
-                hICalc = .false.
+                if (verbose) write(*,*) 'Unable to converge with minimum blendAlpha'
                 SORFail = .true.
                 exit OuterIters
              endif
@@ -254,13 +276,6 @@
           CALL computeBandJacob
           IF (MINVAL(jacobian(2:nthe-1,2:npsi-1,2:nzeta)) < 0._dp) then
              if (verbose) write(*,*) 'SOR Failed in 1st AMR step'
-             x = xStart
-             y = yStart
-             z = zStart
-             psi = psiStart
-             alfa = alphaStart
-             f = fStart
-             hICalc = .false.
              SORFail = .true.
              exit OuterIters
           ENDIF
@@ -288,13 +303,6 @@
            CALL iteratePsi
            if (SORFail) then
               if (verbose) write(*,*) 'SOR Failed on IteratePsi'
-              x    = xStart
-              y    = yStart
-              z    = zStart
-              psi  = psiStart
-              alfa = alphaStart
-              f = fStart
-              hICalc = .false.
               exit OuterIters
            endif
        END SELECT
@@ -306,25 +314,26 @@
        zPrev = z
        psiPrev = psi
        Move_points_in_psi_theta: DO
+          psi(:,:,:) = psiPrev(:,:,:)*blendPsi + (1.-blendPsi)*psiSav1(:,:,:)
           CALL mappsi
+          if (SORFail) then
+            if (verbose) write(*,*) 'SOR failed on mappsi'
+            exit OuterIters
+          endif
           CALL maptheta
+          if (SORFail) then
+            if (verbose) write(*,*) 'SOR failed on maptheta2'
+            exit OuterIters
+          endif
           CALL computeBandJacob
           IF (MINVAL(jacobian(2:nthe-1,2:npsi-1,2:nzeta)) < 0._dp) THEN
              ! Revert to previous point configuration
              x = xPrev
              y = yPrev
              z = zPrev
-             psi = psiPrev
              blendPsi = damp * blendPsi
-             psi(:,:,:) = psi(:,:,:)*blendPsi + (1.-blendPsi)*psiSav1(:,:,:)
              if (blendPsi.lt.blendMin) then
-                x    = xStart
-                y    = yStart
-                z    = zStart
-                psi  = psiStart
-                alfa = alphaStart
-                f = fStart
-                hICalc = .false.
+                if (verbose) write(*,*) 'Unable to converge with minimum blendPsi'
                 SORFail = .true.
                 exit OuterIters
              endif
@@ -374,13 +383,6 @@
           CALL computeBandJacob
           IF (MINVAL(jacobian(2:nthe-1,2:npsi-1,2:nzeta)) < 0._dp) then
              if (verbose) write(*,*) 'SOR Failed on 2nd AMR step'
-             x = xStart
-             y = yStart
-             z = zStart
-             psi = psiStart
-             alfa = alphaStart
-             f = fStart
-             hICalc = .false.
              SORFail = .true.
              exit OuterIters
           ENDIF
@@ -388,7 +390,22 @@
  
        EXIT Outeriters
     END DO Outeriters
-  
+ 
+    if (SORFail) then
+       x = xStart
+       y = yStart
+       z = zStart
+       psi = psiStart
+       psiVal = psiValStart
+       alfa = alphaStart
+       alphaVal = alphaValStart
+       f = fStart
+       fp = fpStart
+       fzet = fzetStart
+       hICalc = .false.
+       return
+    endif
+ 
     if (method /= 3) then
        iConv = 1
        iConvGlobal = 1
@@ -400,20 +417,8 @@
        write(*,'(I3,1x,a,1x,F6.2,1x,a)'), iteration, "outer iterations performed in", stoptime-starttime, "seconds."
     end if
   
-    IF (iteration > numit) lconv = 1
-    nitry = nisave
-
-    if (SORFail) then
-       x = xStart
-       y = yStart
-       z = zStart
-       psi = psiStart
-       alfa = alphaStart
-       f = fStart
-       hICalc = .false.
-    endif
-  
     CALL computeBandJacob
+iteration = 0
     CALL pressure
     CALL compute_convergence
     if (verbose) write(*,'(1x,a,2F10.2)') 'Ending normGradP and normJxB = ', normGradP, normJxB
@@ -776,8 +781,6 @@ SUBROUTINE pressure
                              pperEqOld(:,:), pparEqOld(:,:), radGridEq(:,:), angleGridEq(:,:)
 
     REAL(DP), ALLOCATABLE :: dipoleFactorMid(:,:), dipoleFactorNoo(:,:)
-    !REAL(DP), ALLOCATABLE :: BigBracketPsi(:,:,:), BigBracketAlpha(:,:,:), dBBdRho(:,:,:), &
-    !                         dBBdZeta(:,:,:), dummy1(:,:,:), dummy2(:,:,:)
     REAL(DP), ALLOCATABLE :: xRaw(:,:), YRaw(:,:),pressProtonPerRaw(:,:), pressProtonParRaw(:,:), &
                              pressOxygenPerRaw(:,:), pressOxygenParRaw(:,:), pressHeliumPerRaw(:,:), &
                              pressHeliumParRaw(:,:), pressPerRaw(:,:), pressParRaw(:,:), &
@@ -919,6 +922,17 @@ SUBROUTINE pressure
                                                                   *(pressParRawExt(j1-2,k1)-pressParRawExt(j1-1,k1))
              END DO
           END DO
+       ELSEIF (PressMode == 'FLT') then
+          pressPerRaw = 0.16*(pressProtonPerRaw + pressOxygenPerRaw + pressHeliumPerRaw + pressElePerRaw) ! from keV/cm^3 to nPa
+          pressParRaw = 0.16*(pressProtonParRaw + pressOxygenParRaw + pressHeliumParRaw + pressEleParRaw) ! from keV/cm^3 to nPa
+          pressPerRawExt(1:nXRaw,:) = pressPerRaw(1:nXRaw,:)
+          pressParRawExt(1:nXRaw,:) = pressParRaw(1:nXRaw,:)
+          do k1 = 1, nAzimRAM
+             do j1 = nxRaw+1, nXRawExt
+                pressPerRawExt(j1,k1) = 1e-1_dp/pnormal !0.0 !pressPerRawExt(nXRaw,k1)
+                pressParRawExt(j1,k1) = 1e-1_dp/pnormal !0.0 !pressParRawExt(nXRaw,k1)
+             enddo
+          enddo
        ELSEIF (PressMode == 'BAT') then
           DO k1 = 1, nAzimRAM
              DO j1 = nXRaw+1, nXRawExt
@@ -1143,14 +1157,9 @@ SUBROUTINE pressure
 
        CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, pper(1:nthe,1:npsi,1:nzeta), &
                        dPperdTheta, dPperdRho, dPperdZeta, GSLerr)
-       !dPperdTheta(:,:,1) = dPperdTheta(:,:,nzeta)
-       !dPperdRho(:,:,1) = dPperdRho(:,:,nzeta)
-       !dPperdZeta(:,:,1) = dPperdZeta(:,:,nzeta)
+
        CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, bsq(1:nthe,1:npsi,1:nzeta), &
                        dBsqdTheta, dBsqdRho, dBsqdZeta, GSLerr)
-       !dBsqdTheta(:,:,1) = dBsqdTheta(:,:,nzeta)
-       !dBsqdRho(:,:,1) = dBsqdRho(:,:,nzeta)
-       !dBsqdZeta(:,:,1) = dBsqdZeta(:,:,nzeta)
 
        DO j = 1, npsi
           dPperdPsi(:,j,:) = 1./f(j) * dPperdRho(:,j,:)

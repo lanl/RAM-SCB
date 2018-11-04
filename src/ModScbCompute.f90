@@ -439,16 +439,6 @@ MODULE ModScbCompute
     CALL GSL_Derivs(thetaVal, rhoVal, zetaVal, z(1:nthe, 1:npsi, 1:nzeta), &
                     derivZTheta, derivZRho, derivZZeta, GSLerr)
 
-    !derivXTheta(:,:,1) = derivXTheta(:,:,nzeta)
-    !derivXRho(:,:,1)   = derivXRho(:,:,nzeta)
-    !derivXZeta(:,:,1)  = derivXZeta(:,:,nzeta)
-    !derivYTheta(:,:,1) = derivYTheta(:,:,nzeta)
-    !derivYRho(:,:,1)   = derivYRho(:,:,nzeta)
-    !derivYZeta(:,:,1)  = derivYZeta(:,:,nzeta)
-    !derivZTheta(:,:,1) = derivZTheta(:,:,nzeta)
-    !derivZRho(:,:,1)   = derivZRho(:,:,nzeta)
-    !derivZZeta(:,:,1)  = derivZZeta(:,:,nzeta)
-
     jacobian = derivXRho   * (derivYZeta  * derivZTheta - derivYTheta * derivZZeta)  &
              + derivXZeta  * (derivYTheta * derivZRho   - derivYRho   * derivZTheta) &
              + derivXTheta * (derivYRho   * derivZZeta  - derivYZeta  * derivZRho)
@@ -474,7 +464,7 @@ MODULE ModScbCompute
     gradZetaSq = gradZetaX**2 + gradZetaY**2 + gradZetaZ**2
 
     ! Compute magnetic field
-    DO k = 1,nzeta
+    DO k = 2,nzeta
        DO j = 1,npsi
           DO i = 1,nthe
              Bx(i,j,k) = (f(j)*fzet(k)*derivXTheta(i,j,k)/jacobian(i,j,k))
@@ -495,6 +485,11 @@ MODULE ModScbCompute
           END DO
        END DO
     END DO
+    bX(:,:,1) = bX(:,:,nZeta)
+    bY(:,:,1) = bY(:,:,nZeta)
+    bZ(:,:,1) = bZ(:,:,nZeta)
+    bf(:,:,1) = bf(:,:,nZeta)
+    bsq(:,:,1) = bsq(:,:,nZeta)
 
     RETURN
 

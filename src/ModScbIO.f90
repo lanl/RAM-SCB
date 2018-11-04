@@ -296,7 +296,7 @@ MODULE ModScbIO
     endif
 
     ! Output magnetic field for testing
-    call Write_MAGxyz('ComputeDomain')
+    !call Write_MAGxyz('ComputeDomain')
 
     ! Get the Psi (Alpha) Euler Potential
     ! This is done by assuming a dipole on the field line foot points
@@ -329,7 +329,7 @@ MODULE ModScbIO
   end subroutine computational_domain
 
 !=============================================================================!
-  subroutine update_domain(updated,xOld,yOld,zOld,psiValOld,fOld)
+  subroutine update_domain(updated)
 
     !!! Module Variables
     use ModRamParams,    ONLY: NameBoundMag, verbose
@@ -356,8 +356,6 @@ MODULE ModScbIO
 
     implicit none
 
-    real(DP), intent(IN) :: xOld(:,:,:), yOld(:,:,:), zOld(:,:,:), psiValOld(:), &
-                            fOld(:)
     LOGICAL, INTENT(OUT) :: updated
     LOGICAL :: outside
     INTEGER :: i, j, k, GSLerr, i1, i2, jout, ktemp
@@ -416,16 +414,18 @@ MODULE ModScbIO
        endif
     enddo Find_PsiOut
     
-    if ((abs(xpsiout-xpsitemp).le.1e-9).or.(xpsitemp.eq.-1._dp)) return
+    !if ((abs(xpsiout-xpsitemp).le.1e-9).or.(xpsitemp.eq.-1._dp)) return
+
+    Updated = .true.
 
     ! Since T89 tracing is so quick, just retrace everything
     ! this is helpful because T89 jumps are very large
-    IF ((NameBoundMag.eq.'T89I').or.(NameBoundMag.eq.'T89D')) THEN
-       call Computational_Domain
-       return
-    ENDIF
-
-    Updated = .true.
+    !if ((abs(xpsiout-xpsitemp).le.1e-9).or.(xpsitemp.eq.-1._dp)) then
+       IF ((NameBoundMag.eq.'T89I').or.(NameBoundMag.eq.'T89D')) THEN
+          call Computational_Domain
+          return
+       ENDIF
+    !endif
 
     ALLOCATE(xOldTheta(nthe),yOldTheta(nthe),zOldTheta(nthe),chiValOld(nthe),&
              radius(npsi),xOldPsi(npsi),yOldPsi(npsi),zOldPsi(npsi),psiOld(npsi),&
@@ -488,10 +488,10 @@ MODULE ModScbIO
              rold(i,j,k) = x(i,j,k)**2+y(i,j,k)**2+z(i,j,k)**2
              if ((rold(i,j,k) > rout(i,k)).and.(j.gt.15)) outside = .true.
              if ((outside).and.(outer(i,k).eq.1)) then
-                outer(i,k) = j-1
+                outer(i,k) = j-2
              endif
           enddo
-          if (outer(i,k).eq.1) outer(i,k) = npsi-1
+          if (outer(i,k).le.1) outer(i,k) = npsi-1
        enddo
     enddo
 
@@ -628,13 +628,6 @@ MODULE ModScbIO
           i = nThetaEquator
           if ((sqrt(x(i,j,k)**2+y(i,j,k)**2+z(i,j,k)**2) < 1.7).or.(SORFail)) then
              write(*,*) 'Issue with calculating new magnetic boundary, using old configuration'
-             x = xOld
-             y = yOld
-             z = zOld
-             psiVal = psiValOld
-             f = fOld
-             call psiges
-             SORFail = .false.
              updated = .false.
           endif
        enddo

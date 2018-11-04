@@ -16,7 +16,7 @@ MODULE ModScbEuler
     !!!! Module Variables
     USE ModScbParams,    ONLY: psiChange, theChange
     USE ModScbGrids,     ONLY: nthe, npsi, nzeta
-    USE ModScbVariables, ONLY: x, y, z, chiVal
+    USE ModScbVariables, ONLY: x, y, z, chiVal, SORFail
 
     !!!! Module Subroutines/Functions
     use ModRamGSL, ONLY: GSL_Interpolation_1D
@@ -50,8 +50,12 @@ MODULE ModScbEuler
           i1 = 1 + theChange
           i2 = nthe - theChange
           CALL GSL_Interpolation_1D(chiValOld,xOld,chiVal(i1:i2),x(i1:i2,j,k),GSLerr)
+          if (GSLerr > 0) SORFail = .true.
           CALL GSL_Interpolation_1D(chiValOld,yOld,chiVal(i1:i2),y(i1:i2,j,k),GSLerr)
+          if (GSLerr > 0) SORFail = .true.
           CALL GSL_Interpolation_1D(chiValOld,zOld,chiVal(i1:i2),z(i1:i2,j,k),GSLerr)
+          if (GSLerr > 0) SORFail = .true.
+          if (SORFail) return
        END DO fluxloop
     END DO zetaloop
 
@@ -94,7 +98,7 @@ MODULE ModScbEuler
     USE ModScbMain,      ONLY: DP
     USE ModScbParams,    ONLY: psiChange, theChange
     USE ModScbGrids,     ONLY: nthe, npsi, nzeta
-    USE ModScbVariables, ONLY: x, y, z, alfa, alphaVal
+    USE ModScbVariables, ONLY: x, y, z, alfa, alphaVal, SORFail
   
     USE ModRamGSL, ONLY: GSL_Interpolation_1D
   
@@ -113,24 +117,14 @@ MODULE ModScbEuler
           yOld(1:nzeta+1) = y(i,j,1:nzeta+1)
           zOld(1:nzeta+1) = z(i,j,1:nzeta+1)
           alfaOld(1:nzeta+1) = alfa(i,j,1:nzeta+1)
-          !do ii = 1, nzeta+1
-          !   do jj = ii, nzeta+1
-          !      if (alfaOld(ii) > alfaOld(jj)) then
-          !         temp = alfaOld(jj)
-          !         alfaOld(jj)=alfaOld(ii)
-          !         alfaOld(ii) = temp
-          !      endif
-          !   enddo
-          !enddo
-          !DO k = 2,nzeta+1
-          !   if (alfaOld(k).lt.alfaOld(k-1)) then
-          !      alfaOld(k) = alfaOld(k-1)+1E-6
-          !   endif
-          !ENDDO
 
           CALL GSL_Interpolation_1D(alfaOld,xOld,alphaVal(2:nzeta),x(i,j,2:nzeta),GSLerr)
+          if (GSLerr > 0) SORFail = .true.
           CALL GSL_Interpolation_1D(alfaOld,yOld,alphaVal(2:nzeta),y(i,j,2:nzeta),GSLerr)
+          if (GSLerr > 0) SORFail = .true.
           CALL GSL_Interpolation_1D(alfaOld,zOld,alphaVal(2:nzeta),z(i,j,2:nzeta),GSLerr)
+          if (GSLerr > 0) SORFail = .true.
+          if (SORFail) return
        END DO iloop
     END DO jloop
 
@@ -261,15 +255,13 @@ MODULE ModScbEuler
     diffmx = maxval(abs(resid(2:nthe-1,2:npsi-1,2:nzeta)))
 
     !...  set "blending" in alpha for outer iteration loop
-    DO j = 1, npsi
-       DO i = 1, nthe
-          DO k = 2, nzeta
-             alfa(i,j,k) = alfa(i,j,k) * blendAlpha + alphaVal(k) * (1._dp - blendAlpha)
-          END DO
-          alfa(i,j,1) = alfa(i,j,nzeta) - 2._dp * pi_d
-          alfa(i,j,nzetap) = alfa(i,j,2) + 2._dp * pi_d
-       END DO
-    END DO
+    !DO j = 1, npsi
+    !   DO i = 1, nthe
+    !      DO k = 2, nzeta
+    !         alfa(i,j,k) = alfa(i,j,k) * blendAlpha + alphaVal(k) * (1._dp - blendAlpha)
+    !      END DO
+    !   END DO
+    !END DO
 
     DO k = 2, nzeta
        if (psiChange == 0) then
@@ -285,6 +277,8 @@ MODULE ModScbEuler
           ENDDO
        endif
     ENDDO
+    alfa(:,:,1) = alfa(:,:,nzeta) - 2._dp * pi_d
+    alfa(:,:,nzetap) = alfa(:,:,2) + 2._dp * pi_d
 
     DEALLOCATE(alfaPrev,resid)
     DEALLOCATE(ni,om)
@@ -319,7 +313,7 @@ MODULE ModScbEuler
     !!!! Module Variables
     USE ModScbParams,    ONLY: iAzimOffset, psiChange
     USE ModScbGrids,     ONLY: npsi, nzeta
-    use ModScbVariables, ONLY: x, y, nThetaEquator, psiVal, kmax, radEqmidNew
+    use ModScbVariables, ONLY: x, y, z, nThetaEquator, psiVal, kmax, radEqmidNew, SORFail
     !!!! Module Subroutines/Functions
     USE ModRamGSL, ONLY: GSL_Interpolation_1D
     !!!! NR Modules
@@ -327,7 +321,7 @@ MODULE ModScbEuler
 
     implicit none
 
-    INTEGER :: j, k, GSLerr
+    INTEGER :: j, k, GSLerr, n
     REAL(DP) :: deltaR, distConsecFluxSqOld, distConsecFluxSq
     REAL(DP), ALLOCATABLE :: radEqmid(:), psiVal1D(:), radius(:)
 
@@ -350,8 +344,13 @@ MODULE ModScbEuler
        kmax = kmax
     END IF
 
-    DO j = 1, npsi
-       radius(j) = SQRT(x(nThetaEquator,j,kMax)**2 + y(nThetaEquator,j,kMax)**2)
+    kmax = 1
+    n = nThetaEquator
+    radius(1) = 0._dp
+    DO j = 2, npsi
+       radius(j) = radius(j-1) + SQRT((x(n,j,kMax)-x(n,j-1,kmax))**2 &
+                                    + (y(n,j,kMax)-y(n,j-1,kmax))**2 &
+                                    + (z(n,j,kMax)-z(n,j-1,kmax))**2)
     END DO
 
     deltaR = (radius(npsi) - radius(1)) / REAL(npsi-1,dp)
@@ -363,7 +362,8 @@ MODULE ModScbEuler
     radEqmid = SQRT(x(nThetaEquator,:,kMax)**2 + y(nThetaEquator,:,kMax)**2)
 
     psival1D = psival
-    CALL GSL_Interpolation_1D(radEqMid, psiVal1D, radEqMidNew(2:npsi), psiVal(2:npsi), GSLerr)
+    CALL GSL_Interpolation_1D(radius, psiVal1D, radEqMidNew(2:npsi), psiVal(2:npsi), GSLerr)
+    if (GSLerr > 0) SORFail = .true.
 
     DEALLOCATE(radEqMid,psiVal1D,radius)
     RETURN
@@ -393,7 +393,7 @@ MODULE ModScbEuler
     USE ModScbMain,      ONLY: DP
     USE ModScbParams,    ONLY: psiChange, theChange
     USE ModScbGrids,     ONLY: nthe, npsi, nzeta
-    USE ModScbVariables, ONLY: x, y, z, psi, psiVal
+    USE ModScbVariables, ONLY: x, y, z, psi, psiVal, SORFail
  
     use ModRamGSL, ONLY: GSL_Interpolation_1D 
   
@@ -412,26 +412,16 @@ MODULE ModScbEuler
           yOld(1:npsi) = y(i,1:npsi,k)
           zOld(1:npsi) = z(i,1:npsi,k)
           psiOld(1:npsi) = psi(i,1:npsi,k)
-          !do ii = 1, npsi
-          !   do jj = ii, npsi
-          !      if (psiOld(ii) > psiOld(jj)) then
-          !         temp = psiOld(jj)
-          !         psiOld(jj) = psiOld(ii)
-          !         psiOld(ii) = temp
-          !      endif
-          !   enddo
-          !enddo
-          !DO j = 2,npsi
-          !   if (psiOld(j).lt.psiOld(j-1)) then
-          !      psiOld(j) = psiOld(j-1)+1E-6
-          !   endif
-          !ENDDO
 
           i1 = 1 + psiChange
           i2 = npsi - psiChange
           CALL GSL_Interpolation_1D(psiOld, xOld, psiVal(i1:i2), x(i,i1:i2,k), GSLerr)
+          if (GSLerr > 0) SORFail = .true.
           CALL GSL_Interpolation_1D(psiOld, yOld, psiVal(i1:i2), y(i,i1:i2,k), GSLerr)
+          if (GSLerr > 0) SORFail = .true.
           CALL GSL_Interpolation_1D(psiOld, zOld, psiVal(i1:i2), z(i,i1:i2,k), GSLerr)
+          if (GSLerr > 0) SORFail = .true.
+          if (SORFail) return
        END DO iloop
     END DO kloop
   
@@ -564,15 +554,13 @@ MODULE ModScbEuler
     diffmx = maxval(abs(resid(2:nthem,2:npsi-1,2:nzeta)))
 
     ! Set blend for outer iteration loop, and apply periodic boundary conditions
-    DO j = 1, npsi
-       DO i = 1, nthe
-          DO k = 2,nzeta
-             psi(i,j,k) = psi(i,j,k) * blendPsi + psival(j) * (1._dp - blendPsi)
-          END DO
-       END DO
-    END DO
-    psi(:,:,1) = psi(:,:,nzeta)
-    psi(:,:,nzetap) = psi(:,:,2)
+    !DO j = 1, npsi
+    !   DO i = 1, nthe
+    !      DO k = 2,nzeta
+    !         psi(i,j,k) = psi(i,j,k) * blendPsi + psival(j) * (1._dp - blendPsi)
+    !      END DO
+    !   END DO
+    !END DO
 
     DO k = 2, nzeta
        if (psiChange == 0) then
@@ -588,6 +576,8 @@ MODULE ModScbEuler
           ENDDO
        endif
     ENDDO
+    psi(:,:,1) = psi(:,:,nzeta)
+    psi(:,:,nzetap) = psi(:,:,2)
 
     IF (ALLOCATED(psiPrev)) DEALLOCATE(psiPrev)
     IF (ALLOCATED(resid)) DEALLOCATE(resid)
