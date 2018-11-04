@@ -69,7 +69,7 @@ subroutine ram_get_electric(EOut_II)
 
   use ModRamMain,      ONLY: DP
   Use ModRamTiming,    ONLY: TimeRamElapsed, TimeRamNow
-  use ModRamParams,    ONLY: electric, IsComponent
+  use ModRamParams,    ONLY: electric, IsComponent, verbose
   use ModRamGrids,     ONLY: NR, NT, RadiusMax, RadiusMin
   use ModRamVariables, ONLY: PHIOFS, Kp, F107
   use ModRamFunctions, ONLY: RamFileName
@@ -119,16 +119,10 @@ subroutine ram_get_electric(EOut_II)
   Epot_Cart(0,:) = Epot_Cart(1,:) ! 3Dcode domain only extends to 2 RE; 
                                   ! at 1.75 RE the potential is very small anyway
 
-  IF (electric=='IESC') THEN
+  if (maxval(abs(Epot_Cart)).gt.150000.0) then
+     if (verbose) write(*,*) 'Bad Electric Field data, using previous time step'
+  else
      EOut_II(1:nR+1,1:nT) = Epot_Cart(0:nR,  1:nT)
-  ELSEIF (electric=='RSCE') THEN
-     EOut_II(1:nR+1,1:nT) = Epot_Cart(0:nR,  1:nT)
-  ELSEIF (electric=='WESC' .or. electric=='W5SC') THEN
-     EOut_II(1:nR+1,1:nT) = Epot_Cart(0:nR, 1:nT)
-  END IF
-  ! Sometimes Weimer gives field sizes that are way to large, cap at 300 kV
-  if (maxval(abs(EOut_II)).gt.150000.0) then
-     EOut_II = EOut_II * 150000.0/maxval(abs(EOut_II))
   endif
   write(*,'(1x,a,2F10.2)') 'EOut_II max and min', maxval(EOut_II), minval(EOut_II)
   write(*,*) ''
