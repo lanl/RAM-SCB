@@ -12,12 +12,12 @@ module ModScbParams
   character(len=200) :: QinDentonPath = 'IM/input_scb/'
   character(len=200) :: TS07Path = 'NONE'
 
-  integer :: iSm2 = 0
-  integer :: SavGolIters = 3
+  integer :: iSm2 = 4
+  integer :: SavGolIters = 11
 
   logical :: Symmetric = .false., DoScbCalc = .true.
 
-  character(len=3) :: PressMode = 'FLT'
+  character(len=3) :: PressMode = 'SKD'
   character(len=3) :: Isotropic = 'RAM'
 
   integer :: psiChange = 0
@@ -44,10 +44,10 @@ module ModScbParams
   integer  :: method = 2 ! Iterative SOR calculation of Euler Potentials
  !integer  :: method = 3 ! No SCB calculation
 
-  integer  :: isotropy = 0 ! Anisotropic pressure case 
+  integer  :: isotropy = 1 ! Anisotropic pressure case 
  !integer  :: isotropy = 1 ! Isotropic pressure case
 
-  integer  :: iAMR = 1 ! Mesh refinement in magnetic flux, so that one has equidistant magnetic flux surfaces; improves convergence a lot
+  integer  :: iAMR = 0 ! Mesh refinement in magnetic flux, so that one has equidistant magnetic flux surfaces; improves convergence a lot
   
   integer  :: iReduceAnisotropy = 0 ! No change in anisotropy 
  !integer  :: iReduceAnisotropy = 1 ! Change anisotropy to marginally mirror-stable

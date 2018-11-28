@@ -34,6 +34,21 @@ MAXW			NameDistribution
 #EFIELD
 WESC			NameEfield
 F			UseEfInd
+
+#PRESS_MODE
+FLT
+
+#SCBSMOOTHING
+0
+3
+
+#SCBFLAGS
+F                       Isotropic               ! Whether to use isotropic pressure mappings in SCB (does not effect RAM)
+F                       ReduceAnisotropy        ! Whether to change the anisotropy to a marginally mirror-stable
+T                       BetaExtrapolation       ! Whether to extrapolate Beta Euler potential values to the outside boundary or use the previous point (Currently unused)
+F                       AzimuthalOffset         ! Whether to set equidistance at most problematic time (if T) or keep it at midnight (if F)
+F                       EmptyLossCone           ! Whether to use a filled loss cone (if F) or a more realistic empty loss cone using M. Liemohn's 2004
+T                       AdaptiveMesh            ! Whether to use Mesh refinement in magnetic flux, so that one has equidistant magnetic flux surfaces
 *************************************************
 
 ***************** INPUT BLOCK *******************
