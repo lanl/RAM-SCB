@@ -89,7 +89,7 @@
 !!!!! Recalculate the SCB outerboundary
     if (nIter.ne.0) then
        call Update_Domain(check)
-       IF ((iAMR == 1).and.(check)) THEN
+       IF (check) THEN
           CALL InterpolatePsiR
           CALL mappsi
           CALL psiFunctions
@@ -729,7 +729,9 @@ iteration = 0
   
     totalEnergy = SUM(magneticEnergy) + SUM(thermalEnergy)
     DstDPS = 1.3_dp * (-BEarth) * (2._dp*SUM(thermalEnergy))/(3._dp*magneticEnergyDipole) * 1.E9_dp
-    DstDPSInsideGeo = 1.3_dp * (-BEarth) * (2._dp*SUM(thermalEnergyInsideGeo))/(3._dp*magneticEnergyDipole) * 1.E9_dp
+    DstDPSInsideGeo = 1.3_dp * (-BEarth) &
+                             * (2._dp*SUM(thermalEnergy)+(sum(magneticEnergy)-magneticEnergyDipole)) &
+                             / (3._dp*magneticEnergyDipole) * 1.E9_dp
     WRITE(*, '(1X, A, 1X, F8.2, 1X, F8.2, 1X, F8.2, 1X, F8.2, A)') &
          'DstDPS, DstDPSGeo, DstBiot, DstBiotGeo = ', real(DstDPS), &
          real(DstDPSInsideGeo), real(DstBiot), real(DstBiotInsideGeo), ' nT' ! 1.3 factor due to currents induced in the Earth 
@@ -887,13 +889,13 @@ SUBROUTINE pressure
           pressPerRawExt(1:nXRaw,:) = pressPerRaw(1:nXRaw,:)
           pressParRawExt(1:nXRaw,:) = pressParRaw(1:nXRaw,:)
           DO k1 = 1, nAzimRAM
-             DO j1 = nXRaw+1, nXRawExt
-                pressPerRawExt(j1,k1) = pressPerRawExt(nXRaw,k1) &
+             DO j1 = nXRaw-1, nXRawExt
+                pressPerRawExt(j1,k1) = pressPerRawExt(nXRaw-2,k1) &
                    * (89.*EXP(-0.59*radRawExt(j1)) + 8.9*radRawExt(j1)**(-1.53)) &
-                   /  (89.*EXP(-0.59*radRawExt(nXRaw)) + 8.9*radRawExt(nXRaw)**(-1.53))
-                pressParRawExt(j1,k1) = pressParRawExt(nXRaw,k1) &
+                   /  (89.*EXP(-0.59*radRawExt(nXRaw-2)) + 8.9*radRawExt(nXRaw-2)**(-1.53))
+                pressParRawExt(j1,k1) = pressParRawExt(nXRaw-2,k1) &
                    * (89.*EXP(-0.59*radRawExt(j1)) + 8.9*radRawExt(j1)**(-1.53)) &
-                   /  (89.*EXP(-0.59*radRawExt(nXRaw)) + 8.9*radRawExt(nXRaw)**(-1.53))
+                   /  (89.*EXP(-0.59*radRawExt(nXRaw-2)) + 8.9*radRawExt(nXRaw-2)**(-1.53))
              END DO
           END DO
        ELSEIF (PressMode == 'ROE') then
@@ -928,10 +930,12 @@ SUBROUTINE pressure
           pressPerRawExt(1:nXRaw,:) = pressPerRaw(1:nXRaw,:)
           pressParRawExt(1:nXRaw,:) = pressParRaw(1:nXRaw,:)
           do k1 = 1, nAzimRAM
-             do j1 = nxRaw+1, nXRawExt
-                pressPerRawExt(j1,k1) = 1e-1_dp/pnormal !0.0 !pressPerRawExt(nXRaw,k1)
-                pressParRawExt(j1,k1) = 1e-1_dp/pnormal !0.0 !pressParRawExt(nXRaw,k1)
+             do j1 = nxRaw+1, nXRawExt-1
+                pressPerRawExt(j1,k1) = pressPerRawExt(nXRaw,k1)
+                pressParRawExt(j1,k1) = pressParRawExt(nXRaw,k1)
              enddo
+             pressPerRawExt(nXRawExt,k1) = 0._dp
+             pressParRawExt(nXRawExt,k1) = 0._dp
           enddo
        ELSEIF (PressMode == 'BAT') then
           DO k1 = 1, nAzimRAM

@@ -147,7 +147,7 @@ Module ModRamScb
                                LZ, MU, MLT, PAbn, PA, DL1, outsideMGNP
     use ModRamTiming,    ONLY: TimeRamElapsed, TOld
     use ModRamConst,     ONLY: b0dip
-    use ModRamParams,    ONLY: NameBoundMag, verbose, checkMGNP
+    use ModRamParams,    ONLY: NameBoundMag, verbose, checkMGNP, integral_smooth
     use ModRamGrids,     ONLY: nR, nT, nPa, radiusMax, radiusMin
   
     use ModScbGrids,     ONLY: nthe, npsi, nzeta
@@ -204,8 +204,8 @@ Module ModRamScb
     REAL(DP) :: PDyn, BzIMF, DIST, XMGNP, YMGNP, ZMGNP
     REAL(DP), DIMENSION(1000) :: xtemp, ytemp, ztemp, bxtemp, bytemp, bztemp, dtemp
   
-    integer, save :: j, k
-    REAL(DP), save :: wn, xo, xn, xp, yo, yn, yp, psiRAM, alphaRAM
+    integer, save :: j, k, wn
+    REAL(DP), save :: xo, xn, xp, yo, yn, yp, psiRAM, alphaRAM
     !$OMP THREADPRIVATE(k, j, wn, xo, xn, xp, yo, yn, yp, psiRAM, alphaRAM)
 
     ! Don't need to run if using Dipole magnetic field boundary unless it is run from the initialization step
@@ -274,7 +274,7 @@ Module ModRamScb
                    endif
                 endif
              ENDDO
-             if (abs(wn).gt.1e-9) then ! Boundary overlap
+             if (abs(wn) > 0) then ! Boundary overlap
                 ! Step 1: Get psi and alpha value for the equatorial point
                 !! alpha should just be the MLT stuff rotated
                 alphaRAM = MLT(j)*pi_d/12._dp + pi_d
@@ -364,7 +364,6 @@ Module ModRamScb
              endif
           enddo
        enddo
-
     END SELECT
 
     !!!!! BEGIN INTEGRAl CALCULATION
@@ -385,7 +384,15 @@ Module ModRamScb
                                                + (zRAM(k,i,j)-zRAM(k-1,i,j))**2)
              enddo
              r0(i,j) = SQRT(xRAM(nThetaEquator,i,j)**2+yRAM(nThetaEquator,i,j)**2)
-             bfmirror(i,j,1:NPA-1) = minval(bRAM(:,i,j))/(1._dp -mu(1:NPA-1)**2)
+             if (abs(bRAM(nThetaEquator,i,j) - minval(bRAM(:,i,j))) > 1e-9) then
+              if (2._dp*minval(bRAM(:,i,j))-bRAM(nThetaEquator,i,j) > 0._dp) then
+                 bRAM(nThetaEquator,i,j) = 2._dp*minval(bRAM(:,i,j))-bRAM(nThetaEquator,i,j)
+              else
+                 bRAM(nThetaEquator,i,j) = minval(bRAM(:,i,j))-0.01
+              endif
+             endif
+
+             bfmirror(i,j,1:NPA-1) = bRAM(nThetaEquator,i,j)/(1._dp -mu(1:NPA-1)**2)
              bfmirror(i,j,NPA)     = bRAM(nthe,i,j)
 
              CALL GSL_Integration_hI(bfMirror(i,j,:),chiVal(:),bRAM(:,i,j),distance(:,i,j),&
@@ -468,8 +475,8 @@ Module ModRamScb
     bZEq_Cart(:,1) = bZEq_Cart(:,nT)
 
     ! Near 90 degree pitch angle corrections
-    I_cart(:,:,3) = 0.99*I_cart(:,:,4)
-    I_cart(:,:,2) = 0.99*I_cart(:,:,3)
+    I_cart(:,:,3) = 0.50*I_cart(:,:,4)
+    I_cart(:,:,2) = 0.20*I_cart(:,:,3)
     I_cart(:,:,1) = 0._dp
     H_cart(:,:,3) = 0.99*H_cart(:,:,4)
     H_cart(:,:,2) = 0.99*H_cart(:,:,3)
@@ -526,14 +533,41 @@ Module ModRamScb
     ! Update h and I values for RAM (note that the output of the hI files
     ! now uses RAM variables so the numbers will be different
     DthI = TimeRamElapsed-TOld
+
+    if (integral_smooth) then
+       allocate(output(nR,nT))
+       do L = 2,NPA
+          call gaussian_kernel(1.0, kernel)
+          call convolve(h_Cart(:,:,L), kernel, output)
+          h_Cart(:,:,L) = output
+
+          call gaussian_kernel(1.0, kernel)
+          call convolve(i_Cart(:,:,L), kernel, output)
+          i_Cart(:,:,L) = output
+
+          call gaussian_kernel(1.0, kernel)
+          call convolve(h_Cart_interp(:,:,L), kernel, output)
+          h_Cart_interp(:,:,L) = output
+
+          call gaussian_kernel(1.0, kernel)
+          call convolve(i_Cart_interp(:,:,L), kernel, output)
+          i_Cart_interp(:,:,L) = output
+
+          call gaussian_kernel(1.0, kernel)
+          call convolve(hdens_Cart(:,:,L), kernel, output)
+          hdens_Cart(:,:,L) = output
+       ENDDO
+       deallocate(output)
+    endif
+
     DO I=2,NR+1
        DO J=1,NT
-          BNESPrev(I,J)=BNES(I,J)
+          BNESPrev(I,J) = BNES(I,J)
           DO L=1,NPA
-             FNISPrev(I,J,L)=FNIS(I,J,L)
-             FNHSPrev(I,J,L)=FNHS(I,J,L)
-             BOUNISPrev(I,J,L)=BOUNIS(I,J,L)
-             BOUNHSPrev(I,J,L)=BOUNHS(I,J,L)
+             FNISPrev(I,J,L)   = FNIS(I,J,L)
+             FNHSPrev(I,J,L)   = FNHS(I,J,L)
+             BOUNISPrev(I,J,L) = BOUNIS(I,J,L)
+             BOUNHSPrev(I,J,L) = BOUNHS(I,J,L)
              ! SCB Variables -> RAM Variables
              FNHS(I,J,L)   = h_Cart(I-1,J,L)
              FNIS(I,J,L)   = i_Cart(I-1,J,L)
@@ -548,10 +582,10 @@ Module ModRamScb
                 dIbndt(I,J,L) = 0._dp
                 dHbndt(I,J,L) = 0._dp
              else
-                dIdt(I,J,L)   = (FNIS(I,J,L)-FNISPrev(I,J,L))/DThI
-                dHdt(I,J,L)   = (FNHS(I,J,L)-FNHSPrev(I,J,L))/DThI
-                dIbndt(I,J,L) = (BOUNIS(I,J,L)-BOUNISPrev(I,J,L))/DThI
-                dHbndt(I,J,L) = (BOUNHS(I,J,L)-BOUNHSPrev(I,J,L))/DthI
+                dIdt(I,J,L)   = (FNIS(I,J,L) - FNISPrev(I,J,L))/DThI
+                dHdt(I,J,L)   = (FNHS(I,J,L) - FNHSPrev(I,J,L))/DThI
+                dIbndt(I,J,L) = (BOUNIS(I,J,L) - BOUNISPrev(I,J,L))/DThI
+                dHbndt(I,J,L) = (BOUNHS(I,J,L) - BOUNHSPrev(I,J,L))/DthI
              endif
              !
           ENDDO
@@ -559,59 +593,27 @@ Module ModRamScb
           if (abs(DthI).le.1e-9) then
              dBdt(I,J) = 0._dp
           else
-             dBdt(I,J) = (BNES(I,J)-BNESPrev(I,J))/DThI
+             dBdt(I,J) = (BNES(I,J) - BNESPrev(I,J))/DThI
           endif
        ENDDO
     ENDDO
     DO J=1,NT ! use dipole B at I=1
-       BNES(1,J)=0.32/LZ(1)**3/1.e4
+       BNES(1,J) = 0.32/LZ(1)**3/1.e4
        dBdt(1,J) = 0._dp
-       EIR(1,J) = 0._dp
-       EIP(1,J) = 0._dp
+       EIR(1,J)  = 0._dp
+       EIP(1,J)  = 0._dp
        DO L=1,NPA
-          FNHS(1,J,L) = FNHS(2,J,L)
-          FNIS(1,J,L) = FNIS(2,J,L)
-          BOUNHS(1,J,L)=BOUNHS(2,J,L)
-          BOUNIS(1,J,L)=BOUNIS(2,J,L)
-          !call extap(FNHS(4,j,l),FNHS(3,j,l),FNHS(2,j,l),FNHS(1,j,l))
-          !call extap(FNIS(4,j,l),FNIS(3,j,l),FNIS(2,j,l),FNIS(1,j,l))
-          !call extap(BOUNHS(4,j,l),BOUNHS(3,j,l),BOUNHS(2,j,l),BOUNHS(1,j,l))
-          !call extap(BOUNIS(4,j,l),BOUNIS(3,j,l),BOUNIS(2,j,l),BOUNIS(1,j,l))
-          !FNHS(1,J,L) = FUNT(MU(L))
-          !FNIS(1,J,L) = FUNI(MU(L))
-          !BOUNHS(1,J,L)=FUNT(cos(PAbn(L)*180.0/pi_d))
-          !BOUNIS(1,J,L)=FUNI(cos(PAbn(L)*180.0/pi_d))
-          HDNS(1,J,L)=HDNS(2,J,L)
-          dIdt(1,J,L)=0._dp
-          dHdt(1,J,L)=0._dp
-          dIbndt(1,J,L)=0._dp
+          FNHS(1,J,L)   = FNHS(2,J,L)
+          FNIS(1,J,L)   = FNIS(2,J,L)
+          BOUNHS(1,J,L) = BOUNHS(2,J,L)
+          BOUNIS(1,J,L) = BOUNIS(2,J,L)
+          HDNS(1,J,L)   = HDNS(2,J,L)
+          dIdt(1,J,L)   = 0._dp
+          dHdt(1,J,L)   = 0._dp
+          dIbndt(1,J,L) = 0._dp
        ENDDO
     ENDDO
     TOld = TimeRamElapsed
-
-    !allocate(output(nR+1,nT))
-    !do L = 2,NPA
-    !   call gaussian_kernel(1.0, kernel)
-    !   call convolve(FNHS(:,:,L), kernel, output)
-    !   FNHS(:,:,L) = output
-
-    !   call gaussian_kernel(1.0, kernel)
-    !   call convolve(FNIS(:,:,L), kernel, output)
-    !   FNIS(:,:,L) = output
-
-    !   call gaussian_kernel(1.0, kernel)
-    !   call convolve(BOUNHS(:,:,L), kernel, output)
-    !   BOUNHS(:,:,L) = output
-
-    !   call gaussian_kernel(1.0, kernel)
-    !   call convolve(BOUNIS(:,:,L), kernel, output)
-    !   BOUNIS(:,:,L) = output
-
-    !   call gaussian_kernel(1.0, kernel)
-    !   call convolve(HDNS(:,:,L), kernel, output)
-    !   HDNS(:,:,L) = output
-    !ENDDO
-    !deallocate(output)
 
     ! Check for NaN's
     do i = 2, nR+1

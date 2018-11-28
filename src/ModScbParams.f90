@@ -9,7 +9,7 @@ module ModScbParams
 
   implicit none
 
-  character(len=200) :: QinDentonPath = 'IM/input_scb/'
+  character(len=200) :: QinDentonPath = '/projects/space_data/MagModelInputs/QinDenton/'
   character(len=200) :: TS07Path = 'NONE'
 
   integer :: iSm2 = 4
@@ -21,7 +21,7 @@ module ModScbParams
   character(len=3) :: Isotropic = 'RAM'
 
   integer :: psiChange = 0
-  integer :: theChange = 0
+  integer :: theChange = 4
 
   integer :: iDumpRAMFlux = 0 ! Writes RAM flux mapped along 3D field lines in NetCDF format
   integer :: MinSCBIterations = 11
