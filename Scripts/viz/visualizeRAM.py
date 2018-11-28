@@ -190,7 +190,7 @@ def generateVisualization(pressurefile, fieldfile, pointsfile, opacity=True):
     streamTracerWithCustomSource1Display.PolarAxes.PolarAxisLabelFontFile = ''
     streamTracerWithCustomSource1Display.PolarAxes.LastRadialAxisTextFontFile = ''
     streamTracerWithCustomSource1Display.PolarAxes.SecondaryRadialAxesTextFontFile = ''
-    
+
     # show data from calculator1
     calculator1Display = Show(calculator1, renderView1)
     
@@ -381,11 +381,13 @@ def generateVisualization(pressurefile, fieldfile, pointsfile, opacity=True):
     totalpressureLUTColorBar.WindowLocation = 'UpperRightCorner'
     totalpressureLUT.RescaleTransferFunction(0, 80)
 
-    # save image to file
+    # save image and state to file
     #-----------------------------------------Saving the image/video--------------------------------------------
+    servermanager.SaveState('lastFig.pvsm')
     if properties['Movie'] == 'no':
         outname = os.path.splitext(os.path.split(pressurefile)[-1])[0]
-        SaveScreenshot('images/{}_viz.png'.format(outname), magnification=1.0, quality=100, view=renderView1)
+        outname = os.path.join('images', outname.replace('_pressure', ''))
+        SaveScreenshot(outname+'.png'. format(outname), magnification=1.0, quality=100, view=renderView1)
     else:
         SaveAnimation(filename = 'images/' + properties['Movie'] + '_movie.avi', FrameRate=2)
 
@@ -399,8 +401,8 @@ if __name__=='__main__':
         os.mkdir(figpath)
     #temporary hardcode of input files - this needs to be moved back out to config
     vtxpath = os.path.abspath('vtk_files')
-    pressurefile = os.path.join(vtxpath, 'restart_d20130317_t060500_pressure.vtp')
-    fieldfile = os.path.join(vtxpath, 'restart_d20130317_t060500_field.vtu')
+    pressurefile = os.path.join(vtxpath, 'restart_d20130317_t085100_pressure.vtp')
+    fieldfile = os.path.join(vtxpath, 'restart_d20130317_t085100_field.vtu')
     pointsfile = os.path.join(vtxpath, 'sphere.vtp')
     pointsfile = os.path.join(vtxpath, 'disc.vtp')
 
