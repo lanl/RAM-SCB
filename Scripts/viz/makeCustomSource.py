@@ -14,7 +14,7 @@ import spacepy.datamodel as dm
 def gen_sphere():
     '''Generating a spherical source for streamlines as sphere.vtp in vtk_files directory'''
     #----------------------------generate the points describing the sphere--------------------------
-    xyz, nLons, nLats = pointsGenSphere(r=2.0, minL=3.0, maxL=7.0, dL=0.25)
+    xyz, nLons, nLats = pointsGenSphere(r=1.5, minL=3.0, maxL=7.0, dL=0.25)
 
     #----------------------------generate the sphere.vtp file--------------------------
     to_write = xmlPolyGen(xyz, dim1=nLons, dim2=nLats)
