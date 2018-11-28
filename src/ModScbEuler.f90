@@ -14,7 +14,6 @@ MODULE ModScbEuler
 !==============================================================================
   SUBROUTINE mapTheta
     !!!! Module Variables
-    USE ModScbParams,    ONLY: psiChange, theChange
     USE ModScbGrids,     ONLY: nthe, npsi, nzeta
     USE ModScbVariables, ONLY: x, y, z, chiVal, SORFail
 
@@ -33,7 +32,7 @@ MODULE ModScbEuler
 
     ! Now move theta coordinates along each surface equal arc length along the i grids
     zetaloop: DO k = 2, nzeta
-       fluxloop: DO j = 1+psiChange, npsi-psiChange
+       fluxloop: DO j = 1, npsi
           distance(1) = 0._dp
           xOld(:) = x(1:nthe,j,k)
           yOld(:) = y(1:nthe,j,k)
@@ -47,8 +46,8 @@ MODULE ModScbEuler
 
           chiValOld = distance / distance(nthe) * pi_d
 
-          i1 = 1 + theChange
-          i2 = nthe - theChange
+          i1 = 1
+          i2 = nthe
           CALL GSL_Interpolation_1D(chiValOld,xOld,chiVal(i1:i2),x(i1:i2,j,k),GSLerr)
           if (GSLerr > 0) SORFail = .true.
           CALL GSL_Interpolation_1D(chiValOld,yOld,chiVal(i1:i2),y(i1:i2,j,k),GSLerr)
@@ -96,7 +95,6 @@ MODULE ModScbEuler
   SUBROUTINE mapAlpha
     ! new cubic GSL interpolation, without involving linear distance calculation
     USE ModScbMain,      ONLY: DP
-    USE ModScbParams,    ONLY: psiChange, theChange
     USE ModScbGrids,     ONLY: nthe, npsi, nzeta
     USE ModScbVariables, ONLY: x, y, z, alfa, alphaVal, SORFail
   
@@ -111,8 +109,8 @@ MODULE ModScbEuler
     ALLOCATE(xOld(nzeta+1),yOld(nzeta+1),zOld(nzeta+1),alfaOld(nzeta+1))
     xOld = 0.0; yOld = 0.0; zOld = 0.0; alfaOld = 0.0
 
-    jloop : DO j = 1+psiChange, npsi-psiChange
-       iloop: DO i = 1+theChange, nthe-theChange
+    jloop : DO j = 1, npsi
+       iloop: DO i = 1, nthe
           xOld(1:nzeta+1) = x(i,j,1:nzeta+1)
           yOld(1:nzeta+1) = y(i,j,1:nzeta+1)
           zOld(1:nzeta+1) = z(i,j,1:nzeta+1)
@@ -165,12 +163,11 @@ MODULE ModScbEuler
                                SORFail, alfa, alphaVal, diffmx, blendAlpha
 
     use ModScbFunctions, ONLY: extap
-  
     use nrtype, ONLY: DP, pi_d
-  
+ 
     implicit none
  
-    INTEGER :: j, i, jz
+    INTEGER :: j, i, jz, nT, nP, GSL_err
     REAL(DP) :: rjac, omegaOpt
 
     INTEGER, ALLOCATABLE :: ni(:)
@@ -194,16 +191,18 @@ MODULE ModScbEuler
     alfaPrev(:,:,:) = alfa(:,:,:)
     ni = 0
     resid = 0
+    nT = max(theChange,1)
+    nP = max(psiChange,1)
 
 !$OMP PARALLEL DO
-    psiloop: DO  jz = 2, npsi-1
+    psiloop: DO  jz = 2, npsi-nP
        ni(jz) = 1
   
        Iterations: DO WHILE (ni(jz) <= nimax)
           zetaloop: DO k = 2, nzeta
              kp = k + 1
              km = k - 1
-             thetaloop: DO  iz = 2, nthe-1
+             thetaloop: DO  iz = 1+nT, nthe-nT
                 im = iz - 1
                 ip = iz + 1
                 ! Use natural rowwise ordering
@@ -254,29 +253,35 @@ MODULE ModScbEuler
     sumb = SUM(ABS(alfa(2:nthe-1,2:npsi-1,2:nzeta)))
     diffmx = maxval(abs(resid(2:nthe-1,2:npsi-1,2:nzeta)))
 
-    !...  set "blending" in alpha for outer iteration loop
-    !DO j = 1, npsi
-    !   DO i = 1, nthe
-    !      DO k = 2, nzeta
-    !         alfa(i,j,k) = alfa(i,j,k) * blendAlpha + alphaVal(k) * (1._dp - blendAlpha)
-    !      END DO
-    !   END DO
-    !END DO
+    do k = 2, nzeta
+       do i = 1+nT, nthe-nT
+          do j = nP, 1, -1
+             call extap(alfa(i,npsi-j-2,k), &
+                        alfa(i,npsi-j-1,k), &
+                        alfa(i,npsi-j+0,k), &
+                        alfa(i,npsi-j+1,k))
+          enddo
+       enddo
+    enddo
 
-    DO k = 2, nzeta
-       if (psiChange == 0) then
-          DO i = 2,nthe-1
-             CALL extap(alfa(i,npsi-3,k),alfa(i,npsi-2,k),alfa(i,npsi-1,k),alfa(i,npsi,k))
-             CALL extap(alfa(i,4,k),alfa(i,3,k),alfa(i,2,k),alfa(i,1,k))
-          ENDDO
-       endif
-       if (theChange == 0) then
+    if (nT == 1) then
+       do k = 2, nthe-1
           DO j = 1,npsi
              CALL extap(alfa(nthe-3,j,k),alfa(nthe-2,j,k),alfa(nthe-1,j,k),alfa(nthe,j,k))
              CALL extap(alfa(4,j,k),alfa(3,j,k),alfa(2,j,k),alfa(1,j,k))
           ENDDO
-       endif
-    ENDDO
+       enddo
+    else
+       do j = 1, npsi
+          do k = 1, nzeta
+             do i = 1, nT
+                alfa(i,j,k) = alfa(nT+1,j,k) + (nT+1-i)*(alfa(1,j,k) - alfa(nT+1,j,k))/nT
+                alfa(nThe-i+1,j,k) = alfa(nThe-nT-1,j,k) + (nT+1-i) &
+                                   *(alfa(nThe,j,k) - alfa(nThe-nT-1,j,k))/(nT)
+             enddo
+          enddo
+       enddo
+    endif
     alfa(:,:,1) = alfa(:,:,nzeta) - 2._dp * pi_d
     alfa(:,:,nzetap) = alfa(:,:,2) + 2._dp * pi_d
 
@@ -313,7 +318,9 @@ MODULE ModScbEuler
     !!!! Module Variables
     USE ModScbParams,    ONLY: iAzimOffset, psiChange
     USE ModScbGrids,     ONLY: npsi, nzeta
-    use ModScbVariables, ONLY: x, y, z, nThetaEquator, psiVal, kmax, radEqmidNew, SORFail
+    use ModScbVariables, ONLY: x, y, z, nThetaEquator, psiVal, kmax, radEqmidNew, &
+                               SORFail, nZetaMidnight
+
     !!!! Module Subroutines/Functions
     USE ModRamGSL, ONLY: GSL_Interpolation_1D
     !!!! NR Modules
@@ -344,7 +351,7 @@ MODULE ModScbEuler
        kmax = kmax
     END IF
 
-    kmax = 1
+    kmax = nZetaMidnight
     n = nThetaEquator
     radius(1) = 0._dp
     DO j = 2, npsi
@@ -407,14 +414,14 @@ MODULE ModScbEuler
     xOld = 0.0; yOld = 0.0; zOld = 0.0; psiOld = 0.0
 
     kloop: DO k = 2, nzeta
-       iloop: DO i = 1+theChange, nthe-theChange
+       iloop: DO i = 1, nthe
           xOld(1:npsi) = x(i,1:npsi,k)
           yOld(1:npsi) = y(i,1:npsi,k)
           zOld(1:npsi) = z(i,1:npsi,k)
           psiOld(1:npsi) = psi(i,1:npsi,k)
 
-          i1 = 1 + psiChange
-          i2 = npsi - psiChange
+          i1 = 1
+          i2 = npsi
           CALL GSL_Interpolation_1D(psiOld, xOld, psiVal(i1:i2), x(i,i1:i2,k), GSLerr)
           if (GSLerr > 0) SORFail = .true.
           CALL GSL_Interpolation_1D(psiOld, yOld, psiVal(i1:i2), y(i,i1:i2,k), GSLerr)
@@ -462,7 +469,7 @@ MODULE ModScbEuler
                                SORFail, psi, psiVal, blendPsi, diffmx
 
     use ModScbFunctions, ONLY: extap
-  
+ 
     use nrtype, ONLY: pi_d
   
     implicit none
@@ -470,7 +477,7 @@ MODULE ModScbEuler
     REAL(DP) :: omegaOpt, rjac
     REAL(DP), ALLOCATABLE :: psiPrev(:,:,:), resid(:,:,:), om(:)
     INTEGER, ALLOCATABLE :: ni(:)
-    INTEGER :: j, k, i
+    INTEGER :: j, k, i, nT, nP, GSL_err
 
     INTEGER, SAVE :: jz, jp, jm, iz, im, ip
     !$OMP THREADPRIVATE(jz,jp,jm,iz,im,ip)
@@ -493,16 +500,19 @@ MODULE ModScbEuler
     ni = 0
     resid = 0
 
+    nT = max(theChange,1)
+    nP = max(psiChange,1)
+
 !$OMP PARALLEL DO
     alphaLoop: DO k = 2, nzeta
        ni(k) = 1
   
        Iterations: DO WHILE (ni(k) <= nimax)
           !anormResid = 0._dp
-          jLoop: DO jz = 2, npsi-1
+          jLoop: DO jz = 2, npsi-nP
              jp = jz + 1
              jm = jz - 1
-             iLoop: DO  iz = 2, nthe-1
+             iLoop: DO  iz = 1+nT, nthe-nT
                 im = iz - 1
                 ip = iz + 1
                 resid(iz,jz,k) = &
@@ -553,29 +563,35 @@ MODULE ModScbEuler
     sumb = SUM(ABS(psi(2:nthem,2:npsim,2:nzeta)))
     diffmx = maxval(abs(resid(2:nthem,2:npsi-1,2:nzeta)))
 
-    ! Set blend for outer iteration loop, and apply periodic boundary conditions
-    !DO j = 1, npsi
-    !   DO i = 1, nthe
-    !      DO k = 2,nzeta
-    !         psi(i,j,k) = psi(i,j,k) * blendPsi + psival(j) * (1._dp - blendPsi)
-    !      END DO
-    !   END DO
-    !END DO
+    do k = 2, nzeta
+       do i = 1+nT, nthe-nT
+          do j = nP, 1, -1
+             call extap(psi(i,npsi-j-2,k), &
+                        psi(i,npsi-j-1,k), &
+                        psi(i,npsi-j+0,k), &
+                        psi(i,npsi-j+1,k))
+          enddo
+       enddo
+    enddo
 
-    DO k = 2, nzeta
-       if (psiChange == 0) then
-          DO i = 2,nthe-1
-             CALL extap(psi(i,npsi-3,k),psi(i,npsi-2,k),psi(i,npsi-1,k),psi(i,npsi,k))
-             CALL extap(psi(i,4,k),psi(i,3,k),psi(i,2,k),psi(i,1,k))
-          ENDDO
-       endif
-       if (theChange == 0) then
+    if (nT == 1) then
+       do k = 2, nzeta
           DO j = 1,npsi
              CALL extap(psi(nthe-3,j,k),psi(nthe-2,j,k),psi(nthe-1,j,k),psi(nthe,j,k))
              CALL extap(psi(4,j,k),psi(3,j,k),psi(2,j,k),psi(1,j,k))
           ENDDO
-       endif
-    ENDDO
+       enddo
+    else
+       do j = 1, npsi
+          do k = 1, nzeta
+             do i = 1, nT
+                psi(i,j,k) = psi(nT+1,j,k) + (nT+1-i)*(psi(1,j,k) - psi(nT+1,j,k))/nT
+                psi(nThe-i+1,j,k) = psi(nThe-nT-1,j,k) + (nT+1-i) &
+                                   *(psi(nThe,j,k) - psi(nThe-nT-1,j,k))/(nT)
+             enddo
+          enddo
+       enddo
+    endif
     psi(:,:,1) = psi(:,:,nzeta)
     psi(:,:,nzetap) = psi(:,:,2)
 

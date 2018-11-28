@@ -93,7 +93,7 @@ subroutine ram_get_electric(EOut_II)
   character(len=200) :: StringHeader, NameFileOut
   character(len=*), parameter :: NameSub = 'ram_get_electric'
   !--------------------------------------------------------------------------
-  ALLOCATE(Epot_Cart(0:nR,nT), xo(nR,nT), yo(nR,nT))
+  ALLOCATE(Epot_Cart(nR+1,nT), xo(nR+1,nT), yo(nR+1,nT))
   Epot_Cart = 0.0; xo = 0.0; yo = 0.0
 
   radOut = RadiusMax+0.25
@@ -108,21 +108,19 @@ subroutine ram_get_electric(EOut_II)
   END DO
 
   CALL ionospheric_potential
-  DO i = 1,nR
+  DO i = 1,nR+1
      DO j = 1,nT
-        xo(i,j) = radRaw(i) * COS(azimRaw(j)*2._dp*pi_d/24._dp - pi_d)
-        yo(i,j) = radRaw(i) * SIN(azimRaw(j)*2._dp*pi_d/24._dp - pi_d)
+        xo(i,j) = radRaw(i-1) * COS(azimRaw(j)*2._dp*pi_d/24._dp - pi_d)
+        yo(i,j) = radRaw(i-1) * SIN(azimRaw(j)*2._dp*pi_d/24._dp - pi_d)
      ENDDO
   ENDDO
   CALL GSL_Interpolation_2D(x(nThetaEquator,:,2:nzeta),y(nThetaEquator,:,2:nzeta), &
                             PhiIono(:,2:nzeta), xo(:,:), yo(:,:), Epot_Cart(:,:), GSLerr)
-  Epot_Cart(0,:) = Epot_Cart(1,:) ! 3Dcode domain only extends to 2 RE; 
-                                  ! at 1.75 RE the potential is very small anyway
 
   if (maxval(abs(Epot_Cart)).gt.150000.0) then
      if (verbose) write(*,*) 'Bad Electric Field data, using previous time step'
   else
-     EOut_II(1:nR+1,1:nT) = Epot_Cart(0:nR,  1:nT)
+     EOut_II = Epot_Cart
   endif
   write(*,'(1x,a,2F10.2)') 'EOut_II max and min', maxval(EOut_II), minval(EOut_II)
   write(*,*) ''

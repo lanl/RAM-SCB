@@ -116,12 +116,15 @@ subroutine IM_set_parameters
         call read_var('nE',  NE)
         call read_var('nPa', NPA)
 
+     case('#SMOOTH_INTEGRAL')
+        integral_smooth = .false.
+
 !!!!!! SCB Parameters
      case('#RESET')
         reset=.true.
 
      case('#PRESS_MODE')
-        call read_var('PressureExtensionModel',pressmode)
+        call read_var('PressMod', PressMode)
 
      case('#SCB_FIELD')
         call read_var('constZ',constZ)
@@ -134,11 +137,9 @@ subroutine IM_set_parameters
         call read_var('PressureSmoothing', iSm2)
         call read_var('SavitzkyGolayIterations', SavGolIters)
 
-     case('#SCBBOUNDARY')
-        call read_var('FixedOuterShell', TempLogical)
-        if (TempLogical) psiChange = 1
-        call read_var('FixedFootPoints', TempLogical)
-        if (TempLogical) theChange = 1
+     case('#SCB_GHOSTCELLS')
+        call read_var('FixedOuterShell', psiChange)
+        call read_var('FixedFootPoints', theChange)
 
      case('#SCBSETTINGS')
         call read_var('MinSCBIterations', MinSCBIterations)

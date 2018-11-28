@@ -420,12 +420,10 @@ MODULE ModScbIO
 
     ! Since T89 tracing is so quick, just retrace everything
     ! this is helpful because T89 jumps are very large
-    !if ((abs(xpsiout-xpsitemp).le.1e-9).or.(xpsitemp.eq.-1._dp)) then
-       IF ((NameBoundMag.eq.'T89I').or.(NameBoundMag.eq.'T89D')) THEN
-          call Computational_Domain
-          return
-       ENDIF
-    !endif
+    IF ((NameBoundMag.eq.'T89I').or.(NameBoundMag.eq.'T89D')) THEN
+       call Computational_Domain
+       return
+    ENDIF
 
     ALLOCATE(xOldTheta(nthe),yOldTheta(nthe),zOldTheta(nthe),chiValOld(nthe),&
              radius(npsi),xOldPsi(npsi),yOldPsi(npsi),zOldPsi(npsi),psiOld(npsi),&
