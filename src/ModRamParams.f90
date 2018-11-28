@@ -20,6 +20,7 @@ module ModRamParams
   logical :: checkMGNP = .false.
   logical :: WriteBoundary = .false.
   logical :: WritePotential = .false.
+  logical :: integral_smooth = .true.
  
   ! Standalone or Component (default = standalone)  logical :: IsComponent = .false.
   logical :: IsComponent = .false.
@@ -97,7 +98,9 @@ module ModRamParams
   character(len=200) :: NameOmniFile  = 'omni.txt'
   character(len=200) :: BoundaryPath  = 'IM/input_ram/'
   character(len=200) :: InitializationPath = 'IM/input_ram/'
- 
+  character(len=200) :: HissFilePath = '/projects/lanl/SHIELDS/RAM_SCB_input/PlHiss/' 
+  character(len=200) :: BASFilePath = '/projects/lanl/SHIELDS/shields_codes/BAS_bavDxx/'
+
   ! File write logicals:
   logical :: DoSaveRamSats=.false.
  
