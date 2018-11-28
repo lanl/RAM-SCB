@@ -120,6 +120,9 @@ subroutine IM_set_parameters
      case('#RESET')
         reset=.true.
 
+     case('#PRESS_MODE')
+        call read_var('PressureExtensionModel',pressmode)
+
      case('#SCB_FIELD')
         call read_var('constZ',constZ)
         call read_var('constTheta', constTheta)
