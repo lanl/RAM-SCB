@@ -85,12 +85,16 @@ subroutine IM_set_parameters
         checkMGNP = .true.
 
      case('#USEPLANE')
+        DoUsePlane_SCB = .true.
         call read_var('DoUsePlane_SCB', DoUsePlane_SCB)
 
      case('#USEWPI')
-        call read_var('DoUseWPI',     DoUseWPI)
-        call read_var('DoUseBASdiff', DoUseBASdiff)
-        call read_var('DoUseKpDiff',  DoUseKpDiff)
+        call read_var('DoUseWPI',     TempLogical)
+        if (TempLogical) DoUseWPI = .true.
+        call read_var('DoUseBASdiff', TempLogical)
+        if (TempLogical) DoUseBASDiff = .true.
+        call read_var('DoUseKpDiff',  TempLogical)
+        if (TempLogical) DoUseKpDiff = .true.
 
      case('#OUTERBOUNDARY')
         call read_var('NameBoundPlasma',  boundary)
