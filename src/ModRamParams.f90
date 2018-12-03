@@ -5,7 +5,7 @@
 
 module ModRamParams
 
-  use ModRamMain, ONLY: Real8_
+  use ModRamMain, ONLY: DP
 
   implicit none
 
@@ -21,7 +21,8 @@ module ModRamParams
   logical :: WriteBoundary = .false.
   logical :: WritePotential = .false.
   logical :: integral_smooth = .true.
- 
+  logical :: InitializeOnFile = .true. 
+
   ! Standalone or Component (default = standalone)  logical :: IsComponent = .false.
   logical :: IsComponent = .false.
  
@@ -75,10 +76,12 @@ module ModRamParams
   logical :: DoAnisoPressureGMCoupling = .false.
  
   ! Limiter Beta (scales MC Limiter from min-mod=1 to superbee=2; default=1.5)
-  real(kind=Real8_) :: BetaLim = 1.5
+  real(DP) :: BetaLim = 1.5
  
   ! Whether or not to use boundary files
   logical :: BoundaryFiles = .true.
+  real(DP) :: ElectronFluxCap = 1e10
+  real(DP) :: ProtonFluxCap = 1e8
  
   logical :: DoVarDt = .true.                        ! Use variable timestep.
  
@@ -88,11 +91,13 @@ module ModRamParams
  
   logical :: IsStarttimeSet=.false.  ! True if #STARTTIME used in standalone.
  
-  character(len=4) :: NameBoundMag
+  character(len=4) :: NameBoundMag = 'DIPL'
   character(len=6) :: InnerMag, OuterMag
  
   character(len=6) :: event = ''
-  character(len=4) :: boundary, electric, NameDistrib
+  character(len=4) :: boundary = 'LANL'
+  character(len=4) :: electric = 'VOLS'
+  character(len=4) :: NameDistrib = 'MAXW'
  
   character(len=200) :: NameIndexFile = 'RamIndices.txt'
   character(len=200) :: NameOmniFile  = 'omni.txt'

@@ -44,7 +44,7 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
 !!!! Module Variables
   use ModRamMain,      ONLY: DP
   use ModRamTiming,    ONLY: TimeRamNow, TimeRamElapsed, TimeRamStart
-  use ModRamParams,    ONLY: electrons
+  use ModRamParams,    ONLY: electrons, ProtonFluxCap, ElectronFluxCap
   use ModRamGrids,     ONLY: NT, NE, NEL, NEL_prot, NBD, NTL
   use ModRamVariables, ONLY: EKEV, MLT, timeOffset, StringFileDate,  &
                              flux_SIII, fluxLast_SII, eGrid_SI, &
@@ -198,23 +198,25 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   logERam = log10(Ekev)
 
   ! Interpolate/Extrapolate in energy space; return to normal units.
-  do j=1,nT
-     do k=1,nE
+  ! Interpolation in Log space isn't really needed with the GSL interpolation
+  ! routines but is left over from the previous interpolation routines. It
+  ! shouldn't mess anything up so for now we will leave it this way. -ME
+  do j = 1, nT
+     do k = 1, nE
         CALL GSL_Interpolation_1D(logELan, logFlux_II(j,:), logERam(k), y, GSLerr)
-        ! Moved this check to GEOSB
-        if ((NameParticleIn.eq.'prot').and.(y.gt.8))  then ! Limit proton flux to 10**8
-           y=8
-        end if
-        if ((NameParticleIn.eq.'elec').and.(y.gt.10)) then ! Limit electron flux to 10**10
-           y=10
-        end if
         fluxOut_II(j,k)=10.**y
+        if (NameParticleIn.eq.'elec') then
+           if (fluxOut_II(j,k) > ElectronFluxCap) fluxOut_II(j,k) = ElectronFluxCap
+        end if
+        if (NameParticleIn.eq.'prot') then
+           if (fluxOut_II(j,k) > ProtonFluxCap) fluxOut_II(j,k) = ProtonFluxCap
+        end if
      end do
   end do
 
- do k=1,nE
-    fluxOut_II(1,k)=fluxOut_II(nT,k)
- end do
+  do k=1,nE
+     fluxOut_II(1,k)=fluxOut_II(nT,k)
+  end do
 
   ! With fluxOut filled, we are finished.
   if(DoTest) then

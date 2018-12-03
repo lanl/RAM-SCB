@@ -567,7 +567,7 @@ end subroutine read_geomlt_file
     if ((nR.eq.iR).and.(nT.eq.iT)) then
        F2     = iF2
        PParT  = iPParT
-       PPerT  = iPPerT
+       PPerT = iPPerT
     else
        ! Interpolate spatially for each energy and pitch angle (if required)
        ALLOCATE(radGrid(nR+1,nT),angleGrid(nR+1,nT))
@@ -610,7 +610,7 @@ end subroutine read_geomlt_file
 
     DEALLOCATE(iF2, iEkeV, iMLT, iLz, iPaVar)
     DEALLOCATE(iFNHS, iBOUNHS, iFNIS, iBOUNIS, iBNES, iHDNS, iEIR, iEIP, &
-               idBdt, idIbndt, idIdt, iPParT, iPPerT)
+    idBdt, idIbndt, idIdt, iPParT, iPPerT)
 
   end subroutine read_initial
 
