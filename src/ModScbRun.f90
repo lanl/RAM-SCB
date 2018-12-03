@@ -106,6 +106,9 @@
           fp = fpStart
           fzet = fzetStart
           SORFail = .false.
+          DEALLOCATE(xStart, yStart, zStart, psiStart, alphaStart, fStart, &
+                     psiValStart, alphaValStart, fpStart, fzetStart, xPrev, &
+                     yPrev, zPrev, alphaPrev, psiPrev, entropyFixed)
           return
        ENDIF
     endif
@@ -403,6 +406,9 @@
        fp = fpStart
        fzet = fzetStart
        hICalc = .false.
+       DEALLOCATE(xStart, yStart, zStart, psiStart, alphaStart, fStart, &
+                  psiValStart, alphaValStart, fpStart, fzetStart, xPrev, &
+                  yPrev, zPrev, alphaPrev, psiPrev, entropyFixed)
        return
     endif
  
@@ -418,7 +424,6 @@
     end if
   
     CALL computeBandJacob
-iteration = 0
     CALL pressure
     CALL compute_convergence
     if (verbose) write(*,'(1x,a,2F10.2)') 'Ending normGradP and normJxB = ', normGradP, normJxB
@@ -435,8 +440,10 @@ iteration = 0
     ! Remove for speed
     IF (isotropy == 0 .AND. isEnergDetailNeeded == 1) CALL dps_general
 
-    DEALLOCATE(xStart, yStart, zStart, psiStart, alphaStart, fStart, entropyFixed)
-    DEALLOCATE(xPrev, yPrev, zPrev, alphaPrev, psiPrev)
+    DEALLOCATE(xStart, yStart, zStart, psiStart, alphaStart, fStart, &
+               psiValStart, alphaValStart, fpStart, fzetStart, xPrev, &
+               yPrev, zPrev, alphaPrev, psiPrev, entropyFixed)
+
 
     RETURN
   
