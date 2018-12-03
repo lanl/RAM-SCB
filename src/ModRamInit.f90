@@ -507,12 +507,12 @@ MODULE ModRamInit
 !==================================================================================================
   SUBROUTINE init_input
     !!!! Module Variables
-    use ModRamMain,      ONLY: nIter
+    use ModRamMain,      ONLY: DP, nIter
     use ModRamParams,    ONLY: IsRestart, IsStarttimeSet, NameBoundMag, &
-                               DoUsePlane_SCB, HardRestart
-    use ModRamGrids,     ONLY: NL, NLT, nR, nT
+                               DoUsePlane_SCB, HardRestart, InitializeOnFile
+    use ModRamGrids,     ONLY: NL, NLT, nR, nT, nS
     use ModRamTiming,    ONLY: DtEfi, TimeRamNow, TimeRamElapsed
-    use ModRamVariables, ONLY: Kp, F107, TOLV, NECR, IP1, IR1, XNE
+    use ModRamVariables, ONLY: Kp, F107, TOLV, NECR, IP1, IR1, XNE, F2
     use ModScbParams,    ONLY: method, constTheta
     !!!! Module Subroutines/Functions
     use ModRamRun,       ONLY: ANISCH
@@ -533,7 +533,7 @@ MODULE ModRamInit
   
     implicit none
   
-    integer :: i, j, j1, i1, methodTemp
+    integer :: i, j, j1, i1, iS, methodTemp
   
     character(len=4)   :: NameBoundMagTemp
     character(len=100) :: HEADER
@@ -571,8 +571,15 @@ MODULE ModRamInit
     else
        nIter = 1
        !!!!!! INITIALIZE DATA !!!!!
-       call read_initial
-  
+       if (InitializeOnFile) then
+          call read_initial
+       else
+          F2 = 1e6
+          do iS = 1, nS
+             call ANISCH(iS)
+          enddo
+       endif
+
        ! Initial indices
        call get_indices(TimeRamNow%Time, Kp, f107)
        TOLV = 0.0
@@ -582,12 +589,11 @@ MODULE ModRamInit
        call write_prefix
        write(*,'(a)') 'Running SCB model to initialize B-field...'
 
-       NameBoundMagTemp = NameBoundMag
-       if (NameBoundMag.eq.'SWMF') then
-          NameBoundMagTemp = NameBoundMag
-          methodTemp = method
-          NameBoundMag = 'DIPL'
-          method = 3 
+       if (NameBoundMag == 'SWMF') then
+        NameBoundMagTemp = NameBoundMag
+        methodTemp = method
+        NameBoundMag = 'DIPL'
+        method = 3
        endif
        call computational_domain
   
@@ -598,9 +604,9 @@ MODULE ModRamInit
        call computehI(0)
 
        call compute3DFlux
-       if (NameBoundMagTemp.eq.'SWMF') then
-          method = methodTemp
-          NameBoundMag = NameBoundMagTemp 
+       if (NameBoundMagTemp == 'SWMF') then
+        method = methodTemp
+        NameBoundMag = NameBoundMagTemp 
        endif
  
        ! NECR needed for the plasmasphere model (PLANE)
@@ -617,6 +623,7 @@ MODULE ModRamInit
            XNE(I,J)=NECR(I1,J1)
          ENDDO
        ENDDO
+
     end if
   !!!!!!!!
   

@@ -81,6 +81,9 @@ subroutine IM_set_parameters
      case('#USERAM')
         call read_var('DoUseRAM', DoUseRAM)
 
+     case('#FLAT_INITIALIZATION')
+        InitializeOnFile = .false.
+
      case('#CHECK_MAGNETOPAUSE')
         checkMGNP = .true.
 
@@ -95,6 +98,10 @@ subroutine IM_set_parameters
         if (TempLogical) DoUseBASDiff = .true.
         call read_var('DoUseKpDiff',  TempLogical)
         if (TempLogical) DoUseKpDiff = .true.
+
+     case('#FLUX_CAP')
+        call read_var('ElectronFluxCap', ElectronFluxCap)
+        call read_var('ProtonFluxCap', ProtonFluxCap)
 
      case('#OUTERBOUNDARY')
         call read_var('NameBoundPlasma',  boundary)
