@@ -54,7 +54,10 @@ MODULE ModScbEuler
           if (GSLerr > 0) SORFail = .true.
           CALL GSL_Interpolation_1D(chiValOld,zOld,chiVal(i1:i2),z(i1:i2,j,k),GSLerr)
           if (GSLerr > 0) SORFail = .true.
-          if (SORFail) return
+          if (SORFail) then
+             DEALLOCATE(xOld,yOld,zOld,distance,chiValOld)
+             return
+          endif
        END DO fluxloop
     END DO zetaloop
 
@@ -122,7 +125,10 @@ MODULE ModScbEuler
           if (GSLerr > 0) SORFail = .true.
           CALL GSL_Interpolation_1D(alfaOld,zOld,alphaVal(2:nzeta),z(i,j,2:nzeta),GSLerr)
           if (GSLerr > 0) SORFail = .true.
-          if (SORFail) return
+          if (SORFail) then
+             DEALLOCATE(xOld,yOld,zOld,alfaOld)
+             return
+          endif
        END DO iloop
     END DO jloop
 
@@ -428,7 +434,10 @@ MODULE ModScbEuler
           if (GSLerr > 0) SORFail = .true.
           CALL GSL_Interpolation_1D(psiOld, zOld, psiVal(i1:i2), z(i,i1:i2,k), GSLerr)
           if (GSLerr > 0) SORFail = .true.
-          if (SORFail) return
+          if (SORFail) then
+             DEALLOCATE(xOld,yOld,zOld,psiOld)
+             return
+          endif
        END DO iloop
     END DO kloop
   
@@ -595,8 +604,7 @@ MODULE ModScbEuler
     psi(:,:,1) = psi(:,:,nzeta)
     psi(:,:,nzetap) = psi(:,:,2)
 
-    IF (ALLOCATED(psiPrev)) DEALLOCATE(psiPrev)
-    IF (ALLOCATED(resid)) DEALLOCATE(resid)
+    DEALLOCATE(psiPrev, resid)
     DEALLOCATE(ni, om)
 
     RETURN
