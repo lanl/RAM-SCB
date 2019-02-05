@@ -67,16 +67,18 @@ subroutine ram_get_electric(EOut_II)
   ! Open E-field file "NextFile", collect E-field and indices, update
   ! "NextFile" and return all of the above to the caller.
 
-  use ModRamMain,      ONLY: DP
+  use ModRamMain,      ONLY: DP, PathRamOut
   Use ModRamTiming,    ONLY: TimeRamElapsed, TimeRamNow
-  use ModRamParams,    ONLY: electric, IsComponent, verbose
+  use ModRamParams,    ONLY: electric, IsComponent, verbose, WritePotential
   use ModRamGrids,     ONLY: NR, NT, RadiusMax, RadiusMin
-  use ModRamVariables, ONLY: PHIOFS, Kp, F107
+  use ModRamVariables, ONLY: PHIOFS, Kp, F107, VT
   use ModRamFunctions, ONLY: RamFileName
   use ModRamGSL,       ONLY: GSL_Interpolation_2D
   use ModScbMain,      ONLY: prefixOut
   use ModScbGrids,     ONLY: nzeta
   use ModScbVariables, ONLY: PhiIono, radRaw, azimRaw, x, y, nThetaEquator
+
+  use ModRamFunctions, ONLY: RamFileName
 
   use ModIOUnit,      ONLY: UNITTMP_
 
@@ -117,13 +119,25 @@ subroutine ram_get_electric(EOut_II)
   CALL GSL_Interpolation_2D(x(nThetaEquator,:,2:nzeta),y(nThetaEquator,:,2:nzeta), &
                             PhiIono(:,2:nzeta), xo(:,:), yo(:,:), Epot_Cart(:,:), GSLerr)
 
-  if (maxval(abs(Epot_Cart)).gt.150000.0) then
+  if ((maxval(abs(Epot_Cart)).gt.150000.0).or.(isnan(sum(Epot_Cart)))) then
      if (verbose) write(*,*) 'Bad Electric Field data, using previous time step'
+     EOut_II = VT
   else
      EOut_II = Epot_Cart
   endif
   write(*,'(1x,a,2F10.2)') 'EOut_II max and min', maxval(EOut_II), minval(EOut_II)
   write(*,*) ''
+
+  if (WritePotential) then
+     open(UNITTMP_,FILE=trim(PathRamOut)//RamFileName('potential','dat',TimeRamNow))
+     write(UNITTMP_,*) nR+1,nT
+     do j = 1, nT
+      do i = 1, nR+1
+       write(UNITTMP_,*) xo(i,j), yo(i,j), EOut_II(i,j)
+      enddo
+     enddo
+     close(UNITTMP_)
+  endif
 
   DEALLOCATE(Epot_Cart, xo, yo)
   RETURN
@@ -137,6 +151,8 @@ SUBROUTINE ionospheric_potential
   use ModRamTiming,    ONLY: TimeRamNow, TimeRamElapsed
   use ModRamParams,    ONLY: IsComponent, electric, UseSWMFFile, NameOmniFile, &
                              WritePotential
+  use ModRamConst,     ONLY: RE
+  use ModRamVariables, ONLY: Kp
   use ModScbMain,      ONLY: iConvE
   use ModScbGrids,     ONLY: npsi, nzeta, nzetap
   use ModScbVariables, ONLY: phiiono, x, y, z, r0Start, dPhiIonodAlpha, &
@@ -163,9 +179,9 @@ SUBROUTINE ionospheric_potential
 
   integer :: doy, GSLerr, i, j, k, ierr, iYear_l, &
              iDoy_l, iHour_l, iMin_l, iLines, isec_l, imsec_l, imonth_l, iday_l, &
-             AL_l, SymH_l
+             AL_l, SymH_l, sgn
   REAL(DP) :: radius, angle, bzimf_l, bndylat, byimf_l, pdyn_l, Nk_l, &
-              Vk_l, bTot_l, bximf_l, vx_l, vy_l, vz_l, t_l
+              Vk_l, bTot_l, bximf_l, vx_l, vy_l, vz_l, t_l, AVS, VT
   REAL(DP), ALLOCATABLE :: colat(:), lon(:), phiIonoRaw(:,:), dPhiIonodRho(:,:), &
                            dPhiIonodZeta(:,:), colatGrid(:,:), lonGrid(:,:), latGrid(:,:)
   REAL(DP), EXTERNAL :: EpotVal, BoundaryLat
@@ -308,10 +324,20 @@ SUBROUTINE ionospheric_potential
               iYear_l, iDoy_l, iHour_l, iMin_l, byimf_l, bzimf_l, tilt, Vk_l, Nk_l
 
         CALL SetModel05(byimf_l, bzimf_l, tilt, Vk_l, Nk_l)
+        AVS=7.05E-6/(1.-0.159*KP+0.0093*KP**2)**3/RE  ! Voll-Stern parameter
         DO k = 2, nzeta
            DO j = 1, npsi
-              call EpotVal05(latGrid(j,k), lonGrid(j,k), 0.0_dp, PhiIono(j,k))
+              radius = SQRT((x(nThetaEquator,j,k))**2 + y(nThetaEquator,j,k)**2)
+              angle = ATAN2(y(nThetaEquator,j,k), x(nThetaEquator,j,k))
+              VT = AVS*(radius*Re)**2*SIN(angle+pi_d)
+              call EpotVal05(latGrid(j,k), lonGrid(j,k), 0.0, PhiIono(j,k))
               PhiIono(j,k) = PhiIono(j,k) * 1.0e3   ! ram needs it in Volts
+              if (abs(PhiIono(j,k)) < 0.001) then
+               PhiIono(j,k) = VT
+              elseif (abs(VT) > abs(PhiIono(j,k))) then
+               sgn = abs(PhiIono(j,k))/PhiIono(j,k)
+               PhiIono(j,k) = sgn*abs(VT)
+              endif
            END DO
         END DO
      endif
@@ -345,17 +371,7 @@ SUBROUTINE ionospheric_potential
      dPhiIonodBeta(1:npsi, k) = dPhiIonodZeta(1:npsi,k) / fzet(k)
   END DO
 
-  if (WritePotential) then 
-     call Write_Ionospheric_Potential
-     open(UNITTMP_,FILE=trim(PathRamOut)//RamFileName('potential','dat',TimeRamNow))
-     write(UNITTMP_,*) nzeta, npsi
-     do k = 1,nzeta
-      do j = 1, npsi
-       write(UNITTMP_,*) latgrid(j,k), longrid(j,k), phiiono(j,k)
-      enddo
-     enddo
-     close(UNITTMP_)
-  endif
+  if (WritePotential) call Write_Ionospheric_Potential
 
   DEALLOCATE(dPhiIonodRho, dPhiIonodZeta, colatGrid, lonGrid,latGrid)
   RETURN
