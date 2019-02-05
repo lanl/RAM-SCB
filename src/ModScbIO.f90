@@ -782,8 +782,8 @@ MODULE ModScbIO
     integer :: Year, Month, Day, FileIndexStart, FileIndexEnd, nIndex
     integer :: iYear, iMonth, iDay, iHour, iMinute, iSecond
     integer :: i, iError, Hour, Mins, Sec, iFail
-    real(DP) :: dsA, dsI
-    real(DP), allocatable :: Buffer(:,:), BufferA(:), nSeconds(:)
+    real(DP) :: dsA, dsI, nSecondsPrev, nSecondsNow
+    real(DP), allocatable :: BufferNow(:), BufferPrev(:), BufferA(:)
     REAL(DP) :: AA, SPS, CPS, PS, AB, dut
     COMMON /GEOPACK1/ AA(10),SPS,CPS,AB(3),PS
 
@@ -806,6 +806,12 @@ MODULE ModScbIO
     CPS = 1.0
     PS = 0.0
 
+    IF ((NameBoundMag.eq.'T89I').or.(NameBoundMag.eq.'T89D')) THEN
+       IOPT = min(floor(Kp+0.5),6)+1
+       PARMOD = 0.0
+       return
+    endif
+
     write(StringFileDate,'(i4.4,i2.2,i2.2)') Year, Month, Day
     write(StringFileFolder,'(i4.4)') Year
     QDFile = trim(QinDentonPath)//'/QinDenton_'//StringFileDate//'_1min.txt'
@@ -824,6 +830,8 @@ MODULE ModScbIO
        if (iError.lt.0) then
           FileIndexEnd = nIndex
           exit Read_QDFile_Dates
+       elseif (iError.gt.0) then
+          return
        else
           nIndex = nIndex + 1
           cycle Read_QDFile_Dates
@@ -837,12 +845,15 @@ MODULE ModScbIO
        read(UNITTMP_,*) StringHeader
     enddo
 
-    allocate(nSeconds(nIndex),Buffer(nIndex,36), BufferA(36))
-    nSeconds = 0.0; Buffer = 0.0; BufferA = 0.0
+    allocate(BufferNow(36),BufferPrev(36), BufferA(36))
+    BufferNow = 0.0; BufferPrev = 0.0; BufferA = 0.0
 
     i = 1
+    nSecondsPrev = 0.0
+    nSecondsNow  = 0.0
     Cycle_QDFile: do
-       read(UNITTMP_,*) TimeBuffer, iYear, iMonth, iDay, iHour, iMinute, iSecond, Buffer(i,:)
+       read(UNITTMP_,*,IOSTAT=iError) TimeBuffer, iYear, iMonth, iDay, iHour, iMinute, iSecond, BufferNow(:)
+       if (iError.ne.0) return
        if (iSecond.eq.60) then
           iMinute = iMinute + 1
           iSecond = 0
@@ -851,20 +862,18 @@ MODULE ModScbIO
           iHour = iHour + 1
           iMinute = 0
        endif
-       call time_int_to_real((/iYear,iMonth,iDay,iHour,iMinute,iSecond,0/),nSeconds(i))
-       if (nSeconds(i).ge.TimeRamNow%Time) then  ! Check that we are on or past the time we want
-          dsA = nSeconds(i) - TimeRamNow%Time
+       call time_int_to_real((/iYear,iMonth,iDay,iHour,iMinute,iSecond,0/),nSecondsNow)
+       if (nSecondsNow.ge.TimeRamNow%Time) then  ! Check that we are on or past the time we want
+          dsA = nSecondsNow - TimeRamNow%Time
           if (abs(dsA).le.1e-9) then                     ! Check if we are exactly on the time or past
-             BufferA(:) = Buffer(i,:)
+             BufferA(:) = BufferNow(:)
           else
-             if (i.eq.1) then                    ! Check if we are on the first time step
-                BufferA(:) = Buffer(1,:)
-             elseif (i.eq.nIndex) then
-                BufferA(:) = Buffer(nIndex,:)
+             if (i.eq.1) then         ! Check if we are on the first time step
+                BufferA(:) = BufferNow(:)
              else
-                dsA = TimeRamNow%Time - nSeconds(i-1)
-                dsI = nSeconds(i) - nSeconds(i-1)
-                BufferA(:) = Buffer(i-1,:) + (dsA/dsI)*(Buffer(i,:)-Buffer(i-1,:))
+                dsA = TimeRamNow%Time - nSecondsPrev
+                dsI = nSecondsNow - nSecondsPrev
+                BufferA(:) = BufferPrev(:) + (dsA/dsI)*(BufferNow(:)-BufferPrev(:))
              endif
           endif
           !DenP = BufferA(4)
@@ -881,6 +890,8 @@ MODULE ModScbIO
           endif
           exit Cycle_QDFile
        endif
+       BufferPrev = BufferNow
+       nSecondsPrev = nSecondsNow
        i = i + 1
     enddo Cycle_QDFile
     close(UNITTMP_)
@@ -910,7 +921,7 @@ MODULE ModScbIO
        call INIT_TS07D_TLPR
     ENDIF
 
-    deallocate(nSeconds,Buffer,BufferA)
+    deallocate(BufferNow,BufferPrev,BufferA)
     return
   end subroutine get_model_inputs
 !=============================================================================!
