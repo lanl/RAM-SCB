@@ -1,16 +1,24 @@
-#^CFG COPYRIGHT UM
+#  Copyright (C) 2002 Regents of the University of Michigan,
+#  portions used with permission 
+#  For more information, see http://csem.engin.umich.edu/tools/swmf
 
 SHELL=/bin/sh
 
+# Fortran language related part of Makefile.conf: Makefile.Linux.ifort
+FORTRAN_COMPILER_NAME=ifort
 #
 #	Space Weather Modeling Framework (SWMF) 
-#	Intel Fortran 8.0 (ifort) Compiler
-#       Linux specific part of Makefile
+#
+#	Intel Fortran (ifort) compiler WITHOUT mpif90 compiler.
 #
 
 COMPILE.f77     = ${CUSTOMPATH_F}ifort
 COMPILE.f90     = ${CUSTOMPATH_F}ifort
 LINK.f90	= ${CUSTOMPATH_F}ifort
+
+# To compile main C code with Fortran libraries
+NOMAINFLAG = -nofor-main
+
 AR = ar -rs
 
 SINGLEPREC =
@@ -20,12 +28,13 @@ PRECISION  = ${DOUBLEPREC}
 MPILIB = -lmpi
 #MPILIB = -L${LIBDIR} -lNOMPI
 
-# This is the search path for used modules
-# SEARCH_EXTRA should be set in the individual Makefiles
+#OPENMPFLAG = -fopenmp
 
-SEARCH = -I${SHAREDIR} ${SEARCH_EXTRA}
+# Define where modules are stored and add it to the search path.
+# INCL_EXTRA can be defined to add more search directories.
+SEARCH = -module ${INCLDIR} ${INCL_EXTRA}
 
-DEBUGFLAG = -g traceback -check all
+DEBUGFLAG = -check noarg_temp_created -g -traceback -fpe0
 DEBUG     = 
 
 OPT0 = -O0
@@ -34,21 +43,24 @@ OPT2 = -O2
 OPT3 = -O3
 OPT4 = -O4
 
-CFLAG = ${SEARCH} -c -w ${DEBUG}
+# Add -xHost for better speed, possibly
+
+CFLAG = ${SEARCH} -c -w -diag-disable remark ${OPENMPFLAG} ${DEBUG}
 
 Cflag0  = ${CFLAG} ${PRECISION} ${OPT0}
 Cflag1  = ${CFLAG} ${PRECISION} ${OPT1}
 Cflag2  = ${CFLAG} ${PRECISION} ${OPT2}
 Cflag3  = ${CFLAG} ${PRECISION} ${OPT3}
-Cflag4  = ${CFLAG} ${PRECISION} ${OPT4}
+Cflag4  = ${CFLAG} ${PRECISION} ${OPT4} 
 
 # RCM compilation flags
 # To allow RCM to compile as double precision, add PRECISION flag
 CFLAGS = ${CFLAG} ${OPT2} -save
 
 # Link flags: Lflag1 for MPI parallel code, Lflag2 for serial code
-Lflag1  = ${PRECISION} ${MPILIB} ${DEBUG}
-Lflag2  = ${PRECISION} ${DEBUG}
+# Sometimes it's a good idea not to worry about unused undefined symbols
+Lflag1  = ${PRECISION} ${MPILIB} ${OPENMPFLAG} ${CPPLIB} ${DEBUG}
+Lflag2  = ${PRECISION} ${OPENMPFLAG} ${DEBUG} -Wl,--unresolved-symbols=ignore-in-object-files
 
 # BLAS and LAPACK libraries
 LBLAS =
@@ -76,8 +88,7 @@ BLAS  = lapack.o blas.o
 .ftn.o:
 	${COMPILE.f77} ${Cflag2} -132 $<
 
-clean:	
-	rm -f *~ core *.o *.mod fort.* *.out *.exe *.a *.so *.il *.protex
+cleanfiles:	
+	rm -f *~ core *.o *.mod fort.* a.out *.exe *.a *.so *.il *.protex
 
 
-# keep this line

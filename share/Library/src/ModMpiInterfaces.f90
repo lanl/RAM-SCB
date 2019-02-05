@@ -4,6 +4,7 @@ module ModMPiInterfaces
 
   public:: mpi_abort
   public:: mpi_allgather
+  public:: mpi_allgatherv
   public:: mpi_allreduce
   public:: mpi_barrier
   public:: mpi_bcast
@@ -13,6 +14,8 @@ module ModMPiInterfaces
   public:: mpi_comm_group
   public:: mpi_comm_rank
   public:: mpi_comm_size
+  public:: mpi_file_read
+  public:: mpi_file_write
   public:: mpi_finalize
   public:: mpi_gather
   public:: mpi_gatherv
@@ -25,6 +28,7 @@ module ModMPiInterfaces
   public:: mpi_group_union
   public:: mpi_ibsend
   public:: mpi_init
+  public:: mpi_initialized
   public:: mpi_irecv
   public:: mpi_irsend
   public:: mpi_isend
@@ -48,30 +52,101 @@ module ModMPiInterfaces
 
   interface mpi_allgather
     module procedure &
-    mpi_allgather_i0, &
-    mpi_allgather_i1, &
     mpi_allgather_i2, &
+    mpi_allgather_i0_in_place, &
+    mpi_allgather_i1_in_place, &
+    mpi_allgather_i2_in_place, &
+    mpi_allgather_i0_in_place_array, &
+    mpi_allgather_i1_in_place_array, &
+    mpi_allgather_i2_in_place_array, &
     mpi_allgather_r0, &
     mpi_allgather_r1, &
     mpi_allgather_r2, &
     mpi_allgather_r3, &
     mpi_allgather_r4, &
+    mpi_allgather_r0_in_place, &
+    mpi_allgather_r1_in_place, &
+    mpi_allgather_r2_in_place, &
+    mpi_allgather_r3_in_place, &
+    mpi_allgather_r4_in_place, &
+    mpi_allgather_r0_in_place_array, &
+    mpi_allgather_r1_in_place_array, &
+    mpi_allgather_r2_in_place_array, &
+    mpi_allgather_r3_in_place_array, &
+    mpi_allgather_r4_in_place_array, &
     mpi_allgather_l0, &
-    mpi_allgather_l1
+    mpi_allgather_l1, &
+    mpi_allgather_l0_in_place, &
+    mpi_allgather_l1_in_place, &
+    mpi_allgather_l0_in_place_array, &
+    mpi_allgather_l1_in_place_array
+  end interface
+
+  interface mpi_allgatherv
+    module procedure &
+    mpi_allgatherv_i2, &
+    mpi_allgatherv_i0_in_place, &
+    mpi_allgatherv_i1_in_place, &
+    mpi_allgatherv_i2_in_place, &
+    mpi_allgatherv_i0_in_place_array, &
+    mpi_allgatherv_i1_in_place_array, &
+    mpi_allgatherv_i2_in_place_array, &
+    mpi_allgatherv_r0, &
+    mpi_allgatherv_r1, &
+    mpi_allgatherv_r2, &
+    mpi_allgatherv_r3, &
+    mpi_allgatherv_r4, &
+    mpi_allgatherv_r0_in_place, &
+    mpi_allgatherv_r1_in_place, &
+    mpi_allgatherv_r2_in_place, &
+    mpi_allgatherv_r3_in_place, &
+    mpi_allgatherv_r4_in_place, &
+    mpi_allgatherv_r0_in_place_array, &
+    mpi_allgatherv_r1_in_place_array, &
+    mpi_allgatherv_r2_in_place_array, &
+    mpi_allgatherv_r3_in_place_array, &
+    mpi_allgatherv_r4_in_place_array, &
+    mpi_allgatherv_l0, &
+    mpi_allgatherv_l1, &
+    mpi_allgatherv_l2, &
+    mpi_allgatherv_l0_in_place, &
+    mpi_allgatherv_l1_in_place, &
+    mpi_allgatherv_l2_in_place, &
+    mpi_allgatherv_l0_in_place_array, &
+    mpi_allgatherv_l1_in_place_array, &
+    mpi_allgatherv_l2_in_place_array
   end interface
 
   interface mpi_allreduce
     module procedure &
-    mpi_allreduce_i0, &
-    mpi_allreduce_i1, &
     mpi_allreduce_i2, &
+    mpi_allreduce_i0_in_place, &
+    mpi_allreduce_i1_in_place, &
+    mpi_allreduce_i2_in_place, &
+    mpi_allreduce_i0_in_place_array, &
+    mpi_allreduce_i1_in_place_array, &
+    mpi_allreduce_i2_in_place_array, &
     mpi_allreduce_r0, &
     mpi_allreduce_r1, &
     mpi_allreduce_r2, &
     mpi_allreduce_r3, &
     mpi_allreduce_r4, &
+    mpi_allreduce_r0_in_place, &
+    mpi_allreduce_r1_in_place, &
+    mpi_allreduce_r2_in_place, &
+    mpi_allreduce_r3_in_place, &
+    mpi_allreduce_r4_in_place, &
+    mpi_allreduce_r0_in_place_array, &
+    mpi_allreduce_r1_in_place_array, &
+    mpi_allreduce_r2_in_place_array, &
+    mpi_allreduce_r3_in_place_array, &
+    mpi_allreduce_r4_in_place_array, &
     mpi_allreduce_l0, &
-    mpi_allreduce_l1
+    mpi_allreduce_l1, &
+    mpi_allreduce_l0_in_place, &
+    mpi_allreduce_l1_in_place, &
+    mpi_allreduce_l0_in_place_array, &
+    mpi_allreduce_l1_in_place_array
   end interface
 
   interface
@@ -91,6 +166,7 @@ module ModMPiInterfaces
     mpi_bcast_r2, &
     mpi_bcast_r3, &
     mpi_bcast_r4, &
+    mpi_bcast_r5, &
     mpi_bcast_s0, &
     mpi_bcast_s1, &
     mpi_bcast_l0, &
@@ -142,6 +218,22 @@ module ModMPiInterfaces
      end subroutine mpi_comm_size
   end interface
 
+  interface mpi_file_read
+    module procedure &
+    mpi_file_read_i0, &
+    mpi_file_read_i1, &
+    mpi_file_read_r0, &
+    mpi_file_read_r1
+  end interface
+
+  interface mpi_file_write
+    module procedure &
+    mpi_file_write_i0, &
+    mpi_file_write_i1, &
+    mpi_file_write_r0, &
+    mpi_file_write_r1
+  end interface
+
   interface
      subroutine mpi_finalize(ierror)
        integer, intent(out) :: ierror
@@ -150,25 +242,72 @@ module ModMPiInterfaces
 
   interface mpi_gather
     module procedure &
-    mpi_gather_i0, &
-    mpi_gather_i1, &
     mpi_gather_i2, &
+    mpi_gather_i0_in_place, &
+    mpi_gather_i1_in_place, &
+    mpi_gather_i2_in_place, &
+    mpi_gather_i0_in_place_array, &
+    mpi_gather_i1_in_place_array, &
+    mpi_gather_i2_in_place_array, &
     mpi_gather_r0, &
     mpi_gather_r1, &
     mpi_gather_r2, &
     mpi_gather_r3, &
     mpi_gather_r4, &
+    mpi_gather_r0_in_place, &
+    mpi_gather_r1_in_place, &
+    mpi_gather_r2_in_place, &
+    mpi_gather_r3_in_place, &
+    mpi_gather_r4_in_place, &
+    mpi_gather_r0_in_place_array, &
+    mpi_gather_r1_in_place_array, &
+    mpi_gather_r2_in_place_array, &
+    mpi_gather_r3_in_place_array, &
+    mpi_gather_r4_in_place_array, &
     mpi_gather_l0, &
     mpi_gather_l1, &
+    mpi_gather_l0_in_place, &
+    mpi_gather_l1_in_place, &
+    mpi_gather_l0_in_place_array, &
+    mpi_gather_l1_in_place_array, &
     mpi_gather_s0, &
-    mpi_gather_s1
+    mpi_gather_s1, &
+    mpi_gather_s0_in_place, &
+    mpi_gather_s1_in_place, &
+    mpi_gather_s0_in_place_array, &
+    mpi_gather_s1_in_place_array
   end interface
 
   interface mpi_gatherv
     module procedure &
+    mpi_gatherv_i2, &
+    mpi_gatherv_i0_in_place, &
+    mpi_gatherv_i1_in_place, &
+    mpi_gatherv_i2_in_place, &
+    mpi_gatherv_i0_in_place_array, &
+    mpi_gatherv_i1_in_place_array, &
+    mpi_gatherv_i2_in_place_array, &
     mpi_gatherv_r0, &
     mpi_gatherv_r1, &
-    mpi_gatherv_r2
+    mpi_gatherv_r2, &
+    mpi_gatherv_r3, &
+    mpi_gatherv_r4, &
+    mpi_gatherv_r0_in_place, &
+    mpi_gatherv_r1_in_place, &
+    mpi_gatherv_r2_in_place, &
+    mpi_gatherv_r3_in_place, &
+    mpi_gatherv_r4_in_place, &
+    mpi_gatherv_r0_in_place_array, &
+    mpi_gatherv_r1_in_place_array, &
+    mpi_gatherv_r2_in_place_array, &
+    mpi_gatherv_r3_in_place_array, &
+    mpi_gatherv_r4_in_place_array, &
+    mpi_gatherv_l0, &
+    mpi_gatherv_l1, &
+    mpi_gatherv_l0_in_place, &
+    mpi_gatherv_l1_in_place, &
+    mpi_gatherv_l0_in_place_array, &
+    mpi_gatherv_l1_in_place_array
   end interface
 
   interface
@@ -246,6 +385,13 @@ module ModMPiInterfaces
      end subroutine mpi_init
   end interface
 
+  interface
+     subroutine mpi_initialized(flag, ierror)
+       logical, intent(out) :: flag
+       integer, intent(out) :: ierror
+     end subroutine mpi_initialized
+  end interface
+
   interface mpi_irecv
     module procedure &
     mpi_irecv_i0, &
@@ -304,16 +450,34 @@ module ModMPiInterfaces
 
   interface mpi_reduce
     module procedure &
-    mpi_reduce_i0, &
-    mpi_reduce_i1, &
     mpi_reduce_i2, &
+    mpi_reduce_i0_in_place, &
+    mpi_reduce_i1_in_place, &
+    mpi_reduce_i2_in_place, &
+    mpi_reduce_i0_in_place_array, &
+    mpi_reduce_i1_in_place_array, &
+    mpi_reduce_i2_in_place_array, &
     mpi_reduce_r0, &
     mpi_reduce_r1, &
     mpi_reduce_r2, &
     mpi_reduce_r3, &
     mpi_reduce_r4, &
+    mpi_reduce_r0_in_place, &
+    mpi_reduce_r1_in_place, &
+    mpi_reduce_r2_in_place, &
+    mpi_reduce_r3_in_place, &
+    mpi_reduce_r4_in_place, &
+    mpi_reduce_r0_in_place_array, &
+    mpi_reduce_r1_in_place_array, &
+    mpi_reduce_r2_in_place_array, &
+    mpi_reduce_r3_in_place_array, &
+    mpi_reduce_r4_in_place_array, &
     mpi_reduce_l0, &
-    mpi_reduce_l1
+    mpi_reduce_l1, &
+    mpi_reduce_l0_in_place, &
+    mpi_reduce_l1_in_place, &
+    mpi_reduce_l0_in_place_array, &
+    mpi_reduce_l1_in_place_array
   end interface
 
   interface mpi_rsend
@@ -336,7 +500,6 @@ module ModMPiInterfaces
     module procedure &
     mpi_send_i0, &
     mpi_send_i1, &
-    mpi_send_i3, &
     mpi_send_i2, &
     mpi_send_r0, &
     mpi_send_r1, &
@@ -354,7 +517,7 @@ module ModMPiInterfaces
 
   interface
      subroutine mpi_wait(request, status, ierror)
-       use ModMpiConstants, only: mpi_status_size
+       use ModMpiOrig, only: mpi_status_size
        integer, intent(inout) :: request
        integer, intent(out) :: status(mpi_status_size)
        integer, intent(out) :: ierror
@@ -364,7 +527,7 @@ module ModMPiInterfaces
   interface
      subroutine mpi_waitall(count, array_of_requests, &
           array_of_statuses, ierror) 
-       use ModMpiConstants, only: mpi_status_size
+       use ModMpiOrig, only: mpi_status_size
        integer, intent(in) :: count
        integer, intent(inout) :: array_of_requests(*)
        integer, intent(out) :: array_of_statuses(mpi_status_size,*)
@@ -375,40 +538,6 @@ module ModMPiInterfaces
 
 
 contains
-
-     subroutine mpi_allgather_i0(sendbuf, sendcount, sendtype,       &
-          recvbuf, recvcount, recvtype, comm, ierror) 
-       integer, intent(in) :: sendbuf
-       integer, intent(out) :: recvbuf(:)
-       integer, intent(in) :: sendcount
-       integer, intent(in) :: sendtype
-       integer, intent(in) :: recvcount
-       integer, intent(in) :: recvtype
-       integer, intent(in) :: comm
-       integer, intent(out) :: ierror
-          external mpi_allgather
-
-       call mpi_allgather(sendbuf, sendcount, sendtype,       &
-          recvbuf, recvcount, recvtype, comm, ierror)
-     end subroutine mpi_allgather_i0
-
-
-     subroutine mpi_allgather_i1(sendbuf, sendcount, sendtype,       &
-          recvbuf, recvcount, recvtype, comm, ierror) 
-       integer, intent(in) :: sendbuf(:)
-       integer, intent(out) :: recvbuf(:,:)
-       integer, intent(in) :: sendcount
-       integer, intent(in) :: sendtype
-       integer, intent(in) :: recvcount
-       integer, intent(in) :: recvtype
-       integer, intent(in) :: comm
-       integer, intent(out) :: ierror
-          external mpi_allgather
-
-       call mpi_allgather(sendbuf, sendcount, sendtype,       &
-          recvbuf, recvcount, recvtype, comm, ierror)
-     end subroutine mpi_allgather_i1
-
 
      subroutine mpi_allgather_i2(sendbuf, sendcount, sendtype,       &
           recvbuf, recvcount, recvtype, comm, ierror) 
@@ -425,6 +554,108 @@ contains
        call mpi_allgather(sendbuf, sendcount, sendtype,       &
           recvbuf, recvcount, recvtype, comm, ierror)
      end subroutine mpi_allgather_i2
+
+
+     subroutine mpi_allgather_i0_in_place(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       integer, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgather
+
+       call mpi_allgather(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror)
+     end subroutine mpi_allgather_i0_in_place
+
+
+     subroutine mpi_allgather_i1_in_place(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       integer, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgather
+
+       call mpi_allgather(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror)
+     end subroutine mpi_allgather_i1_in_place
+
+
+     subroutine mpi_allgather_i2_in_place(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       integer, intent(inout) :: recvbuf(:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgather
+
+       call mpi_allgather(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror)
+     end subroutine mpi_allgather_i2_in_place
+
+
+     subroutine mpi_allgather_i0_in_place_array(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       integer, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgather
+
+       call mpi_allgather(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror)
+     end subroutine mpi_allgather_i0_in_place_array
+
+
+     subroutine mpi_allgather_i1_in_place_array(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       integer, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgather
+
+       call mpi_allgather(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror)
+     end subroutine mpi_allgather_i1_in_place_array
+
+
+     subroutine mpi_allgather_i2_in_place_array(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       integer, intent(inout) :: recvbuf(:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgather
+
+       call mpi_allgather(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror)
+     end subroutine mpi_allgather_i2_in_place_array
 
 
      subroutine mpi_allgather_r0(sendbuf, sendcount, sendtype,       &
@@ -512,6 +743,176 @@ contains
      end subroutine mpi_allgather_r4
 
 
+     subroutine mpi_allgather_r0_in_place(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgather
+
+       call mpi_allgather(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror)
+     end subroutine mpi_allgather_r0_in_place
+
+
+     subroutine mpi_allgather_r1_in_place(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgather
+
+       call mpi_allgather(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror)
+     end subroutine mpi_allgather_r1_in_place
+
+
+     subroutine mpi_allgather_r2_in_place(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgather
+
+       call mpi_allgather(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror)
+     end subroutine mpi_allgather_r2_in_place
+
+
+     subroutine mpi_allgather_r3_in_place(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:,:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgather
+
+       call mpi_allgather(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror)
+     end subroutine mpi_allgather_r3_in_place
+
+
+     subroutine mpi_allgather_r4_in_place(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:,:,:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgather
+
+       call mpi_allgather(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror)
+     end subroutine mpi_allgather_r4_in_place
+
+
+     subroutine mpi_allgather_r0_in_place_array(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgather
+
+       call mpi_allgather(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror)
+     end subroutine mpi_allgather_r0_in_place_array
+
+
+     subroutine mpi_allgather_r1_in_place_array(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgather
+
+       call mpi_allgather(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror)
+     end subroutine mpi_allgather_r1_in_place_array
+
+
+     subroutine mpi_allgather_r2_in_place_array(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgather
+
+       call mpi_allgather(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror)
+     end subroutine mpi_allgather_r2_in_place_array
+
+
+     subroutine mpi_allgather_r3_in_place_array(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:,:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgather
+
+       call mpi_allgather(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror)
+     end subroutine mpi_allgather_r3_in_place_array
+
+
+     subroutine mpi_allgather_r4_in_place_array(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:,:,:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgather
+
+       call mpi_allgather(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror)
+     end subroutine mpi_allgather_r4_in_place_array
+
+
      subroutine mpi_allgather_l0(sendbuf, sendcount, sendtype,       &
           recvbuf, recvcount, recvtype, comm, ierror) 
        logical, intent(in) :: sendbuf
@@ -546,36 +947,630 @@ contains
      end subroutine mpi_allgather_l1
 
 
-     subroutine mpi_allreduce_i0(sendbuf, recvbuf, count, datatype,  &
-          op, comm, ierror) 
+     subroutine mpi_allgather_l0_in_place(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror) 
        integer, intent(in) :: sendbuf
-       integer, intent(out) :: recvbuf
-       integer, intent(in) :: count
-       integer, intent(in) :: datatype
-       integer, intent(in) :: op
+       logical, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
        integer, intent(in) :: comm
        integer, intent(out) :: ierror
-          external mpi_allreduce
+          external mpi_allgather
 
-       call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
-          op, comm, ierror)
-     end subroutine mpi_allreduce_i0
+       call mpi_allgather(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror)
+     end subroutine mpi_allgather_l0_in_place
 
 
-     subroutine mpi_allreduce_i1(sendbuf, recvbuf, count, datatype,  &
-          op, comm, ierror) 
-       integer, intent(in) :: sendbuf(:)
-       integer, intent(out) :: recvbuf(:)
-       integer, intent(in) :: count
-       integer, intent(in) :: datatype
-       integer, intent(in) :: op
+     subroutine mpi_allgather_l1_in_place(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       logical, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
        integer, intent(in) :: comm
        integer, intent(out) :: ierror
-          external mpi_allreduce
+          external mpi_allgather
 
-       call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
-          op, comm, ierror)
-     end subroutine mpi_allreduce_i1
+       call mpi_allgather(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror)
+     end subroutine mpi_allgather_l1_in_place
+
+
+     subroutine mpi_allgather_l0_in_place_array(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       logical, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgather
+
+       call mpi_allgather(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror)
+     end subroutine mpi_allgather_l0_in_place_array
+
+
+     subroutine mpi_allgather_l1_in_place_array(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       logical, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgather
+
+       call mpi_allgather(sendbuf, sendcount, sendtype,       &
+          recvbuf, recvcount, recvtype, comm, ierror)
+     end subroutine mpi_allgather_l1_in_place_array
+
+
+     subroutine mpi_allgatherv_i2(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf(:,:)
+       integer, intent(out) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_i2
+
+
+     subroutine mpi_allgatherv_i0_in_place(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       integer, intent(inout) :: recvbuf
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_i0_in_place
+
+
+     subroutine mpi_allgatherv_i1_in_place(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       integer, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_i1_in_place
+
+
+     subroutine mpi_allgatherv_i2_in_place(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       integer, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_i2_in_place
+
+
+     subroutine mpi_allgatherv_i0_in_place_array(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       integer, intent(inout) :: recvbuf
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_i0_in_place_array
+
+
+     subroutine mpi_allgatherv_i1_in_place_array(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       integer, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_i1_in_place_array
+
+
+     subroutine mpi_allgatherv_i2_in_place_array(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       integer, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_i2_in_place_array
+
+
+     subroutine mpi_allgatherv_r0(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       real, intent(in) :: sendbuf
+       real, intent(out) :: recvbuf
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_r0
+
+
+     subroutine mpi_allgatherv_r1(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       real, intent(in) :: sendbuf(:)
+       real, intent(out) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_r1
+
+
+     subroutine mpi_allgatherv_r2(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       real, intent(in) :: sendbuf(:,:)
+       real, intent(out) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_r2
+
+
+     subroutine mpi_allgatherv_r3(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       real, intent(in) :: sendbuf(:,:,:)
+       real, intent(out) :: recvbuf(:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_r3
+
+
+     subroutine mpi_allgatherv_r4(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       real, intent(in) :: sendbuf(:,:,:,:)
+       real, intent(out) :: recvbuf(:,:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_r4
+
+
+     subroutine mpi_allgatherv_r0_in_place(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_r0_in_place
+
+
+     subroutine mpi_allgatherv_r1_in_place(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_r1_in_place
+
+
+     subroutine mpi_allgatherv_r2_in_place(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_r2_in_place
+
+
+     subroutine mpi_allgatherv_r3_in_place(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_r3_in_place
+
+
+     subroutine mpi_allgatherv_r4_in_place(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:,:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_r4_in_place
+
+
+     subroutine mpi_allgatherv_r0_in_place_array(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_r0_in_place_array
+
+
+     subroutine mpi_allgatherv_r1_in_place_array(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_r1_in_place_array
+
+
+     subroutine mpi_allgatherv_r2_in_place_array(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_r2_in_place_array
+
+
+     subroutine mpi_allgatherv_r3_in_place_array(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_r3_in_place_array
+
+
+     subroutine mpi_allgatherv_r4_in_place_array(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:,:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_r4_in_place_array
+
+
+     subroutine mpi_allgatherv_l0(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       logical, intent(in) :: sendbuf
+       logical, intent(out) :: recvbuf
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_l0
+
+
+     subroutine mpi_allgatherv_l1(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       logical, intent(in) :: sendbuf(:)
+       logical, intent(out) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_l1
+
+
+     subroutine mpi_allgatherv_l2(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       logical, intent(in) :: sendbuf(:,:)
+       logical, intent(out) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_l2
+
+
+     subroutine mpi_allgatherv_l0_in_place(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       logical, intent(inout) :: recvbuf
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_l0_in_place
+
+
+     subroutine mpi_allgatherv_l1_in_place(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       logical, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_l1_in_place
+
+
+     subroutine mpi_allgatherv_l2_in_place(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       logical, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_l2_in_place
+
+
+     subroutine mpi_allgatherv_l0_in_place_array(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       logical, intent(inout) :: recvbuf
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_l0_in_place_array
+
+
+     subroutine mpi_allgatherv_l1_in_place_array(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       logical, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_l1_in_place_array
+
+
+     subroutine mpi_allgatherv_l2_in_place_array(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       logical, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allgatherv
+
+       call mpi_allgatherv(sendbuf, sendcount, sendtype,      &
+          recvbuf, recvcounts, displs, recvtype, comm, ierror)
+     end subroutine mpi_allgatherv_l2_in_place_array
 
 
      subroutine mpi_allreduce_i2(sendbuf, recvbuf, count, datatype,  &
@@ -592,6 +1587,102 @@ contains
        call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
           op, comm, ierror)
      end subroutine mpi_allreduce_i2
+
+
+     subroutine mpi_allreduce_i0_in_place(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       integer, intent(inout) :: recvbuf
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allreduce
+
+       call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror)
+     end subroutine mpi_allreduce_i0_in_place
+
+
+     subroutine mpi_allreduce_i1_in_place(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       integer, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allreduce
+
+       call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror)
+     end subroutine mpi_allreduce_i1_in_place
+
+
+     subroutine mpi_allreduce_i2_in_place(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       integer, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allreduce
+
+       call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror)
+     end subroutine mpi_allreduce_i2_in_place
+
+
+     subroutine mpi_allreduce_i0_in_place_array(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       integer, intent(inout) :: recvbuf
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allreduce
+
+       call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror)
+     end subroutine mpi_allreduce_i0_in_place_array
+
+
+     subroutine mpi_allreduce_i1_in_place_array(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       integer, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allreduce
+
+       call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror)
+     end subroutine mpi_allreduce_i1_in_place_array
+
+
+     subroutine mpi_allreduce_i2_in_place_array(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       integer, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allreduce
+
+       call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror)
+     end subroutine mpi_allreduce_i2_in_place_array
 
 
      subroutine mpi_allreduce_r0(sendbuf, recvbuf, count, datatype,  &
@@ -674,6 +1765,166 @@ contains
      end subroutine mpi_allreduce_r4
 
 
+     subroutine mpi_allreduce_r0_in_place(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allreduce
+
+       call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror)
+     end subroutine mpi_allreduce_r0_in_place
+
+
+     subroutine mpi_allreduce_r1_in_place(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allreduce
+
+       call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror)
+     end subroutine mpi_allreduce_r1_in_place
+
+
+     subroutine mpi_allreduce_r2_in_place(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allreduce
+
+       call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror)
+     end subroutine mpi_allreduce_r2_in_place
+
+
+     subroutine mpi_allreduce_r3_in_place(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:,:,:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allreduce
+
+       call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror)
+     end subroutine mpi_allreduce_r3_in_place
+
+
+     subroutine mpi_allreduce_r4_in_place(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:,:,:,:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allreduce
+
+       call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror)
+     end subroutine mpi_allreduce_r4_in_place
+
+
+     subroutine mpi_allreduce_r0_in_place_array(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allreduce
+
+       call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror)
+     end subroutine mpi_allreduce_r0_in_place_array
+
+
+     subroutine mpi_allreduce_r1_in_place_array(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allreduce
+
+       call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror)
+     end subroutine mpi_allreduce_r1_in_place_array
+
+
+     subroutine mpi_allreduce_r2_in_place_array(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allreduce
+
+       call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror)
+     end subroutine mpi_allreduce_r2_in_place_array
+
+
+     subroutine mpi_allreduce_r3_in_place_array(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:,:,:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allreduce
+
+       call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror)
+     end subroutine mpi_allreduce_r3_in_place_array
+
+
+     subroutine mpi_allreduce_r4_in_place_array(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:,:,:,:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allreduce
+
+       call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror)
+     end subroutine mpi_allreduce_r4_in_place_array
+
+
      subroutine mpi_allreduce_l0(sendbuf, recvbuf, count, datatype,  &
           op, comm, ierror) 
        logical, intent(in) :: sendbuf
@@ -704,6 +1955,70 @@ contains
        call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
           op, comm, ierror)
      end subroutine mpi_allreduce_l1
+
+
+     subroutine mpi_allreduce_l0_in_place(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       logical, intent(inout) :: recvbuf
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allreduce
+
+       call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror)
+     end subroutine mpi_allreduce_l0_in_place
+
+
+     subroutine mpi_allreduce_l1_in_place(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       logical, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allreduce
+
+       call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror)
+     end subroutine mpi_allreduce_l1_in_place
+
+
+     subroutine mpi_allreduce_l0_in_place_array(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       logical, intent(inout) :: recvbuf
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allreduce
+
+       call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror)
+     end subroutine mpi_allreduce_l0_in_place_array
+
+
+     subroutine mpi_allreduce_l1_in_place_array(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       logical, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_allreduce
+
+       call mpi_allreduce(sendbuf, recvbuf, count, datatype,  &
+          op, comm, ierror)
+     end subroutine mpi_allreduce_l1_in_place_array
 
 
      subroutine mpi_bcast_i0(buffer, count, datatype, root, comm, ierror) 
@@ -810,6 +2125,19 @@ contains
      end subroutine mpi_bcast_r4
 
 
+     subroutine mpi_bcast_r5(buffer, count, datatype, root, comm, ierror) 
+       real, intent(inout) :: buffer(:,:,:,:,:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_bcast
+
+       call mpi_bcast(buffer, count, datatype, root, comm, ierror)
+     end subroutine mpi_bcast_r5
+
+
      subroutine mpi_bcast_s0(buffer, count, datatype, root, comm, ierror) 
        character(len=*), intent(inout) :: buffer
        integer, intent(in) :: count
@@ -876,40 +2204,116 @@ contains
      end subroutine mpi_bsend_r0
 
 
-     subroutine mpi_gather_i0(sendbuf, sendcount, sendtype, recvbuf, &
-          recvcount, recvtype, root, comm, ierror) 
-       integer, intent(in) :: sendbuf
-       integer, intent(out) :: recvbuf(:)
-       integer, intent(in) :: sendcount
-       integer, intent(in) :: sendtype
-       integer, intent(in) :: recvcount
-       integer, intent(in) :: recvtype
-       integer, intent(in) :: root
-       integer, intent(in) :: comm
+     subroutine mpi_file_read_i0(fh, buf, count, datatype, status, ierror)
+       use ModMpiOrig, only: mpi_status_size
+       integer, intent(in) :: fh
+       integer,  intent(out):: buf
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: status(mpi_status_size)
        integer, intent(out) :: ierror
-          external mpi_gather
+          external mpi_file_read
 
-       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
-          recvcount, recvtype, root, comm, ierror)
-     end subroutine mpi_gather_i0
+       call mpi_file_read(fh, buf, count, datatype, status, ierror)
+     end subroutine mpi_file_read_i0
 
 
-     subroutine mpi_gather_i1(sendbuf, sendcount, sendtype, recvbuf, &
-          recvcount, recvtype, root, comm, ierror) 
-       integer, intent(in) :: sendbuf(:)
-       integer, intent(out) :: recvbuf(:,:)
-       integer, intent(in) :: sendcount
-       integer, intent(in) :: sendtype
-       integer, intent(in) :: recvcount
-       integer, intent(in) :: recvtype
-       integer, intent(in) :: root
-       integer, intent(in) :: comm
+     subroutine mpi_file_read_i1(fh, buf, count, datatype, status, ierror)
+       use ModMpiOrig, only: mpi_status_size
+       integer, intent(in) :: fh
+       integer,  intent(out):: buf(:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: status(mpi_status_size)
        integer, intent(out) :: ierror
-          external mpi_gather
+          external mpi_file_read
 
-       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
-          recvcount, recvtype, root, comm, ierror)
-     end subroutine mpi_gather_i1
+       call mpi_file_read(fh, buf, count, datatype, status, ierror)
+     end subroutine mpi_file_read_i1
+
+
+     subroutine mpi_file_read_r0(fh, buf, count, datatype, status, ierror)
+       use ModMpiOrig, only: mpi_status_size
+       integer, intent(in) :: fh
+       real,  intent(out):: buf
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: status(mpi_status_size)
+       integer, intent(out) :: ierror
+          external mpi_file_read
+
+       call mpi_file_read(fh, buf, count, datatype, status, ierror)
+     end subroutine mpi_file_read_r0
+
+
+     subroutine mpi_file_read_r1(fh, buf, count, datatype, status, ierror)
+       use ModMpiOrig, only: mpi_status_size
+       integer, intent(in) :: fh
+       real,  intent(out):: buf(:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: status(mpi_status_size)
+       integer, intent(out) :: ierror
+          external mpi_file_read
+
+       call mpi_file_read(fh, buf, count, datatype, status, ierror)
+     end subroutine mpi_file_read_r1
+
+
+     subroutine mpi_file_write_i0(fh, buf, count, datatype, status, ierror)
+       use ModMpiOrig, only: mpi_status_size
+       integer, intent(in) :: fh
+       integer,  intent(in) :: buf
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: status(mpi_status_size)
+       integer, intent(out) :: ierror
+          external mpi_file_write
+
+       call mpi_file_write(fh, buf, count, datatype, status, ierror)
+     end subroutine mpi_file_write_i0
+
+
+     subroutine mpi_file_write_i1(fh, buf, count, datatype, status, ierror)
+       use ModMpiOrig, only: mpi_status_size
+       integer, intent(in) :: fh
+       integer,  intent(in) :: buf(:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: status(mpi_status_size)
+       integer, intent(out) :: ierror
+          external mpi_file_write
+
+       call mpi_file_write(fh, buf, count, datatype, status, ierror)
+     end subroutine mpi_file_write_i1
+
+
+     subroutine mpi_file_write_r0(fh, buf, count, datatype, status, ierror)
+       use ModMpiOrig, only: mpi_status_size
+       integer, intent(in) :: fh
+       real,  intent(in) :: buf
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: status(mpi_status_size)
+       integer, intent(out) :: ierror
+          external mpi_file_write
+
+       call mpi_file_write(fh, buf, count, datatype, status, ierror)
+     end subroutine mpi_file_write_r0
+
+
+     subroutine mpi_file_write_r1(fh, buf, count, datatype, status, ierror)
+       use ModMpiOrig, only: mpi_status_size
+       integer, intent(in) :: fh
+       real,  intent(in) :: buf(:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: status(mpi_status_size)
+       integer, intent(out) :: ierror
+          external mpi_file_write
+
+       call mpi_file_write(fh, buf, count, datatype, status, ierror)
+     end subroutine mpi_file_write_r1
 
 
      subroutine mpi_gather_i2(sendbuf, sendcount, sendtype, recvbuf, &
@@ -928,6 +2332,114 @@ contains
        call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
           recvcount, recvtype, root, comm, ierror)
      end subroutine mpi_gather_i2
+
+
+     subroutine mpi_gather_i0_in_place(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       integer, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_i0_in_place
+
+
+     subroutine mpi_gather_i1_in_place(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       integer, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_i1_in_place
+
+
+     subroutine mpi_gather_i2_in_place(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       integer, intent(inout) :: recvbuf(:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_i2_in_place
+
+
+     subroutine mpi_gather_i0_in_place_array(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       integer, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_i0_in_place_array
+
+
+     subroutine mpi_gather_i1_in_place_array(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       integer, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_i1_in_place_array
+
+
+     subroutine mpi_gather_i2_in_place_array(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       integer, intent(inout) :: recvbuf(:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_i2_in_place_array
 
 
      subroutine mpi_gather_r0(sendbuf, sendcount, sendtype, recvbuf, &
@@ -1020,6 +2532,186 @@ contains
      end subroutine mpi_gather_r4
 
 
+     subroutine mpi_gather_r0_in_place(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_r0_in_place
+
+
+     subroutine mpi_gather_r1_in_place(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_r1_in_place
+
+
+     subroutine mpi_gather_r2_in_place(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_r2_in_place
+
+
+     subroutine mpi_gather_r3_in_place(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:,:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_r3_in_place
+
+
+     subroutine mpi_gather_r4_in_place(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:,:,:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_r4_in_place
+
+
+     subroutine mpi_gather_r0_in_place_array(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_r0_in_place_array
+
+
+     subroutine mpi_gather_r1_in_place_array(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_r1_in_place_array
+
+
+     subroutine mpi_gather_r2_in_place_array(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_r2_in_place_array
+
+
+     subroutine mpi_gather_r3_in_place_array(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:,:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_r3_in_place_array
+
+
+     subroutine mpi_gather_r4_in_place_array(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:,:,:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_r4_in_place_array
+
+
      subroutine mpi_gather_l0(sendbuf, sendcount, sendtype, recvbuf, &
           recvcount, recvtype, root, comm, ierror) 
        logical, intent(in) :: sendbuf
@@ -1056,6 +2748,78 @@ contains
      end subroutine mpi_gather_l1
 
 
+     subroutine mpi_gather_l0_in_place(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       logical, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_l0_in_place
+
+
+     subroutine mpi_gather_l1_in_place(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       logical, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_l1_in_place
+
+
+     subroutine mpi_gather_l0_in_place_array(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       logical, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_l0_in_place_array
+
+
+     subroutine mpi_gather_l1_in_place_array(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       logical, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_l1_in_place_array
+
+
      subroutine mpi_gather_s0(sendbuf, sendcount, sendtype, recvbuf, &
           recvcount, recvtype, root, comm, ierror) 
        character(len=*), intent(in) :: sendbuf
@@ -1090,6 +2854,211 @@ contains
        call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
           recvcount, recvtype, root, comm, ierror)
      end subroutine mpi_gather_s1
+
+
+     subroutine mpi_gather_s0_in_place(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       character(len=*), intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_s0_in_place
+
+
+     subroutine mpi_gather_s1_in_place(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       character(len=*), intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_s1_in_place
+
+
+     subroutine mpi_gather_s0_in_place_array(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       character(len=*), intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_s0_in_place_array
+
+
+     subroutine mpi_gather_s1_in_place_array(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       character(len=*), intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcount
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gather
+
+       call mpi_gather(sendbuf, sendcount, sendtype, recvbuf, &
+          recvcount, recvtype, root, comm, ierror)
+     end subroutine mpi_gather_s1_in_place_array
+
+
+     subroutine mpi_gatherv_i2(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf(:,:)
+       integer, intent(out) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_i2
+
+
+     subroutine mpi_gatherv_i0_in_place(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       integer, intent(inout) :: recvbuf
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_i0_in_place
+
+
+     subroutine mpi_gatherv_i1_in_place(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       integer, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_i1_in_place
+
+
+     subroutine mpi_gatherv_i2_in_place(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       integer, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_i2_in_place
+
+
+     subroutine mpi_gatherv_i0_in_place_array(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       integer, intent(inout) :: recvbuf
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_i0_in_place_array
+
+
+     subroutine mpi_gatherv_i1_in_place_array(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       integer, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_i1_in_place_array
+
+
+     subroutine mpi_gatherv_i2_in_place_array(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       integer, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_i2_in_place_array
 
 
      subroutine mpi_gatherv_r0(sendbuf, sendcount, sendtype,         &
@@ -1147,6 +3116,348 @@ contains
        call mpi_gatherv(sendbuf, sendcount, sendtype,         &
           recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
      end subroutine mpi_gatherv_r2
+
+
+     subroutine mpi_gatherv_r3(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       real, intent(in) :: sendbuf(:,:,:)
+       real, intent(out) :: recvbuf(:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_r3
+
+
+     subroutine mpi_gatherv_r4(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       real, intent(in) :: sendbuf(:,:,:,:)
+       real, intent(out) :: recvbuf(:,:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_r4
+
+
+     subroutine mpi_gatherv_r0_in_place(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_r0_in_place
+
+
+     subroutine mpi_gatherv_r1_in_place(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_r1_in_place
+
+
+     subroutine mpi_gatherv_r2_in_place(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_r2_in_place
+
+
+     subroutine mpi_gatherv_r3_in_place(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_r3_in_place
+
+
+     subroutine mpi_gatherv_r4_in_place(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:,:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_r4_in_place
+
+
+     subroutine mpi_gatherv_r0_in_place_array(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_r0_in_place_array
+
+
+     subroutine mpi_gatherv_r1_in_place_array(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_r1_in_place_array
+
+
+     subroutine mpi_gatherv_r2_in_place_array(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_r2_in_place_array
+
+
+     subroutine mpi_gatherv_r3_in_place_array(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_r3_in_place_array
+
+
+     subroutine mpi_gatherv_r4_in_place_array(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:,:,:,:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_r4_in_place_array
+
+
+     subroutine mpi_gatherv_l0(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       logical, intent(in) :: sendbuf
+       logical, intent(out) :: recvbuf
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_l0
+
+
+     subroutine mpi_gatherv_l1(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       logical, intent(in) :: sendbuf(:)
+       logical, intent(out) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_l1
+
+
+     subroutine mpi_gatherv_l0_in_place(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       logical, intent(inout) :: recvbuf
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_l0_in_place
+
+
+     subroutine mpi_gatherv_l1_in_place(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       logical, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_l1_in_place
+
+
+     subroutine mpi_gatherv_l0_in_place_array(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       logical, intent(inout) :: recvbuf
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_l0_in_place_array
+
+
+     subroutine mpi_gatherv_l1_in_place_array(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       logical, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: sendcount
+       integer, intent(in) :: sendtype
+       integer, intent(in) :: recvcounts(:)
+       integer, intent(in) :: displs(:)
+       integer, intent(in) :: recvtype
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_gatherv
+
+       call mpi_gatherv(sendbuf, sendcount, sendtype,         &
+          recvbuf, recvcounts, displs, recvtype, root, comm, ierror)
+     end subroutine mpi_gatherv_l1_in_place_array
 
 
      subroutine mpi_ibsend_r0(buf, count, datatype, dest, tag, comm, &
@@ -1576,7 +3887,7 @@ contains
 
      subroutine mpi_recv_i0(buf, count, datatype, source, tag, comm, &
           status, ierror) 
-       use ModMpiConstants, only: mpi_status_size
+       use ModMpiOrig, only: mpi_status_size
        integer, intent(out) :: buf
        integer, intent(in) :: count
        integer, intent(in) :: datatype
@@ -1594,7 +3905,7 @@ contains
 
      subroutine mpi_recv_i1(buf, count, datatype, source, tag, comm, &
           status, ierror) 
-       use ModMpiConstants, only: mpi_status_size
+       use ModMpiOrig, only: mpi_status_size
        integer, intent(out) :: buf(:)
        integer, intent(in) :: count
        integer, intent(in) :: datatype
@@ -1612,7 +3923,7 @@ contains
 
      subroutine mpi_recv_i2(buf, count, datatype, source, tag, comm, &
           status, ierror) 
-       use ModMpiConstants, only: mpi_status_size
+       use ModMpiOrig, only: mpi_status_size
        integer, intent(out) :: buf(:,:)
        integer, intent(in) :: count
        integer, intent(in) :: datatype
@@ -1630,7 +3941,7 @@ contains
 
      subroutine mpi_recv_r0(buf, count, datatype, source, tag, comm, &
           status, ierror) 
-       use ModMpiConstants, only: mpi_status_size
+       use ModMpiOrig, only: mpi_status_size
        real, intent(out) :: buf
        integer, intent(in) :: count
        integer, intent(in) :: datatype
@@ -1648,7 +3959,7 @@ contains
 
      subroutine mpi_recv_r1(buf, count, datatype, source, tag, comm, &
           status, ierror) 
-       use ModMpiConstants, only: mpi_status_size
+       use ModMpiOrig, only: mpi_status_size
        real, intent(out) :: buf(:)
        integer, intent(in) :: count
        integer, intent(in) :: datatype
@@ -1666,7 +3977,7 @@ contains
 
      subroutine mpi_recv_r2(buf, count, datatype, source, tag, comm, &
           status, ierror) 
-       use ModMpiConstants, only: mpi_status_size
+       use ModMpiOrig, only: mpi_status_size
        real, intent(out) :: buf(:,:)
        integer, intent(in) :: count
        integer, intent(in) :: datatype
@@ -1684,7 +3995,7 @@ contains
 
      subroutine mpi_recv_r3(buf, count, datatype, source, tag, comm, &
           status, ierror) 
-       use ModMpiConstants, only: mpi_status_size
+       use ModMpiOrig, only: mpi_status_size
        real, intent(out) :: buf(:,:,:)
        integer, intent(in) :: count
        integer, intent(in) :: datatype
@@ -1702,7 +4013,7 @@ contains
 
      subroutine mpi_recv_r4(buf, count, datatype, source, tag, comm, &
           status, ierror) 
-       use ModMpiConstants, only: mpi_status_size
+       use ModMpiOrig, only: mpi_status_size
        real, intent(out) :: buf(:,:,:,:)
        integer, intent(in) :: count
        integer, intent(in) :: datatype
@@ -1720,7 +4031,7 @@ contains
 
      subroutine mpi_recv_l0(buf, count, datatype, source, tag, comm, &
           status, ierror) 
-       use ModMpiConstants, only: mpi_status_size
+       use ModMpiOrig, only: mpi_status_size
        logical, intent(out) :: buf
        integer, intent(in) :: count
        integer, intent(in) :: datatype
@@ -1738,7 +4049,7 @@ contains
 
      subroutine mpi_recv_l1(buf, count, datatype, source, tag, comm, &
           status, ierror) 
-       use ModMpiConstants, only: mpi_status_size
+       use ModMpiOrig, only: mpi_status_size
        logical, intent(out) :: buf(:)
        integer, intent(in) :: count
        integer, intent(in) :: datatype
@@ -1756,7 +4067,7 @@ contains
 
      subroutine mpi_recv_s0(buf, count, datatype, source, tag, comm, &
           status, ierror) 
-       use ModMpiConstants, only: mpi_status_size
+       use ModMpiOrig, only: mpi_status_size
        character(len=*), intent(out) :: buf
        integer, intent(in) :: count
        integer, intent(in) :: datatype
@@ -1774,7 +4085,7 @@ contains
 
      subroutine mpi_recv_s1(buf, count, datatype, source, tag, comm, &
           status, ierror) 
-       use ModMpiConstants, only: mpi_status_size
+       use ModMpiOrig, only: mpi_status_size
        character(len=*), intent(out) :: buf(:)
        integer, intent(in) :: count
        integer, intent(in) :: datatype
@@ -1790,44 +4101,10 @@ contains
      end subroutine mpi_recv_s1
 
 
-     subroutine mpi_reduce_i0(sendbuf, recvbuf, count, datatype, op, &
-          root, comm, ierror) 
-       integer, intent(in) :: sendbuf
-       integer, intent(out) :: recvbuf
-       integer, intent(in) :: count
-       integer, intent(in) :: datatype
-       integer, intent(in) :: op
-       integer, intent(in) :: root
-       integer, intent(in) :: comm
-       integer, intent(out) :: ierror
-          external mpi_reduce
-
-       call mpi_reduce(sendbuf, recvbuf, count, datatype, op, &
-          root, comm, ierror)
-     end subroutine mpi_reduce_i0
-
-
-     subroutine mpi_reduce_i1(sendbuf, recvbuf, count, datatype, op, &
-          root, comm, ierror) 
-       integer, intent(in) :: sendbuf(:)
-       integer, intent(out) :: recvbuf(:)
-       integer, intent(in) :: count
-       integer, intent(in) :: datatype
-       integer, intent(in) :: op
-       integer, intent(in) :: root
-       integer, intent(in) :: comm
-       integer, intent(out) :: ierror
-          external mpi_reduce
-
-       call mpi_reduce(sendbuf, recvbuf, count, datatype, op, &
-          root, comm, ierror)
-     end subroutine mpi_reduce_i1
-
-
      subroutine mpi_reduce_i2(sendbuf, recvbuf, count, datatype, op, &
           root, comm, ierror) 
        integer, intent(in) :: sendbuf(:,:)
-       integer, intent(out) :: recvbuf(:,:)
+       integer, intent(inout) :: recvbuf(:,:)
        integer, intent(in) :: count
        integer, intent(in) :: datatype
        integer, intent(in) :: op
@@ -1841,10 +4118,112 @@ contains
      end subroutine mpi_reduce_i2
 
 
+     subroutine mpi_reduce_i0_in_place(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       integer, intent(inout) :: recvbuf
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_reduce
+
+       call mpi_reduce(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror)
+     end subroutine mpi_reduce_i0_in_place
+
+
+     subroutine mpi_reduce_i1_in_place(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       integer, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_reduce
+
+       call mpi_reduce(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror)
+     end subroutine mpi_reduce_i1_in_place
+
+
+     subroutine mpi_reduce_i2_in_place(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       integer, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_reduce
+
+       call mpi_reduce(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror)
+     end subroutine mpi_reduce_i2_in_place
+
+
+     subroutine mpi_reduce_i0_in_place_array(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       integer, intent(inout) :: recvbuf
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_reduce
+
+       call mpi_reduce(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror)
+     end subroutine mpi_reduce_i0_in_place_array
+
+
+     subroutine mpi_reduce_i1_in_place_array(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       integer, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_reduce
+
+       call mpi_reduce(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror)
+     end subroutine mpi_reduce_i1_in_place_array
+
+
+     subroutine mpi_reduce_i2_in_place_array(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       integer, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_reduce
+
+       call mpi_reduce(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror)
+     end subroutine mpi_reduce_i2_in_place_array
+
+
      subroutine mpi_reduce_r0(sendbuf, recvbuf, count, datatype, op, &
           root, comm, ierror) 
        real, intent(in) :: sendbuf
-       real, intent(out) :: recvbuf
+       real, intent(inout) :: recvbuf
        integer, intent(in) :: count
        integer, intent(in) :: datatype
        integer, intent(in) :: op
@@ -1861,7 +4240,7 @@ contains
      subroutine mpi_reduce_r1(sendbuf, recvbuf, count, datatype, op, &
           root, comm, ierror) 
        real, intent(in) :: sendbuf(:)
-       real, intent(out) :: recvbuf(:)
+       real, intent(inout) :: recvbuf(:)
        integer, intent(in) :: count
        integer, intent(in) :: datatype
        integer, intent(in) :: op
@@ -1878,7 +4257,7 @@ contains
      subroutine mpi_reduce_r2(sendbuf, recvbuf, count, datatype, op, &
           root, comm, ierror) 
        real, intent(in) :: sendbuf(:,:)
-       real, intent(out) :: recvbuf(:,:)
+       real, intent(inout) :: recvbuf(:,:)
        integer, intent(in) :: count
        integer, intent(in) :: datatype
        integer, intent(in) :: op
@@ -1895,7 +4274,7 @@ contains
      subroutine mpi_reduce_r3(sendbuf, recvbuf, count, datatype, op, &
           root, comm, ierror) 
        real, intent(in) :: sendbuf(:,:,:)
-       real, intent(out) :: recvbuf(:,:,:)
+       real, intent(inout) :: recvbuf(:,:,:)
        integer, intent(in) :: count
        integer, intent(in) :: datatype
        integer, intent(in) :: op
@@ -1912,7 +4291,7 @@ contains
      subroutine mpi_reduce_r4(sendbuf, recvbuf, count, datatype, op, &
           root, comm, ierror) 
        real, intent(in) :: sendbuf(:,:,:,:)
-       real, intent(out) :: recvbuf(:,:,:,:)
+       real, intent(inout) :: recvbuf(:,:,:,:)
        integer, intent(in) :: count
        integer, intent(in) :: datatype
        integer, intent(in) :: op
@@ -1926,10 +4305,180 @@ contains
      end subroutine mpi_reduce_r4
 
 
+     subroutine mpi_reduce_r0_in_place(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_reduce
+
+       call mpi_reduce(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror)
+     end subroutine mpi_reduce_r0_in_place
+
+
+     subroutine mpi_reduce_r1_in_place(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_reduce
+
+       call mpi_reduce(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror)
+     end subroutine mpi_reduce_r1_in_place
+
+
+     subroutine mpi_reduce_r2_in_place(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_reduce
+
+       call mpi_reduce(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror)
+     end subroutine mpi_reduce_r2_in_place
+
+
+     subroutine mpi_reduce_r3_in_place(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:,:,:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_reduce
+
+       call mpi_reduce(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror)
+     end subroutine mpi_reduce_r3_in_place
+
+
+     subroutine mpi_reduce_r4_in_place(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       real, intent(inout) :: recvbuf(:,:,:,:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_reduce
+
+       call mpi_reduce(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror)
+     end subroutine mpi_reduce_r4_in_place
+
+
+     subroutine mpi_reduce_r0_in_place_array(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_reduce
+
+       call mpi_reduce(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror)
+     end subroutine mpi_reduce_r0_in_place_array
+
+
+     subroutine mpi_reduce_r1_in_place_array(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_reduce
+
+       call mpi_reduce(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror)
+     end subroutine mpi_reduce_r1_in_place_array
+
+
+     subroutine mpi_reduce_r2_in_place_array(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:,:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_reduce
+
+       call mpi_reduce(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror)
+     end subroutine mpi_reduce_r2_in_place_array
+
+
+     subroutine mpi_reduce_r3_in_place_array(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:,:,:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_reduce
+
+       call mpi_reduce(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror)
+     end subroutine mpi_reduce_r3_in_place_array
+
+
+     subroutine mpi_reduce_r4_in_place_array(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       real, intent(inout) :: recvbuf(:,:,:,:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_reduce
+
+       call mpi_reduce(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror)
+     end subroutine mpi_reduce_r4_in_place_array
+
+
      subroutine mpi_reduce_l0(sendbuf, recvbuf, count, datatype, op, &
           root, comm, ierror) 
        logical, intent(in) :: sendbuf
-       logical, intent(out) :: recvbuf
+       logical, intent(inout) :: recvbuf
        integer, intent(in) :: count
        integer, intent(in) :: datatype
        integer, intent(in) :: op
@@ -1946,7 +4495,7 @@ contains
      subroutine mpi_reduce_l1(sendbuf, recvbuf, count, datatype, op, &
           root, comm, ierror) 
        logical, intent(in) :: sendbuf(:)
-       logical, intent(out) :: recvbuf(:)
+       logical, intent(inout) :: recvbuf(:)
        integer, intent(in) :: count
        integer, intent(in) :: datatype
        integer, intent(in) :: op
@@ -1958,6 +4507,74 @@ contains
        call mpi_reduce(sendbuf, recvbuf, count, datatype, op, &
           root, comm, ierror)
      end subroutine mpi_reduce_l1
+
+
+     subroutine mpi_reduce_l0_in_place(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       logical, intent(inout) :: recvbuf
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_reduce
+
+       call mpi_reduce(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror)
+     end subroutine mpi_reduce_l0_in_place
+
+
+     subroutine mpi_reduce_l1_in_place(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror) 
+       integer, intent(in) :: sendbuf
+       logical, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_reduce
+
+       call mpi_reduce(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror)
+     end subroutine mpi_reduce_l1_in_place
+
+
+     subroutine mpi_reduce_l0_in_place_array(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       logical, intent(inout) :: recvbuf
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_reduce
+
+       call mpi_reduce(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror)
+     end subroutine mpi_reduce_l0_in_place_array
+
+
+     subroutine mpi_reduce_l1_in_place_array(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror) 
+       integer, intent(in) :: sendbuf(*)
+       logical, intent(inout) :: recvbuf(:)
+       integer, intent(in) :: count
+       integer, intent(in) :: datatype
+       integer, intent(in) :: op
+       integer, intent(in) :: root
+       integer, intent(in) :: comm
+       integer, intent(out) :: ierror
+          external mpi_reduce
+
+       call mpi_reduce(sendbuf, recvbuf, count, datatype, op, &
+          root, comm, ierror)
+     end subroutine mpi_reduce_l1_in_place_array
 
 
      subroutine mpi_rsend_i0(buf, count, datatype, dest, tag, comm, ierror) 
@@ -2169,18 +4786,6 @@ contains
        call mpi_send(buf, count, datatype, dest, tag, comm, ierror)
      end subroutine mpi_send_i2
 
-     subroutine mpi_send_i3(buf, count, datatype, dest, tag, comm, ierror) 
-       integer, intent(in) :: buf(:,:,:)
-       integer, intent(in) :: count
-       integer, intent(in) :: datatype
-       integer, intent(in) :: dest
-       integer, intent(in) :: tag
-       integer, intent(in) :: comm
-       integer, intent(out) :: ierror
-          external mpi_send
-
-       call mpi_send(buf, count, datatype, dest, tag, comm, ierror)
-     end subroutine mpi_send_i3
 
      subroutine mpi_send_r0(buf, count, datatype, dest, tag, comm, ierror) 
        real, intent(in) :: buf

@@ -1,16 +1,23 @@
-#^CFG COPYRIGHT UM
+#  Copyright (C) 2002 Regents of the University of Michigan,
+#  portions used with permission 
+#  For more information, see http://csem.engin.umich.edu/tools/swmf
 
 SHELL=/bin/sh
 
+# Fortran language related part of Makefile.conf: Makefile.Darwin.ifort
+FORTRAN_COMPILER_NAME=ifort
 #
 #	Space Weather Modeling Framework (SWMF) 
-#	Intel ifort Fortran compiler for OSX
-#       Mac OS (Darwin) specific part of Makefile
+#	Intel ifort Fortran compiler for OSX with mpif90
 #
 
 COMPILE.f77     = ${CUSTOMPATH_F}ifort
 COMPILE.f90     = ${CUSTOMPATH_F}ifort
 LINK.f90	= ${CUSTOMPATH_MPI}mpif90
+
+# To compile main C code with Fortran libraries
+NOMAINFLAG = -nofor-main
+
 AR = ar -rs
 
 SINGLEPREC =
@@ -20,10 +27,9 @@ PRECISION  = ${DOUBLEPREC}
 MPILIB = 
 #MPILIB = -L${LIBDIR} -lNOMPI
 
-# This is the search path for used modules
-# SEARCH_EXTRA should be set in the individual Makefiles
-
-SEARCH = -I${SHAREDIR} ${SEARCH_EXTRA}
+# Define where modules are stored and add it to the search path.
+# INCL_EXTRA can be defined to add more search directories.
+SEARCH = -module ${INCLDIR} ${INCL_EXTRA}
 
 DEBUGFLAG = -C -gline
 DEBUG     = 
@@ -48,7 +54,7 @@ Cflag4  = ${CFLAG} ${PRECISION} ${OPT4}
 # To allow RCM to compile as double precision, add PRECISION flag
 CFLAGS = ${CFLAG} ${OPT2} -save
 
-Lflag1  = ${PRECISION} ${MPILIB} ${DEBUG}
+Lflag1  = ${PRECISION} ${MPILIB} ${CPPLIB} ${DEBUG}
 Lflag2  = ${PRECISION} ${DEBUG}
 
 # BLAS and LAPACK libraries
@@ -78,8 +84,7 @@ BLAS  = lapack.o blas.o
 .ftn.o:
 	${COMPILE.f77} ${Cflag2} -132 $<
 
-clean:	
-	rm -f *~ core *.o *.mod fort.* *.out *.exe *.a *.so *.protex
+cleanfiles:	
+	rm -f *~ core *.o *.mod fort.* a.out *.exe *.a *.so *.protex
 
 
-# keep this line

@@ -1,4 +1,6 @@
 #!/usr/bin/perl -s
+#  Copyright (C) 2002 Regents of the University of Michigan, portions used with permission 
+#  For more information, see http://csem.engin.umich.edu/tools/swmf
 #!QUOTE: \clearpage
 #BOP
 #!QUOTE: \subsection{Automated Documentation}
@@ -74,7 +76,7 @@ while(<>){
 	$comp="$path[$#path-2]/$path[$#path-1]"  # UA/GITM2
 	    if $path[$#path-1] ne 'Param';       # Param/PARAM.XML is for CON
 
-	$comp =~ s/GM\/BATSRUS/GM,SC,IH\/BATSRUS/; # GM --> GM,SC,IH
+	$comp =~ s/GM\/BATSRUS/EE,GM,SC,IH,OH\/BATSRUS/; # GM --> EE,GM,SC,IH,OH
 
 	my $index = "$comp\!$command";           # Form the index term
 	$_="\\subsubsection\{$command command\}\\index\{$index\}\n\n";

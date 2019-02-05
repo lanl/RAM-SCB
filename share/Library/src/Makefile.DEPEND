@@ -1,0 +1,156 @@
+lapack.o:\
+	ModUtility.o
+
+ModConst.o:\
+	ModNumConst.o \
+	ModUtility.o
+
+ModCoordTransform.o:\
+	ModNumConst.o \
+	ModUtility.o
+
+ModExactRS.o:\
+	ModUtility.o
+
+ModFreq.o:\
+	ModUtility.o
+
+ModHyperGeometric.o:\
+	ModMpi.o \
+	ModNumConst.o \
+	ModUtility.o
+
+ModInitialState.o:\
+	ModUtility.o \
+	ModReadParam.o \
+	ModPlotFile.o \
+	ModMpi.o
+
+ModInterpolate.o:\
+	ModUtility.o
+
+ModInterpolateAMR.o:\
+	ModUtility.o \
+	ModKind.o
+
+ModLinearAdvection.o:\
+	ModUtility.o \
+	ModIoUnit.o
+
+ModLinearSolver.o:\
+	ModMpi.o \
+	ModUtility.o \
+	ModBlasLapack.o
+
+linear_solver_wrapper.o:\
+	ModLinearSolver.o \
+	ModUtility.o
+
+linear_solver_wrapper_c.o:\
+	./linear_solver_wrapper_c.h
+
+ModLookupTable.o:\
+	ModReadParam.o \
+	ModPlotFile.o \
+	ModInterpolate.o \
+	ModUtility.o \
+	ModMpi.o \
+	ModIoUnit.o \
+	ModNumConst.o
+
+ModMpiInterfaces.o:\
+	ModMpiOrig.o
+
+ModMpi.o:\
+	ModMpiInterfaces.o \
+	ModMpiOrig.o
+
+ModNumConst.o:\
+	ModKind.o
+
+ModPlanetConst.o:\
+	ModNumConst.o \
+	ModConst.o \
+	ModKind.o \
+	ModUtility.o
+
+ModPlotFile.o:\
+	ModIoUnit.o \
+	ModKind.o \
+	ModHdf5Utils.o \
+	ModUtility.o
+
+ModProcessVarName.o:\
+	ModUtility.o
+
+ModReadParam.o:\
+	ModMpi.o \
+	ModIoUnit.o \
+	ModUtility.o
+
+ModSpice.o:\
+	ModUtility.o \
+	ModKind.o
+
+ModTimeConvert.o:\
+	ModUtility.o \
+	ModKind.o \
+	ModConst.o
+
+ModTriangulate.o:\
+	ModUtility.o
+
+ModUtility.o:\
+	ModMpi.o \
+	ModIoUnit.o \
+	ModKind.o \
+	ModUtility_c.o
+
+CON_axes.o:\
+	ModKind.o \
+	ModCoordTransform.o \
+	ModTimeConvert.o \
+	ModPlanetConst.o \
+	CON_planet.o \
+	CON_geopack.o \
+	ModNumConst.o \
+	ModConst.o \
+	ModUtility.o
+
+CON_geopack.o:\
+	ModNumConst.o \
+	ModUtility.o \
+	ModCoordTransform.o
+
+CON_line_extract.o:\
+	ModMpi.o \
+	ModSort.o \
+	ModUtility.o
+
+CON_planet.o:\
+	ModNumConst.o \
+	ModPlanetConst.o \
+	ModTimeConvert.o \
+	ModUtility.o \
+	ModReadParam.o
+
+CON_planet_field.o:\
+	CON_planet.o \
+	CON_axes.o \
+	ModUtility.o
+
+CON_ray_trace.o:\
+	ModMpi.o \
+	ModUtility.o
+
+PostIDL.o:\
+	ModPlotFile.o \
+	ModNumConst.o \
+	ModInterpolate.o \
+	ModCoordTransform.o \
+	ModUtility.o \
+	ModSort.o \
+	ModReadParam.o \
+	ModIoUnit.o \
+	ModMpi.o
+

@@ -1,3 +1,6 @@
+!  Copyright (C) 2002 Regents of the University of Michigan, 
+!  portions used with permission 
+!  For more information, see http://csem.engin.umich.edu/tools/swmf
 !BOP
 !MODULE: CON_ray_trace - trace field and stream lines in parallel
 !INTERFACE:
@@ -17,6 +20,7 @@ module CON_ray_trace
 
   !USES:
   use ModMpi
+  use ModUtilities, ONLY: CON_stop
 
   implicit none
 
@@ -292,8 +296,6 @@ contains
     ! empty then DoneAll is set to .true.
     !EOP
 
-    logical :: DoneLocal
-
     integer, parameter :: iTag = 1
     integer :: jProc, iRay, nRayRecv
 
@@ -377,11 +379,10 @@ contains
        Send_P(jProc) % nRay = 0
     end do
 
-    ! Check if there is more work to do on this PE
-    DoneLocal = DoneMe .and. (Recv % nRay == 0)
-
     ! Check if all PE-s are done
-    call MPI_allreduce(DoneLocal, DoneAll, 1, MPI_LOGICAL, MPI_LAND, &
+    DoneAll = DoneMe .and. (Recv % nRay == 0)
+    if(nProc > 1)&
+         call MPI_allreduce(MPI_IN_PLACE, DoneAll, 1, MPI_LOGICAL, MPI_LAND, &
          iComm, iError)
 
   end subroutine ray_exchange
@@ -432,7 +433,7 @@ contains
 
     call ray_init(MPI_COMM_WORLD)
 
-    write(*,*)'ray_init done, iProc,nProc=',iProc,nProc
+    if(iProc==0) write(*,'(a,i4,i4)')'ray_init done, iProc,nProc=',iProc,nProc
 
     write(*,"(a,i2,a,4i4,a,i2,a,3f5.0,a,f5.0,a,2l2)") &
          " Sending from iProc=",iProc,&
@@ -446,7 +447,7 @@ contains
          mod(iProc+1,nProc), (/210.+iProc,220.+iProc,230.+iProc/), &
          10.0*iProc, .true.,.false.)
 
-    write(*,"(a,i2,a,4i4,a,i2,a,3f5.0,a,f5.0,a,2l2)") &
+    if(iProc==0) write(*,"(a,i2,a,4i4,a,i2,a,3f5.0,a,f5.0,a,2l2)") &
          " Sending from iProc=",iProc,&
          " iStart=",(/110+iProc,120+iProc,130+iProc,140+iProc/),&
          " to jProc=",mod(nProc+iProc-1,nProc),&
@@ -465,7 +466,7 @@ contains
             Send_P(jProc) % Ray_VI(:,1:Send_P(jProc) % nRay)
     end do
 
-    write(*,*)'ray_put done'
+    if(iProc==0) write(*,'(a)')'ray_put done'
 
     call ray_exchange(.true., DoneAll)
 
@@ -481,15 +482,15 @@ contains
             ' Isparallel,DoneRay=',IsParallel,DoneRay
     end do
 
-    write(*,*)'ray_get done'
+    if(iProc==0) write(*,'(a)')'ray_get done'
 
     call ray_exchange(.true., DoneAll)
 
-    write(*,*)'ray_exchange repeated, DoneAll=',DoneAll
+    if(iProc==0) write(*,'(a,l1)')'ray_exchange repeated, DoneAll=',DoneAll
 
     call ray_clean
 
-    write(*,*)'ray_clean done'
+    if(iProc==0) write(*,'(a)')'ray_clean done'
 
   end subroutine ray_test
 

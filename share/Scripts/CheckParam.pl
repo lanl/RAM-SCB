@@ -1,4 +1,6 @@
 #!/usr/bin/perl -s
+#  Copyright (C) 2002 Regents of the University of Michigan, portions used with permission 
+#  For more information, see http://csem.engin.umich.edu/tools/swmf
 
 # Read a parameter file and verify its correctness based on an XML description.
 # Type CheckParam.pl -h for help.
@@ -25,7 +27,7 @@ my $StandAlone  = $S; undef $S;
 use strict;
 
 # Pattern to match component ID-s
-my $ValidComp = 'GM|IE|IH|OH|IM|LA|PS|PW|RB|SC|SP|UA';
+my $ValidComp = 'EE|GM|IE|IH|IM|OH|PC|PS|PT|PW|RB|SC|SP|UA';
 
 # Error string
 my $ERROR = 'CheckParam_ERROR:';
@@ -238,7 +240,8 @@ sub parse_xml{
     # Parse the XML file and return a pointer to the parsed tree
     my $XmlFile=$_[0];
 
-    require 'share/Scripts/XmlRead.pl';
+    push @INC, 'share/Scripts/', '../../share/Scripts/';
+    require 'XmlRead.pl';
 
     open(XMLFILE, $XmlFile) or die "$ERROR could not open $XmlFile\n";
     my $tree = &XmlRead( join('',<XMLFILE>) );
@@ -421,7 +424,7 @@ sub read_line{
 	    # Return an empty line
 	    $_="\n";
 	}
-    }elsif(/^\#END_COMP/ and not $StandAlone){
+    }elsif(/^\#END_COMP\b/ and not $StandAlone){
 	# Extract name of the component from #END_COMP ID
 	my $Comp;
 	($Comp) = /END_COMP ([A-Z][A-Z])/ or
@@ -438,7 +441,7 @@ sub read_line{
 	    # Return an empty line
 	    $_="\n";
 	}
-    }elsif(/^\#RUN/){ # Check if a new session has started
+    }elsif(/^\#RUN\b/){ # Check if a new session has started
 	# Check if the required commands are defined and
 	# if the parameters are correct for the session
 
@@ -448,9 +451,9 @@ sub read_line{
 	undef %definedSessionLast;
 	$nSession++;
 	$COMP::_IsFirstSession=0;
-    }elsif(/^\#USERINPUTBEGIN/){
+    }elsif(/^\#USERINPUTBEGIN\b/){
 	$UserInput = $nLine+1;
-    }elsif(/^\#USERINPUTEND/){
+    }elsif(/^\#USERINPUTEND\b/){
 	if(not $UserInput){
 	    &print_error(" for command $_".
 			 "\tthere is no matching #USERINPUTBEGIN command");
@@ -1029,6 +1032,20 @@ sub param_error{
 		 "\tParameter $paramName of type $paramType\n".
 		 "\t@_");
     print "Command description:\n$commandText{$realName}" if $Verbose;
+}
+##############################################################################
+sub COMP::count_split{
+    # This subroutine can be used in the XML file to count the "words" 
+    # separater by white space in the argument String.
+    # Allow for "array syntax" using "word(30)" instead of 30 words.
+    my $String = $_[0];
+
+    # replace "word(\d\d)" with a simple "word" and count extra elements
+    my $nExtra = 0;
+    $nExtra += $1-1 while $String =~ s/\((\d+)\)//;
+
+    # return total number of words
+    return $nExtra + split(' ',$String);
 }
 ##############################################################################
 #!QUOTE: \clearpage

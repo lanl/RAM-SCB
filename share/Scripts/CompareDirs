@@ -1,5 +1,6 @@
 #!/bin/csh
-#^CFG COPYRIGHT UM
+#  Copyright (C) 2002 Regents of the University of Michigan, portions used with permission 
+#  For more information, see http://csem.engin.umich.edu/tools/swmf
 # CompareDirs: Compare files in two different directories
 #
 #BOP
@@ -141,7 +142,7 @@ if ( "$3" == "x" || "$3" == "X" || "$4" == "x" || "$4" == "X") then
         if (  -e $Home/$2/$i) then
           set Diff = `diff $Home/$1/$i $Home/$2/$i | head -1`
           if (!( "$Diff" == "" )) then
-            xdiff $Home/$1/$i $Home/$2/$i 
+            tkdiff $Home/$1/$i $Home/$2/$i 
           endif
         endif
       endif

@@ -1,6 +1,8 @@
 #!/usr/bin/perl
+#  Copyright (C) 2002 Regents of the University of Michigan, portions used with permission 
+#  For more information, see http://csem.engin.umich.edu/tools/swmf
 #
-#  $Id$
+#  $Id: protex.pl,v 1.4 2013/10/12 04:01:02 kopmanis Exp $
 #
 #BOP
 #

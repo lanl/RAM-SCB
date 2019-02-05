@@ -1,4 +1,6 @@
-#^CFG COPYRIGHT UM
+#  Copyright (C) 2002 Regents of the University of Michigan, 
+#  portions used with permission 
+#  For more information, see http://csem.engin.umich.edu/tools/swmf
 
 include ../../../Makefile.def
 include ../../../Makefile.conf
@@ -9,65 +11,86 @@ include Makefile.RULES
 # A component does not have to use the whole library.
 # The minimum reqguirement is ModIoUnit.o
 
-# This rule is useful while modifying SWMF_MPI_routines.dat
-#ModMpiInterfaces.f90: SWMF_MPI_routines.dat
-#	${SCRIPTDIR}/CreateModMpi.pl
-PRECISION = ${DOUBLEPREC}
+# This rule is used to regenerate ModMpiInterface.f90 from a modified 
+# SWMF_MPI_routines.dat
+MPIINTERFACE:
+	${SCRIPTDIR}/CreateModMpi.pl
 
-# Usng GFORTRAN, uncomment these lines:
-#.SUFFIXES: .f .o
-#.f.o:
-#	${COMPILE.f77} ${CFLAG} ${OPT2} -ffixed-line-length-132 $<
-
-MODULES = \
+OBJECTS = \
 	${BLAS}\
 	ModBlasLapack.o\
 	ModConst.o\
 	ModCoordTransform.o\
 	ModExactRS.o\
 	ModFreq.o\
+	ModHyperGeometric.o\
+	ModInitialState.o\
 	ModInterpolate.o\
+	ModInterpolateAMR.o\
 	ModIoUnit.o\
+	ModHdf5Utils.o\
 	ModKind.o\
+	ModLinearAdvection.o\
 	ModLinearSolver.o\
+	linear_solver_wrapper.o\
+	linear_solver_wrapper_c.o\
 	ModLookupTable.o\
-	ModMpiConstants.o\
 	ModMpiInterfaces.o\
 	ModMpi.o\
+	ModMpiOrig.o\
         ModNumConst.o\
 	ModPlanetConst.o\
 	ModPlotFile.o\
+	ModProcessVarName.o\
+	ModRandomNumber.o\
 	ModReadParam.o\
 	ModSort.o\
+	ModSpice.o\
 	ModTimeConvert.o\
 	ModTriangulate.o\
-	ModUtilities.o\
+	ModTriangulateSpherical.o\
+	ModUtility.o\
 	CON_axes.o\
 	CON_geopack.o\
 	CON_line_extract.o\
-        CON_physics.o\
 	CON_planet.o\
 	CON_planet_field.o\
-	CON_ray_trace.o\
-        CON_time.o
+	CON_ray_trace.o
 
 DEPEND:
-	@perl ${SCRIPTDIR}/depend.pl ${MODULES}
+	@perl ${SCRIPTDIR}/depend.pl ${OBJECTS} PostIDL.o
 
 MY_LIB = ${LIBDIR}/libSHARE.a
 
 LIB:	DEPEND
-	make ${MY_LIB}
+	${MAKE} ${MY_LIB}
 	@echo
 	@echo ${MY_LIB} has been brought up to date.
 	@echo
 
-${MY_LIB}: ${MODULES}
+${MY_LIB}: ${OBJECTS} ModUtility_c.o
 	rm -f ${MY_LIB}
-	${AR} ${MY_LIB} ${MODULES}
+	${AR} ${MY_LIB} ${OBJECTS} ModUtility_c.o
 
+LIB_NO_C:DEPEND
+	perl -pi -e 's/(iError = make_dir_c)/\!$$1/' ModUtility.f90
+	${MAKE} LIB_NO_C_
+	perl -pi -e 's/.(iError = make_dir_c)/$$1/' ModUtility.f90
+	@echo
+	@echo ${MY_LIB} has been brought up to date.
+	@echo
+
+LIB_NO_C_: ${OBJECTS}
+	rm -f ${MY_LIB}
+	${AR} ${MY_LIB} ${OBJECTS}
+
+${BINDIR}/PostIDL.exe: PostIDL.o ${MY_LIB}
+	${LINK.f90} -o ${BINDIR}/PostIDL.exe PostIDL.o -L${LIBDIR} -lSHARE ${Lflag2}
+
+PIDL: DEPEND
+	make ${BINDIR}/PostIDL.exe
+
+clean: cleanfiles
 
 distclean: clean
-	rm -f Makefile.DEPEND
-
-
+	rm -f Makefile.DEPEND ModHdf5Utils.f90 ModSpice.f90

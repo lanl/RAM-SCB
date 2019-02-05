@@ -1,5 +1,7 @@
-!^CFG COPYRIGHT UM
+!  Copyright (C) 2002 Regents of the University of Michigan, portions used with permission 
+!  For more information, see http://csem.engin.umich.edu/tools/swmf
 Module ModPlanetConst
+
   use ModNumConst, ONLY: cDegToRad
   use ModConst, ONLY: cAU, cHour => cSecondPerHour, cDay => cSecondPerDay
   use ModKind
@@ -7,28 +9,27 @@ Module ModPlanetConst
   implicit none
 
   save
-  !\
+
   ! All astronomical bodies other than the Sun are defined below.  
   ! Solar constants are defined in ModConst.
   !
-  ! The maximum number of astronomical bodies.  This is set at 100, it can be
+  ! The maximum number of astronomical bodies.  This is set at 200, it can be
   ! increased if necessary
-  !/
+
   integer,parameter :: MaxPlanet = 200
 
   integer, parameter :: lNamePlanet = 40
   integer, parameter :: lTypeBField = 40
 
-  !\
+
   ! Declarations for the variables that we are storing to define each body.
   ! 
   ! NOTE THAT ALL VARIABLES IN THIS FILE SHOULD BE IN SI UNITS. 
-  !  (m,s,g,m/s, ... )
+  !  (m,s,kg,m/s, ... )
   !
   ! NOTE THE THE PRECISE DEFINITIONS OF WHAT THE VARIABLES MEAN CAN BE
   ! FOUND AT THE END OF THE FILE AND IN THE CODE DOCUMENTATION (we hope).
-  !
-  !/
+
   real,dimension(0:MaxPlanet+1):: rPlanet_I, mPlanet_I, rOrbitPlanet_I
   real,dimension(0:MaxPlanet+1):: OrbitalPeriodPlanet_I, RotationPeriodPlanet_I
 
@@ -48,22 +49,20 @@ Module ModPlanetConst
 
   integer :: Planet_ 
 
-  !\
   ! Below are defining constants for all astronomical bodies.  They are
   ! grouped using a system similar to JPL's naif/spice toolkit although
   ! the definitions are not quite the same.
-  !/
 
-  !\
   ! First define the storage location for all bodies.  This is so that you
   ! can easily find the index and can also see the naming system
-  !/
+
   ! No Planet (in other words, no body)
   integer,parameter :: NoPlanet_  =  0
+
   ! New Planet (a body that is not in the database below)
   integer,parameter :: NewPlanet_  =  MaxPlanet+1
 
-  ! Planets and Sun 
+  ! Sun, planets + Pluto
   integer,parameter :: Sun_       =  1
   integer,parameter :: Mercury_   = 10
   integer,parameter :: Venus_     = 20
@@ -88,7 +87,7 @@ Module ModPlanetConst
   integer,parameter :: Comet1P_              = 100
   integer,parameter :: Borrelly_             = 101
   integer,parameter :: Comet19P_             = 101
-  integer,parameter :: ChuryumovGerasimenko_ = 102
+  integer,parameter :: CometCG_              = 102
   integer,parameter :: Comet67P_             = 102
   integer,parameter :: HaleBopp_             = 103 
 
@@ -103,39 +102,45 @@ contains
      save
 
      integer :: i
+     !-----------------------------------------------------------------------
+     ! Initialize all values - below set only the non-default values
+     NamePlanet_I                     = ''
+
+     rPlanet_I                        = 0.0                     ! [ m]
+     mPlanet_I                        = 0.0                     ! [kg]
+     rOrbitPlanet_I                   = 0.0                     ! [ m]
+     OrbitalPeriodPlanet_I            = 0.0                     ! [ s]
+     RotationPeriodPlanet_I           = 0.0                     ! [ s]
+                                            
+     iYearEquinoxPlanet_I             =2000                     ! [yr]
+     iMonthEquinoxPlanet_I            =   1                     ! [mo]
+     iDayEquinoxPlanet_I              =   1                     ! [dy]
+     iHourEquinoxPlanet_I             =   0                     ! [hr]
+     iMinuteEquinoxPlanet_I           =   0                     ! [mn]
+     iSecondEquinoxPlanet_I           =   0                     ! [ s]
+     FracSecondEquinoxPlanet_I        = 0.0                     ! [ s]
+     TiltPlanet_I                     = 0.0                     ! [rad]
+                         
+     TypeBFieldPlanet_I               = "NONE"                
+     DipoleStrengthPlanet_I           = 0.0                     ! [ T]
+     bAxisThetaPlanet_I               = 0.0                     ! [rad]
+     bAxisPhiPlanet_I                 = 0.0                     ! [rad]
+                                          
+     IonoHeightPlanet_I               = 0.0                     ! [ m]
 
      !\
-     ! Set all values to zero - below set only the non-zero values
-     !/
-     NamePlanet_I(:)                     = ''
-
-     rPlanet_I(:)                        = 0.0                     ! [ m]
-     mPlanet_I(:)                        = 0.0                     ! [kg]
-     rOrbitPlanet_I(:)                   = 0.0                     ! [ m]
-     OrbitalPeriodPlanet_I(:)            = 0.0                     ! [ s]
-     RotationPeriodPlanet_I(:)           = 0.0                     ! [ s]
-                                            
-     iYearEquinoxPlanet_I(:)             =2000                     ! [yr]
-     iMonthEquinoxPlanet_I(:)            =   1                     ! [mo]
-     iDayEquinoxPlanet_I(:)              =   1                     ! [dy]
-     iHourEquinoxPlanet_I(:)             =   0                     ! [hr]
-     iMinuteEquinoxPlanet_I(:)           =   0                     ! [mn]
-     iSecondEquinoxPlanet_I(:)           =   0                     ! [ s]
-     FracSecondEquinoxPlanet_I(:)        = 0.0                     ! [ s]
-     TiltPlanet_I(:)                     = 0.0                     ! [rad]
-                         
-     TypeBFieldPlanet_I(:)               = "NONE"                
-     DipoleStrengthPlanet_I(:)           = 0.0                     ! [ T]
-     bAxisThetaPlanet_I(:)               = 0.0                     ! [rad]
-     bAxisPhiPlanet_I(:)                 = 0.0                     ! [rad]
-                                          
-     IonoHeightPlanet_I(:)               = 0.0                     ! [ m]
-   
-                                         
-     !\                                
      ! Mercury (10)                        
-     !/                                
-                                       
+     !/ 
+     NamePlanet_I(Mercury_)                = 'MERCURY'
+
+     rPlanet_I(Mercury_)                   = 2439.0e+3               ! [ m]
+     mPlanet_I(Mercury_)                   = 3.3022e+23               ! [kg]
+     OrbitalPeriodPlanet_I(Mercury_)       = 87.969* cDay          ! [ s]
+     RotationPeriodPlanet_I(Mercury_)      = 175.942* cDay          ! [ s]
+
+     TypeBFieldPlanet_I(Mercury_)         = "DIPOLE"
+     DipoleStrengthPlanet_I(Mercury_)     = -200.0e-9              ! [ T]
+
      !\                                
      ! Venus (20)                          
      !/                                
@@ -144,7 +149,7 @@ contains
      rPlanet_I(Venus_)                   = 6052.0e+3               ! [ m]
      mPlanet_I(Venus_)                   = 4.865e+24               ! [kg]
      OrbitalPeriodPlanet_I(Venus_)       = 224.7   * cDay          ! [ s]
-     RotationPeriodPlanet_I(Venus_)      = 243.0185* cDay          ! [ s]
+     RotationPeriodPlanet_I(Venus_)      = 116.750 * cDay          ! [ s]
                                        
      !\                                
      ! Earth (30)                         
@@ -174,6 +179,16 @@ contains
      IonoHeightPlanet_I(Earth_)          = 110000.0                ! [ m]
    
      !\                               
+     ! Moon (31)                         
+     !/                               
+     NamePlanet_I(Moon_)                 = 'MOON'
+
+     rPlanet_I(Moon_)                    = 1737.0e+3               ! [ m]
+     mPlanet_I(Moon_)                    = 7.3477e+22              ! [kg]
+     OrbitalPeriodPlanet_I(Moon_)        = 27.321582 * cDay        ! [ s]
+     RotationPeriodPlanet_I(Moon_)       = 27.321582 * cDay        ! [ s]
+
+     !\                               
      ! Mars (40)                         
      !/                               
      NamePlanet_I(Mars_)                 = 'MARS'
@@ -181,7 +196,7 @@ contains
      rPlanet_I(Mars_)                    = 3396.0e+3               ! [ m]
      mPlanet_I(Mars_)                    = 0.6436e+24              ! [kg]
      OrbitalPeriodPlanet_I(Mars_)        = 686.98* cDay            ! [ s]
-     RotationPeriodPlanet_I(Mars_)       = 1.026 * cDay            ! [ s]
+     RotationPeriodPlanet_I(Mars_)       = 1.0275 * cDay            ! [ s]
                                         
      !\
      ! Jupiter (50)
@@ -191,11 +206,12 @@ contains
      rPlanet_I(Jupiter_)                 = 71492.0e+3              ! [ m]
      mPlanet_I(Jupiter_)                 = 1.8980e+27              ! [kg]
      OrbitalPeriodPlanet_I(Jupiter_)     = 4330.6 * cDay           ! [ s]
-     RotationPeriodPlanet_I(Jupiter_)    = 9.925 * cHour           ! [ s]
+     RotationPeriodPlanet_I(Jupiter_)    = 9.9259 * cHour           ! [ s]
 
      TypeBFieldPlanet_I(Jupiter_)        = "DIPOLE"                
      DipoleStrengthPlanet_I(Jupiter_)    = 428000.0e-9             ! [ T]
-                                       
+     bAxisThetaPlanet_I(Jupiter_)        = 0.0 * cDegToRad         ! [rad]
+     bAxisPhiPlanet_I(Jupiter_)          = 0.0 * cDegToRad         ! [rad]
      IonoHeightPlanet_I(Jupiter_)        = 1000.0e+3               ! [ m]
    
      !\                               
@@ -206,7 +222,7 @@ contains
      rPlanet_I(Saturn_)                  = 60268.0e+3              ! [ m]
      mPlanet_I(Saturn_)                  = 0.5685e+27              ! [kg]
      OrbitalPeriodPlanet_I(Saturn_)      = 10746.94 * cDay         ! [ s]
-     RotationPeriodPlanet_I(Saturn_)     = 10.5 * cHour            ! [ s]
+     RotationPeriodPlanet_I(Saturn_)     = 10.656 * cHour            ! [ s]
                                        
      TypeBFieldPlanet_I(Saturn_)         = "DIPOLE"                
      DipoleStrengthPlanet_I(Saturn_)     = 20800.0e-9              ! [ T]
@@ -234,7 +250,31 @@ contains
      mPlanet_I(Io_)                      = 0.0                     ! [kg]
      OrbitalPeriodPlanet_I(Io_)          = 0.0                     ! [ s]
      RotationPeriodPlanet_I(Io_)         = 0.0                     ! [ s]
-   
+
+     !\
+     ! Europa (52)
+     !/
+     NamePlanet_I(Europa_)               = 'EUROPA'
+
+     rPlanet_I(Europa_)                  = 1569.0e+3               ! [ m]
+     mPlanet_I(Europa_)                  = 4.80e22                 ! [kg]
+     OrbitalPeriodPlanet_I(Europa_)      = 3.551 * cDay            ! [ s]
+     RotationPeriodPlanet_I(Europa_)     = 3.551 * cDay            ! [ s]
+
+     iYearEquinoxPlanet_I(Europa_)       = 2000                    ! [yr]
+     iMonthEquinoxPlanet_I(Europa_)      =    1                    ! [mo]
+     iDayEquinoxPlanet_I(Europa_)        =    1                    ! [dy]
+     iHourEquinoxPlanet_I(Europa_)       =    0                    ! [hr]
+     iMinuteEquinoxPlanet_I(Europa_)     =    0                    ! [mn]
+     iSecondEquinoxPlanet_I(Europa_)     =    0                    ! [ s]
+     FracSecondEquinoxPlanet_I(Europa_)  =  0.0                    ! [ s]
+     TiltPlanet_I(Europa_)               =  0.0 * cDegToRad        ! [rad]
+
+     TypeBFieldPlanet_I(Europa_)         = "DIPOLE"                
+     DipoleStrengthPlanet_I(Europa_)     =    100.0e-9             ! [ T]
+     bAxisThetaPlanet_I(Europa_)         =  90.0 * cDegToRad       ! [rad]
+     bAxisPhiPlanet_I(Europa_)           =   0.0 * cDegToRad       ! [rad]
+     
      !\
      ! Titan (61)
      !/
@@ -273,6 +313,16 @@ contains
      rOrbitPlanet_I(Halley_)              = cAU      ! [ m]
      OrbitalPeriodPlanet_I(Halley_)       = 1.0      ! [ s]
      RotationPeriodPlanet_I(Halley_)      = 1.0      ! [ s]
+
+     NamePlanet_I(CometCG_)='CometCG'
+     rPlanet_I(CometCG_) = 1.0E3
+     mPlanet_I(CometCG_) =1.0
+     rOrbitPlanet_I(CometCG_) =cAU
+     OrbitalPeriodPlanet_I(CometCG_) =1.0
+     RotationPeriodPlanet_I(CometCG_)=1.0
+
+
+
 
      !\
      ! No Planet (0)
@@ -317,5 +367,3 @@ end module ModPlanetConst
 ! The angle between the zero meridian and the eqinox direction at 
 ! equinox time. For Earth this can be calculated from the time of day.
 ! For other planets there is no analogous method to calculate this angle.
-   
-

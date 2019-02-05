@@ -1,4 +1,6 @@
 #!/usr/bin/perl -s
+#  Copyright (C) 2002 Regents of the University of Michigan, portions used with permission 
+#  For more information, see http://csem.engin.umich.edu/tools/swmf
 
 $Help = $h;
 $All = $a;
@@ -6,11 +8,11 @@ $All = $a;
 $Outfile = $o; $Outfile = "RenameList.pl" unless $Outfile;
 
 #BOP
-#!ROUTINE: Methods.pl - Collect subroutine, function and module names
+#!ROUTINE: Methods.pl - Collect subroutine, entry, function and module names
 #!DESCRIPTION:
 # This script can be used to avoid name conflicts between components.
-# It collects the subroutine, function and module names from Fortran files
-# and creates a renaming list which has the correct component prefix.
+# It collects the subroutine, entry, function and module names from Fortran 
+# files and creates a renaming list which has the correct component prefix.
 # For example 
 # \begin{verbatim}
 # subroutine read_param
@@ -22,8 +24,8 @@ $Outfile = $o; $Outfile = "RenameList.pl" unless $Outfile;
 # for the IH component. This code only generates the renaming rules.
 # The rules can be used by Rename.pl to do the actual renaming.
 #
-# There are some special rules for IH, SC and GM because the
-# BATSRUS code implements all three of these components.
+# There are some special rules for EE, SC, IH, OH, and GM because the
+# BATSRUS code implements all of these components.
 #
 #!REVISION HISTORY:
 # 08/03/2003 G.Toth gtoth@umich.edu - initial version
@@ -33,12 +35,12 @@ $Outfile = $o; $Outfile = "RenameList.pl" unless $Outfile;
 if($Help or $help){
     print '
 This script can be used to avoid name conflicts between components.
-It collects the subroutine and function names from Fortran files
-and creates a renaming list which has the correct component prefix.
+It collects the subroutine, entry, function and module names from Fortran 
+files and creates a renaming list which has the correct component prefix.
 The output list can be used by Rename.pl to do the actual renaming.
 
-For components IH, SC and GM method names starting with MH_ IH_ SC_ and GM_
-are handled intelligently.
+For components EE, SC, IH, OH, IH, and GM method names starting with
+MH_ EE_ SC_ IH_ OH_ and GM_ are handled intelligently.
 
 ',
 #BOC
@@ -135,6 +137,13 @@ foreach $source (@source){
 	    push(@subroutine,$subroutine) if $Debug;
 	}
 
+        # enrtry XXX
+	if(/^\s*entry\s+(\w+)/i){              
+	    $entry = $+;
+	    $method{lc($entry)}=$entry;             # Use lower case for key
+	    push(@entry,$entry) if $Debug;
+	}
+
 	# [recursive] [type] function XXX
 	if(/^\s*
 	   (recursive\s+)?             # recursive
@@ -160,7 +169,7 @@ foreach $source (@source){
 }
 
 
-# Make new names for the found subroutines and functions
+# Make new names for the found methods
 foreach $method (sort values %method){
     $_ = $method;                    # use $_ for easy match and replace
 
@@ -170,9 +179,7 @@ foreach $method (sort values %method){
 
     s/^(GM|MH)_// if $Comp eq "IH";  # GM_ and MH_ prefix removed for IH
 
-    s/^(GM|IH|MH)_// if $Comp eq "SC";#IH_ GM_ and MH_ prefix removed for SC
-
-    s/^(GM|IH|MH)_// if $Comp eq "OH";#IH_ GM_ and MH_ prefix removed for OH
+    s/^(GM|IH|MH)_// if $Comp =~ /EE|SC|OH/; #IH_ GM_ MH_ prefix removed for EE,SC,OH
 
     $replace = $Comp."_$_";          # Add component prefix
 
@@ -199,6 +206,7 @@ close OUT;
 
 print "Modules:     @module \n"     if $Debug;
 print "Subroutines: @subroutine \n" if $Debug;
+print "Entries:     @entry \n"      if $Debug;
 print "Functions:   @function \n"   if $Debug;
 
 exit 0;
