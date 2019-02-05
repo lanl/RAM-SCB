@@ -322,11 +322,11 @@ MODULE ModRamInit
 
     ! Grid size of L shell
     DL1 = (RadiusMax - RadiusMin)/(nR - 1)
-    !IF ((MOD(DL1,0.25).NE.0).and.(DoUsePlane_SCB)) THEN
-    !  write(*,*) MOD(DL1,0.25_8)
-    !  WRITE(6,*) 'RAM: Error : DL is not a multiple of 0.25 '
-    !  STOP
-    !END IF
+    IF ((MOD(DL1,0.25).NE.0).and.(DoUsePlane_SCB)) THEN
+      write(*,*) MOD(DL1,0.25_8)
+      WRITE(6,*) 'RAM: Error : DL is not a multiple of 0.25 '
+      STOP
+    END IF
 
     degrad=pi/180.
     amla(1)=0. ! Magnetic latitude grid in degrees
@@ -343,7 +343,7 @@ MODULE ModRamInit
     IR1=DL1/0.25
     MDR=DL1*RE               ! Grid size for Z=RO
     DO I=1,NR+1
-      LZ(I)=2.+(I-2)*DL1
+      LZ(I)=RadiusMin+(I-1)*DL1
       RLZ(I)=RE*LZ(I)
       DO IML=1,Slen
         camlra=amla(iml)*degrad
@@ -412,55 +412,75 @@ MODULE ModRamInit
 
     ! PA is equatorial pitch angle in deg - PA(1)=90, PA(NPA)=0.
     ! MU is cosine of equatorial PA
-    PA(1)=90.
-    MU(1)=0.
-    PA(NPA)=0.
-    MU(NPA)=1.
-    RWU=0.98
-    WMU(1)=(MU(NPA)-MU(1))/32
                          ! |_._|___.___|____.____|______.______| 
-    DO L=1,46            !   MU    <  DMU   >    <     WMU     >
-      WMU(L+1)=WMU(L)*RWU
-      DMU(L)=0.5*(WMU(L)+WMU(L+1))
-      MU(L+1)=MU(L)+DMU(L)
-      PA(L+1)=ACOSD(MU(L+1))
-    END DO
-    PA(48)=18.7
-    MU(48)=COSD(PA(48))
-    DMU(47)=(MU(48)-MU(47))
-    IC=2
-    DO L=48,NPA-1
-      PA(L+1)=CONE(IC)
-      IF(L.EQ.49) THEN
-        PA(50)=16.
-      ELSE
-        if (IC.lt.nR) then
-           IC=IC+(nR-1)/19
-        else
-           IC=IC+1
-        endif
-      ENDIF
-      MU(L+1)=COSD(PA(L+1))
-      DMU(L)=(MU(L+1)-MU(L))       ! Grid size in cos pitch angle
-      WMU(L)=2.*(DMU(L-1)-0.5*WMU(L-1))
-      IF (L.GT.55) WMU(L)=0.5*(DMU(L)+DMU(L-1))
-    END DO
-    DMU(NPA)=DMU(NPA-1)
-    WMU(NPA)=DMU(NPA-1)
-    DO L=1,NPA-1
-      MUBOUN=MU(L)+0.5*WMU(L)
-      PAbn(L)=ACOSD(MUBOUN) ! PA at boundary of grid
-    ENDDO
-    PAbn(NPA)=0.
+                         !   MU    <  DMU   >    <     WMU     >
+    if (nPa == 90) then
+      PA(1)=90.
+      MU(1)=0.
+      PA(NPA)=0.
+      MU(NPA)=1.
+      RWU=0.98
+      WMU(1)=(MU(NPA)-MU(1))/nPa
+      DO L = 1, nPa-1
+        WMU(L+1)=WMU(L)
+        DMU(L)=0.5*(WMU(L)+WMU(L+1))
+        MU(L+1)=MU(L)+DMU(L)
+        PA(L+1)=ACOSD(MU(L+1))
+        MUBOUN = Mu(L) + 0.5*WMu(L)
+        Pabn(L) = ACOSD(MUBOUN)
+      END DO
+      DMU(nPa) = 0.5*(wMu(nPa)+wMu(nPa-1))
+      Pabn(nPa) = 0.
+    else
+      PA(1)=90.
+      MU(1)=0.
+      PA(NPA)=0.
+      MU(NPA)=1.
+      RWU=0.98
+      WMU(1)=(MU(NPA)-MU(1))/32
+      DO L=1,46
+        WMU(L+1)=WMU(L)*RWU
+        DMU(L)=0.5*(WMU(L)+WMU(L+1))
+        MU(L+1)=MU(L)+DMU(L)
+        PA(L+1)=ACOSD(MU(L+1))
+      END DO
+      PA(48)=18.7
+      MU(48)=COSD(PA(48))
+      DMU(47)=(MU(48)-MU(47))
+      IC=2
+      DO L=48,NPA-1
+        PA(L+1)=CONE(IC)
+        IF(L.EQ.49) THEN
+          PA(50)=16.
+        ELSE
+          if (IC.lt.nR) then
+             IC=IC+(nR-1)/19
+          else
+             IC=IC+1
+          endif
+        ENDIF
+        MU(L+1)=COSD(PA(L+1))
+        DMU(L)=(MU(L+1)-MU(L))       ! Grid size in cos pitch angle
+        WMU(L)=2.*(DMU(L-1)-0.5*WMU(L-1))
+        IF (L.GT.55) WMU(L)=0.5*(DMU(L)+DMU(L-1))
+      END DO
+      DMU(NPA)=DMU(NPA-1)
+      WMU(NPA)=DMU(NPA-1)
+      DO L=1,NPA-1
+        MUBOUN=MU(L)+0.5*WMU(L)
+        PAbn(L)=ACOSD(MUBOUN) ! PA at boundary of grid
+      ENDDO
+      PAbn(NPA)=0.
+    endif
 
     ! Determine the range of NPA such that PA is outside the loss cone:
     ! UPA is upper boundary for pitch angle for given Z
-    DO I=1,NR
-      UPA(I) = NPA ! SZ, otherwise UPA = 0 for small enough loss cones
-      DO L=NPA,1,-1
-        IF(PA(L).LE.CONE(I)) UPA(I) = L     ! F(UPA)=0. - in loss cone
-      END DO
-    END DO
+     DO I=1,NR
+       UPA(I) = NPA ! SZ, otherwise UPA = 0 for small enough loss cones
+       DO L=NPA,1,-1
+         IF(PA(L).LE.CONE(I)) UPA(I) = L     ! F(UPA)=0. - in loss cone
+       END DO
+     END DO
 
     ! calculate pitch angles for mlat
     DO I=1,NR
@@ -574,7 +594,7 @@ MODULE ModRamInit
        if (InitializeOnFile) then
           call read_initial
        else
-          F2 = 1e6
+          F2 = 1e4
           do iS = 1, nS
              call ANISCH(iS)
           enddo
