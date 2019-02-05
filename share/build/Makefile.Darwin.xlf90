@@ -1,11 +1,14 @@
-#^CFG COPYRIGHT UM
+#  Copyright (C) 2002 Regents of the University of Michigan,
+#  portions used with permission 
+#  For more information, see http://csem.engin.umich.edu/tools/swmf
 
 SHELL=/bin/sh
 
+# Fortran language related part of Makefile.conf: Makefile.Darwin.xlf90
+FORTRAN_COMPILER_NAME=xlf90
 #
 #	Space Weather Modeling Framework (SWMF) 
-#	Fortran 90/95 Compiler
-#       Mac OS (Darwin) specific part of Makefile
+#	XL Fortran 90/95 Compiler
 #
 
 # Set suffix remapping options
@@ -26,10 +29,9 @@ PRECISION  = ${DOUBLEPREC}
 MPILIB = 
 #MPILIB = -L${LIBDIR} -lNOMPI #
 
-# This is the search path for used modules
-# SEARCH_EXTRA should be given in the individual Makefiles
-
-SEARCH = -I${SHAREDIR} ${SEARCH_EXTRA}
+# Define where modules are stored and add it to the search path
+# INCL_EXTRA can be defined to add more search directories.
+SEARCH = -qmoddir=${INCLDIR} -I${INCLDIR} ${INCL_EXTRA}
 
 DEBUGFLAG = -C -g
 DEBUG     =
@@ -53,7 +55,7 @@ Cflag4NoP = ${CFLAG} ${OPT4}
 # To allow RCM to compile as double precision, add PRECISION flag
 CFLAGS = ${CFLAG} ${OPT2} -qsave
 
-Lflag1  = ${PRECISION} ${MPILIB} ${DEBUG}
+Lflag1  = ${PRECISION} ${MPILIB} ${CPPLIB} ${DEBUG}
 Lflag2  = ${PRECISION} ${DEBUG}
 
 # BLAS and LAPACK libraries
@@ -71,7 +73,7 @@ BLAS  = lapack.o blas.o
 	${COMPILE.f90} ${Cflag4} $<
 
 .F90.o:
-	cpp -P -DsysDarwin -DcompXLF90 $*.F90 | grep -v '^#' > $*.f
+	cpp -C -P -DsysDarwin -DcompXLF90 $*.F90 | grep -v '^#' > $*.f
 	${COMPILE.f90} -qsuffix=f=f -o $*.o ${Cflag4} $*.f
 	rm -f $*.f
 
@@ -84,8 +86,7 @@ BLAS  = lapack.o blas.o
 .ftn.o:
 	${COMPILE.f77} ${Cflag4} ${SuffixMapftn} $<
 
-clean:	
-	rm -f *~ core *.o *.mod fort.* *.out *.exe *.a *.so *.protex
+cleanfiles:	
+	rm -f *~ core *.o *.mod fort.* a.out *.exe *.a *.so *.protex
 
 
-# keep this line

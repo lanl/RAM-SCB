@@ -1,4 +1,7 @@
 #!/usr/bin/perl -s
+#  Copyright (C) 2002 Regents of the University of Michigan, 
+#  portions used with permission 
+#  For more information, see http://csem.engin.umich.edu/tools/swmf
 
 my $Prefix = $p;
 my $Help   = $h;
@@ -52,7 +55,7 @@ for(my $i=0; $i<=$#text; $i++){
 	}
 	$nBlockData = $iEnd - $iBlockData + 1 if $unit =~ /block/i;
 
-	$text[$iEnd] =~ s/\n/ $unit\n/ if $iEnd;
+	$text[$iEnd] =~ s/\s*\n/ $unit\n/ if $iEnd;
 	$unit = "$type $name";
 
     }elsif(/^\s+end\s*$/i){
@@ -68,7 +71,7 @@ for(my $i=0; $i<=$#text; $i++){
 }
 
 # Fix the last END statement
-$text[$iEnd] =~ s/\n/ $unit\n/ if $iEnd;
+$text[$iEnd] =~ s/\s*\n/ $unit\n/ if $iEnd;
 $nBlockData = $iEnd - $iBlockData + 1 if $unit =~ /block/i;
 
 

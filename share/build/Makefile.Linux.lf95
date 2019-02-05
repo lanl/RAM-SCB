@@ -1,11 +1,13 @@
-#^CFG COPYRIGHT UM
+#  Copyright (C) 2002 Regents of the University of Michigan,
+#  portions used with permission 
+#  For more information, see http://csem.engin.umich.edu/tools/swmf
 
 SHELL=/bin/sh
 
-#
+# Fortran language related part of Makefile.conf: Makefile.Linux.lf95
+FORTRAN_COMPILER_NAME=lf95
 #	Space Weather Modeling Framework (SWMF) 
 #	Lahey f95 Fortran Compiler
-#       Linux specific part of Makefile
 #
 
 COMPILE.f77     = ${CUSTOMPATH_F}lf95
@@ -20,10 +22,9 @@ PRECISION  = ${DOUBLEPREC}
 MPILIB = 
 #MPILIB = -L${LIBDIR} -lNOMPI
 
-# This is the search path for used modules
-# SEARCH_EXTRA should be given in the individual Makefiles
-
-SEARCH = -I${SHAREDIR} ${SEARCH_EXTRA}
+# Define where modules are stored and add it to the search path
+# INCL_EXTRA can be defined to add more search directories.
+SEARCH = -M ${INCLDIR} ${INCL_EXTRA}
 
 DEBUGFLAG = -C -gline
 DEBUG     = 
@@ -49,7 +50,7 @@ CFLAGS = ${CFLAG} -O --sav
 
 # Add '-Bstatic' to link flags if segmentation fault occurs immediately
 
-Lflag1  = ${PRECISION} ${MPILIB} ${DEBUG}
+Lflag1  = ${PRECISION} ${MPILIB} ${CPPLIB} ${DEBUG}
 Lflag2  = ${PRECISION} ${DEBUG}
 
 # BLAS and LAPACK libraries
@@ -79,8 +80,7 @@ BLAS  = lapack.o blas.o
 .ftn.o:
 	${COMPILE.f77} ${Cflag3} -132 $<
 
-clean:	
-	rm -f *~ core *.o *.mod fort.* *.out *.exe *.a *.so *.protex
+cleanfiles:	
+	rm -f *~ core *.o *.mod fort.* a.out *.exe *.a *.so *.protex
 
 
-# keep this line

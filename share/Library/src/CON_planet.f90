@@ -1,4 +1,5 @@
-!^CFG COPYRIGHT UM
+!  Copyright (C) 2002 Regents of the University of Michigan, portions used with permission 
+!  For more information, see http://csem.engin.umich.edu/tools/swmf
 !
 !BOP
 !
@@ -19,7 +20,8 @@ module CON_planet
   !USES:
   use ModNumConst, ONLY: cTwoPi
   use ModPlanetConst
-  use ModTimeConvert, ONLY: TimeType
+  use ModTimeConvert, ONLY: TimeType, time_int_to_real
+  use ModUtilities, ONLY: CON_stop
 
   !REVISION HISTORY:
   ! 01Aug03 - Aaron Ridly <ridley@umich.edu> and 
@@ -123,10 +125,12 @@ contains
          iSecondEquinoxPlanet_I(Earth_), &
          FracSecondEquinoxPlanet_I(Earth_), &
          0.0_Real8_, '20000320073500')
+    call time_int_to_real(TimeEquinox)
     TypeBField       = TypeBFieldPlanet_I(Earth_)
     DipoleStrength   = DipoleStrengthPlanet_I(Earth_)
     MagAxisThetaGeo  = bAxisThetaPlanet_I(Earth_)     
     MagAxisPhiGeo    = bAxisPhiPlanet_I(Earth_)       
+
     
   end subroutine set_planet_defaults
 
@@ -406,8 +410,12 @@ contains
        IsPlanetModified = .true.
 
        call read_var('DipoleStrength',DipoleStrength)
-
-
+       if(DipoleStrength ==0.0)then
+          TypeBField="NONE"
+       else
+          TypeBField="DIPOLE"
+       end if
+       
     case('#UPDATEB0')
 
        call read_var('DtUpdateB0',DtUpdateB0)

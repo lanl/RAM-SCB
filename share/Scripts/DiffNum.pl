@@ -1,4 +1,6 @@
 #!/usr/bin/perl -s
+#  Copyright (C) 2002 Regents of the University of Michigan, portions used with permission 
+#  For more information, see http://csem.engin.umich.edu/tools/swmf
 my $Help        = ($h or $help);
 my $Verbose     = ($v or $verbose);
 my $AbsTol      = ($a or $abs or 1e-30);
@@ -24,14 +26,30 @@ die "$ERROR: there should be two file arguments!\n" unless $#ARGV == 1;
 my $File1 = $ARGV[0];
 my $File2 = $ARGV[1];
 
+if(not -e $File1){
+    print "$ERROR: $File1 does not exist\n"; die "$ERROR\n";
+}
+if(not -e $File2){
+    print "$ERROR: $File2 does not exist\n"; die "$ERROR\n";
+}
+
+if(not -T $File1){
+    print "$ERROR: $File1 is not an ASCII file\n"; die "$ERROR\n";
+}
+if(not -T $File2){
+    print "$ERROR: $File2 is not an ASCII file\n"; die "$ERROR\n";
+}
+
 if(not open(FILE1, $File1)){
     print "$ERROR: could not open $File1\n"; die "$ERROR\n";
 }
 if(not open(FILE2, $File2)){
     print "$ERROR: could not open $File2\n"; die "$ERROR\n";
 }
-my $Text1 = $File1 . "_txt_";
-my $Text2 = $File2 . "_txt_";
+
+# Files for text comparison. Use local directory.
+my $Text1 = "_diffnum_file1_";
+my $Text2 = "_diffnum_file2_";
 
 if($TextDiff){
     open(TEXT1, ">$Text1") or 
@@ -69,6 +87,7 @@ my $nDiff=0;
        }
        print TEXT1 $Line1 if $TextDiff;
        $Line1 = <FILE1> or last SEARCH;
+       $Line1 = "" if $Line1 =~ /Mellanox|RDMA devices/;
        $OrigLine1 = $Line1;
        $iLine1++;
        redo SEARCH;
@@ -83,6 +102,7 @@ my $nDiff=0;
        }
        print TEXT2 $Line2 if $TextDiff;
        $Line2 = <FILE2> or last SEARCH;
+       $Line2 = "" if $Line2 =~ /Mellanox|RDMA devices/;
        $OrigLine2 = $Line2;
        $iLine2++;
        redo SEARCH;

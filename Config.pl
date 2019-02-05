@@ -23,6 +23,7 @@ foreach(@Arguments){
     if(/^-scheme/) {$SchemeUser = 'True';
                     push(@Arguments,"-compiler=gfortran");
                     push(@Arguments,"-mpi=openmpi");
+                    push(@Arguments,"-openmp");  
                     #system("bash","-c","source schemeSetup.sh");
                     next;
     }
@@ -53,7 +54,7 @@ my %libs;
 # Handle RAM-SCB installation arguments.
 foreach(@Arguments){
     if(/^-scheme/) {$libs{'gsl'} = "/packages2/.packages2/x86_64-pc-linux-gnu-rhel6/gsl/2.3";
-                    $libs{'netcdf'} = "/packages2/.packages2/x86_64-pc-linux-gnu-rhel6/netcdf/4.4.4";
+                    $libs{'netcdf'} = "/projects/lanl/Carrington/netcdf";
                     $DoSetLibs = 1;
                     next;
     };
@@ -160,49 +161,6 @@ sub set_libs
 
 }
 #=============================================================================
-#sub get_netcdf
-#    # Grab the required NetCDF library from the given location.
-#    # If ncdf_path is not given as an argument, the proper 
-#    # ENV variable is used.
-#{
-#    # Check for NetCDF installation path.
-#    $ncdf_path = $ENV{NETCDFDIR} unless $ncdf_path;
-#    die "ERROR: Installation path for NetCDF not set!  See Help."
-#	unless $ncdf_path;
-#    
-#    # Trim trailing '/' from path as necessary.
-#    if($ncdf_path=~/(.*)\/$/){$ncdf_path=$1};
-#    print "Using NetCDF install path: $ncdf_path\n";
-#
-#    # Create directory for NetCDF objects.
-#    unless(-d 'srcNetcdf'){mkdir('srcNetcdf',0751) or die $!};
-#    `cd srcNetcdf; cp $ncdf_path/lib/libnetcdf.a .; ar -x libnetcdf.a`;
-#    `echo $ncdf_path > srcNetcdf/netcdf_install_path.txt`;
-#}
-##=============================================================================
-#sub get_pspline
-#    # Grab the required NetCDF library from the given location.
-#    # If ncdf_path is not given as an argument, the proper 
-#    # ENV variable is used.
-#{
-#    # Check for NetCDF installation path.
-#    $pspl_path = $ENV{PSPLINEDIR} unless $pspl_path;
-#    die "ERROR: Installation path for Pspline not set!  See Help."
-#	unless $pspl_path;
-#    
-#    # Trim trailing '/' from path as necessary.
-#    if($pspl_path=~/(.*)\/$/){$pspl_path=$1};
-#    print "Using Pspline install path: $pspl_path\n";
-#
-#    # Create directory for Pspline objects.
-#    unless(-d 'srcPspline'){mkdir('srcPspline',0751) or die $!};
-#    `cd srcPspline; cp $pspl_path/lib/libpspline.a .; ar -x libpspline.a`;
-#    `cd srcPspline; cp $pspl_path/lib/libezcdf.a .; ar -x libezcdf.a`;
-#    `cd srcPspline; rm -f r8pspltsub.o pspltsub.o`; # Unneeded objects.
-#    `cd srcPspline; cp $pspl_path/mod/*.mod .`;
-#    `echo $pspl_path > srcPspline/pspline_install_path.txt`;
-#}
-#=============================================================================
 sub print_help
     # Print RAM-SCB help.
 {
@@ -210,9 +168,9 @@ sub print_help
 Additional options for RAM-SCB/Config.pl:
 
 -ncdf=(path)      Set installation path for NetCDF libraries.
--pspline=(path)   Set installation path for Pspline libraries. 
+-gsl=(path)   Set installation path for GSL libraries. 
 
-These MUST be set if environment variables PSPLINEDIR and
+These MUST be set if environment variables GSLDIR and
 NETCDFDIR are not set.  If both flag and env variable are
 set, Config.pl will use the flag value.  This allows for
 multiple installations of the libraries.

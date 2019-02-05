@@ -1,6 +1,13 @@
-!^CFG COPYRIGHT UM
-!General routines used by the Godunov schemes with an exact Riemann solver
+!  Copyright (C) 2002 Regents of the University of Michigan, 
+!  portions used with permission 
+!  For more information, see http://csem.engin.umich.edu/tools/swmf
+
 module ModExactRS
+
+  ! General routines used by the Godunov schemes with an exact Riemann solver
+
+  use ModUtilities, ONLY: CON_stop
+
   implicit none
   real,private::GammaHere=1.6666666666666666
   real        ::PStar,UnStar !pressure and velocity in the Star Region
@@ -11,15 +18,15 @@ module ModExactRS
                             !Shock wave speed for a shock.
 contains
   !========================================================================!
-  subroutine set_gamma(GammaIn)
+  subroutine exact_rs_set_gamma(GammaIn)
     real,intent(in)::GammaIn
     !Should be applied only if: 
     !FIRST, Gamma=const, and, 
     !SECOND, Gamma=const /= (5/3)
     GammaHere=GammaIn
-  end subroutine set_gamma
+  end subroutine exact_rs_set_gamma
   !========================================================================!
-  subroutine  pu_star(GammaLIn,GammaRIn)
+  subroutine  exact_rs_pu_star(GammaLIn,GammaRIn)
     implicit none
     !     Programer: E. F. Toro                                            *
     !                                                                      *
@@ -157,9 +164,9 @@ contains
       PGuess=max(cTinyFractionOf*PAvr,&
            PAvr+(UnL-UnR)*ImpedanceTotalInv*ImpedanceL*ImpedanceR)
     end subroutine guess_p
-  end subroutine pu_star
+  end subroutine exact_rs_pu_star
   !==================================================!
-  subroutine sample(S, Rho, Un, P, GammaLIn,GammaRIn)
+  subroutine exact_rs_sample(S, Rho, Un, P, GammaLIn,GammaRIn)
     !
     !     Purpose: to sample the solution throughout the wave
     !             pattern. Pressure and velocity in the
@@ -253,5 +260,5 @@ contains
          P = PStar
       ENDIF
     end  subroutine simple_wave
-  end subroutine sample
+  end subroutine exact_rs_sample
 end module ModExactRS

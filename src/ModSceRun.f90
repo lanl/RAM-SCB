@@ -14,7 +14,7 @@ MODULE ModSceRun
     use ModRamTiming,    ONLY: TimeRamElapsed
     use ModSceVariables, ONLY: ThetaTilt
 
-    use CON_physics, ONLY: get_axes
+    use CON_axes, ONLY: get_axes
  
     implicit none
     !----------------------------------------------------------------------------

@@ -1,4 +1,7 @@
 #!/usr/bin/perl -s
+#  Copyright (C) 2002 Regents of the University of Michigan, 
+#  portions used with permission 
+#  For more information, see http://csem.engin.umich.edu/tools/swmf
 
 # Read optional switches -type, -data, -sub
 my $DefaultTypes = ($type or "r0");
@@ -29,21 +32,29 @@ print "dimensions=@Dims\n" if $Verbose;
 # Set list of subroutines -sub=MPI_BSEND,MPI_RSEND
 my @Sub;
 my %Types;
+my %DoInPlace;
 if($Sub){
     @Sub = split(/,/,lc($Sub));
     print "Subs=@Sub\n" if $Verbose;
 }else{
     open(IN,$DataFile) or die "Could not open data file $DataFile\n";
     while(<IN>){
-	next if /^#/;
+	next if /^\#/;
 	next if /^$/;
 	chop;
 	my $Sub;
 	my $Types;
+	my $DoInPlace;
 	($Sub, $Types) = split(' ',$_,2);
 	$Sub   = lc($Sub);
 	$Types = lc($Types);
+	if($Sub =~ /mpi_\w*(reduce|gather)/){
+	    $DoInPlace{$Sub} = 'sendbuf';
+	}elsif($Sub =~ /mpi_\w*scatter/){
+	    $DoInPlace{$Sub} = 'recvbuf';
+	}
 	print "Sub=$Sub\n" if $Verbose;
+	print "DoInPlace=$DoInPlace{$Sub}\n" if $Verbose and $DoInPlace{$Sub};
 	push(@Sub, $Sub);
 	$Types = $DefaultTypes unless $Types;
 	$Types{$Sub}=$Types;
@@ -104,48 +115,66 @@ foreach $Routine ( sort keys %Sub ) {
 	    
     $Procedure .= "  interface $Routine\n    module procedure \&\n";
 
+    my @Modes = ('');
+    push @Modes, ('_in_place','_in_place_array') if $DoInPlace{$Routine};
+    my $DoInPlace = $DoInPlace{$Routine};
     my $Types = ($Types{$Routine} or $DefaultTypes);
     my $TypeDims;
     foreach $TypeDims (split(/,/,$Types)) {
+	
+	my $Mode;
+	foreach $Mode (@Modes) {
 
-	# Construct name of the type specific routine
-
-	my $Type = $TypeDims; 
-	my $Dims;
-	$Dims = $1 if $Type =~ s/(\d)//;
-	my $RoutineType = $Routine."_".$Type;
-
-	# Create template for this variable type
-	my $TemplateType = $Template;
-	$TemplateType =~ s/<type>/$TypeName{$Type}/g;
-	$TemplateType =~ s/$Routine/$RoutineType/g;
-
-	if($Verbose){
-	    print "Type=$Type TypeName=$TypeName{$Type}\n";
-	    print "Dims=$Dims\n";
-	    print "RoutineType=$RoutineType\n";
-	    print "TemplateType=\n$TemplateType";
-	}
-
-	my $nDim;
-	foreach $nDim (0..$Dims) {
-	    my $Dim1=$Dims[$nDim];
-	    my $Dim2=$Dims[$nDim+1];
-
-	    my $RoutineTypeDim = $RoutineType.$nDim;
-
-	    print "RoutineTypeDim=$RoutineTypeDim\n" if $Verbose;
-
-	    # if( length($RoutineTypeDim) > 31 ) { $RoutineTypeDim =~ s/_//g;}
-	    my $TemplateTypeDim = $TemplateType;
-	    $TemplateTypeDim =~ s/\(dim1\)/$Dim1/ig;
-	    $TemplateTypeDim =~ s/\(dim2\)/$Dim2/ig;
-	    $TemplateTypeDim =~ s/$RoutineType/$RoutineTypeDim/g;
-
-	    $TemplateTypeDim =~ s/(end subroutine)/$Call\n     $1/;
+	    # Construct name of the type specific routine
 	    
-	    $Procedure .= "    $RoutineTypeDim, \&\n";
-	    $Interface .= "$TemplateTypeDim\n\n";
+	    my $Type = $TypeDims; 
+	    my $Dims;
+	    $Dims = $1 if $Type =~ s/(\d)//;
+	    my $RoutineType = $Routine."_".$Type;
+	    
+	    # Create template for this variable type
+	    my $TemplateType = $Template;
+	    $TemplateType =~ 
+		s/<type>(.*?\().*?(\).*$DoInPlace)/integer$1in$2/ 
+		if $Mode eq '_in_place';
+	    $TemplateType =~ 
+		s/<type>(.*?\().*?(\).*$DoInPlace)/integer$1in$2\(*\)/ 
+		if $Mode eq '_in_place_array';
+	    $TemplateType =~ 
+		s/(<type>,\s*intent\()out\)/$1inout\)/ if $Mode;
+	    $TemplateType =~ s/<type>/$TypeName{$Type}/g;
+	    $TemplateType =~ s/$Routine/$RoutineType/g;
+	    
+	    if($Verbose){
+		print "Type=$Type TypeName=$TypeName{$Type}\n";
+		print "Dims=$Dims\n";
+		print "RoutineType=$RoutineType\n";
+		print "TemplateType=\n$TemplateType";
+	    }
+	    
+	    my $nDim;
+	    foreach $nDim (0..$Dims) {
+		# to avoid ambiguity for integer buffers
+		next if $nDim<=1 and not $Mode and $DoInPlace and $Type eq 'i';
+
+		my $Dim1=$Dims[$nDim];
+		my $Dim2=$Dims[$nDim+1];
+		
+		my $RoutineTypeDim = $RoutineType.$nDim.$Mode;
+		
+		print "RoutineTypeDim=$RoutineTypeDim\n" if $Verbose;
+		
+		my $TemplateTypeDim = $TemplateType;
+		$TemplateTypeDim =~ s/($DoInPlace.*)\(dim\d\)/$1/i if $Mode;
+		$TemplateTypeDim =~ s/\(dim1\)/$Dim1/ig;
+		$TemplateTypeDim =~ s/\(dim2\)/$Dim2/ig;
+		$TemplateTypeDim =~ s/$RoutineType/$RoutineTypeDim/g;
+		
+		$TemplateTypeDim =~ s/(end subroutine)/$Call\n     $1/;
+		
+		$Procedure .= "    $RoutineTypeDim, \&\n";
+		$Interface .= "$TemplateTypeDim\n\n";
+	    }
 	}
     }
     $Procedure =~ s/, \&\n$/\n  end interface\n\n/;
@@ -153,7 +182,7 @@ foreach $Routine ( sort keys %Sub ) {
 
 open(OUT, ">$OutFile") or die "Could not open $OutFile\n";
 print OUT
-"module ModMPiInterfaces
+    "module ModMPiInterfaces
   implicit none
   private
 

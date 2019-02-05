@@ -1,4 +1,7 @@
 #!/usr/bin/perl -s
+#  Copyright (C) 2002 Regents of the University of Michigan, 
+#  portions used with permission 
+#  For more information, see http://csem.engin.umich.edu/tools/swmf
 #BOP
 #!ROUTINE: CheckDataName.pl
 #!DESCRIPTION:
@@ -55,7 +58,7 @@ my $method = "$part(_$part)*";
 my $ValidMethodName = "($ValidComp)?$method";
 
 # Valid module name: CON_main IE_ModMain ModSize
-my $ValidModuleName = "(CON_$method|($ValidComp)?Mod($Part)+)";
+my $ValidModuleName = "([A-Z]+_$method|($ValidComp)?Mod($Part)+)";
 
 # Valid non-module file names: CON_main.f90 IE_set_param.F90 set_b0.f90
 my $ValidMethodFileName = "$ValidMethodName\.[fF]90";
@@ -70,12 +73,15 @@ my $ValidScalarName = "($ValidComp)?$FirstPart($Part)*";
 # Valid array variable names: VariableName IE_GridSize_C State_VGB
 my $ValidArrayName = "${ValidScalarName}_[A-Z]+";
 
-# Valid named index name: Rho_ x_ AnyName_
-my $ValidNamedIndex = "$FirstPart($Part)*_|[A-Z][A-Z]_";
+# Valid named index name: Rho_ rho_ x_ AnyName_ GM_ j0_ nJp1_
+my $ValidNamedIndex = "[a-zA-Z]([a-zA-Z0-9])*_";
+
+# Valid fraction name: c1over3
+my $ValidFraction = 'c\d+over\d+';
 
 # Valid first name parts depending on variable/function type:
-my %ValidPart1 = ('integer'   => '(D?[i-nI-N]|Max|Min)\d*',
-		  'logical'   => '(Is|Use|Do|Done)\d*',
+my %ValidPart1 = ('integer'   => '(D?[i-nI-N]|Max|Min|Ijk|Int)\d*',
+		  'logical'   => '(Is|Use|Used|Unused|Do|Done)\d*',
 		  'character' => '(Name|Type|String)\d*'
 		  );
 
@@ -83,14 +89,14 @@ my %ValidPart1 = ('integer'   => '(D?[i-nI-N]|Max|Min)\d*',
 my $ValidArrayIndex1 = '[ABCDEIPQSV]';
 
 # Valid array index characters representing 3 indexes
-my $ValidArrayIndex3 = '[CFGXYZ]';
+my $ValidArrayIndex3 = '[CFGNXYZ]';
 
 #########################################
 # Definitions to parse the Fortran code #
 #########################################
 
 # Simple Fortran types with possible (len=..) and (kind=..) attributes:
-my $SimpleType = '(real|integer|logical|character)(\s*\([^\)]+\))?';
+my $SimpleType = '(real|integer|logical|character)(\s*\([^\)]+\))?\b';
 
 # Obsolete Fortran types with *NUMBER, e.g. real*8 character*10
 my $ObsoleteType = '(real|integer|logical|character)\s*\*\s*\d+';
@@ -109,6 +115,7 @@ my $Line;       # line
 my $Here;       # current location
 my $Type;       # variable type
 my $Vars;       # list of variables
+my $Function;   # function name while parsing a function
 
 foreach (@ARGV){
     $File = $_;
@@ -162,6 +169,13 @@ sub check_file{
 	$Line .= $_;              # collect continuation lines
 	next if 
 	    $Line =~ s/\s*\&$/ /; # remove & and read continuation line
+
+	# store function name inside functions
+	if($Line =~ /^function\s+(\w+)/i){
+	    $Function = $1;
+	}elsif($Line =~ /^end\s+function/i){
+	    $Function = "";
+	}
 
 	if($Line =~ /^(program|subroutine|module|function|$AnyType\s+function)\s/i){
 	    &check_methods unless $NoMethodCheck;
@@ -273,7 +287,7 @@ sub check_variables{
 	return;
     }
     my $TypeOrig = $`;
-    my $Vars     = $';
+    my $Vars     = $'; # This is here to make emacs indentation work: ';
 
     my $Type = lc($TypeOrig);
 
@@ -306,22 +320,31 @@ sub check_variables{
     # Get the basic type
     $Type =~ s/^(character|integer|real|logical|type).*/$1/;
 
+    # Remove '= reshape(#N,#M'
+    $Vars =~ s/\s*=\s*reshape\([\#\d,]+//i;
+
     # Split up $Vars
     my @Vars = split(/\s*,\s*/, $Vars);
     my $Var;
     foreach $Var (@Vars){
 
-	$Var =~ s/\s*=.*$//;               # get rid of initialization part
+        $Var =~ s/\s*=.*$//;               # get rid of initialization part
 
 	my $nDim = $nDimAll;               # Set global dimension if any
 	$nDim = $1 if $Var =~ s/\#(\d+)//; # Set individual dimension if any
 
 	print "Type = '$Type' Var = '$Var' nDim = '$nDim'\n" if $Debug;
 
-	my $NamedIndex = $Parameter and $Type eq 'integer' and $nDim == 0;
-
 	# Check for a possible named index
-	next if $NamedIndex and $Var =~ /^$ValidNamedIndex/;
+	my $NamedIndex = $Parameter and $Type eq 'integer' and $nDim == 0;
+	next if $NamedIndex and $Var =~ /^$ValidNamedIndex$/;
+
+	# Check for special real constants like c1over3
+	my $RealConstant = $Parameter and $Type eq 'real' and $nDim == 0;
+	next if $RealConstant and $Var =~ /^$ValidFraction$/;
+
+        # Check if this is a declaration for the function return value
+        next if lc($Var) eq lc($Function); # ignore 
 
 	# Check scalar or array variable name
 	if(not $nDim){
@@ -333,6 +356,8 @@ sub check_variables{
 			"   $ValidScalarName\n";
 		    print "   or a named index should match:\n".
 			"   $ValidNamedIndex\n" if $NamedIndex;
+		    print "   or a real parameter fraction should match:\n".
+			"   $ValidFraction\n" if $RealConstant;
 		}
 		next;
 	    }
