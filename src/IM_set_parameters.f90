@@ -11,7 +11,7 @@ subroutine IM_set_parameters
                            TimeRamNow, DtLogFile, DtRestart, DtsMax, TimeMax, &
                            TimeRestart, MaxIter, Dt_hI, Dt_bc, DtEfi, DtW_hI, &
                            DtW_Pressure, DtW_EField, DtsMin, TOld, TimeRamFinish, &
-                           DtW_MAGxyz
+                           DtW_MAGxyz, DtW_2DFlux
   use ModScbGrids, ONLY: nthe, npsi, nzeta
   use ModRamParams
   use ModScbParams
@@ -288,7 +288,8 @@ subroutine IM_set_parameters
         call read_var('UseNewFormat', UseNewFmt)
 
      case('#SAVEFLUX')
-        call read_var('DoSaveFlux',DoWriteFlux)
+        call read_var('DoSaveFlux',DtW_2DFlux)
+        if (DtW_2DFlux.lt.1.0) DtW_2DFlux = 99999999999.9
 
      case('#DUMP3DFLUX')
         call read_var('DoDump3dFlux', TempLogical)
