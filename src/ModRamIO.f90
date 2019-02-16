@@ -110,7 +110,7 @@ module ModRamIO
     use ModRamParams,    ONLY: DoSaveRamSats, NameBoundMag
     use ModRamTiming,    ONLY: Dt_hI, DtRestart, DtWriteSat, TimeRamNow, &
                                TimeRamElapsed, DtW_Pressure, DtW_hI, DtW_Efield, &
-                               DtW_MAGxyz, DtLogFile
+                               DtW_MAGxyz, DtLogFile, DtW_2DFlux
     use ModRamGrids,     ONLY: NR, NT
     use ModRamVariables, ONLY: PParH, PPerH, PParHe, PPerHe, PParE, PPerE, &
                                PParO, PPerO, VT
@@ -188,11 +188,8 @@ module ModRamIO
     if (abs(mod(TimeIn,DtRestart)).le.1e-9) call write_restart()
 
     ! Write hourly file
-    if (abs(mod(TimeIn,3600.0)).le.1e-9) then
-       do iS = 1,4
-          S = iS
-          call ram_hour_write
-       enddo
+    if (abs(mod(TimeIn,DtW_2DFlux)).le.1e-9) then
+       call write2DFlux
     endif
 
   end subroutine handle_output
@@ -567,7 +564,7 @@ end subroutine read_geomlt_file
     if ((nR.eq.iR).and.(nT.eq.iT)) then
        F2     = iF2
        PParT  = iPParT
-       PPerT = iPPerT
+       PPerT  = iPPerT
     else
        ! Interpolate spatially for each energy and pitch angle (if required)
        ALLOCATE(radGrid(nR+1,nT),angleGrid(nR+1,nT))
@@ -617,6 +614,78 @@ end subroutine read_geomlt_file
 !============================!
 !==== OUTPUT SUBROUTINES ====!
 !============================!
+!==========================================================================
+  subroutine write2DFlux
+    use ModRamMain,  ONLY: DP, PathRamOut
+    use ModRamTiming, ONLY: TimeRamNow
+    use ModRamGrids, ONLY: nS, nR, nT, nE, nPa, s_name
+    use ModRamVariables, ONLY: F2, FFactor, FNHS, EkeV, Lz, Pa, MLT
+
+    use ModRamNCDF
+    use netcdf
+
+    implicit none
+
+    character(len=*), parameter :: NameSub='write2DFlux'
+    integer, parameter :: iDeflate = 2, yDeflate = 1
+
+    character(len=200) :: NameFile
+    integer :: i, j, k, l, S
+    integer :: nRDim, nTDim, nEDim, nPaDim, iGridVar, iFluxVar, iFileID, iStatus
+    real(DP), allocatable :: F(:,:,:,:)
+
+    ! OPEN FILE
+    NameFile = RamFileName(PathRamOut//'/ram_flux','nc',TimeRamNow)
+    iStatus = nf90_create(trim(NameFile), nf90_HDF5, iFileID)
+    call ncdf_check(iStatus, NameSub)
+    call write_ncdf_globatts(iFileID)
+
+    ! CREATE DIMENSIONS
+    iStatus = nf90_def_dim(iFileID, 'nR',     nR,     nRDim)
+    iStatus = nf90_def_dim(iFileID, 'nT',     nT,     nTDim)
+    iStatus = nf90_def_dim(iFileID, 'nE',     nE,     nEDim)
+    iStatus = nf90_def_dim(iFileID, 'nPa',    nPa,    nPaDim)
+
+    iStatus = nf90_def_var(iFileID, 'EnergyGrid', nf90_double, &
+                           (/nEDim/), iGridVar)
+    iStatus = nf90_put_var(iFileID, iGridVar, EKEV(:))
+
+    iStatus = nf90_def_var(iFileID, 'PitchAngleGrid', nf90_double, &
+                           (/nPaDim/), iGridVar)
+    iStatus = nf90_put_var(iFileID, iGridVar, PA(:))
+
+    iStatus = nf90_def_var(iFileID, 'RadialGrid', nf90_double, &
+                           (/nRDim/), iGridVar)
+    iStatus = nf90_put_var(iFileID, iGridVar, Lz(1:nR))
+
+    iStatus = nf90_def_var(iFileID, 'MLTGrid', nf90_double, &
+                           (/nTDim/), iGridVar)
+    iStatus = nf90_put_var(iFileID, iGridVar, MLT(:))
+
+    !! FLUXES
+    allocate(F(nR,nT,nE,nPa))
+    do S = 1, nS
+       iStatus = nf90_def_var(iFileID, 'Flux'//s_name(S), nf90_double, &
+                              (/nRDim,nTDim,nEDim,nPaDim/), iFluxVar)
+       iStatus = nf90_def_var_deflate(iFileID, iFluxVar, 0, yDeflate, iDeflate)
+       do I = 1, nR
+          do J = 1, nT
+             do K = 1, nE
+                do L = 1, nPa
+                   F(I,J,K,L) = F2(S,I,J,K,L)/FFactor(S,I,K,L)/FNHS(I,J,L)
+                enddo
+             enddo
+           enddo
+       enddo
+       iStatus = nf90_put_var(iFileID, iFluxVar,  F(:,:,:,:))
+    enddo
+    deallocate(F)
+
+    iStatus = nf90_close(iFileID)
+    call ncdf_check(iStatus, NameSub)
+
+  endsubroutine write2DFlux
+
 !==========================================================================
   subroutine ram_epot_write
 
@@ -731,22 +800,6 @@ end subroutine read_geomlt_file
       LNCD(S,I)=XNDO(I)-XND(S,I)
       LECD(S,I)=EDO(I)-ENERD(S,I)
     END DO
-
-    ! Write the trapped equatorial flux [1/s/cm2/sr/keV]
-    if (NT.EQ.49) JW=6
-    if (NT.EQ.25) JW=3
-    IW=4
-    NameFileOut=trim(PathRamOut)//RamFileName('ram'//st2,'t',TimeRamNow)
-    open(unit=UnitTMP_, file=trim(NameFileOut), status='UNKNOWN')
-    DO I=4,NR,IW
-      DO 25 J=1,NT-1,JW
-        WRITE(UNITTMP_,32) StringDate,LZ(I),KP,MLT(J)
-        if (outsideMGNP(I,J) == 1) F(I,J,:,:) = 1e-31
-        DO 27 K=4,NE-1
-27      WRITE(UNITTMP_,30) EKEV(K),(F(I,J,K,L),L=2,NPA-2)
-25    CONTINUE
-    END DO
-    close(UNITTMP_)
 
 ! WPI is not currently working, so these write statements are commented out -ME
     ! Write the total precipitating flux [1/cm2/s]

@@ -38,7 +38,8 @@ module ModRamTiming
               DtW_Pressure = 300.0,  &
               DtW_hI       = 300.0,  &
               DtW_EField   = 3600.0, &
-              DtW_MAGxyz   = 300.0
+              DtW_MAGxyz   = 300.0,  &
+              DtW_2DFlux   = 3600.0
   real(DP) :: T, UTs
   real(DP) :: Efficiency = 0.0, SysTimeStart, SysTimeNow
   real(DP) :: dtPrintTiming = 300.0
@@ -198,7 +199,8 @@ module ModRamTiming
          DtW_Pressure-mod(TimeIn, DtW_Pressure), &
          DtW_EField  -mod(TimeIn, DtW_EField  ), &
          DtW_hI      -mod(TimeIn, DtW_hI      ), &
-         DtW_MAGxyz  -mod(TimeIn, DtW_MAGxyz  )) / 2.0
+         DtW_MAGxyz  -mod(TimeIn, DtW_MAGxyz  ), &
+         DtW_2DFlux  -mod(TimeIn, DtW_2DFlux  )) / 2.0
 
     if(DoTestMe)then
        write(*,'(2a,f11.2,a)')NameSub,' using these values at t=',TimeIn,':'
