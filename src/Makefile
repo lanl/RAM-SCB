@@ -54,11 +54,9 @@ PLE_OBJECTS=                  \
         fct-source.o          \
         irisub_2012.o         \
         iritec.o              \
-        iri87.o               \
         iriflip.o             \
         iridreg.o             \
         irifun_2012.o         \
-        msis86.o              \
         nrlmsise00_sub.o      \
         igrf.o
 
