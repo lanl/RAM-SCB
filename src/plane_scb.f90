@@ -390,24 +390,29 @@
 !      Rs = Rsun(f10p7)
       
       iMass = 0
-      if(UseNRL_MSISE) then
+
+      !if(UseNRL_MSISE) then
          call gts7(iyd, sec, altr, glt, glng, sLT, &
               f10p7, f10p7, ap, iMass, d, exoT)      
-      else
-         call gts5(iyd, sec, altr, glt, glng, sLT, &
-              f10p7, f10p7, ap, iMass, d, exoT)
-      endif
+      !else
+      !   call gts5(iyd, sec, altr, glt, glng, sLT, &
+      !        f10p7, f10p7, ap, iMass, d, exoT)
+      !endif
+
       Tn = exoT(2)
       iMass = 16
-      if(UseNRL_MSISE) then
+
+      !if(UseNRL_MSISE) then
          call gts7(iyd, sec, altr, glt, glng, sLT, &
               f10p7, f10p7, ap, iMass, d, exoT)
-      else
-         call gts5(iyd, sec, altr, glt, glng, sLT, &
-              f10p7, f10p7, ap, iMass, d, exoT)
-      endif
+      !else
+      !   call gts5(iyd, sec, altr, glt, glng, sLT, &
+      !        f10p7, f10p7, ap, iMass, d, exoT)
+      !endif
+
       nO = d(2)                                                     ! O
-      if(UseIRI_2012) then
+
+      !if(UseIRI_2012) then
 ! Since day is day-of-year, I store this as a negative number in mmdd
          mmdd = -day
          hours = sec/3600.
@@ -421,10 +426,11 @@
          Ti = OUTF(3,1)
          Te = OUTF(4,1)
 
-      else
-         call iri(altr, jMag, mLat, mLong, Rs, month, sLT, &
-              nOp, Ti, Te, magbr)                                  ! Ti, Te
-      endif      
+      !else
+      !   call iri(altr, jMag, mLat, mLong, Rs, month, sLT, &
+      !        nOp, Ti, Te, magbr)                                  ! Ti, Te
+      !endif      
+
       rf = RE_cm + altr*1.e5
       g = 980.*(RE_cm/rf)**2
       HOp = KB*(Ti + Te)/(MOP*g)
@@ -434,24 +440,27 @@
 
       alt0 = altr - Hp*log( (2.e19/(nOp*nO)) * (Ti/Hc)**2 )
       iMass = 0
-      if(UseNRL_MSISE) then
+      !if(UseNRL_MSISE) then
          call gts7(iyd, sec, alt0, glt, glng, sLT, &
               f10p7, f10p7, ap, iMass, d, exoT)
-      else
-         call gts5(iyd, sec, alt0, glt, glng, sLT, &
-              f10p7, f10p7, ap, iMass, d, exoT)
-      endif
+      !else
+      !   call gts5(iyd, sec, alt0, glt, glng, sLT, &
+      !        f10p7, f10p7, ap, iMass, d, exoT)
+      !endif
       Tn = exoT(2)
       iMass = 1
-      if(UseNRL_MSISE) then
+
+      !if(UseNRL_MSISE) then
          call gts7(iyd, sec, alt0, glt, glng, sLT, &
               f10p7, f10p7, ap, iMass, d, exoT)
-      else
-         call gts5(iyd, sec, alt0, glt, glng, sLT, &
-              f10p7, f10p7, ap, iMass, d, exoT)
-      endif
+      !else
+      !   call gts5(iyd, sec, alt0, glt, glng, sLT, &
+      !        f10p7, f10p7, ap, iMass, d, exoT)
+      !endif
+
       nH = d(7)                                                    ! H
-      if(UseIRI_2012) then
+
+      !if(UseIRI_2012) then
          heibeg = alt0
          heiend = alt0
          heistp = 1
@@ -462,10 +471,11 @@
          Ti = OUTF(3,1)
          Te = OUTF(4,1)
 
-      else
-         call iri(alt0, jMag, mLat, mLong, Rs, month, sLT, &
-              nOp, Ti, Te, magbr)                                 ! O^+
-      endif
+      !else
+      !   call iri(alt0, jMag, mLat, mLong, Rs, month, sLT, &
+      !        nOp, Ti, Te, magbr)                                 ! O^+
+      !endif
+
       r0 = RE_cm + alt0*1.e5
       g = 980.*(RE_cm/r0)**2
       HOp = KB*(Ti+Te)/(MOP*g)
