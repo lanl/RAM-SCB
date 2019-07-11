@@ -48,86 +48,6 @@ void ramgsl_initialization_c(int a)
    }
 
 /*===============================================================================================*/
-/* Interpolate in 1D and return interpolated values and derivatives */
-void interpolation_1d_c(int n, int i1, int i2,
-                        double *xa, double *fa, 
-                        double *xb, double *fb, int *status)
-   {
-      int i, err;
-      const gsl_interp_type *t;
-
-      gsl_interp_accel *acc = gsl_interp_accel_alloc ();
-
-      /* Spline List
-         n = 0 => Linear Spline
-         n = 1 => Cubic Spline
-         n = 2 => Akima Spline
-         n = 3 => Steffen Spline
-      */
-      
-      if (n == 0) {
-         t = gsl_interp_linear;
-      }else if (n == 1) {  
-         if (fa[0] == fa[i1-1] ) {
-             t = gsl_interp_cspline_periodic;
-         }else{
-             t = gsl_interp_cspline;
-         }
-      }else if (n == 2) {
-         if (fa[0] == fa[i1-1] ) {
-             t = gsl_interp_akima_periodic;
-         }else{
-             t = gsl_interp_akima;
-         }
-      }else if (n == 3) {
-         t = gsl_interp_steffen;
-      }else{
-         t = gsl_interp_linear;
-      }
-      gsl_spline *spline = gsl_spline_alloc (t, i1);
-      err = gsl_spline_init (spline, xa, fa, i1);
-      if (err) { 
-         //printf("interp error: Array not in ascending order ");
-         //for ( i=1; i<i1; i++ ) {
-         //    printf("%f ",xa[i]);
-         //} 
-         //printf("\n");
-         status[0] = err;
-         return;
-      }
-
-      if (xb[0] <= xa[0]) { xb[0] = xa[0] + 1e-10; }
-      if (xb[i2-1] >= xa[i1-1]) { xb[i2-1] = xa[i1-1] - 1e-10; }
-      for ( i = 0; i<i2; i++ ) {
-         // We need to add some sort of extrapolation. For now do linear extrapolation -ME
-         if (xb[i] <= xa[0]) {
-            fb[i] = fa[0] + (xb[i]-xa[0])/(xa[1]-xa[0])*(fa[1]-fa[0]);
-            err = GSL_EDOM;
-         }else if (xb[i] >= xa[i1-1]) {
-            fb[i] = fa[i-1] + (xb[i]-xa[i1-1])/(xa[i1-2]-xa[i1-1])*(fa[i1-2]-fa[i1-1]);
-            err = GSL_EDOM;
-         }else{
-            err = gsl_spline_eval_e(spline, xb[i], acc, &fb[i]);
-            }
-
-//         if (err) {
-//            if (err == GSL_EDOM) {
-//               printf("interpolation_1d_c warning, GSL_EDOM: x is outside range of xa, x=%f, xa[0]=%f, xa[-1]=%f\n",xb[i],xa[0],xa[i1-1]);
-//               printf("  Using extrapolated value, y=%f, ya[0]=%f, ya[-1]=%f\n",fb[i],fa[0],fa[i1-1]);
-//            }else{
-//               printf("interpolation_1d_c failed: Generic failure\n");
-//            }
-//         }
-
-      }
-      status[0] = err;
-
-      gsl_spline_free (spline);
-      gsl_interp_accel_free (acc);
-      return;
-   }
-
-/*===============================================================================================*/
 /* Interpolate in 1D smoothing spline and return N values and derivatives */
 void interpolation_smooth_c(int i1, int i2,
                             double *xa, double *fa,
@@ -166,8 +86,12 @@ void interpolation_smooth_c(int i1, int i2,
 
       err = gsl_multifit_linear(X, y, c, cov, &chisq, mw);
 
-      for (i = 0; i<i2; i++) {
-          xb[i] = xa[0] + (i+1)*(xa[n-1]-xa[0])/(i2+2);
+      xb[0] = xa[0];
+      xb[i2-1] = xa[n-1];
+      fb[0] = fa[0];
+      fb[i2-1] = fa[n-1];
+      for (i = 1; i<i2-1; i++) {
+          xb[i] = xa[0] + i*(xa[n-1]-xa[0])/(i2-1);
           gsl_bspline_eval(xb[i],B,bw);
           gsl_multifit_linear_est(B, c, cov, &fb[i], &yerr);
       }
@@ -180,6 +104,72 @@ void interpolation_smooth_c(int i1, int i2,
       gsl_vector_free(y);
       gsl_matrix_free(cov);
       gsl_multifit_linear_free(mw);
+      return;
+   }
+
+/*===============================================================================================*/
+void interpolation_1d_c(int n, int i1, int i2,
+                        double *xa, double *fa,
+                        double *xb, double *fb, int *status)
+   {
+      int i, j, err, err2;
+      const gsl_interp_type *t;
+      gsl_interp_accel *acc = gsl_interp_accel_alloc ();
+      gsl_spline *spline;
+
+      /* Spline List
+         n = 0 => Linear Spline
+         n = 1 => Cubic Spline
+         n = 2 => Akima Spline
+         n = 3 => Steffen Spline
+      */
+      if (n == 0) {
+         t = gsl_interp_linear;
+      }else if (n == 1) {
+         if (fa[0] == fa[i1-1] ) {
+             t = gsl_interp_cspline_periodic;
+         }else{
+             t = gsl_interp_cspline;
+         }
+      }else if (n == 2) {
+         if (fa[0] == fa[i1-1] ) {
+             t = gsl_interp_akima_periodic;
+         }else{
+             t = gsl_interp_akima;
+         }
+      }else if (n == 3) {
+         t = gsl_interp_steffen;
+      }else{ 
+         t = gsl_interp_linear;
+      }
+      spline = gsl_spline_alloc (t, i1);
+      err = gsl_spline_init (spline, xa, fa, i1);
+      if (err) {
+         printf("interp error: Array not in ascending order\n");
+         for ( i=0; i<i1; i++ ) {
+             printf("%f ",xa[i]);
+         }
+         printf("\n");
+         status[0] = err;
+         gsl_spline_free (spline);
+         gsl_interp_accel_free (acc);
+         return;
+      }
+
+      for ( i = 0; i<i2; i++ ) {
+         // We need to add some sort of extrapolation. For now do linear extrapolation -ME
+         if (xb[i] <= xa[0]) {
+            fb[i] = fa[0] + (xb[i]-xa[0])/(xa[1]-xa[0])*(fa[1]-fa[0]);
+         }else if (xb[i] >= xa[i1-1]) {
+            fb[i] = fa[i1-1] + (xb[i]-xa[i1-1])/(xa[i1-2]-xa[i1-1])*(fa[i1-2]-fa[i1-1]);
+         }else{
+            err = gsl_spline_eval_e(spline, xb[i], acc, &fb[i]);
+         }
+      }
+      status[0] = err;
+
+      gsl_spline_free (spline);
+      gsl_interp_accel_free (acc);
       return;
    }
 
@@ -235,16 +225,51 @@ void interpolation_2d_c(int i1, int j1, int i2, int j2,
 //
 /*===============================================================================================*/
 /* Return 1D derivatives */
-void interpolation_derivs_c(int i1, double *xa, double *fa, double *dx, int *status)
+void interpolation_derivs_c(int n, int i1, double *xa, double *fa, double *dx, int *status)
    {
       int i, err;
       const gsl_interp_type *t;
-
       gsl_interp_accel *acc = gsl_interp_accel_alloc ();
-      t = gsl_interp_steffen;
-      gsl_spline *spline = gsl_spline_alloc (t, i1);
+      gsl_spline *spline;
+
+      /* Spline List
+         n = 0 => Linear Spline
+         n = 1 => Cubic Spline
+         n = 2 => Akima Spline
+         n = 3 => Steffen Spline
+      */
+      if (n == 0) {
+         t = gsl_interp_linear;
+      }else if (n == 1) {
+         if (fa[0] == fa[i1-1] ) {
+             t = gsl_interp_cspline_periodic;
+         }else{
+             t = gsl_interp_cspline;
+         }
+      }else if (n == 2) {
+         if (fa[0] == fa[i1-1] ) {
+             t = gsl_interp_akima_periodic;
+         }else{
+             t = gsl_interp_akima;
+         }
+      }else if (n == 3) {
+         t = gsl_interp_steffen;
+      }else{
+         t = gsl_interp_linear;
+      }
+      spline = gsl_spline_alloc (t, i1);
       err = gsl_spline_init (spline, xa, fa, i1);
-      if (err) { printf("deriv error %f %f %f %f %f %f\n",xa[0],xa[1],xa[2],xa[i1-3],xa[i1-2],xa[i1-1]); }
+      if (err) {
+         printf("interp error: Array not in ascending order\n");
+         for ( i=0; i<i1; i++ ) {
+             printf("%f ",xa[i]);
+         }
+         printf("\n");
+         status[0] = err;
+         gsl_spline_free (spline);
+         gsl_interp_accel_free (acc);
+         return;
+      }
 
       for ( i = 0; i<i1; i++ ) {
          err = gsl_spline_eval_deriv_e(spline,xa[i],acc,&dx[i]);
@@ -329,18 +354,6 @@ void integrate_i_c(int i1, double a, double b, double *cVal, double *bf,
 
       gsl_integration_cquad_workspace_free(w);
 
-/*
-      gsl_integration_workspace *w
-         = gsl_integration_workspace_alloc(10000);
-
-      gsl_function F;
-      F.function = &f_i;
-      F.params = &params;
-
-      int err = gsl_integration_qag(&F, a, b, 1e-4, 1e-3, 3, 10000, w, &result[0], &error[0]);
-
-      gsl_integration_workspace_free(w);
-*/
       if (err) {
          if (err == GSL_EDIVERGE) {
             printf("integrate_i_c warning, GSL_EDIVERGE: Integral is divergent, or too slowly convergent to be integrated numerically\n");
@@ -392,18 +405,7 @@ void integrate_h_c(int i1, double a, double b, double *cVal, double *bf,
       int err = gsl_integration_cquad(&F, a, b, 1e-3, 1e-3, w, &result[0], &error[0], &nevals);
 
       gsl_integration_cquad_workspace_free(w);
-/*
-      gsl_integration_workspace *w
-         = gsl_integration_workspace_alloc(10000);
 
-      gsl_function F;
-      F.function = &f_h;
-      F.params = &params;
-
-      int err = gsl_integration_qags(&F, a, b, 1e-4, 1e-3, 10000, w, &result[0], &error[0]);
-
-      gsl_integration_workspace_free(w);
-*/
       if (err) {
          if (err == GSL_EDIVERGE) {
             printf("integrate_h_c warning, GSL_EDIVERGE: Integral is divergent, or too slowly convergent to be integrated numerically\n");
@@ -468,17 +470,6 @@ void integrate_hdens_c(int i1, double a, double b, double *cVal, double *bf,
       int err = gsl_integration_cquad(&F, a, b, 1e-3, 1e-3, w, &result[0], &error[0], &nevals);
 
       gsl_integration_cquad_workspace_free(w);
-/*
-      gsl_integration_workspace *w
-         = gsl_integration_workspace_alloc(10000);
-
-      gsl_function F;
-      F.function = &f_hdens;
-      F.params = &params;
-
-      int err = gsl_integration_qags(&F, a, b, 1e-4, 1e-3, 10000, w, &result[0], &error[0]);
-      gsl_integration_workspace_free(w);
-*/
       if (err) {
          if (err == GSL_EDIVERGE) {
             printf("integrate_hdens_c warning, GSL_EDIVERGE: Integral is divergent, or too slowly convergent to be integrated numerically\n");
@@ -512,21 +503,14 @@ void integrator_c(int nT, int nPa, double *mirror, double *cVal, double *bf,
             b[L] = 0;
             LH[L] = 0;
             RH[L] = 0;
-            if (mirror[L] < bf[(nT+1)/2]) {
-                a[L] = cVal[(nT+1)/2];
-                b[L] = cVal[(nT+1)/2];
-                LH[L] = (nT+1)/2;
-                RH[L] = (nT+1)/2;
-                continue;
-            }
-            for (i=1; i<(nT+1)/2+2; i++) {
+            for (i=1; i<nT-1; i++) {
                 if (mirror[L] <= bf[i-1] && mirror[L] >= bf[i]) {
                     a[L] = cVal[i-1];
                     LH[L] = i-1;
                     break;
                 }
             }
-            for (i=nT-2; i>(nT+1)/2-2; i--) {
+            for (i=nT-2; i>0; i--) {
                 if (mirror[L] >= bf[i-1] && mirror[L] <= bf[i]) {
                     b[L] = cVal[i];
                     RH[L] = i;

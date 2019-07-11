@@ -46,9 +46,9 @@ MODULE ModRamGSL
         real(c_double) :: xb(*), yb(*), zb(*), fb(*)
      end subroutine Interpolation_3D_c
 
-     subroutine Interpolation_Derivs_c(i1,xa,fa,dx,err) BIND(C)
+     subroutine Interpolation_Derivs_c(n,i1,xa,fa,dx,err) BIND(C)
         use, intrinsic :: iso_c_binding
-        integer(c_int), value :: i1
+        integer(c_int), value :: n, i1
         integer(c_int) :: err(*)
         real(c_double) :: xa(*), fa(*)
         real(c_double) :: dx(*)
@@ -130,7 +130,7 @@ MODULE ModRamGSL
 
     nT_c = size(theta,1)
     nPa_c = size(bM,1)
- 
+
     allocate(theta_c(nT_c),field_c(nT_c),distance_c(nT_c))
     allocate(bM_c(nPa_c),y_i_c(nPa_c),y_h_c(nPa_c),y_hdens_c(nPa_c))
 
@@ -200,21 +200,37 @@ MODULE ModRamGSL
 
     implicit none
 
+    integer :: i,j,n0
     integer, intent(out) :: err
     real(DP), DIMENSION(:), INTENT(IN)  :: x1, f1, x2
     real(DP), DIMENSION(:), INTENT(INOUT) :: f2
+    real(DP), DIMENSION(:), ALLOCATABLE :: y1, g1
     character(len=*), optional, INTENT(IN) :: ctype
 
     INTEGER(c_int) :: n1, n2, err_c(1), ntype
     real(c_double), DIMENSION(:), ALLOCATABLE :: xa, fa, xb, fb
 
-    n1 = size(x1,1)
+    ! Check for monotonicity in x1
+    n0 = size(x1,1)
+    allocate(y1(n0), g1(n0))
+    y1(1) = x1(1)
+    g1(1) = f1(1)
+    j = 1
+    do i = 2, n0
+       if (x1(i) > y1(j)) then
+          j = j + 1
+          y1(j) = x1(i)
+          g1(j) = f1(i)
+       endif
+    enddo
+
+    n1 = j
     n2 = size(x2,1)
 
     ALLOCATE(xa(n1),fa(n1),xb(n2),fb(n2))
 
-    xa = REAL(x1,c_double)
-    fa = REAL(f1,c_double)
+    xa = REAL(y1(1:j),c_double)
+    fa = REAL(g1(1:j),c_double)
     xb = REAL(x2,c_double)
 
     if (present(ctype)) then
@@ -226,6 +242,8 @@ MODULE ModRamGSL
           ntype = 3
        elseif (ctype.eq.'Linear') then
           ntype = 0
+       elseif (ctype.eq.'Smooth') then
+          ntype = 4
        else
           ntype = 3
        endif
@@ -278,6 +296,8 @@ MODULE ModRamGSL
           ntype = 3
        elseif (ctype.eq.'Linear') then
           ntype = 0
+       elseif (ctype.eq.'Smooth') then
+          ntype = 4
        else
           ntype = 3
        endif
@@ -604,7 +624,7 @@ MODULE ModRamGSL
   end subroutine Interpolation_3D
 
 !==================================================================================================
-  subroutine Interpolation_1D_Derivs(x1,f1,dfdx,err)
+  subroutine Interpolation_1D_Derivs(x1,f1,dfdx,err,ctype)
 
     use, intrinsic :: iso_c_binding
     use nrtype, ONLY: DP
@@ -616,8 +636,9 @@ MODULE ModRamGSL
     real(DP), DIMENSION(:), INTENT(IN)  :: x1
     real(DP), DIMENSION(:), INTENT(IN)  :: f1
     real(DP), DIMENSION(:), INTENT(INOUT) :: dfdx
+    character(len=*), optional, INTENT(IN) :: ctype
 
-    INTEGER(c_int) :: n1, err_c(1)
+    INTEGER(c_int) :: n1, err_c(1), ntype
     real(c_double), DIMENSION(:), ALLOCATABLE :: xa
     real(c_double), DIMENSION(:), ALLOCATABLE :: fa, dx
 
@@ -628,7 +649,25 @@ MODULE ModRamGSL
     xa = REAL(x1,c_double)
     fa = REAL(f1,c_double)
 
-    call Interpolation_Derivs_c(n1,xa,fa,dx,err_c)
+    if (present(ctype)) then
+       if (ctype.eq.'Cubic') then
+          ntype = 1
+       elseif (ctype.eq.'Akima') then
+          ntype = 2
+       elseif (ctype.eq.'Steffen') then
+          ntype = 3
+       elseif (ctype.eq.'Linear') then
+          ntype = 0
+       elseif (ctype.eq.'Smooth') then
+          ntype = 4
+       else
+          ntype = 3
+       endif
+    else
+       ntype = 3
+    endif
+
+    call Interpolation_Derivs_c(ntype,n1,xa,fa,dx,err_c)
 
     dfdx = REAL(dx,DP)
     err = int(err_c(1),kind=4)
@@ -640,7 +679,7 @@ MODULE ModRamGSL
   end subroutine Interpolation_1D_Derivs
 
 !==================================================================================================
-  subroutine Interpolation_2D_Derivs(x1,y1,f1,dfdx,dfdy,err)
+  subroutine Interpolation_2D_Derivs(x1,y1,f1,dfdx,dfdy,err,ctype)
 
     use, intrinsic :: iso_c_binding
     use nrtype, ONLY: DP
@@ -652,9 +691,10 @@ MODULE ModRamGSL
     real(DP), DIMENSION(:), INTENT(IN)    :: x1, y1
     real(DP), DIMENSION(:,:), INTENT(IN)  :: f1
     real(DP), DIMENSION(:,:), INTENT(INOUT) :: dfdx, dfdy
+    character(len=*), optional, INTENT(IN) :: ctype
     integer :: i, j
 
-    INTEGER(c_int) :: n1, m1, err_c(1)
+    INTEGER(c_int) :: n1, m1, err_c(1), ntype
     real(c_double), DIMENSION(:), ALLOCATABLE :: xa, ya
     real(c_double), DIMENSION(:,:), ALLOCATABLE :: fa, dx, dy
 
@@ -667,11 +707,29 @@ MODULE ModRamGSL
     ya = REAL(y1,c_double)
     fa = REAL(f1,c_double)
 
+    if (present(ctype)) then
+       if (ctype.eq.'Cubic') then
+          ntype = 1
+       elseif (ctype.eq.'Akima') then
+          ntype = 2
+       elseif (ctype.eq.'Steffen') then
+          ntype = 3
+       elseif (ctype.eq.'Linear') then
+          ntype = 0
+       elseif (ctype.eq.'Smooth') then
+          ntype = 4
+       else
+          ntype = 3
+       endif
+    else
+       ntype = 3
+    endif
+
     do i = 1,n1
-       call Interpolation_Derivs_c(m1,ya,fa(i,:),dy(i,:),err_c)
+       call Interpolation_Derivs_c(ntype,m1,ya,fa(i,:),dy(i,:),err_c)
     end do
     do j = 1,m1
-       call Interpolation_Derivs_c(n1,xa,fa(:,j),dx(:,j),err_c)
+       call Interpolation_Derivs_c(ntype,n1,xa,fa(:,j),dx(:,j),err_c)
     end do
 
     dfdx = REAL(dx,DP)
@@ -685,7 +743,7 @@ MODULE ModRamGSL
   end subroutine Interpolation_2D_Derivs
 
 !==================================================================================================
-  subroutine Interpolation_3D_Derivs(x1,y1,z1,f1,dfdx,dfdy,dfdz,err)
+  subroutine Interpolation_3D_Derivs(x1,y1,z1,f1,dfdx,dfdy,dfdz,err,ctype)
 
     use, intrinsic :: iso_c_binding
     use nrtype, ONLY: DP
@@ -697,9 +755,10 @@ MODULE ModRamGSL
     real(DP), DIMENSION(:), INTENT(IN)      :: x1, y1, z1
     real(DP), DIMENSION(:,:,:), INTENT(IN)  :: f1
     real(DP), DIMENSION(:,:,:), INTENT(INOUT) :: dfdx, dfdy, dfdz
+    character(len=*), optional, INTENT(IN) :: ctype
     integer :: i, j, k, e1, e2, e3
 
-    INTEGER(c_int) :: n1, m1, l1, e1_c(1), e2_c(1), e3_c(1)
+    INTEGER(c_int) :: n1, m1, l1, e1_c(1), e2_c(1), e3_c(1), ntype
     real(c_double), DIMENSION(:), ALLOCATABLE :: xa, ya, za
     real(c_double), DIMENSION(:,:,:), ALLOCATABLE :: fa, dx, dy, dz
 
@@ -715,17 +774,35 @@ MODULE ModRamGSL
     za = REAL(z1,c_double)
     fa = REAL(f1,c_double)
 
+    if (present(ctype)) then
+       if (ctype.eq.'Cubic') then
+          ntype = 1
+       elseif (ctype.eq.'Akima') then
+          ntype = 2
+       elseif (ctype.eq.'Steffen') then
+          ntype = 3
+       elseif (ctype.eq.'Linear') then
+          ntype = 0
+       elseif (ctype.eq.'Smooth') then
+          ntype = 4
+       else
+          ntype = 3
+       endif
+    else
+       ntype = 3
+    endif
+
     do i = 1,n1
        do j = 1,m1
-          call Interpolation_Derivs_c(l1,za,fa(i,j,:),dz(i,j,:),e1_c)
+          call Interpolation_Derivs_c(ntype,l1,za,fa(i,j,:),dz(i,j,:),e1_c)
        end do
        do k = 1,l1
-          call Interpolation_Derivs_c(m1,ya,fa(i,:,k),dy(i,:,k),e2_c)
+          call Interpolation_Derivs_c(ntype,m1,ya,fa(i,:,k),dy(i,:,k),e2_c)
        end do
     end do
     do j = 1,m1
        do k = 1,l1
-          call Interpolation_Derivs_c(n1,xa,fa(:,j,k),dx(:,j,k),e3_c)
+          call Interpolation_Derivs_c(ntype,n1,xa,fa(:,j,k),dx(:,j,k),e3_c)
        end do
     end do
 
