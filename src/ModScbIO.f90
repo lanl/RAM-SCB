@@ -26,12 +26,12 @@ MODULE ModScbIO
     use ModRamGrids,     ONLY: nRExtend, nT, nR, RadiusMax, RadiusMin
     USE ModScbParams,    ONLY: Symmetric, constZ, constTheta
     USE ModScbGrids,     ONLY: npsi, nthe, nzeta
-    USE ModScbVariables, ONLY: xpsiin, xpsiout, r0Start, bf, &
+    USE ModScbVariables, ONLY: xpsiin, xpsiout, r0Start, bf, nThetaEquator, &
                                x, y, z, thetaVal, zetaVal, left, right, chiVal, &
                                kmax, nZetaMidnight, xzero3, f, fzet, fp, &
-                               fzetp, psiVal, alphaVal, psiin, psiout, psitot
+                               fzetp, psiVal, alphaVal, psiin, psiout, psitot, SORFail
     !!!! SMWF Variables
-    use ModRamCouple,    ONLY: BLines_DIII, IsClosed_II, nPointsMax, nPoints
+    use ModRamCouple,    ONLY: generate_field
     !!!! Module Subroutines/Functions
     use ModRamGSL,       ONLY: GSL_Interpolation_1D
     use ModRamFunctions, ONLY: RamFileName
@@ -39,28 +39,27 @@ MODULE ModScbIO
                                psifunctions
     use ModScbFunctions, ONLY: get_dipole_lines
     !!!! Share Modules
-    use ModTimeConvert, ONLY: n_day_of_year
+    use ModTimeConvert, ONLY: n_day_of_year, time_int_to_real
     USE ModIoUnit, ONLY: UNITTMP_
     !!!! NR Modules
     use nrtype, ONLY: DP, pi_d, twopi_d
 
     implicit none
 
-    INTEGER :: i, ii, j, k, scanLeft, scanRight, GSLerr
+    character(len=200) :: FileName
 
-    REAL(DP) :: dphi, phi, psis, xpsitot, xpl
-    REAL(DP) :: r0, t0, t1, tt, zt, b, rr, rt, psitemp
+    logical :: check, c(24)
+    INTEGER :: i, ii, j, k, scanLeft, scanRight, GSLerr
+    integer :: Year, Month, Day, Hour, Mins, sec
+    integer :: iMinute, iSecond
+
+    REAL(DP) :: dphi, phi, psis, xpsitot, xpl, tempVal
+    REAL(DP) :: r0, t0, t1, tt, zt, b, rr, rt, psitemp, rc(1)
     REAL(DP) :: Pdyn, Dst, ByIMF, BzIMF, G(3), W(6)
     REAL(DP), DIMENSION(1000) :: distance, xx, yy, zz, bx, by, bz
     INTEGER :: LMAX = 1000
     INTEGER :: LOUT, iYear, iMonth, iDay, iHour, iMin, iSec, ifail
-    REAL(DP) :: x0, y0, z0, xf, yf, zf
-    ! Variables needed for coupling
-    integer :: nSWMF
-    REAL(DP), allocatable :: xTemp(:), yTemp(:), zTemp(:)
-    REAL(DP), allocatable :: aTemp(:), pTemp(:), cTemp(:)
-    REAL(DP), allocatable :: x1(:,:,:), y1(:,:,:), z1(:,:,:)
-    REAL(DP), allocatable :: x2(:,:,:), y2(:,:,:), z2(:,:,:)
+    REAL(DP) :: x0, y0, z0, xf, yf, zf, rf, tf, b0
 
     integer :: time1, clock_rate, clock_max
     real(dp) :: starttime,stoptime
@@ -82,131 +81,11 @@ MODULE ModScbIO
        x(:,:,nzeta+1) = x(:,:,2)
        y(:,:,nzeta+1) = y(:,:,2)
        z(:,:,nzeta+1) = z(:,:,2)
+
     elseif (NameBoundMag.eq.'SWMF') then
        ! For generating x, y, and z arrays using the Space Weather Modelling Framework
-       nSWMF = 2*nPoints-1
-       ALLOCATE(xTemp(0:1000), yTemp(0:1000), zTemp(0:1000))
-       ALLOCATE(aTemp(0:nT), pTemp(nRExtend), cTemp(nSWMF))
-       ALLOCATE(x1(nRExtend,nZeta,nSWMF), y1(nRExtend,nZeta,nSWMF), z1(nRExtend,nZeta,nSWMF))
-       ALLOCATE(x2(npsi,nzeta,nSWMF), y2(npsi,nzeta,nSWMF), z2(npsi,nzeta,nSWMF))
-
-       ! Step 0: Get alphaVal, psiVal, and chiVal
-       !! ChiVal
-       chival = (thetaVal + constTheta*sin(2.*thetaVal))
-       !! AlphaVal
-       dphi  = twopi_d/REAL(nzeta-1, DP)
-       DO k = 1, nzeta+1
-          phi         = REAL(k-2, DP) * dphi
-          alphaVal(k) = phi + constZ*sin(phi)
-       END DO
-       !! PsiVal
-       xpsiout = 9999.9
-       ii = nR + floor((8.0 - RadiusMax)/((RadiusMax - RadiusMin)/(nR - 1)))
-       do j = 1, nT-1
-          if (IsClosed_II(ii,j)) then
-             xf = BLines_DIII(1,ii,j,1)
-             yf = BLines_DIII(2,ii,j,1)
-             zf = BLines_DIII(3,ii,j,1)
-             psitemp = 1./(1.-zf**2/(xf**2+yf**2+zf**2))
-          else
-             psitemp = 9999.9
-          endif
-          xpsiout = min(xpsiout,psitemp)
-       enddo
-       xpsiin  = 1.75
-       psiin   = -xzero3/xpsiin
-       psiout  = -xzero3/xpsiout
-       psitot  = psiout-psiin
-       xpsitot = xpsiout - xpsiin
-       DO j = 1, npsi
-          psis = REAL(j-1, DP) / REAL(npsi-1, DP)
-          xpl = xpsiin + xpsitot * psis
-          psival(j) = -xzero3 / xpl
-       ENDDO
-
-       ! Step 1: Take xF, yF, zF (nRExtend, nT, nSWMF) and put on x1, y1, z1 (nRExtend, nzeta, nSWMF) [MapAlpha]
-       do j = 0, nT
-          aTemp(j) = twopi_d * REAL(j-1, DP)/REAL(nT-1, DP)
-       enddo
-       do i = 1, nRExtend
-          do k = 1, nSWMF
-             xTemp(1:(nT-1)/2) = BLines_DIII(1,i,(nT-1)/2+1:nT-1,k)
-             xTemp((nT-1)/2+1:nT-1) = BLines_DIII(1,i,1:(nT-1)/2,k)
-             xTemp(0) = xTemp(nT-1)
-             xTemp(nT) = xTemp(1)
-
-             yTemp(1:(nT-1)/2) = BLines_DIII(2,i,(nT-1)/2+1:nT-1,k)
-             yTemp((nT-1)/2+1:nT-1) = BLines_DIII(2,i,1:(nT-1)/2,k)
-             yTemp(0) = yTemp(nT-1)
-             yTemp(nT) = yTemp(1)
-
-             zTemp(1:(nT-1)/2) = BLines_DIII(3,i,(nT-1)/2+1:nT-1,k)
-             zTemp((nT-1)/2+1:nT-1) = BLines_DIII(3,i,1:(nT-1)/2,k)
-             zTemp(0) = zTemp(nT-1)
-             zTemp(nT) = zTemp(1)
-
-             CALL GSL_Interpolation_1D(aTemp(1:nT),xTemp(1:nT), &
-                                       alphaVal(2:nzeta),x1(i,2:nzeta,k),GSLerr,'Cubic')
-             CALL GSL_Interpolation_1D(aTemp(1:nT),yTemp(1:nT), &
-                                       alphaVal(2:nzeta),y1(i,2:nzeta,k),GSLerr,'Cubic')
-             CALL GSL_Interpolation_1D(aTemp(1:nT),zTemp(1:nT), &
-                                       alphaVal(2:nzeta),z1(i,2:nzeta,k),GSLerr,'Cubic') 
-          enddo
-       enddo 
-
-       ! Step 2: Take x1, y1, z1 (nRExtend, nzeta, nSWMF) and put on x2, y2, z2 (npsi, nzeta, nSWMF) [MapPsi]
-       do j = 2, nzeta
-          ii = nRExtend
-          do k = 1, nSWMF
-             xTemp(1:ii) = x1(1:ii,j,k)
-             yTemp(1:ii) = y1(1:ii,j,k)
-             zTemp(1:ii) = z1(1:ii,j,k)
-             pTemp(1:ii) = 1./(1.-z1(1:ii,j,1)**2/(x1(1:ii,j,1)**2+y1(1:ii,j,1)**2+z1(1:ii,j,1)**2))
-             pTemp(1:ii) = -xzero3 / pTemp(1:ii)
-             monoticity_check: do i = 2, ii
-              if (pTemp(i) <= pTemp(i-1)) then
-                 ii = i-1
-                 exit monoticity_check
-              endif
-             enddo monoticity_check
-             CALL GSL_Interpolation_1D(pTemp(1:ii),xTemp(1:ii), &
-                                       psiVal(1:npsi),x2(1:npsi,j,k),GSLerr)
-             CALL GSL_Interpolation_1D(pTemp(1:ii),yTemp(1:ii), &
-                                       psiVal(1:npsi),y2(1:npsi,j,k),GSLerr)
-             CALL GSL_Interpolation_1D(pTemp(1:ii),zTemp(1:ii), &
-                                       psiVal(1:npsi),z2(1:npsi,j,k),GSLerr)
-          enddo
-       enddo
-
-       ! Step 3: Take x2, y2, z2 (npsi, nzeta, nSWMF) and put on x, y, z (nthe, npsi, nzeta) [MapTheta]
-       do i = 1, npsi
-          do j = 2, nzeta
-             distance(1) = 0._dp
-             xTemp(1:nSWMF) = x2(i,j,1:nSWMF)
-             yTemp(1:nSWMF) = y2(i,j,1:nSWMF)
-             zTemp(1:nSWMF) = z2(i,j,1:nSWMF)
-             DO k = 2, nSWMF
-                distance(k) = distance(k-1) + SQRT((xTemp(k)-xTemp(k-1))**2 &
-                                                  +(yTemp(k)-yTemp(k-1))**2 &
-                                                  +(zTemp(k)-zTemp(k-1))**2)
-             END DO
-             cTemp = distance(1:nSWMF) / distance(nSWMF) * pi_d
-             CALL GSL_Interpolation_1D(cTemp,xTemp(1:nSWMF), &
-                                       chiVal(1:nthe),x(1:nthe,i,j),GSLerr)
-             CALL GSL_Interpolation_1D(cTemp,yTemp(1:nSWMF), &
-                                       chiVal(1:nthe),y(1:nthe,i,j),GSLerr)
-             CALL GSL_Interpolation_1D(cTemp,zTemp(1:nSWMF), &
-                                       chiVal(1:nthe),z(1:nthe,i,j),GSLerr)
-          enddo
-       enddo
-       x(:,:,1) = x(:,:,nzeta)
-       y(:,:,1) = y(:,:,nzeta)
-       z(:,:,1) = z(:,:,nzeta)
-       x(:,:,nzeta+1) = x(:,:,2)
-       y(:,:,nzeta+1) = y(:,:,2)
-       z(:,:,nzeta+1) = z(:,:,2)
-
-       DEALLOCATE(xTemp,yTemp,zTemp,aTemp,pTemp,cTemp,x1,y1,z1,x2,y2,z2)
+       call generate_field(xpsiin,xpsiout)
+       if (SORFail) return
     else
        ! For generating x, y, and z arrays using field line tracing
        !! Define the inputs needed for the magnetic field models for the tracing
@@ -782,8 +661,8 @@ MODULE ModScbIO
     integer :: Year, Month, Day, FileIndexStart, FileIndexEnd, nIndex
     integer :: iYear, iMonth, iDay, iHour, iMinute, iSecond
     integer :: i, iError, Hour, Mins, Sec, iFail
-    real(DP) :: dsA, dsI, nSecondsPrev, nSecondsNow
-    real(DP), allocatable :: BufferNow(:), BufferPrev(:), BufferA(:)
+    real(DP) :: dsA, dsI
+    real(DP), allocatable :: Buffer(:,:), BufferA(:), nSeconds(:)
     REAL(DP) :: AA, SPS, CPS, PS, AB, dut
     COMMON /GEOPACK1/ AA(10),SPS,CPS,AB(3),PS
 
@@ -806,95 +685,90 @@ MODULE ModScbIO
     CPS = 1.0
     PS = 0.0
 
-    IF ((NameBoundMag.eq.'T89I').or.(NameBoundMag.eq.'T89D')) THEN
-       IOPT = min(floor(Kp+0.5),6)+1
-       PARMOD = 0.0
-       return
-    endif
-
-    write(StringFileDate,'(i4.4,i2.2,i2.2)') Year, Month, Day
-    write(StringFileFolder,'(i4.4)') Year
-    QDFile = trim(QinDentonPath)//'/QinDenton_'//StringFileDate//'_1min.txt'
-    INQUIRE(File= trim(QDFile), EXIST=LExist)
-    IF (.not.LExist) then
-       QDFile = trim(QinDentonPath)//StringFileFolder//'/QinDenton_'//StringFileDate//'_1min.txt'
-    ENDIF
-    open(unit=UNITTMP_, file=QDFile, status='OLD', iostat=iError)
-    if(iError/=0) call CON_stop('get_model_inputs: Error opening file '//trim(QDFile))
-    FileIndexStart = 0
-    FileIndexEnd = 0
-    nIndex = 0
-    Read_QDFile_Dates: DO
-       read(UNITTMP_,*,IOSTAT=iError) TimeBuffer
-       if ((trim(TimeBuffer).ne.'#').and.(FileIndexStart.eq.0)) FileIndexStart = nIndex
-       if (iError.lt.0) then
-          FileIndexEnd = nIndex
-          exit Read_QDFile_Dates
-       elseif (iError.gt.0) then
-          return
-       else
-          nIndex = nIndex + 1
-          cycle Read_QDFile_Dates
-       endif
-    ENDDO Read_QDFile_Dates
-    nIndex = FileIndexEnd-FileIndexStart-1
-    close(UNITTMP_)
-
-    open(unit=UNITTMP_, file=QDFile, status='OLD', iostat=iError)
-    do i=1,FileIndexStart
-       read(UNITTMP_,*) StringHeader
-    enddo
-
-    allocate(BufferNow(36),BufferPrev(36), BufferA(36))
-    BufferNow = 0.0; BufferPrev = 0.0; BufferA = 0.0
-
-    i = 1
-    nSecondsPrev = 0.0
-    nSecondsNow  = 0.0
-    Cycle_QDFile: do
-       read(UNITTMP_,*,IOSTAT=iError) TimeBuffer, iYear, iMonth, iDay, iHour, iMinute, iSecond, BufferNow(:)
-       if (iError.ne.0) return
-       if (iSecond.eq.60) then
-          iMinute = iMinute + 1
-          iSecond = 0
-       endif
-       if (iMinute.eq.60) then
-          iHour = iHour + 1
-          iMinute = 0
-       endif
-       call time_int_to_real((/iYear,iMonth,iDay,iHour,iMinute,iSecond,0/),nSecondsNow)
-       if (nSecondsNow.ge.TimeRamNow%Time) then  ! Check that we are on or past the time we want
-          dsA = nSecondsNow - TimeRamNow%Time
-          if (abs(dsA).le.1e-9) then                     ! Check if we are exactly on the time or past
-             BufferA(:) = BufferNow(:)
+    Pdyn  = 0.0 
+    Dst   = 0.0 
+    ByIMF = 0.0 
+    BzIMF = 0.0 
+    IF ((NameBoundMag.ne.'T89I').and.(NameBoundMag.ne.'T89D')) THEN
+       write(StringFileDate,'(i4.4,i2.2,i2.2)') Year, Month, Day
+       write(StringFileFolder,'(i4.4)') Year
+       QDFile = trim(QinDentonPath)//'/QinDenton_'//StringFileDate//'_1min.txt'
+       INQUIRE(File= trim(QDFile), EXIST=LExist)
+       IF (.not.LExist) then
+          QDFile = trim(QinDentonPath)//StringFileFolder//'/QinDenton_'//StringFileDate//'_1min.txt'
+       ENDIF
+       open(unit=UNITTMP_, file=QDFile, status='OLD', iostat=iError)
+       if(iError/=0) call CON_stop('get_model_inputs: Error opening file '//trim(QDFile))
+       FileIndexStart = 0
+       FileIndexEnd = 0
+       nIndex = 0
+       Read_QDFile_Dates: DO
+          read(UNITTMP_,*,IOSTAT=iError) TimeBuffer
+          if ((trim(TimeBuffer).ne.'#').and.(FileIndexStart.eq.0)) FileIndexStart = nIndex
+          if (iError.lt.0) then
+             FileIndexEnd = nIndex
+             exit Read_QDFile_Dates
           else
-             if (i.eq.1) then         ! Check if we are on the first time step
-                BufferA(:) = BufferNow(:)
+             nIndex = nIndex + 1
+             cycle Read_QDFile_Dates
+          endif
+       ENDDO Read_QDFile_Dates
+       nIndex = FileIndexEnd-FileIndexStart-1
+       close(UNITTMP_)
+
+       open(unit=UNITTMP_, file=QDFile, status='OLD', iostat=iError)
+       do i=1,FileIndexStart
+          read(UNITTMP_,*) StringHeader
+       enddo
+
+       allocate(nSeconds(nIndex),Buffer(nIndex,36), BufferA(36))
+       nSeconds = 0.0; Buffer = 0.0; BufferA = 0.0
+
+       i = 1
+       Cycle_QDFile: do
+          read(UNITTMP_,*) TimeBuffer, iYear, iMonth, iDay, iHour, iMinute, iSecond, Buffer(i,:)
+          if (iSecond.eq.60) then
+             iMinute = iMinute + 1
+             iSecond = 0
+          endif
+          if (iMinute.eq.60) then
+             iHour = iHour + 1
+             iMinute = 0
+          endif
+          call time_int_to_real((/iYear,iMonth,iDay,iHour,iMinute,iSecond,0/),nSeconds(i))
+          if (nSeconds(i).ge.TimeRamNow%Time) then  ! Check that we are on or past the time we want
+             dsA = nSeconds(i) - TimeRamNow%Time
+             if (abs(dsA).le.1e-9) then                     ! Check if we are exactly on the time or past
+                BufferA(:) = Buffer(i,:)
              else
-                dsA = TimeRamNow%Time - nSecondsPrev
-                dsI = nSecondsNow - nSecondsPrev
-                BufferA(:) = BufferPrev(:) + (dsA/dsI)*(BufferNow(:)-BufferPrev(:))
+                if (i.eq.1) then                    ! Check if we are on the first time step
+                   BufferA(:) = Buffer(1,:)
+                elseif (i.eq.nIndex) then
+                   BufferA(:) = Buffer(nIndex,:)
+                else
+                   dsA = TimeRamNow%Time - nSeconds(i-1)
+                   dsI = nSeconds(i) - nSeconds(i-1)
+                   BufferA(:) = Buffer(i-1,:) + (dsA/dsI)*(Buffer(i,:)-Buffer(i-1,:))
+                endif
              endif
+             !DenP = BufferA(4)
+             Pdyn = BufferA(5)
+             Dst = BufferA(19)
+             ByIMF = BufferA(1)
+             BzIMF = BufferA(2)
+             G(:) = BufferA(6:8)
+             W(:) = BufferA(26:31)
+             if (DoTestMe) then
+                write(*,*) 'Testing get_model_inputs'
+                write(*,*) 'Buffer = ', BufferA(:)
+                write(*,*) 'Values = ', Pdyn, Dst, ByIMF, BzIMF, G, W
+             endif
+             exit Cycle_QDFile
           endif
-          !DenP = BufferA(4)
-          Pdyn = BufferA(5)
-          Dst = BufferA(19)
-          ByIMF = BufferA(1)
-          BzIMF = BufferA(2)
-          G(:) = BufferA(6:8)
-          W(:) = BufferA(26:31)
-          if (DoTestMe) then
-             write(*,*) 'Testing get_model_inputs'
-             write(*,*) 'Buffer = ', BufferA(:)
-             write(*,*) 'Values = ', Pdyn, Dst, ByIMF, BzIMF, G, W
-          endif
-          exit Cycle_QDFile
-       endif
-       BufferPrev = BufferNow
-       nSecondsPrev = nSecondsNow
-       i = i + 1
-    enddo Cycle_QDFile
-    close(UNITTMP_)
+          i = i + 1
+       enddo Cycle_QDFile
+       close(UNITTMP_)
+    endif
 
     IOPT = 0
     PARMOD(1) = Pdyn
@@ -921,7 +795,7 @@ MODULE ModScbIO
        call INIT_TS07D_TLPR
     ENDIF
 
-    deallocate(BufferNow,BufferPrev,BufferA)
+    if (allocated(nSeconds)) deallocate(nSeconds,Buffer,BufferA)
     return
   end subroutine get_model_inputs
 !=============================================================================!

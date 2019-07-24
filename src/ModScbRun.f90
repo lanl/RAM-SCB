@@ -86,6 +86,7 @@
     decreaseConvPsi   = decreaseConvPsiMin + (decreaseConvPsiMax - decreaseConvPsiMin) &
                         *(MIN(Kp,6._dp))**2/36.
 
+    SORFail = .false.
 !!!!! Recalculate the SCB outerboundary
     if (nIter.ne.0) then
        call Update_Domain(check)
@@ -105,7 +106,7 @@
           f = fStart
           fp = fpStart
           fzet = fzetStart
-          SORFail = .false.
+          hICalc = .false.
           DEALLOCATE(xStart, yStart, zStart, psiStart, alphaStart, fStart, &
                      psiValStart, alphaValStart, fpStart, fzetStart, xPrev, &
                      yPrev, zPrev, alphaPrev, psiPrev, entropyFixed)

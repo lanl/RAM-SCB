@@ -117,8 +117,9 @@ module IM_wrapper
             Coord1_I = GridExtend+0.0,          & ! radial coordinates
             Coord2_I = Phi(1:nT)+0.0,           & ! longitudinal coordinates
             TypeCoord= 'SMG',                   & ! solar magnetic coord
-            nVar=7,                             & ! Number of "fluid" vars.
-            NameVar = 'rho p ppar Hpp Opp Hprho Oprho')
+            nVar=2,                             & ! Number of "fluid" vars.
+            NameVar = 'p rho')
+            !NameVar = 'rho p ppar Hpp Opp Hprho Oprho')
        ! For nVar/NameVar, RAM-SCB+BATS-R-US coupling does not need this
        ! convention.  Placeholders are used ONLY.
     else
@@ -132,8 +133,9 @@ module IM_wrapper
             Coord1_I =(/RadiusMin, RadiusMax/), & ! radial coordinates
             Coord2_I =(/0.0, cTwoPi/),          & ! longitudinal coordinates
             TypeCoord='SMG',                    & ! solar magnetic coord
-            nVar=7,                             & ! Number of "fluid" vars.
-            NameVar = 'rho p ppar Hpp Opp Hprho Oprho')
+            nVar=2,                             & ! Number of "fluid" vars.
+            NameVar = 'p rho')
+            !NameVar = 'rho p ppar Hpp Opp Hprho Oprho')
     endif
 
        
@@ -289,7 +291,7 @@ module IM_wrapper
     character(len=*), intent(in) :: NameVar
     
     integer           :: iT, iR, iDir, iRot, iLine
-    real(kind=Real8_) :: rotate_VII(3,nT,4), rad(399)
+    real(kind=Real8_) :: rotate_VII(3,nT,4), rad(10000)
     logical, save     :: IsFirstCall = .true.
 
     real, parameter :: sens=1E-5  ! Sensitivity for real differences.
@@ -408,16 +410,21 @@ module IM_wrapper
        ! Write some debug info to screen:
        if(DoTest) write(*,'(a,1x,i2.2,1x,i4.4,4(2x,f6.3))') &
             "iT, iLine, X, Y, Z, R = ", iT, iLine, &
-            MhdLines_IIV(iLine, 1, 5), &
-            MhdLines_IIV(iLine, 1, 4), &
             MhdLines_IIV(iLine, 1, 3), &
-            sqrt( MhdLines_IIV(iLine, 1, 5)**2   &
+            MhdLines_IIV(iLine, 1, 4), &
+            MhdLines_IIV(iLine, 1, 5), &
+            sqrt( MhdLines_IIV(iLine, 1, 3)**2   &
             +     MhdLines_IIV(iLine, 1, 4)**2   &
-            +     MhdLines_IIV(iLine, 1, 3)**2)
+            +     MhdLines_IIV(iLine, 1, 5)**2)
        
        ! Grab total dens and pressure, use first point in trace.
-       MhdDensPres_VII(1,iT,1) = MhdLines_IIV(iLine, 1, TotalRho_)
-       MhdDensPres_VII(2,iT,1) = MhdLines_IIV(iLine, 1, TotalPres_)
+       if (iEnd(iLine) == 0) then
+          MhdDensPres_VII(1,iT,1) = -1.0
+          MhdDensPres_VII(2,iT,1) = -1.0
+       else
+          MhdDensPres_VII(1,iT,1) = MhdLines_IIV(iLine, 1, TotalRho_)
+          MhdDensPres_VII(2,iT,1) = MhdLines_IIV(iLine, 1, TotalPres_)
+       endif
        
        if (TypeMhd .eq. 'anisoP')then
           ! anisotropic pressure from GM                           
@@ -453,7 +460,7 @@ module IM_wrapper
        iRot = mod(iT+((nT-1)/2-1),nT-1) + 1 ! Even # of cells, 1 ghost cell.
        rotate_VII(:,iT,:) = MhdDensPres_VII(:,iRot,:)
     end do
-    MhdDensPres_VII = rotate_VII
+    MhdDensPres_VII(:,1:nT,:) = rotate_VII(:,nT:1:-1,:)
     
     if(DoTest) then
        write(*,*) 'IM_Wrapper: pressure, in Pa:'
@@ -478,18 +485,22 @@ module IM_wrapper
 
     ! Clear Blines_DIII and reallocate to match what is necessary:
     if(allocated(Blines_DIII)) deallocate(Blines_DIII)
-    allocate(Blines_DIII(3, nRextend, iT-1, 2*nPoints-1))
+    allocate(Blines_DIII(6, nRextend, nT-1, 2*nPoints-1))
     Blines_DIII = 0
     
     ! Sort lines one more time- this time for use by SCB.
     do iT=1, nT-1
        do iR=1, nRextend
           ! Get the index that rotates in longitude 180 degrees.
-          iRot = mod(iT+((nT-1)/2-1),nT-1) + 1 ! Even # of cells, 1 ghost cell.
+          iRot = iT !mod(iT+((nT-1)/2-1),nT-1) + 1 ! Even # of cells, 1 ghost cell.
           
           ! Check if the line is open:
-          
-          if((Map_DSII(1,1,iR,iT)-1>sens).or.(Map_DSII(1,2,iR,iT)-1>sens))then
+          iLine = 2*(nRextend*(iT-1)+iR)
+          if ((iEnd(iLine) == 0).or.(iEnd(iLine-1) == 0)) then
+             IsClosed_II(iR,iT) = .false.
+             cycle
+          endif
+          if((Map_DSII(1,1,iR,iT)-1>sens).or.(Map_DSII(1,2,iR,iT)-1>sens)) then
              IsClosed_II(iR,iT) = .false.
              if(DoTest) then
                 write(*,*)'OPEN FIELD LINE AT R, MLT = ', &
@@ -498,12 +509,18 @@ module IM_wrapper
              end if
              cycle
           end if
+          isClosed_II(iR,iT) = .true.
 
           ! Fill points from northern hemisphere:
-          iLine = 2*(nRextend*(iT-1)+iR) - 1          
+          iLine = iLine - 1
+          
           Blines_DIII(1,iR,iRot,nPoints:2*nPoints-1) = MhdLines_IIV(iLine,1:nPoints,3) !X
           Blines_DIII(2,iR,iRot,nPoints:2*nPoints-1) = MhdLines_IIV(iLine,1:nPoints,4) !Y
           Blines_DIII(3,iR,iRot,nPoints:2*nPoints-1) = MhdLines_IIV(iLine,1:nPoints,5) !Z
+          Blines_DIII(4,iR,iRot,nPoints:2*nPoints-1) = MhdLines_IIV(iLine,1:nPoints,Bx_) !Bx
+          Blines_DIII(5,iR,iRot,nPoints:2*nPoints-1) = MhdLines_IIV(iLine,1:nPoints,By_) !By
+          Blines_DIII(6,iR,iRot,nPoints:2*nPoints-1) = MhdLines_IIV(iLine,1:nPoints,Bz_) !Bz
+
 
           if(DoTest) write(*,*) 'Northern Hemi trace = ', &
                sqrt(MhdLines_IIV(iLine,1:nPoints,3)**2 + &
@@ -511,10 +528,13 @@ module IM_wrapper
                     MhdLines_IIV(iLine,1:nPoints,5)**2)
           
           ! Fill points from southern hemisphere:
-          iLine = 2*(nRextend*(iT-1)+iR)
-          Blines_DIII(1,iR,iRot,1:nPoints-1) = MhdLines_IIV(iLine,nPoints:1:-1,3) !X
-          Blines_DIII(2,iR,iRot,1:nPoints-1) = MhdLines_IIV(iLine,nPoints:1:-1,4) !Y
-          Blines_DIII(3,iR,iRot,1:nPoints-1) = MhdLines_IIV(iLine,nPoints:1:-1,5) !Z
+          iLine = iLine + 1
+          Blines_DIII(1,iR,iRot,1:nPoints) = MhdLines_IIV(iLine,nPoints:1:-1,3) !X
+          Blines_DIII(2,iR,iRot,1:nPoints) = MhdLines_IIV(iLine,nPoints:1:-1,4) !Y
+          Blines_DIII(3,iR,iRot,1:nPoints) = MhdLines_IIV(iLine,nPoints:1:-1,5) !Z
+          Blines_DIII(4,iR,iRot,1:nPoints) = MhdLines_IIV(iLine,nPoints:1:-1,Bx_) !Bx
+          Blines_DIII(5,iR,iRot,1:nPoints) = MhdLines_IIV(iLine,nPoints:1:-1,By_) !By
+          Blines_DIII(6,iR,iRot,1:nPoints) = MhdLines_IIV(iLine,nPoints:1:-1,Bz_) !Bz
 
           rad(1:2*nPoints-1) = sqrt(Blines_DIII(1,iR,iRot,:)**2 &
                                    +Blines_DIII(2,iR,iRot,:)**2 &
@@ -692,9 +712,10 @@ module IM_wrapper
     logical :: DoTest, DoTestMe
     !---------------------------------------------------------------------------
     call CON_set_do_test(NameSub, DoTest, DoTestMe)
+
     if(DoTest)write(*,*)NameSub,' called for iSession, TimeSimulation =', &
          iSession, TimeSimulation
-    
+ 
     ! Set iCal to iteration = 1.
     iCal = 1
     
@@ -786,7 +807,7 @@ module IM_wrapper
   !INTERFACE:
   subroutine IM_run(TimeSimulation,TimeSimulationLimit)
     
-    use ModRamTiming, ONLY: DtsMax, DtsFramework, TimeRamElapsed
+    use ModRamTiming, ONLY: DtsMax, DtsFramework, TimeRamElapsed, TimeRestart
     use ModRamScbRun, ONLY: run_ramscb
     
     implicit none

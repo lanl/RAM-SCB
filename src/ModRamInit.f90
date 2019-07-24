@@ -189,6 +189,7 @@ MODULE ModRamInit
     else
        TimeRamElapsed = 0
        TimeRamRealStart = TimeRamStart
+       TimeRestart = 0
     end if
     TimeRamNow = TimeRamRealStart
     TOld = TimeRamElapsed
