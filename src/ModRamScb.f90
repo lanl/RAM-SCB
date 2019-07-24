@@ -315,6 +315,10 @@ Module ModRamScb
              yo = LZ(i+1) * SIN(MLT(j)*2._dp*pi_d/24._dp - pi_d)
              if (outsideSCB(i,j) == 1) then
                 if (ScaleAt(j) == 0) ScaleAt(j) = i
+                if (NameBoundMag.eq.'SWMF') then
+                   outsideMGNP(i,j) = 1
+                   cycle
+                endif
                 Pdyn = PARMOD(1)
                 BzIMF = PARMOD(4)
                 call SHUETAL_MGNP_08(PDyn,-1.0_dp,BzIMF,xo,yo,0.0_dp,XMGNP,YMGNP,ZMGNP,DIST,ID)
@@ -322,18 +326,6 @@ Module ModRamScb
                    if (verbose) write(*,'(2x,a,3F6.2)') 'Point outside magnetopause', xo, yo, DIST
                    outsideMGNP(i,j) = 1
                    cycle
-                endif
-                if (NameBoundMag.eq.'SWMF') then
-                   if (IsClosed_II(i,j)) then
-                      nSWMF = 2*nPoints-1
-                      xtemp(1:nSWMF) = BLines_DIII(1,i,j,1:nSWMF)
-                      ytemp(1:nSWMF) = BLines_DIII(2,i,j,1:nSWMF)
-                      ztemp(1:nSWMF) = BLines_DIII(3,i,j,1:nSWMF)
-                      LOUT = nSWMF
-                   else
-                      outsideMGNP(i,j) = 1
-                      cycle
-                   endif
                 else
                    !! Trace from equatorial point to pole then pole to other pole
                    CALL trace(xo,yo,0._dp,1.0_dp,xe,ye,ze,xtemp(:),ytemp(:),ztemp(:),LOUT,LMAX, &

@@ -277,21 +277,23 @@ module ModRamFunctions
   end function sind
     
 !=============================================================================
-  subroutine get_dipole_trace(xIn, nPoints, xOut, yOut, zOut)
+  subroutine get_dipole_trace(xIn, nPoints, xOut, yOut, zOut, bxOut, byOut, bzOut)
     ! Create nPoints cartesian points along dipole from xIn to Earth's surface.
-    use ModRamMain, ONLY: Real8_
+    use ModRamMain,  ONLY: Real8_
+    use ModRamConst, ONLY: b0dip
 
     implicit none
     
     ! Argument declarations
     real(kind=Real8_), intent(in) :: xIn(3)
-    integer,       intent(in) :: nPoints
+    integer,           intent(in) :: nPoints
     real(kind=Real8_), intent(out):: xOut(nPoints), yOut(nPoints), zOut(npoints)
-  
+    real(kind=Real8_), intent(out):: bxOut(nPoints), byOut(nPoints), bzOut(nPoints)
+
     ! Internal declarations
     integer       :: i
     real(kind=Real8_) :: lat, lon, r, rXyStart, dS
-    real(kind=Real8_), dimension(nPoints) :: distance, rads, lats, rXy
+    real(kind=Real8_), dimension(nPoints) :: distance, rads, lats, rXy, rNew, bfact
     !-----------------------------------------------------------------------
     ! Obtain starting latitude, longitude, and radius:
     r   = sqrt(  xIn(1)**2+xIn(2)**2+xIn(3)**2 )
@@ -314,7 +316,14 @@ module ModRamFunctions
     xOut = rXy*xIn(1)/rXyStart
     yOut = rXy*xIn(2)/rXyStart
     zOut = rads*sin(lats)
-    
+
+    ! Get dipole magnetic field values
+    rNew  = sqrt(xOut**2+yOut**2+zOut**2)
+    bfact = 3.0*b0dip/10**9/rNew**5
+    bxOut = -bfact*xOut*zOut
+    byOut = -bfact*yOut*zOut
+    bzOut = -bfact*zOut*zOut + b0dip/10**9/rNew**3
+
   end subroutine get_dipole_trace
 
   !=============================================================================
@@ -323,10 +332,11 @@ module ModRamFunctions
     use ModRamVariables, ONLY: PAllSum, PParH, PPerH, PParO, PPerO, &
                                PParE, PPerE, PParHe, PPerHe, PParSum, &
                                NAllSum, HPAllSum, OPAllSum, HePAllSum, &
-                               ePAllSum, HNAllSum, ONAllSum, HeNAllSum
-    use ModRamParams,    ONLY: DoAnisoPressureGMCoupling
+                               ePAllSum, HNAllSum, ONAllSum, HeNAllSum, &
+                               OutsideMGNP
+    use ModRamParams,    ONLY: DoAnisoPressureGMCoupling, electrons
     use ModRamGrids,     ONLY: NR, NT
-    
+
     use nrtype, ONLY: DP
 
     implicit none
@@ -334,16 +344,22 @@ module ModRamFunctions
     real(DP), parameter :: onethird=1.0/3.0, twothird=2.0/3.0
     integer :: i, j
     !------------------------------------------------------------------------
-   
-    do i=1, nR; do j=1, nT
-       PAllSum(i,j) = &
-            twothird * PPerO( i,j) + onethird * PParO( i,j) + &
-            twothird * PPerH( i,j) + onethird * PParH( i,j) + &
-            twothird * PPerE( i,j) + onethird * PParE( i,j) + &
-            twothird * PPerHe(i,j) + onethird * PParHe(i,j)
-       PparSum(i,j) = PParO(i,j) + PParH(i,j) + PparE(i,J) + PParHe(i,j)
-    end do; end do
-    
+
+    do i=1, nR
+       do j=1, nT
+          PAllSum(i,j) = &
+               twothird * PPerO( i,j) + onethird * PParO( i,j) + &
+               twothird * PPerH( i,j) + onethird * PParH( i,j) + &
+               twothird * PPerHe(i,j) + onethird * PParHe(i,j)
+          PparSum(i,j) = PParO(i,j) + PParH(i,j) + PParHe(i,j)
+          if (electrons) then
+             PAllSum(i,j) = PAllSum(i,j) + twothird * PPerE( i,j) + onethird * PParE( i,j)
+             PParSum(i,j) = PParSum(i,j) + PParE(i,j)
+          endif
+       end do
+    end do
+    NAllSum = -1.0
+
   end subroutine ram_sum_pressure
 
 !=============================================================================

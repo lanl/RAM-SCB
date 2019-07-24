@@ -10,7 +10,7 @@ module ModRamCouple
   use ModRamConst, ONLY: M1
   use ModRamGrids, ONLY: NR, NE, NT, NPA, nRextend
   use ModRamTiming, ONLY: TimeRamElapsed, TimeRamNow
-  use ModRamVariables, ONLY: KP, F107, EKEV, MU, PHI, LZ
+  use ModRamVariables, ONLY: KP, F107, EKEV, MU, PHI, LZ, GridExtend
 
   use ModRamParams
 
@@ -19,6 +19,7 @@ module ModRamCouple
   public :: set_type_mhd
   public :: generate_flux
   public :: sort_mhd_lines
+  public :: generate_field
 
   ! Can be single, multiS, or multiF to indicate MHD run.
   character(len=6), public :: TypeMhd='single'
@@ -59,7 +60,7 @@ module ModRamCouple
   ! up to nPointsMax; iEnd(iLine) has index of where to stop.  As MhdLines_IIV
   ! is filled, points are added between the MHD inner boundary and R=1RE to
   ! give all lines nPointsMax points.
-  integer, public, parameter   :: nPointsMax = 200
+  integer, public, parameter   :: nPointsMax = 500
   integer, public :: nRadSWMF, nRadSwmfVar, nRadSwmfVarInner, &
        nLonSWMF, nLinesSWMF, nPoints
   real(kind=Real8_), public, allocatable :: iEnd(:)
@@ -106,7 +107,7 @@ contains
              SwmfPot_II(nR+1, nT), &
              uEqSWMF_DII(3,nRExtend,nT-1), &
              bEqSWMF_DII(3,nRExtend,nT-1), &
-             ETotal_DII(2,nR,nT), &
+             ETotal_DII(2,nRExtend-2,nT), &
              IsClosed_II(nRextend,nT))
 
     SWMFPot_II = 0.
@@ -237,7 +238,8 @@ contains
     ! Sort MHD field lines & associated state variables into manageable array.
     ! Extend field lines in preparation for calculation of Euler potential
     ! surfaces.  Create equatorial variables.
-    
+   
+    use ModRamConst, ONLY: b0dip
     use ModRamFunctions,ONLY: get_dipole_trace
 
     implicit none
@@ -273,11 +275,18 @@ contains
        end if
 
        ! Grab all points on current line:
+       do while(BufferLine_VI(1,iPointBuff)<iLine)
+          ! Do not exceed buffer:
+          if (iPointBuff == nPointIn) exit
+          iPointBuff = iPointBuff + 1
+       enddo
        do while(BufferLine_VI(1,iPointBuff)==iLine)
           ! Extract values into 3D array:
           MhdLines_IIV(iLine, iPointLine, :) = BufferLine_VI(:, iPointBuff)
           ! Do not exceed buffer:
           if (iPointBuff == nPointIn) exit
+          ! Do not exceeed max points
+          if (iPointLine == nPointsMax) exit
           ! Continue along line: 
           iPointBuff = iPointBuff + 1
           iPointLine = iPointLine + 1
@@ -285,11 +294,12 @@ contains
        
        ! Check for very long lines or open lines.
        if (iPointLine>nPointsMax-5) then
-          write(*,*) NameSub, 'ERROR: nPointsMax exceeded.'
+          write(*,*) NameSub, ' ERROR: nPointsMax exceeded.'
           ! This line is too long.  Why?
           if (abs(MhdLines_IIV(iLine, iPointLine-1, 5)) > 5.0) write(*,*) &
                'Open field line?  Z=',MhdLines_IIV(iLine,iPointLine-1,5)
-          call CON_stop(NameSub//'nPointsMax exceeded.')
+          !call CON_stop(NameSub//' - nPointsMax exceeded.')
+          iPointLine = 0
        endif
 
        ! Save length of current line, reset.
@@ -305,41 +315,64 @@ contains
     iLon=1; iRad=1
     do iLine=1, nLinesSWMF
        ! If line is missing...
-       if(iEnd(iLine)<0)then
-          xRam = lz(iRad)*cos(phi(iLon))
-          yRam = lz(iRad)*sin(phi(iLon))
-          MhdLines_IIV(iLine,1,3) = xRam
-          MhdLines_IIV(iLine,1,4) = yRam
-          MhdLines_IIV(iLine,1,5) = 0.0
-          call get_dipole_trace((/xRam, yRam, 0.0_Real8_/), nPoints-1,&
-               MhdLines_IIV(iLine,2:nPoints,3), &
-               MhdLines_IIV(iLine,2:nPoints,4), &
-               MhdLines_IIV(iLine,2:nPoints,5) )
-          ! Southern hemisphere?  Use simple symmetry.
-          if(mod(iLine, 2) == 0) MhdLines_IIV(iLine,:,5) = &
-               -1.0*MhdLines_IIV(iLine,:,5)
-          ! Fill equatorial values with simple conditions:
-          ! Magnetic field: use dipole field, SI units are Tesla.
-          MhdLines_IIV(iLine,1,Bx_:By_) = 0.0
-          MhdLines_IIV(iLine,1,Bz_)     = 7.84E15 / lz(iRad)**3
-          ! Flow velocity: corotation
-          MhdLines_IIV(iLine,1,Ux_) = corot*lz(iRad)*sin(phi(iLon))
-          MhdLines_IIV(iLine,1,Uy_) = corot*lz(iRad)*cos(phi(iLon))
-          MhdLines_IIV(iLine,1,Uz_) = 0.0
+       if(iEnd(iLine)<=0)then
+          xRam = GridExtend(iRad)*cos(phi(iLon))
+          yRam = GridExtend(iRad)*sin(phi(iLon))
+          if (sqrt(xRam**2 + yRam**2) > 3.0) then
+             iEnd(iLine) = 0
+          else 
+             MhdLines_IIV(iLine,1,3) = xRam
+             MhdLines_IIV(iLine,1,4) = yRam
+             MhdLines_IIV(iLine,1,5) = 0.0
+             call get_dipole_trace((/xRam, yRam, 0.0_Real8_/), nPoints-1, &
+                                    MhdLines_IIV(iLine,2:nPoints,3), &
+                                    MhdLines_IIV(iLine,2:nPoints,4), &
+                                    MhdLines_IIV(iLine,2:nPoints,5), &
+                                    MhdLines_IIV(iLine,2:nPoints,Bx_), &
+                                    MhdLines_IIV(iLine,2:nPoints,By_), &
+                                    MhdLines_IIV(iLine,2:nPoints,Bz_))
+             ! Southern hemisphere?  Use simple symmetry.
+             if (mod(iLine, 2) == 0) then 
+                MhdLines_IIV(iLine,:,5)   = -1.0*MhdLines_IIV(iLine,:,5)
+                MhdLines_IIV(iLine,:,Bx_) = -1.0*MhdLines_IIV(iLine,:,Bx_)
+                MhdLines_IIV(iLine,:,By_) = -1.0*MhdLines_IIV(iLine,:,By_)
+                !MhdLines_IIV(iLine,:,Bz_) = -1.0*MhdLines_IIV(iLine,:,Bz_)
+             endif
+             ! Fill equatorial values with simple conditions:
+             ! Magnetic field: use dipole field, SI units are Tesla.
+             MhdLines_IIV(iLine,1,Bx_:By_) = 0.0
+             !MhdLines_IIV(iLine,1,Bz_)     = 7.84E15 / GridExtend(iRad)**3
+             MhdLines_IIV(iLine,1,Bz_)     = b0dip/10**9 / GridExtend(iRad)**3
+             ! Flow velocity: corotation
+             MhdLines_IIV(iLine,1,Ux_) = corot*GridExtend(iRad)*sin(phi(iLon))
+             MhdLines_IIV(iLine,1,Uy_) = corot*GridExtend(iRad)*cos(phi(iLon))
+             MhdLines_IIV(iLine,1,Uz_) = 0.0
+             iEnd(iLine) = nPoints
+          endif
        else
           i = int(iEnd(iLine))
           !write(*,*)'Extending!'
           !write(*,*)'Adding ', nPoints-i, 'points.'
-          !write(*,'(a,3f9.6)') '...from ', x(iLine,i),y(iLine,i),z(iLine,i)
+          !write(*,'(a,1f9.6)') '...from ', sqrt(MhdLines_IIV(iLine,i,3)**2 &
+          !                                     +MHDLines_IIV(iLine,i,4)**2 &
+          !                                     +MHDLines_IIV(iLine,i,5)**2)
           call get_dipole_trace((/MhdLines_IIV(iLine,i,3), &
-               MhdLines_IIV(iLine,i,4),MhdLines_IIV(iLine,i,5)/), nPoints-i, &
-               MhdLines_IIV(iLine, i+1:nPoints, 3), &
-               MhdLines_IIV(iLine, i+1:nPoints, 4), &
-               MhdLines_IIV(iLine, i+1:nPoints, 5) )
-          if(mod(iLine, 2) == 0) MhdLines_IIV(iLine,i+1:nPoints,5) &
-               = -1.*MhdLines_IIV(iLine,i+1:nPoints,5)
-          !write(*,'(a,3f9.6)') 'Got to:',x(iLine,nPoints), y(iLine, nPoints), &
-          !z(iLine,nPoints)
+                                 MhdLines_IIV(iLine,i,4),MhdLines_IIV(iLine,i,5)/), nPoints-i, &
+                                 MhdLines_IIV(iLine, i+1:nPoints, 3), &
+                                 MhdLines_IIV(iLine, i+1:nPoints, 4), &
+                                 MhdLines_IIV(iLine, i+1:nPoints, 5), &
+                                 MhdLines_IIV(iLine,i+1:nPoints,Bx_), &
+                                 MhdLines_IIV(iLine,i+1:nPoints,By_), &
+                                 MhdLines_IIV(iLine,i+1:nPoints,Bz_))
+          if (mod(iLine, 2) == 0) then
+             MhdLines_IIV(iLine,i+1:nPoints,5)   = -1.0*MhdLines_IIV(iLine,i+1:nPoints,5)
+             MhdLines_IIV(iLine,i+1:nPoints,Bx_) = -1.0*MhdLines_IIV(iLine,i+1:nPoints,Bx_)
+             MhdLines_IIV(iLine,i+1:nPoints,By_) = -1.0*MhdLines_IIV(iLine,i+1:nPoints,By_)
+             !MhdLines_IIV(iLine,i+1:nPoints,Bz_) = -1.0*MhdLines_IIV(iLine,i+1:nPoints,Bz_)
+          endif
+          !write(*,'(a,1f9.6)') 'Got to:',sqrt(MhdLines_IIV(iLine,nPoints,3)**2 &
+          !                                   +MHDLines_IIV(iLine,nPoints,4)**2 &
+          !                                   +MHDLines_IIV(iLine,nPoints,5)**2)
           iEnd(iLine) = nPoints
        end if
        ! Keep track of our lon&rad.
@@ -374,12 +407,12 @@ contains
     end do
 
     ! Calculate total UxB electric field in equatorial plane.
-    iRad=nRextend-2 ! Do not include ghost cells from coupling.
-    ETotal_DII(1,:,1:nT-1) = uEqSWMF_DII(2,2:iRad,:)*bEqSWMF_DII(3,2:iRad,:) &
-         -uEqSWMF_DII(3,2:iRad,:)*bEqSWMF_DII(2,2:iRad,:) ! X-component
-    
-    ETotal_DII(2,:,1:nT-1) = uEqSWMF_DII(1,2:iRad,:)*bEqSWMF_DII(3,2:iRad,:) &
-         -uEqSWMF_DII(3,2:iRad,:)*bEqSWMF_DII(1,2:iRad,:) ! Y-component
+    !iRad=nRextend-2 ! Do not include ghost cells from coupling.
+    !ETotal_DII(1,:,1:nT-1) = uEqSWMF_DII(2,2:iRad,:)*bEqSWMF_DII(3,2:iRad,:) &
+    !     -uEqSWMF_DII(3,2:iRad,:)*bEqSWMF_DII(2,2:iRad,:) ! X-component
+    !
+    !ETotal_DII(2,:,1:nT-1) = uEqSWMF_DII(1,2:iRad,:)*bEqSWMF_DII(3,2:iRad,:) &
+    !     -uEqSWMF_DII(3,2:iRad,:)*bEqSWMF_DII(1,2:iRad,:) ! Y-component
     
   end subroutine sort_mhd_lines
   !===========================================================================
@@ -537,37 +570,37 @@ contains
        call CON_stop(NameSub//' TypeMhd not recognized: '//TypeMhd)
     end select
 
-    if(abs(mod(TimeRamElapsed, 60.0_Real8_)) .le. 1e-9) then
-       ! Write boundary dens and pressure to file.
-       write(NameFile,'(a,i6.6,a)')&
-            PathRamOut//"bound_plasma_t",nint(TimeRamElapsed/60._Real8_),".out"
-       open( UnitTmp_, FILE=NameFile, STATUS='replace')
-       write(UnitTmp_,'(es13.5,i5,5i3)') &
-            TimeRamElapsed, &
-            TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay, &
-            TimeRamNow%iHour, TimeRamNow%iMinute, TimeRamNow%iSecond
-       write(UnitTmp_, *) 'Units are Hours, cm-3, and eV'
+    !if(abs(mod(TimeRamElapsed, 60.0_Real8_)) .le. 1e-9) then
+    !   ! Write boundary dens and pressure to file.
+    !   write(NameFile,'(a,i6.6,a)')&
+    !        PathRamOut//"bound_plasma_t",nint(TimeRamElapsed/60._Real8_),".out"
+    !   open( UnitTmp_, FILE=NameFile, STATUS='replace')
+    !   write(UnitTmp_,'(es13.5,i5,5i3)') &
+    !        TimeRamElapsed, &
+    !        TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay, &
+    !        TimeRamNow%iHour, TimeRamNow%iMinute, TimeRamNow%iSecond
+    !   write(UnitTmp_, *) 'Units are Hours, cm-3, and eV'
 
-       if (TypeMhd .eq. 'mult3F') then
-          write(UnitTmp_, *) 'lt RhoE RhoH RhoSw RhoO pE pH pSw pO'
-       elseif(TypeMhd .eq. 'anisoP')then
-          write(UnitTmp_, *) 'lt RhoE RhoH RhoHe RhoO pE pH pHe pO pparE pparH pparHe pparO'
-       else
-          write(UnitTmp_, *) 'lt RhoE RhoH RhoHe RhoO pE pH pHe pO'
-       endif
+    !   if (TypeMhd .eq. 'mult3F') then
+    !      write(UnitTmp_, *) 'lt RhoE RhoH RhoSw RhoO pE pH pSw pO'
+    !   elseif(TypeMhd .eq. 'anisoP')then
+    !      write(UnitTmp_, *) 'lt RhoE RhoH RhoHe RhoO pE pH pHe pO pparE pparH pparHe pparO'
+    !   else
+    !      write(UnitTmp_, *) 'lt RhoE RhoH RhoHe RhoO pE pH pHe pO'
+    !   endif
 
-       do iT=1, nT
-          if (TypeMhd .ne. 'anisoP')then
-             write(UnitTmp_, '(i2.2, 8(1x, E13.6))') &
-                  iT, MhdDensPres_VII(1,iT,1:4), MhdDensPres_VII(2,iT,1:4)
-         else
-             write(UnitTmp_, '(i2.2, 12(1x, E13.6))') &
-                  iT,MhdDensPres_VII(1,iT,1:4),MhdDensPres_VII(2,iT,1:4), &
-                  MhdDensPres_VII(3,iT,1:4)
-          end if
-       end do
-       close(UnitTmp_)
-    end if
+    !   do iT=1, nT
+    !      if (TypeMhd .ne. 'anisoP')then
+    !         write(UnitTmp_, '(i2.2, 8(1x, E13.6))') &
+    !              iT, MhdDensPres_VII(1,iT,1:4), MhdDensPres_VII(2,iT,1:4)
+    !     else
+    !         write(UnitTmp_, '(i2.2, 12(1x, E13.6))') &
+    !              iT,MhdDensPres_VII(1,iT,1:4),MhdDensPres_VII(2,iT,1:4), &
+    !              MhdDensPres_VII(3,iT,1:4)
+    !      end if
+    !   end do
+    !   close(UnitTmp_)
+    !end if
 
     kappa = 3.
     gamma1 = 6.0    !gamma(kappa+1)  
@@ -598,6 +631,13 @@ contains
                 FluxBats_IIS(iE, iT, 4) = 1./sqrt(M1(4))*exp(-1.0*eCent/MhdDensPres_VII(2,iT,4))*&
                      factor * MhdDensPres_VII(1,iT,4) * &
                      (MhdDensPres_VII(2,iT,4)/1000.0_Real8_)**(-1.5)
+
+                if (MhdDensPres_VII(1,iT,1) < 0) then
+                   FluxBats_IIS(iE, iT, 1) = 0.0
+                   FluxBats_IIS(iE, iT, 2) = 0.0
+                   FluxBats_IIS(iE, iT, 3) = 0.0
+                   FluxBats_IIS(iE, iT, 4) = 0.0
+                endif
              elseif(NameDistrib .eq.'KAPA')then
                 ! assuming a kappa distribution
                 
@@ -780,5 +820,366 @@ contains
     return
   end function divMaxwellian
 
+!==================================================================================================
+  subroutine generate_field(xpsiin, xpsiout)
+    !!!! Module Variables
+    USE ModRamVariables, ONLY: Kp, MLT
+    !use ModRamParams,    ONLY: IsComponent, NameBoundMag, verbose
+    use ModRamTiming,    ONLY: TimeRamNow
+    use ModRamGrids,     ONLY: nRExtend, nT, nR
+    USE ModScbParams,    ONLY: Symmetric, constZ, constTheta
+    USE ModScbGrids,     ONLY: npsi, nthe, nzeta
+    USE ModScbVariables, ONLY: r0Start, bf, nThetaEquator, &
+                               x, y, z, thetaVal, zetaVal, left, right, chiVal, &
+                               xzero3, psiVal, alphaVal, psiin, psiout, psitot, SORFail
+    !!!! Module Subroutines/Functions
+    use ModRamGSL,       ONLY: GSL_Interpolation_1D
+    use ModRamFunctions, ONLY: RamFileName
+    !!!! Share Modules
+    USE ModIoUnit, ONLY: UNITTMP_
+    !!!! NR Modules
+    use nrtype, ONLY: DP, pi_d, twopi_d
+
+
+    implicit none
+    REAL(DP), intent(out) :: xpsiin, xpsiout
+
+    character(len=200) :: FileName
+    integer  :: i, j, k, ii, ir, nSWMF, GSLerr
+    real(DP) :: r0, rr, b0, rf, xf, yf, zf, tf, xpl, xpsitot, psis, rc(1)
+
+    real(DP), dimension(0:1000) :: distance, xTemp, yTemp, zTemp
+
+    integer,  allocatable :: iOuter(:)
+    REAL(DP), allocatable :: psiout_j(:), psiin_j(:)
+    REAL(DP), allocatable :: aTemp(:), pTemp(:), cTemp(:), cTemp2(:), psival_i(:)
+    REAL(DP), allocatable, dimension(:,:,:) :: &
+        x1(:,:,:), y1(:,:,:), z1(:,:,:), bx1(:,:,:), by1(:,:,:), bz1(:,:,:), &
+        x2(:,:,:), y2(:,:,:), z2(:,:,:), bx2(:,:,:), by2(:,:,:), bz2(:,:,:), &
+        xSWMF(:,:,:), ySWMF(:,:,:), zSWMF(:,:,:), bxSWMF(:,:,:), bySWMF(:,:,:), bzSWMF(:,:,:)
+
+    nSWMF = 2*nPoints-1
+    ALLOCATE(iOuter(nT))
+    ALLOCATE(aTemp(0:nT+1), pTemp(nRExtend), cTemp(nSWMF), cTemp2(nthe))
+    ALLOCATE(psival_i(nRExtend), psiout_j(nzeta), psiin_j(nzeta))
+    ALLOCATE(xSWMF(nRExtend,nT-1,nthe),ySWMF(nRExtend,nT-1,nthe),zSWMF(nRExtend,nT-1,nthe))
+    ALLOCATE(x1(nRExtend,nzeta,nthe), y1(nRExtend,nzeta,nthe), z1(nRExtend,nzeta,nthe))
+    ALLOCATE(x2(npsi,nzeta,nthe), y2(npsi,nzeta,nthe), z2(npsi,nzeta,nthe))
+    ALLOCATE(bxSWMF(nRExtend,nT-1,nthe),bySWMF(nRExtend,nT-1,nthe),bzSWMF(nRExtend,nT-1,nthe))
+    ALLOCATE(bx1(nRExtend,nzeta,nthe), by1(nRExtend,nzeta,nthe), bz1(nRExtend,nzeta,nthe))
+    ALLOCATE(bx2(npsi,nzeta,nthe), by2(npsi,nzeta,nthe), bz2(npsi,nzeta,nthe))
+
+    BLines_DIII(4,:,:,:) = 10**9*BLines_DIII(4,:,:,:)
+    BLines_DIII(5,:,:,:) = 10**9*BLines_DIII(5,:,:,:)
+    BLines_DIII(6,:,:,:) = 10**9*BLines_DIII(6,:,:,:)
+
+    FileName = RamFileName('SWMFField','dat',TimeRamNow)
+    open(UNITTMP_, File=FileName)
+    write(UNITTMP_,*) nRExtend, nT-1, nSWMF
+    do i = 1,nSWMF
+     do j = 1, nRExtend
+      do k = 1,nT-1
+       write(UNITTMP_,*) BLines_DIII(1,j,k,i),BLines_DIII(2,j,k,i),BLines_DIII(3,j,k,i),IsClosed_II(j,k)
+      enddo
+     enddo
+    enddo
+    close(UNITTMP_)
+
+    convert_field: do
+       ! Fix IsClosed_II
+       iOuter = nRExtend + 1
+       do j = 1, nT-1
+          do i = nRExtend, 2, -1
+             r0 = sqrt(maxval(BLines_DIII(1,i,j,:)**2 &
+                            + BLines_DIII(2,i,j,:)**2 &
+                            + BLines_DIII(3,i,j,:)**2))
+             rr = sqrt(maxval(BLines_DIII(1,i-1,j,:)**2 &
+                            + BLines_DIII(2,i-1,j,:)**2 &
+                            + BLines_DIII(3,i-1,j,:)**2))
+             if ((maxval(abs(BLines_DIII(3,i,j,:))) > 5.0).and.(IsClosed_II(i,j))) then
+                IsClosed_II(i,j) = .false.
+             elseif ((r0-rr > 1.0).and.(IsClosed_II(i,j))) then
+                IsClosed_II(i,j) = .false.
+             elseif (r0 > 11.0) then
+                IsClosed_II(i,j) = .false.
+             endif
+             if (.not.IsClosed_II(i,j)) then
+                !write(*,*) 'Open Line', i, j, r0, rr, maxval(abs(BLines_DIII(3,i,j,:)))
+                iOuter(j) = i
+             endif
+          enddo
+       enddo
+       iOuter = iOuter - 3
+
+       ir = nThetaEquator
+       do j = 1, nT-1
+          ii = iOuter(j)
+          do i = 1, ii
+             distance(1) = 0._dp
+             xTemp(1:nSWMF) = BLines_DIII(1,i,j,1:nSWMF)
+             yTemp(1:nSWMF) = BLines_DIII(2,i,j,1:nSWMF)
+             zTemp(1:nSWMF) = BLines_DIII(3,i,j,1:nSWMF)
+             DO k = 2, nSWMF
+                distance(k) = distance(k-1) + SQRT((xTemp(k)-xTemp(k-1))**2 &
+                                                  +(yTemp(k)-yTemp(k-1))**2 &
+                                                  +(zTemp(k)-zTemp(k-1))**2)
+             END DO
+             cTemp = distance(1:nSWMF) / distance(nSWMF) * pi_d
+             CALL GSL_Interpolation_1D(cTemp,            xTemp(1:nSWMF), &
+                                       chiVal(2:nthe-1), xSWMF(i,j,2:nthe-1), GSLerr)
+             xSWMF(i,j,1)    = xTemp(1)
+             xSWMF(i,j,nthe) = xTemp(nSWMF)
+             if (GSLerr > 0) exit convert_field
+             CALL GSL_Interpolation_1D(cTemp,            yTemp(1:nSWMF), &
+                                       chiVal(2:nthe-1), ySWMF(i,j,2:nthe-1), GSLerr)
+             ySWMF(i,j,1)    = yTemp(1)
+             ySWMF(i,j,nthe) = yTemp(nSWMF)
+             if (GSLerr > 0) exit convert_field
+             CALL GSL_Interpolation_1D(cTemp,            zTemp(1:nSWMF), &
+                                       chiVal(2:nthe-1), zSWMF(i,j,2:nthe-1), GSLerr)
+             zSWMF(i,j,1)    = zTemp(1)
+             zSWMF(i,j,nthe) = zTemp(nSWMF)
+             if (GSLerr > 0) exit convert_field
+
+             !!!!
+             xTemp(1:nSWMF) = BLines_DIII(4,i,j,1:nSWMF)
+             yTemp(1:nSWMF) = BLines_DIII(5,i,j,1:nSWMF)
+             zTemp(1:nSWMF) = BLines_DIII(6,i,j,1:nSWMF)
+             CALL GSL_Interpolation_1D(cTemp,            xTemp(1:nSWMF), &
+                                       chiVal(2:nthe-1), bxSWMF(i,j,2:nthe-1), GSLerr)
+             bxSWMF(i,j,1)    = xTemp(1)
+             bxSWMF(i,j,nthe) = xTemp(nSWMF)
+             if (GSLerr > 0) exit convert_field
+             CALL GSL_Interpolation_1D(cTemp,            yTemp(1:nSWMF), &
+                                       chiVal(2:nthe-1), bySWMF(i,j,2:nthe-1), GSLerr)
+             bySWMF(i,j,1)    = yTemp(1)
+             bySWMF(i,j,nthe) = yTemp(nSWMF)
+             if (GSLerr > 0) exit convert_field
+             CALL GSL_Interpolation_1D(cTemp,            zTemp(1:nSWMF), &
+                                       chiVal(2:nthe-1), bzSWMF(i,j,2:nthe-1), GSLerr)
+             bzSWMF(i,j,1)    = zTemp(1)
+             bzSWMF(i,j,nthe) = zTemp(nSWMF)
+             if (GSLerr > 0) exit convert_field
+          enddo
+
+          b0 = sqrt(minval(bxSWMF(ii,j,:)**2 + bySWMF(ii,j,:)**2 + bzSWMF(ii,j,:)**2))
+          rc = minloc(bxSWMF(ii,j,:)**2 + bySWMF(ii,j,:)**2 + bzSWMF(ii,j,:)**2)
+          xf = xSWMF(ii,j,rc(1))
+          yf = ySWMF(ii,j,rc(1))
+          zf = zSWMF(ii,j,rc(1))
+          rf = sqrt(xf**2+yf**2+zf**2)
+          tf = 1. - zf**2/rf**2
+          xpsiout = (b0/rf)*tf
+
+          b0 = sqrt(minval(bxSWMF(1,j,:)**2 + bySWMF(1,j,:)**2 + bzSWMF(1,j,:)**2))
+          rc = minloc(bxSWMF(1,j,:)**2 + bySWMF(1,j,:)**2 + bzSWMF(1,j,:)**2)
+          xf = xSWMF(1,j,rc(1))
+          yf = ySWMF(1,j,rc(1))
+          zf = zSWMF(1,j,rc(1))
+          rf = sqrt(xf**2+yf**2+zf**2)
+          tf = 1. - zf**2/rf**2
+          xpsiin = (b0/rf)*tf
+
+          xpsitot = xpsiout - xpsiin
+          do i = 1, nRExtend
+             psis = REAL(i-1,DP)/REAL(nRExtend-1,DP)
+             xpl = xpsiin*(xpsiout/xpsiin)**(psis)
+             psival_i(i) = xzero3/xpl
+          enddo
+          do i = 1, ii
+             b0 = sqrt(minval(bxSWMF(i,j,:)**2 + bySWMF(i,j,:)**2 + bzSWMF(i,j,:)**2))
+             rc = minloc(bxSWMF(i,j,:)**2 + bySWMF(i,j,:)**2 + bzSWMF(i,j,:)**2)
+             xf = xSWMF(i,j,rc(1))
+             yf = ySWMF(i,j,rc(1))
+             zf = zSWMF(i,j,rc(1))
+             rf = sqrt(xf**2+yf**2+zf**2)
+             tf = 1. - zf**2/rf**2
+             pTemp(i) = (b0/rf)*tf
+          enddo
+          pTemp(1:ii) = xzero3/pTemp(1:ii)
+          do i = 2, ii
+             if (pTemp(i) - pTemp(i-1) < 0._dp) then
+                ii = i - 1
+                exit
+             endif
+          enddo
+          do k = 1, nthe
+             xTemp(1:ii) = xSWMF(1:ii,j,k)
+             yTemp(1:ii) = ySWMF(1:ii,j,k)
+             zTemp(1:ii) = zSWMF(1:ii,j,k)
+             CALL GSL_Interpolation_1D(pTemp(1:ii), xTemp(1:ii), &
+                                       psival_i(2:nRExtend-1), xSWMF(2:nRExtend-1,j,k), GSLerr)
+             xSWMF(1,j,k) = xTemp(1)
+             xSWMF(nRExtend,j,k) = xTemp(ii)
+             if (GSLerr > 0) exit convert_field
+             CALL GSL_Interpolation_1D(pTemp(1:ii), yTemp(1:ii), &
+                                       psival_i(2:nRExtend-1), ySWMF(2:nRExtend-1,j,k), GSLerr)
+             ySWMF(1,j,k) = yTemp(1)
+             ySWMF(nRExtend,j,k) = yTemp(ii)
+             if (GSLerr > 0) exit convert_field
+             CALL GSL_Interpolation_1D(pTemp(1:ii), zTemp(1:ii), &
+                                       psival_i(2:nRExtend-1), zSWMF(2:nRExtend-1,j,k), GSLerr)
+             zSWMF(1,j,k) = zTemp(1)
+             zSWMF(nRExtend,j,k) = zTemp(ii)
+             if (GSLerr > 0) exit convert_field
+          enddo
+       enddo
+
+       ! nT -> nzeta
+       DO k = 1, nzeta+1
+          alphaVal(k) = twopi_d*REAL(k-2,DP)/REAL(nzeta-1,DP)
+       END DO
+       do i = 1, nRExtend
+          do j = 1,nT-1
+             aTemp(j) = atan2(ySWMF(i,j,1),xSWMF(i,j,1))
+          enddo
+          where (aTemp(5:nT-3) < 0.0_dp) aTemp(5:nT-3) = aTemp(5:nT-3) + twopi_d
+          aTemp(nT-2) = aTemp(nT-2) + twopi_d
+          aTemp(nT-1) = aTemp(nT-1) + twopi_d
+          aTemp(0) = aTemp(nT-1) - twopi_d
+          aTemp(nT) = aTemp(1)   + twopi_d
+          aTemp(nT+1) = aTemp(2) + twopi_d
+          do k = 1, nthe
+             xTemp(1:nT-1) = xSWMF(i,1:nT-1,k)
+             xTemp(0)      = xTemp(nT-1)
+             xTemp(nT)     = xTemp(1)
+             xTemp(nT+1)   = xTemp(2)
+             yTemp(1:nT-1) = ySWMF(i,1:nT-1,k)
+             yTemp(0)      = yTemp(nT-1)
+             yTemp(nT)     = yTemp(1)
+             yTemp(nT+1)   = yTemp(2)
+             zTemp(1:nT-1) = zSWMF(i,1:nT-1,k)
+             zTemp(0)      = zTemp(nT-1)
+             zTemp(nT)     = zTemp(1)
+             zTemp(nT+1)   = zTemp(2)
+             CALL GSL_Interpolation_1D(aTemp(0:nT+1),     xTemp(0:nT+1), &
+                                       alphaVal(2:nzeta), x1(i,2:nzeta,k), GSLerr)
+             if (GSLerr > 0) exit convert_field
+             CALL GSL_Interpolation_1D(aTemp(0:nT+1),     yTemp(0:nT+1), &
+                                       alphaVal(2:nzeta), y1(i,2:nzeta,k), GSLerr)
+             if (GSLerr > 0) exit convert_field
+             CALL GSL_Interpolation_1D(aTemp(0:nT+1),     zTemp(0:nT+1), &
+                                       alphaVal(2:nzeta), z1(i,2:nzeta,k), GSLerr)
+             if (GSLerr > 0) exit convert_field
+          enddo
+       enddo
+       x1(:,1,:) = x1(:,nzeta,:)
+       y1(:,1,:) = y1(:,nzeta,:)
+       z1(:,1,:) = z1(:,nzeta,:)
+
+       ! nRExtend -> npsi
+       ir = nThetaEquator
+       ii = nRExtend
+       do j = 2, nzeta
+          xf = x1(nRExtend,j,1)
+          yf = y1(nRExtend,j,1)
+          zf = z1(nRExtend,j,1)
+          psiout_j(j) = 1./(1.-zf**2/(xf**2+yf**2+zf**2))
+
+          xf = x1(1,j,1)
+          yf = y1(1,j,1)
+          zf = z1(1,j,1)
+          psiin_j(j) = 1./(1.-zf**2/(xf**2+yf**2+zf**2))
+       enddo
+
+       xpsiout = minval(psiout_j(2:nzeta))
+       xpsiin  = maxval(psiin_j(2:nzeta))
+       xpsitot = xpsiout - xpsiin
+       do i = 1, npsi
+          psis = REAL(i-1,DP)/REAL(npsi-1,DP)
+          xpl  = xpsiin + xpsitot*psis
+          psival(i) = -xzero3/xpl
+       enddo
+
+       do j = 2, nzeta
+          do i = 1, nRExtend
+             ii = i
+             psival_i(i) = sqrt(x1(i,j,nThetaEquator)**2 &
+                              + y1(i,j,nThetaEquator)**2 &
+                              + z1(i,j,nThetaEquator)**2)
+             pTemp(i) = 1./(1. - z1(i,j,1)**2 &
+                                /(x1(i,j,1)**2 &
+                                 +y1(i,j,1)**2 &
+                                 +z1(i,j,1)**2))
+             if (psival_i(i) > 7.0) exit
+          enddo
+
+          if (psival_i(ii) > 7.0) then
+             call GSL_Interpolation_1D(psival_i(1:ii), pTemp(1:ii), 7.0, psiout, GSLerr)
+          else
+             psiout = pTemp(ii)
+          endif
+          psiin  = pTemp(1)
+          do i = 1, npsi
+             psis = REAL(i-1,DP)/REAL(npsi-1,DP)
+             xpl  = psiin + (psiout-psiin)*psis
+             if ((abs(xpl)<10e-8).or.isnan(xpl)) then
+                SORFail = .true.
+                exit convert_field
+             endif
+             psival(i) = -xzero3/xpl
+          enddo
+
+          pTemp(1:ii) = -xzero3/pTemp(1:ii)
+          do k = 1, nthe
+             xTemp(1:ii) = x1(1:ii,j,k)
+             yTemp(1:ii) = y1(1:ii,j,k)
+             zTemp(1:ii) = z1(1:ii,j,k)
+             CALL GSL_Interpolation_1D(pTemp(1:ii),    xTemp(1:ii), &
+                                       psiVal(1:npsi), x2(1:npsi,j,k), GSLerr)
+             if (GSLerr > 0) exit convert_field
+             CALL GSL_Interpolation_1D(pTemp(1:ii),    yTemp(1:ii), &
+                                       psiVal(1:npsi), y2(1:npsi,j,k), GSLerr)
+             if (GSLerr > 0) exit convert_field
+             CALL GSL_Interpolation_1D(pTemp(1:ii),    zTemp(1:ii), &
+                                       psiVal(1:npsi), z2(1:npsi,j,k), GSLerr)
+             if (GSLerr > 0) exit convert_field
+          enddo
+       enddo
+       x2(:,1,:) = x2(:,nzeta,:)
+       y2(:,1,:) = y2(:,nzeta,:)
+       z2(:,1,:) = z2(:,nzeta,:)
+
+       constTheta = 0.2
+       chival = (thetaVal + constTheta*sin(2.*thetaVal))
+       do i = 1, npsi
+          do j = 2, nzeta
+             distance(1) = 0._dp
+             xTemp(1:nthe) = x2(i,j,1:nthe)
+             yTemp(1:nthe) = y2(i,j,1:nthe)
+             zTemp(1:nthe) = z2(i,j,1:nthe)
+             DO k = 2, nthe
+                distance(k) = distance(k-1) + SQRT((xTemp(k)-xTemp(k-1))**2 &
+                                                  +(yTemp(k)-yTemp(k-1))**2 &
+                                                  +(zTemp(k)-zTemp(k-1))**2)
+             END DO
+             cTemp2 = distance(1:nthe) / distance(nthe) * pi_d
+             CALL GSL_Interpolation_1D(cTemp2,         xTemp(1:nthe), &
+                                       chiVal(1:nthe), x(1:nthe,i,j),  GSLerr)
+             if (GSLerr > 0) exit convert_field
+             CALL GSL_Interpolation_1D(cTemp2,         yTemp(1:nthe), &
+                                       chiVal(1:nthe), y(1:nthe,i,j),  GSLerr)
+             if (GSLerr > 0) exit convert_field
+             CALL GSL_Interpolation_1D(cTemp2,         zTemp(1:nthe), &
+                                       chiVal(1:nthe), z(1:nthe,i,j),  GSLerr)
+             if (GSLerr > 0) exit convert_field
+          enddo
+       enddo
+       x(:,:,1) = x(:,:,nzeta)
+       y(:,:,1) = y(:,:,nzeta)
+       z(:,:,1) = z(:,:,nzeta)
+       x(:,:,nzeta+1) = x(:,:,2)
+       y(:,:,nzeta+1) = y(:,:,2)
+       z(:,:,nzeta+1) = z(:,:,2)
+       exit convert_field
+    enddo convert_field
+
+    if (GSLerr > 0) SORFail = .true.
+    DEALLOCATE(psival_i, psiout_j, psiin_j, xSWMF, ySWMF, zSWMF, iOuter)
+    DEALLOCATE(aTemp, pTemp, cTemp, cTemp2, x1, y1, z1, x2, y2, z2)
+    DEALLOCATE(bx1, by1, bz1, bx2, by2, bz2, bxSWMF, bySWMF, bzSWMF)
+
+    return
+  end subroutine generate_field
 !==================================================================================================
 END MODULE ModRamCouple
