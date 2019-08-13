@@ -44,7 +44,7 @@ Module ModRamScb
   subroutine Compute3DFlux
   
     use ModRamVariables, ONLY: FLUX, MU, FFACTOR, FNHS, F2
-    use ModRamGrids,     ONLY: nR, nT, nPa, nE, radout, RadiusMin
+    use ModRamGrids,     ONLY: nR, nT, nPa, nE, radout, RadiusMin, nS
   
     use ModScbGrids,     ONLY: nthe, npsi, nzeta
     use ModScbVariables, ONLY: bf, radGrid, angleGrid, radRaw, azimRaw, &
@@ -60,7 +60,7 @@ Module ModRamScb
     integer :: i, j, k, L, iS, GSLErr
     real(DP) :: MuEq, radius, angle
   
-    DO iS = 1,4
+    DO iS = 1,nS
        DO I = 2, NR
           DO K = 2, NE
              DO L = 2, NPA
@@ -96,7 +96,7 @@ Module ModRamScb
 
     ! Always fill this matrix; it's used by RAM outputs
     ! Interpolate RAM flux on 3DEQ grid, for mapping
-    DO iS = 1, 4 ! ions & electrons
+    DO iS = 1, nS ! ions & electrons
        DO L = 1, NPA
           DO K = 1, NE
              !Cubic GSL interpolation

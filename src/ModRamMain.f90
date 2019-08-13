@@ -38,7 +38,7 @@ module ModRamMain
   integer :: nIter ! Tracks iteration, including restart.
 !!!!!
 
-  integer :: S
+!  integer :: S
 
 end Module ModRamMain
 !==============================================================================

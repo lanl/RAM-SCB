@@ -166,8 +166,10 @@ module ModRamIndices
     ! Interpolate Kp to current time.
     ! Use f10.7 according to current day.
     ! Input time format should be floating point used in ModTimeConvert.
+    use ModRamGrids,     ONLY: nS
+    use ModRamParams,    ONLY: FixedComposition
     use ModRamVariables, ONLY: nRawKp, nRawF107, Kp, F107, timeKp, &
-                               timeF107, rawKp, rawF107
+                               timeF107, rawKp, rawF107, species
 
     use ModRamMain, ONLY: Real8_
     
@@ -176,8 +178,8 @@ module ModRamIndices
     real(kind=Real8_), intent(in) :: timeNow
     real(kind=Real8_), intent(out):: kpNow, f10Now
     
-    integer :: iTime
-    real(kind=Real8_) :: dTime, dateNow
+    integer :: iTime, i
+    real(kind=Real8_) :: dTime, dateNow, BEXP, AHE0, AHE1, GEXP
 
     !------------------------------------------------------------------------
     ! NOTE: AS MORE SOURCES ARE ADDED, USE CASE STATEMENTS TO 
@@ -207,6 +209,25 @@ module ModRamIndices
     KP   = kpNow
     F107 = f10Now
 
+    if (.not.FixedComposition) then
+       BEXP=(4.5E-2)*EXP(0.17*KP+0.01*F107)
+       AHE0=6.8E-3
+       AHE1=0.084
+       GEXP=0.011*EXP(0.24*KP+0.011*F107)
+       GEXP=BEXP*(AHE0/GEXP+AHE1)
+       do i = 1, nS
+          select case(species(i)%s_name)
+            case("Hydrogen")
+              species(i)%s_comp = 4./(4.+BEXP+2.*GEXP)
+            case("HeliumP1")
+              species(i)%s_comp = 2.*GEXP/(4.+BEXP+2.*GEXP)
+            case("OxygenP1")
+              species(i)%s_comp = BEXP/(4.+BEXP+2.*GEXP)
+            !case default
+            !  s_comp(i) = 1.0
+          end select
+       enddo
+    endif
   end subroutine get_indices
   !===========================================================================
 end module ModRamIndices

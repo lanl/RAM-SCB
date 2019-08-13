@@ -25,6 +25,7 @@ PRECISION = -frecord-marker=4 -fdefault-real-8 -fdefault-double-8 -fall-intrinsi
 
 # List of fortran object files:
 RAM_OBJECTS=                  \
+	ModRamSpecies.o       \
 	ModRamBoundary.o      \
 	ModRamConst.o         \
 	ModRamDrift.o         \

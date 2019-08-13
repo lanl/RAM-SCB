@@ -20,14 +20,15 @@ MODULE ModRamRun
     use ModRamParams,    ONLY: electric, DoUseWPI, DoUseBASdiff, DoUseKpDiff, &
                                DoUsePlane_SCB, verbose
     use ModRamConst,     ONLY: RE
-    use ModRamGrids,     ONLY: NR, NE, NT, NPA
+    use ModRamGrids,     ONLY: nS, NR, NE, NT, NPA
     use ModRamTiming,    ONLY: UTs, T, DtEfi, DtsMin, DtsNext, TimeRamNow, Dts
     use ModRamVariables, ONLY: Kp, VT, VTOL, VTN, TOLV, LZ, PHI, PHIOFS, &
                                FFACTOR, FLUX, FNHS, DtDriftR, DtDriftP, &
                                DtDriftE, DtDriftMu, NECR, F107, RZ, IG, rsn, &
                                IAPO, LSDR, ELORC, LSCHA, LSWAE, LSATM, PPerT, &
                                PParT, PPerO, PParO, PPerH, PParH, PPerE, PParE, &
-                               PPerHe, PParHe, F2, outsideMGNP, Upa, wMu, Mu
+                               PPerHe, PParHe, F2, outsideMGNP, Upa, wMu, Mu, &
+                               species
     !!!! Module Subroutines/Functions
     use ModRamDrift, ONLY: DRIFTPARA, DRIFTR, DRIFTP, DRIFTE, DRIFTMU, DRIFTEND
     use ModRamLoss,  ONLY: CEPARA, CHAREXCHANGE, ATMOL
@@ -69,7 +70,7 @@ MODULE ModRamRun
     END IF
 
   !$OMP PARALLEL DO
-    do iS=1,4
+    do iS=1,nS
        !   calls for given species S:
        CALL CEPARA(iS)
        CALL DRIFTPARA(iS)
@@ -84,11 +85,7 @@ MODULE ModRamRun
        CALL SUMRC(iS)
        LSDR(iS)=LSDR(iS)+ELORC(iS)
 
-       if (iS.GT.1) then
-          CALL CHAREXCHANGE(iS)
-          CALL SUMRC(iS)
-          LSCHA(iS)=LSCHA(iS)+ELORC(iS)
-       else
+       if (species(iS)%WPI) then
           IF (DoUseWPI) THEN
              CALL WPADIF(iS) ! pitch angle diffusion
           ELSE
@@ -96,6 +93,12 @@ MODULE ModRamRun
           ENDIF
           CALL SUMRC(iS)
           LSWAE(iS)=LSWAE(iS)+ELORC(iS)
+       endif
+
+       if (species(iS)%CEX) then
+          CALL CHAREXCHANGE(iS)
+          CALL SUMRC(iS)
+          LSCHA(iS)=LSCHA(iS)+ELORC(iS)
        endif
 
        CALL ATMOL(iS)
@@ -106,18 +109,20 @@ MODULE ModRamRun
        CALL SUMRC(iS)
        LSATM(iS)=LSATM(iS)+ELORC(iS)
 
-       if (iS.GT.1) then
-          CALL CHAREXCHANGE(iS)
-          CALL SUMRC(iS)
-          LSCHA(iS)=LSCHA(iS)+ELORC(iS)
-       else
+       if (species(iS)%WPI) then
           IF (DoUseWPI) THEN
-             CALL WPADIF(iS)
+             CALL WPADIF(iS) ! pitch angle diffusion
           ELSE
-             CALL WAVELO(iS)
+             CALL WAVELO(iS) ! electron lifetimes
           ENDIF
           CALL SUMRC(iS)
           LSWAE(iS)=LSWAE(iS)+ELORC(iS)
+       endif
+
+       if (species(iS)%CEX) then
+          CALL CHAREXCHANGE(iS)
+          CALL SUMRC(iS)
+          LSCHA(iS)=LSCHA(iS)+ELORC(iS)
        endif
 
        CALL DRIFTMU(iS)
@@ -130,7 +135,7 @@ MODULE ModRamRun
 
        ! Interpolate diffusivity as funtion of Kp, if necessary
        if (DoUseWPI.and.DoUseBASdiff.and.DoUseKpDiff) then
-          call WAPARA_Kp()
+          call WAPARA_Kp(iS)
        end if
 
        ! Routines needed to clear allocated variables for use with OpenMP
@@ -154,7 +159,7 @@ MODULE ModRamRun
     DtsNext = max(DtsNext, DtsMin)
 
     ! Update flux and pressure totals
-    DO iS = 1,4
+    DO iS = 1,nS
        CALL ANISCH(iS)
        DO I = 2, NR
           DO K = 2, NE
@@ -166,12 +171,6 @@ MODULE ModRamRun
           ENDDO
        ENDDO
     ENDDO
-
-    ! Update species pressures
-    PPerO  = PPerT(4,:,:); PParO  = PParT(4,:,:)
-    PPerHe = PPerT(3,:,:); PParHe = PParT(3,:,:)
-    PPerE  = PPerT(1,:,:); PParE  = PParT(1,:,:)
-    PPerH  = PPerT(2,:,:); PParH  = PParT(2,:,:)
 
     RETURN
   END SUBROUTINE Ram_Run
@@ -224,7 +223,7 @@ MODULE ModRamRun
     use ModRamVariables, ONLY: IP1, UPA, WMU, FFACTOR, MU, EKEV, LZ, MLT,  &
                                PAbn, RMAS, GREL, IR1, EPP, ERNH, CDAAR, BDAAR,  &
                                ENOR, NDAAJ, fpofc, Kp, BOUNHS, FNHS, BNES, XNE, &
-                               NECR, PPerT, PParT, F2, ATAW, ATAW_emic, ATAC
+                               NECR, PPerT, PParT, F2, ATAW, ATAW_emic, ATAC, species
     ! Module Subroutines/Functions
     use ModRamGSL,       ONLY: GSL_Interpolation_1D, GSL_Interpolation_2D
     use ModRamFunctions, ONLY: ACOSD
@@ -315,7 +314,7 @@ MODULE ModRamRun
       ENDDO
     ENDDO
 
-    IF (MOD(INT(T),INT(Dt_bc)).EQ.0.and.DoUseWPI.and.S.eq.1) THEN
+    IF (MOD(INT(T),INT(Dt_bc)).EQ.0.and.DoUseWPI.and.species(S)%s_name.eq.'Electron') THEN
          ! zero PA diffusion coefficients
        DO I=1,NR
           DO J=1,NT

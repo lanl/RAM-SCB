@@ -307,8 +307,8 @@ module ModRamSats
     use netcdf
     use ModTimeConvert
     use ModRamTiming,    ONLY: DtWriteSat
-    use ModRamGrids,     ONLY: NE, NPA
-    use ModRamVariables, ONLY: EKEV, WE, WMU, MU
+    use ModRamGrids,     ONLY: nS, NE, NPA
+    use ModRamVariables, ONLY: EKEV, WE, WMU, MU, species
 
     use ModRamNCDF, ONLY: ncdf_check, write_ncdf_globatts
 
@@ -316,10 +316,10 @@ module ModRamSats
 
     character(len=200), intent(in) :: FileNameIn
 
+    integer :: iS
     integer :: iFileID, iStatus, iTimeDim, iEnDim, iPaDim, iXyzDim, iBoundDim
     integer :: iTimeVar, iXyzVar, iBVar, iEgridVar, iEwidVar, iPgridVar, iBeVar
-    integer :: iHVar, iHeVar, iOVar, ieVar, iDtVar, iEcVar, &
-               iPwidVar, ioHVar, ioHeVar, ioOVar, ioeVar, iFlagVar !, iEiVar 
+    integer :: iFluxVar, iOFluxVar, iDtVar, iEcVar, iPwidVar, iFlagVar
 
     logical :: DoTest, DoTestMe
     character(len=100) :: NameSub = NameMod // '::create_sat_file'
@@ -388,62 +388,23 @@ module ModRamSats
          'Convection Electric field at spacecraft in SM coordinates.')
     iStatus = nf90_put_att(iFileID, iEcVar, 'units', 'mV/m')
 
-          ! E-INDUCED
-    !iStatus = nf90_def_var(iFileID, 'Eind_xyz', nf90_float, &
-    !     (/iXyzDim, iTimeDim/), iEcVar)
-    !iStatus = nf90_put_att(iFileID, iEiVar, 'title', &
-    !     'Induced Electric field at spacecraft in SM coordinates.')
-    !iStatus = nf90_put_att(iFileID, iEiVar, 'units', 'mV/m')
-
           ! FLUX
-    iStatus = nf90_def_var(iFileID, 'FluxH+', nf90_float, &
-         (/iEnDim, iPaDim, iTimeDim/), iHVar)
-    iStatus = nf90_put_att(iFileID, iHVar, 'title', &
-         'Energy and pitch-angle dependent particle flux at spacecraft: H+.')
-    iStatus = nf90_put_att(iFileID, iHVar, 'units', '1/cm2/s/ster/keV')
-
-    iStatus = nf90_def_var(iFileID, 'FluxHe+', nf90_float, &
-         (/iEnDim, iPaDim, iTimeDim/), iHeVar)
-    iStatus = nf90_put_att(iFileID, iHeVar, 'title', &
-         'Energy and pitch-angle dependent particle flux at spacecraft: He+.')
-    iStatus = nf90_put_att(iFileID, iHeVar, 'units', '1/cm2/s/ster/keV')
-
-    iStatus = nf90_def_var(iFileID, 'FluxO+', nf90_float, &
-         (/iEnDim, iPaDim, iTimeDim/), iOVar)
-    iStatus = nf90_put_att(iFileID, iOVar, 'title', &
-         'Energy and pitch-angle dependent particle flux at spacecraft: O+.')
-    iStatus = nf90_put_att(iFileID, iOVar, 'units', '1/cm2/s/ster/keV')
-
-    iStatus = nf90_def_var(iFileID, 'Fluxe-', nf90_float, &
-         (/iEnDim, iPaDim, iTimeDim/), ieVar)
-    iStatus = nf90_put_att(iFileID, ieVar, 'title', &
-         'Energy and pitch-angle dependent particle flux at spacecraft: e-.')
-    iStatus = nf90_put_att(iFileID, ieVar, 'units', '1/cm2/s/ster/keV')
+    do iS = 1, nS
+       iStatus = nf90_def_var(iFileID, 'Flux'//species(iS)%s_code, nf90_float, &
+                              (/iEnDim, iPaDim, iTimeDim/), iFluxVar)
+       iStatus = nf90_put_att(iFileID, iFluxVar, 'title', &
+            'Energy and pitch-angle dependent particle flux at spacecraft: '//species(iS)%s_code)
+       iStatus = nf90_put_att(iFileID, iFluxVar, 'units', '1/cm2/s/ster/keV')
+    enddo
 
          ! OMNIDIRECTIONAL FLUX
-    iStatus = nf90_def_var(iFileID, 'omniH', nf90_float, &
-         (/iEnDim, iTimeDim/), ioHVar)
-    iStatus = nf90_put_att(iFileID, ioHVar, 'title', &
-         'Omnidirectional particle flux at spacecraft: H+.')
-    iStatus = nf90_put_att(iFileID, ioHVar, 'units', '1/cm2/s/keV')
-
-    iStatus = nf90_def_var(iFileID, 'omniO', nf90_float, &
-         (/iEnDim, iTimeDim/), ioOVar)
-    iStatus = nf90_put_att(iFileID, ioOVar, 'title', &
-         'Omnidirectional particle flux at spacecraft: O+.')
-    iStatus = nf90_put_att(iFileID, ioOVar, 'units', '1/cm2/s/keV')
-
-    iStatus = nf90_def_var(iFileID, 'omniHe', nf90_float, &
-         (/iEnDim, iTimeDim/), ioHeVar)
-    iStatus = nf90_put_att(iFileID, ioHeVar, 'title', &
-         'Omnidirectional particle flux at spacecraft: He+.')
-    iStatus = nf90_put_att(iFileID, ioHeVar, 'units', '1/cm2/s/keV')
-
-    iStatus = nf90_def_var(iFileID, 'omnie', nf90_float, &
-         (/iEnDim, iTimeDim/), ioeVar)
-    iStatus = nf90_put_att(iFileID, ioeVar, 'title', &
-         'Omnidirectional particle flux at spacecraft: e-.')
-    iStatus = nf90_put_att(iFileID, ioeVar, 'units', '1/cm2/s/keV')
+    do iS = 1, nS
+       iStatus = nf90_def_var(iFileID, 'omni'//species(iS)%s_code, nf90_float, &
+                              (/iEnDim, iPaDim, iTimeDim/), iOFluxVar)
+       iStatus = nf90_put_att(iFileID, iOFluxVar, 'title', &
+            'Energy and pitch-angle dependent particle flux at spacecraft: '//species(iS)%s_code)
+       iStatus = nf90_put_att(iFileID, iOFluxVar, 'units', '1/cm2/s/keV')
+    enddo
 
           ! ENERGY GRID
     iStatus = nf90_def_var(iFileID, 'energy_grid', nf90_float, &
@@ -470,19 +431,6 @@ module ModRamSats
     iStatus = nf90_put_att(iFileID, iPwidVar, 'title', &
          'Width of each pitch angle bin whose centers are listed in pa_grid.')
     iStatus = nf90_put_att(iFileID, iPwidVar, 'units', 'unitless')
-
-         ! BOUNDING GRID POINTS
-!    iStatus = nf90_def_var(iFileID, 'XYZnear', nf90_float, &
-!         (/iXyzDim,iBoundDim,iTimeDim/), iXYZnear)
-!    iStatus = nf90_put_att(iFileID, iXYZnear, 'title', &
-!         'X,Y,Z coordinates of 8 bounding grid points.')
-!    iStatus = nf90_put_att(iFileID, iXYZnear, 'units', 'Earth Radii')
-
-!    iStatus = nf90_def_var(iFileID, 'Bnear', nf90_float, &
-!         (/iXyzDim,iBoundDim,iTimeDim/), iBnear)
-!    iStatus = nf90_put_att(iFileID, iBnear, 'title', &
-!         'Bx,By,Bz values of 8 bounding grid points.')
-!    iStatus = nf90_put_att(iFileID, iBnear, 'units', 'nT')
 
     ! Write meta-data as Global Attributes.
     call write_ncdf_globatts(iFileID)
@@ -530,7 +478,7 @@ module ModRamSats
     real(DP) :: xSat(3), dTime, xNear(27), yNear(27), zNear(27), BtNear(3,27), &
                 BeNear(3,27), EcNear(3,27), xyzNear(3,27), &
                 xNearT(27), yNearT(27), zNearT(27), &
-                rNear, SatB(6), SatEc(3) !, SatEi(3), EiNear(3,27)
+                rNear, SatB(6), SatEc(3)
     real(DP), ALLOCATABLE :: distance(:,:,:), SatFlux(:,:,:), OmnFlux(:,:), &
                              SatFluxNear(:,:,:,:)
 
@@ -573,7 +521,7 @@ module ModRamSats
           SatFlux = BadDataFlag; OmnFlux = BadDataFlag
           xyzNear = BadDataFlag; BtNear = BadDataFlag
           call append_sat_record(SatFileName_O(iSat), iSatRecord(iSat), TimeRamElapsed, &
-               xSat, SatB, SatEc, SatFlux, OmnFlux) !, SatEi
+               xSat, SatB, SatEc, SatFlux, OmnFlux)
           iSatRecord(iSat) = iSatRecord(iSat) + 1
           cycle SATLOOP                 ! don't trace this time.
        else
@@ -680,19 +628,15 @@ module ModRamSats
              ! Convective E:
              CALL GSL_NN(xNear(1:iT),yNear(1:iT),zNear(1:iT),EcNear(i,1:iT), &
                          xSat(1),xSat(2),xSat(3),SatEc(i),GSLerr)
-             ! Induced E:
-             !CALL GSL_NN(xNear(1:iT),yNear(1:iT),zNear(1:iT),EiNear(i,1:iT), &
-             !            xSat(1),xSat(2),xSat(3),SatEi(i),GSLerr)
           END DO
           SatB = SatB * bnormal ! Convert to correct units (nT)
           SatEc = SatEc * 1.0/6.4 ! Convert to correct units (mV/m)
-          !SatEi = SatEi * enormal ! Convert to correct units (mV/m)
 
           ! Reset Omnidirectional flux.
           OmnFlux(:,:)   = 0.0
           SatFlux(:,:,:) = BadDataFlag
           ! Flux for all energies, pitch angles, and species.
-          do iS=1, 4
+          do iS=1, nS
              do iE=1, nE
                 do iPa=1, nPa
                    ix = 0
@@ -743,6 +687,7 @@ module ModRamSats
 
       use netcdf
       use ModRamGrids, ONLY: nS, nE, nPa
+      use ModRamVariables, ONLY: species
 
       implicit none
 
@@ -754,9 +699,9 @@ module ModRamSats
       
       ! Local variables:
       real(DP), ALLOCATABLE :: Flux(:,:,:), OmFx(:,:)
+      integer :: iS
       integer :: iStatus, iFileID, iStart1D(1), iStart2D(2), iStart3D(3)
-      integer :: iTimeVar, iXyzVar, iBVar, iHVar, iHeVar, iOVar, ieVar, &
-                 iEcVar, iBeVar, ioHVar, ioHeVar, ioOVar, ioeVar !, iEiVar
+      integer :: iTimeVar, iXyzVar, iBVar, iFluxVar, iOmniVar, iEcVar, iBeVar
 
       logical :: DoTest, DoTestMe
       character(len=100) :: NameSubSub = NameSub // '::append_sat_record'
@@ -789,18 +734,7 @@ module ModRamSats
       iStatus = nf90_inq_varid(iFileID, 'SM_xyz',    iXyzVar)
       iStatus = nf90_inq_varid(iFileID, 'B_xyz',     iBVar)
       iStatus = nf90_inq_varid(iFileID, 'Bext_xyz',  iBeVar)
-      iStatus = nf90_inq_varid(iFileID, 'FluxH+',    iHVar)
-      iStatus = nf90_inq_varid(iFileID, 'FluxHe+',   iHEVar)
-      iStatus = nf90_inq_varid(iFileID, 'FluxO+',    iOVar)
-      iStatus = nf90_inq_varid(iFileID, 'Fluxe-',    ieVar)
       iStatus = nf90_inq_varid(iFileID, 'Econv_xyz', iEcVar)
-      iStatus = nf90_inq_varid(iFileID, 'omniH',     ioHVar)
-      iStatus = nf90_inq_varid(iFileID, 'omniHe',    ioHeVar)
-      iStatus = nf90_inq_varid(iFileID, 'omniO',     ioOVar)
-      iStatus = nf90_inq_varid(iFileID, 'omnie',     ioeVar)
-!      iStatus = nf90_inq_varid(iFileID, 'Bnear',     iBnear)
-!      iStatus = nf90_inq_varid(iFileID, 'XYZnear',   iXYZnear)
-!      iStatus = nf90_inq_varid(iFileID, 'Eind_xyz',  iEiVar)
 
       ! Write new values to file:
            ! Time
@@ -812,20 +746,14 @@ module ModRamSats
       iStatus = nf90_put_var(iFileID, iBeVar,bVec(4:6), iStart2D)
            ! Vector convection E-field
       iStatus = nf90_put_var(iFileID, iEcVar, ecVec, iStart2D)
-           ! Vector induced E-field
-!      iStatus = nf90_put_var(iFileID, iEiVar, eiVec, iStart2D)
-           ! Neighboring Positions and B Field
-!      iStatus = nf90_put_var(iFileID, iBnear, Bnear, iStart3D)
-!      iStatus = nf90_put_var(iFileID, iXYZnear, XYZnear, iStart3D)
 
-      iStatus = nf90_put_var(iFileID, ieVar,  Flux(1,:,:), iStart3D)
-      iStatus = nf90_put_var(iFileID, iHVar,  Flux(2,:,:), iStart3D)
-      iStatus = nf90_put_var(iFileID, iHeVar, Flux(3,:,:), iStart3D)
-      iStatus = nf90_put_var(iFileID, iOVar,  Flux(4,:,:), iStart3D)
-      iStatus = nf90_put_var(iFileID, ioeVar, OmFx(1,:), iStart2D)
-      iStatus = nf90_put_var(iFileID, ioHVar, OmFx(2,:), iStart2D)
-      iStatus = nf90_put_var(iFileID, ioHeVar,OmFx(3,:), iStart2D)
-      iStatus = nf90_put_var(iFileID, ioOVar, OmFx(4,:), iStart2D)
+
+      do iS = 1, nS
+         iStatus = nf90_inq_varid(iFileID, 'Flux'//species(iS)%s_code, iFluxVar)
+         iStatus = nf90_inq_varid(iFileID, 'omni'//species(iS)%s_code, iOmniVar)
+         iStatus = nf90_put_var(iFileID, iFluxVar, Flux(iS,:,:), iStart3D)
+         iStatus = nf90_put_var(iFileID, iOmniVar, OmFx(iS,:),   iStart2D)
+      enddo
       
       ! Close NCDF file.
       iStatus = nf90_close(iFileID)

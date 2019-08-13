@@ -8,13 +8,12 @@ Module ModRamGrids
   use nrtype, ONLY: DP
 
   implicit none
- 
-  integer, parameter :: nS = 4 ! number of species
-  character(len=2), dimension(nS) :: s_name = (/'_e',     '_H', 'He', '_O'/)
-  real(DP), dimension(nS)         :: M1     = (/5.4462E-4, 1.,   4.,   16./) !Mass number
+
+  character(len=100) :: NameVar = '_H _O He _e'
  
   !!! RAM Grids
-  integer :: NR       = 20,  &  ! grid points in radial direction 
+  integer :: nS       = 4,   &  ! number of species to run
+             NR       = 20,  &  ! grid points in radial direction 
              NT       = 25,  &  ! grid points in local time direction
              NE       = 35,  &  ! number of energy bins
              NPA      = 72,  &  ! grid points in pitch angle dimension

@@ -15,13 +15,14 @@ MODULE ModRamWPI
 !                              WAVEPARA1
 !               Life time due to WPI inside plasmasphere
 !**************************************************************************
-  SUBROUTINE WAVEPARA1
+  SUBROUTINE WAVEPARA1(S)
 
     use ModRamMain,      ONLY: DP
     use ModRamGrids,     ONLY: NE, NR
     use ModRamVariables, ONLY: EKEV, LZ, WALOS1
 
     implicit none
+    integer, intent(in) :: S
 
     integer :: i, ii, j, k
     real(DP):: TAU_WAVE,xE,xL,xlife, rEa(5),rL(8),rlife(5,8),clife(5)
@@ -128,9 +129,9 @@ MODULE ModRamWPI
 !                              WAVEPARA2
 !       Another life time due to diffusion not everywhere strong
 !**************************************************************************
-  SUBROUTINE WAVEPARA2
+  SUBROUTINE WAVEPARA2(S)
     !!!! Module Variables
-    use ModRamMain,      ONLY: DP, S
+    use ModRamMain,      ONLY: DP
     use ModRamConst,     ONLY: HMIN, RE, PI
     use ModRamGrids,     ONLY: NE, NR
     use ModRamVariables, ONLY: EKEV, LZ, RLZ, V, WALOS2, WALOS3
@@ -138,6 +139,7 @@ MODULE ModRamWPI
     use ModRamFunctions, ONLY: asind
 
     implicit none
+    integer, intent(in) :: S
 
     integer :: i, k
     real(DP):: TAU_WAVE,EMEV,R1,R2,CLC
@@ -183,7 +185,7 @@ MODULE ModRamWPI
 !                              WAPARA_HISS
 !       Routine reading normalized Energy & PA hiss diffusion coeff
 !**************************************************************************
-  SUBROUTINE WAPARA_HISS
+  SUBROUTINE WAPARA_HISS(S)
     !!!! Module Variables
     use ModRamMain,      ONLY: PathRamIn
     use ModRamGrids,     ONLY: NR, NCF, ENG, NPA
@@ -193,6 +195,7 @@ MODULE ModRamWPI
     use ModIoUnit,   ONLY: UNITTMP_
 
     implicit none
+    integer, intent(in) :: S
 
     integer :: i, ix, kn, l
     character(len=80) HEADER
@@ -234,7 +237,7 @@ MODULE ModRamWPI
 !                              WAPARA_CHORUS
 !       Routine reading bounce-aver PA wave diffusion coeff
 !**************************************************************************
-  SUBROUTINE WAPARA_CHORUS
+  SUBROUTINE WAPARA_CHORUS(S)
     !!!! Module Variables
     use ModRamMain,      ONLY: DP, PathRamIn
     use ModRamGrids,     ONLY: NR, NT, ENG, NPA
@@ -243,6 +246,7 @@ MODULE ModRamWPI
     use ModIoUnit, ONLY: UNITTMP_
 
     implicit none
+    integer, intent(in) :: S
 
     integer :: i, j, kn, l, ikp
     real(DP), ALLOCATABLE :: RLDAA(:,:),RUDAA(:,:)
@@ -312,11 +316,12 @@ MODULE ModRamWPI
 !                              WAPARA_Kp
 !       Interpolate Kp-dependent diffusion cofficients
 !**************************************************************************
-  SUBROUTINE WAPARA_Kp()
+  SUBROUTINE WAPARA_Kp(S)
 
     use ModRamVariables, ONLY: KP, CDAAR, CDAAR_chorus, NKpDiff, Kp_chorus
 
     implicit none
+    integer, intent(in) :: S
 
     integer :: i1,i2
 
@@ -342,7 +347,7 @@ MODULE ModRamWPI
 !                              WAPARA_BAS
 !       Routine reading normalized Energy & PA wave diffusion coeff
 !**************************************************************************
-  SUBROUTINE WAPARA_BAS
+  SUBROUTINE WAPARA_BAS(S)
     !!!! Module Variables
     use ModRamMain,      ONLY: DP
     use ModRamParams,    ONLY: DoUseKpDiff, BASFilePath
@@ -356,6 +361,7 @@ MODULE ModRamWPI
     use ModIoUnit, ONLY: UNITTMP_
 
     implicit none
+    integer, intent(in) :: S
 
     integer :: i,j,k,l,nkp,nloop
     character(len=32) :: H1,H2,H3,nchar

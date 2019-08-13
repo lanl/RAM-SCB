@@ -7,7 +7,6 @@ module ModRamCouple
 !==============================================================================
 
   use ModRamMain, ONLY: Real8_, PathRamOut
-  use ModRamConst, ONLY: M1
   use ModRamGrids, ONLY: NR, NE, NT, NPA, nRextend
   use ModRamTiming, ONLY: TimeRamElapsed, TimeRamNow
   use ModRamVariables, ONLY: KP, F107, EKEV, MU, PHI, LZ, GridExtend
@@ -92,13 +91,13 @@ contains
 !==============================================================================
   subroutine RAMCouple_Allocate
 
-    use ModRamGrids, ONLY: nT, nE, nRExtend, nR
+    use ModRamGrids, ONLY: nS, nT, nE, nRExtend, nR
 
     implicit none
 
-    ALLOCATE(MhdDensPres_VII(3,nT,4), &
-             FluxBats_IIS(nE, nT, 1:4), &
-             FluxBats_anis(nE,nPa,nT,1:4), &
+    ALLOCATE(MhdDensPres_VII(3,nT,0:nS), &
+             FluxBats_IIS(nE, nT, nS), &
+             FluxBats_anis(nE,nPa,nT,nS), &
              iEnd(2*(nRExtend)*nT), &
              xEqSWMF(nRExtend,nT-1), &
              yEqSWMF(nRExtend,nT-1), &
@@ -419,7 +418,8 @@ contains
   subroutine generate_flux
     ! Convert MHD density and pressure into flux.
     ! Methodology depends on MHD: single, multispecies, or multifluid.
-
+    use ModRamGrids,     ONLY: nS
+    use ModRamVariables, ONLY: species
     use ModIoUnit, ONLY: UnitTmp_
     use ModConst,  ONLY: cProtonMass, cElectronCharge, cPi
 
@@ -427,10 +427,11 @@ contains
 
     real, parameter :: cMass2Num = 1.0E6 * cProtonMass
 
+    real(kind=Real8_) :: MassConv
     real(kind=Real8_) :: ratioHeH, ratioOH, fracH, fracHe, fracO
     real(kind=Real8_) :: factor, eCent, MhdPpar(4), MhdPper(4)
     real(kind=Real8_) :: factor1, kappa, gamma1, gamma2, gamma3
-    integer :: iT, iE, iPa
+    integer :: iS, iT, iE, iPa
     character(len=100) :: NameFile
 
     ! Test Variables:
@@ -443,164 +444,41 @@ contains
     ! Separate species depending on type of simulation.    
     select case(TypeMhd)
     case('single')
-       ! Use Young et al. (JGR, 1982, Vol. 87 No. A11) findings to
-       ! split mass densit into number density for H, He, O.
-       ! Start by using empirical relationships from Young et al.
-       ! to obtain number density ratios (O/H and He/H) for given
-       ! Kp and F10.7 flux.
-       ratioOH = 4.5E-2 * exp(0.17*Kp + 0.01*F107)
-       ratioHeH= 0.618182*ratioOH*exp(-0.24*Kp - 0.011*F107) + 0.011*ratioOH
-       ! Use number dens. ratios to calculate % of each species to total.
-       fracH = 1.0 / (1.0 + ratioHeH + ratioOH)
-       fracHe= ratioHeH * fracH
-       fracO = ratioOH  * fracH
-       
        if (DoTestMe) then
-          write(*,*) 'Fractions used: fracH, fracHe, fracO ='
-          write(*,*) fracH, fracHe, fracO
+          write(*,*) 'Fractions used: ', species(:)%s_name
+          write(*,*) species(:)%s_comp
        end if
 
        do iT=1, nT
           ! Convert kg/m^-3 to total #/cm^-3 for given species content.
-          MhdDensPres_VII(1,iT,1) = MhdDensPres_VII(1,iT,1) / &
-               ( cMass2Num * (fracH + 4*fracHe + 16*fracO) )
+          MassConv = 0.0
+          do iS = 1, nS
+             MassConv = MassConv + species(iS)%s_mass*species(iS)%s_comp
+          enddo
+          MhdDensPres_VII(1,iT,0) = MhdDensPres_VII(1,iT,0) / &
+               ( cMass2Num * MassConv )
           ! Convert P to temp in eV.
-          MhdDensPres_VII(2,iT,1) = MhdDensPres_VII(2,iT,1) / &
-               ( cElectronCharge * 1.0E6 * MhdDensPres_VII(1,iT,1) )
+          MhdDensPres_VII(2,iT,0) = MhdDensPres_VII(2,iT,0) / &
+               ( cElectronCharge * 1.0E6 * MhdDensPres_VII(1,iT,0) )
+       end do
+
+       do iS = 1, nS
           ! Set other species number density.
-          MhdDensPres_VII(1,iT,2) = fracH  * MhdDensPres_VII(1,iT,1)
-          MhdDensPres_VII(1,iT,3) = fracHe * MhdDensPres_VII(1,iT,1)
-          MhdDensPres_VII(1,iT,4) = fracO  * MhdDensPres_VII(1,iT,1)
+          MhdDensPres_VII(1,:,iS) = species(iS)%s_comp * MhdDensPres_VII(1,:,0)
           ! All other temps the same in single fluid.
-          MhdDensPres_VII(2,iT,2:) = MhdDensPres_VII(2,iT,1)
-       end do
-       MhdDensPres_VII(2,:,1) = MhdDensPres_VII(2,:,1)/7.0
-
-    case ('anisoP')
-
-       ratioOH = 4.5E-2 * exp(0.17*Kp + 0.01*F107)
-       ratioHeH= 0.618182*ratioOH*exp(-0.24*Kp - 0.011*F107) + 0.011*ratioOH
-       ! Use number dens. ratios to calculate % of each species to total                                                  
-       fracH = 1.0 / (1.0 + ratioHeH + ratioOH)
-       fracHe= ratioHeH * fracH
-       fracO = ratioOH  * fracH
-
-       if (DoTestMe) then
-          write(*,*) 'Fractions used: fracH, fracHe, fracO ='
-          write(*,*) fracH, fracHe, fracO
-       end if
-
-       do iT=1, nT
-          ! Convert kg/m^-3 to total #/cm^-3 for given species content.    
-          MhdDensPres_VII(1,iT,1) = MhdDensPres_VII(1,iT,1) / &
-               ( cMass2Num * (fracH + 4*fracHe + 16*fracO) )
-          ! Convert P to temp in eV.                 
-          MhdDensPres_VII(2,iT,1) = MhdDensPres_VII(2,iT,1) / &
-               ( cElectronCharge * 1.0E6 * MhdDensPres_VII(1,iT,1) )
-          ! Set other species number density.            
-          MhdDensPres_VII(1,iT,2) = fracH  * MhdDensPres_VII(1,iT,1)
-          MhdDensPres_VII(1,iT,3) = fracHe * MhdDensPres_VII(1,iT,1)
-          MhdDensPres_VII(1,iT,4) = fracO  * MhdDensPres_VII(1,iT,1)
-          ! All other temps the same in single fluid.   
-          MhdDensPres_VII(2,iT,2:) = MhdDensPres_VII(2,iT,1)
-
-          ! convert P_par to T_par in eV        
-          MhdDensPres_VII(3,iT,1) = MhdDensPres_VII(3,iT,1)/ &
-               ( cElectronCharge * 1.0e6 * MhdDensPres_VII(1,iT,1))
-          ! all other temps the same           
-          MhdDensPres_VII(3,iT,2:)=MhdDensPres_VII(3,iT,1)
-       end do
-       ! electron temperature is lower     
-       MhdDensPres_VII(2,:,1) = MhdDensPres_VII(2,:,1)/7.0
-       MhdDensPres_VII(3,:,1) = MhdDensPres_VII(3,:,1)/7.0
-
+          MhdDensPres_VII(2,:,iS) = MhdDensPres_VII(2,:,0)
+       enddo
+    case('anisoP')
+       call CON_stop(NameSub//' TypeMhd not currently supported: '//TypeMhd)
     case('multiS')
-       do iT=1, nT
-          ! Save total mass density to calculate temperature.
-          ! Do this with # of protons because that's how single fluid
-          ! (yet multi species) MHD is actually tracking the fluid.
-          MhdDensPres_VII(1,iT,1) = sum(MhdDensPres_VII(1,iT,2:4))
-          ! Convert total and species mass density to number density.
-          MhdDensPres_VII(1,iT,2) = MhdDensPres_VII(1,iT,2)!/ 1.0
-          MhdDensPres_VII(1,iT,3) = MhdDensPres_VII(1,iT,3) / 4.0
-          MhdDensPres_VII(1,iT,4) = MhdDensPres_VII(1,iT,4) /16.0
-          ! Convert P to temp in eV.
-          MhdDensPres_VII(2,iT,1) = MhdDensPres_VII(2,iT,1) / &
-               ( cElectronCharge * 1.0E6 * MhdDensPres_VII(1,iT,1) )
-          ! All other temps the same in single fluid.
-          MhdDensPres_VII(2,iT,2:) = MhdDensPres_VII(2,iT,1)
-       end do
-
+       call CON_stop(NameSub//' TypeMhd not currently supported: '//TypeMhd)
     case('multiF')
-       ! Convert total and species mass density to number density.
-       MhdDensPres_VII(1,:,2) = MhdDensPres_VII(1,:,2)/(cMass2Num)
-       MhdDensPres_VII(1,:,3) = MhdDensPres_VII(1,:,3)/(cMass2Num*4.0)
-       MhdDensPres_VII(1,:,4) = MhdDensPres_VII(1,:,4)/(cMass2Num*16.0)
-       MhdDensPres_VII(1,:,1) = sum(MhdDensPres_VII(1,:,2:4))
-       
-       ! Convert P to temp in eV.
-       MhdDensPres_VII(2,:,1) = MhdDensPres_VII(2,:,1) / &
-            ( cElectronCharge * 1.0E6 * MhdDensPres_VII(1,:,1) )
-       MhdDensPres_VII(2,:,2) = MhdDensPres_VII(2,:,2) / &
-            ( cElectronCharge * 1.0E6 * MhdDensPres_VII(1,:,2) )
-       MhdDensPres_VII(2,:,3) = MhdDensPres_VII(2,:,3) / &
-            ( cElectronCharge * 1.0E6 * MhdDensPres_VII(1,:,3) )
-       MhdDensPres_VII(2,:,4) = MhdDensPres_VII(2,:,4) / &
-            ( cElectronCharge * 1.0E6 * MhdDensPres_VII(1,:,4) )
-
+       call CON_stop(NameSub//' TypeMhd not currently supported: '//TypeMhd)
     case('mult3F')
-       ! Convert total and species mass density to number density (#/cm3)
-       ! Helium slot is now solar wind protons.
-       MhdDensPres_VII(1,:,2) = MhdDensPres_VII(1,:,2)/(cMass2Num)
-       MhdDensPres_VII(1,:,3) = MhdDensPres_VII(1,:,3)/(cMass2Num)
-       MhdDensPres_VII(1,:,4) = MhdDensPres_VII(1,:,4)/(cMass2Num*16.0)
-       MhdDensPres_VII(1,:,1) = sum(MhdDensPres_VII(1,:,2:4))
-       
-       ! Convert Pa to temp in eV.
-       MhdDensPres_VII(2,:,1) = MhdDensPres_VII(2,:,1) / &
-            ( cElectronCharge * 1.0E6 * MhdDensPres_VII(1,:,1) )
-       MhdDensPres_VII(2,:,2) = MhdDensPres_VII(2,:,2) / &
-            ( cElectronCharge * 1.0E6 * MhdDensPres_VII(1,:,2) )
-       MhdDensPres_VII(2,:,3) = MhdDensPres_VII(2,:,3) / &
-            ( cElectronCharge * 1.0E6 * MhdDensPres_VII(1,:,3) )
-       MhdDensPres_VII(2,:,4) = MhdDensPres_VII(2,:,4) / &
-            ( cElectronCharge * 1.0E6 * MhdDensPres_VII(1,:,4) )
-
+       call CON_stop(NameSub//' TypeMhd not currently supported: '//TypeMhd)
     case default
        call CON_stop(NameSub//' TypeMhd not recognized: '//TypeMhd)
     end select
-
-    !if(abs(mod(TimeRamElapsed, 60.0_Real8_)) .le. 1e-9) then
-    !   ! Write boundary dens and pressure to file.
-    !   write(NameFile,'(a,i6.6,a)')&
-    !        PathRamOut//"bound_plasma_t",nint(TimeRamElapsed/60._Real8_),".out"
-    !   open( UnitTmp_, FILE=NameFile, STATUS='replace')
-    !   write(UnitTmp_,'(es13.5,i5,5i3)') &
-    !        TimeRamElapsed, &
-    !        TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay, &
-    !        TimeRamNow%iHour, TimeRamNow%iMinute, TimeRamNow%iSecond
-    !   write(UnitTmp_, *) 'Units are Hours, cm-3, and eV'
-
-    !   if (TypeMhd .eq. 'mult3F') then
-    !      write(UnitTmp_, *) 'lt RhoE RhoH RhoSw RhoO pE pH pSw pO'
-    !   elseif(TypeMhd .eq. 'anisoP')then
-    !      write(UnitTmp_, *) 'lt RhoE RhoH RhoHe RhoO pE pH pHe pO pparE pparH pparHe pparO'
-    !   else
-    !      write(UnitTmp_, *) 'lt RhoE RhoH RhoHe RhoO pE pH pHe pO'
-    !   endif
-
-    !   do iT=1, nT
-    !      if (TypeMhd .ne. 'anisoP')then
-    !         write(UnitTmp_, '(i2.2, 8(1x, E13.6))') &
-    !              iT, MhdDensPres_VII(1,iT,1:4), MhdDensPres_VII(2,iT,1:4)
-    !     else
-    !         write(UnitTmp_, '(i2.2, 12(1x, E13.6))') &
-    !              iT,MhdDensPres_VII(1,iT,1:4),MhdDensPres_VII(2,iT,1:4), &
-    !              MhdDensPres_VII(3,iT,1:4)
-    !      end if
-    !   end do
-    !   close(UnitTmp_)
-    !end if
 
     kappa = 3.
     gamma1 = 6.0    !gamma(kappa+1)  
@@ -613,122 +491,49 @@ contains
        eCent = 1000.0 * Ekev(iE) ! Center of energy bin in eV.
        factor=4.0E6*Ekev(iE)     ! Unit conversion factor * eCent in KeV.
        do iT=1, nT
-          if (TypeMhd .ne. 'anisoP')then
+          select case(TypeMhd)
+          case('single')
              if (NameDistrib .eq. 'MAXW') then
-
                 ! Assuming a maxwellian distribution about MHD temperature, divide
                 ! densities into energy bins and calculate fluxes.
+                do iS = 1, nS
+                   FluxBats_IIS(iE,iT,iS) = 1./sqrt(species(iS)%s_mass) &
+                                          *exp(-1.0*eCent/MhdDensPres_VII(2,iT,iS)) &
+                                          *factor*MhdDensPres_VII(1,iT,iS) &
+                                          *(MhdDensPres_VII(2,iT,iS)/1000.0)**(-1.5)
+                   if (MhdDensPres_VII(1,iT,0) < 0) then
+                      FluxBats_IIS(iE,iT,iS) = 0.0
+                   endif
+                enddo
 
-                FluxBats_IIS(iE, iT, 1) = 1./sqrt(M1(1))*exp(-1.0*eCent/MhdDensPres_VII(2,iT,1))*&
-                     factor * MhdDensPres_VII(1,iT,1) * &
-                     (MhdDensPres_VII(2,iT,1)/1000.0_Real8_)**(-1.5)
-                FluxBats_IIS(iE, iT, 2) = 1./sqrt(M1(2))*exp(-1.0*eCent/MhdDensPres_VII(2,iT,2))*&
-                     factor * MhdDensPres_VII(1,iT,2) * &
-                     (MhdDensPres_VII(2,iT,2)/1000.0_Real8_)**(-1.5)
-                FluxBats_IIS(iE, iT, 3) = 1./sqrt(M1(3))*exp(-1.0*eCent/MhdDensPres_VII(2,iT,3))*&
-                     factor * MhdDensPres_VII(1,iT,3) * &
-                     (MhdDensPres_VII(2,iT,3)/1000.0_Real8_)**(-1.5)
-                FluxBats_IIS(iE, iT, 4) = 1./sqrt(M1(4))*exp(-1.0*eCent/MhdDensPres_VII(2,iT,4))*&
-                     factor * MhdDensPres_VII(1,iT,4) * &
-                     (MhdDensPres_VII(2,iT,4)/1000.0_Real8_)**(-1.5)
-
-                if (MhdDensPres_VII(1,iT,1) < 0) then
-                   FluxBats_IIS(iE, iT, 1) = 0.0
-                   FluxBats_IIS(iE, iT, 2) = 0.0
-                   FluxBats_IIS(iE, iT, 3) = 0.0
-                   FluxBats_IIS(iE, iT, 4) = 0.0
-                endif
              elseif(NameDistrib .eq.'KAPA')then
                 ! assuming a kappa distribution
-                
-                FluxBats_IIS(iE,iT,1) = 1./sqrt(M1(1))*(1+1.0*eCent/(&
-                     (kappa-1.5)*MhdDensPres_VII(2,iT,1)))**(-(kappa+1))*&
-                     factor1*factor * MhdDensPres_VII(1,iT,1) * &
-                     (MhdDensPres_VII(2,iT,1)/1000.0_Real8_)**(-1.5)
-                FluxBats_IIS(iE,iT,2) = 1./sqrt(M1(2))*(1+1.0*eCent/(&
-                     (kappa-1.5)*MhdDensPres_VII(2,iT,2)))**(-(kappa+1))*&
-                     factor1*factor * MhdDensPres_VII(1,iT,2) * &
-                     (MhdDensPres_VII(2,iT,2)/1000.0_Real8_)**(-1.5)
-                FluxBats_IIS(iE,iT,3) = 1./sqrt(M1(3))*(1+1.0*eCent/(&
-                     (kappa-1.5)*MhdDensPres_VII(2,iT,3)))**(-(kappa+1))*&
-                     factor1*factor * MhdDensPres_VII(1,iT,3) * &
-                     (MhdDensPres_VII(2,iT,3)/1000.0_Real8_)**(-1.5)
-                FluxBats_IIS(iE,iT,4) = 1./sqrt(M1(4))*(1+1.0*eCent/(&
-                     (kappa-1.5)*MhdDensPres_VII(2,iT,4)))**(-(kappa+1))*&
-                     factor1*factor * MhdDensPres_VII(1,iT,4) * &
-                     (MhdDensPres_VII(2,iT,4)/1000.0_Real8_)**(-1.5)
+                do iS = 1, nS
+                   FluxBats_IIS(iE,iT,iS) = 1./sqrt(species(iS)%s_mass) &
+                                          *(1+1.0*eCent/((kappa-1.5)*MhdDensPres_VII(2,iT,iS)))**(-(kappa+1)) &
+                                          *factor1*factor*MhdDensPres_VII(1,iT,iS) &
+                                          *(MhdDensPres_VII(2,iT,iS)/1000.0)**(-1.5)
+                   if (MhdDensPres_VII(1,iT,0) < 0) then
+                      FluxBats_IIS(iE,iT,iS) = 0.0
+                   endif
+                enddo               
              else
                 call CON_stop(NameSub//' NameDistribution not recognized: '//NameDistrib)
-             end if
-          else  ! anisotropic Mhd
-             ! Tpar and Tper in eV; 
-             MhdPpar = MhdDensPres_VII(3,iT,1:4)
-             MhdPper = (MhdDensPres_VII(2,iT,1:4)*3-MhdPpar)/2.0
-             if (NameDistrib .eq. 'MAXW')then
-                ! assume a bi-maxwellian distribution                              
-                do iPa=1, nPa
-                   FluxBats_anis(iE,iPa,iT,1) = 1./sqrt(M1(1)) &
-                        * exp(-1.0*eCent*MU(ipa)**2/MhdPpar(1) - 1.0*eCent*(1-mu(ipa)**2)/MhdPper(1)) &
-                        * factor * MhdDensPres_VII(1,iT,1) &
-                        /(MhdPper(1)/1000.0_Real8_*sqrt(MhdPpar(1)/1000.0_Real8_))
-                   FluxBats_anis(iE,iPa,iT,2) = 1./sqrt(M1(2)) &
-                        * exp(-1.0*eCent*MU(ipa)**2/MhdPpar(2) - 1.0*eCent*(1-MU(ipa)**2)/MhdPper(2)) &
-                        * factor * MhdDensPres_VII(1,iT,2) &
-                        /(MhdPper(2)/1000.0_Real8_*sqrt(MhdPpar(2)/1000.0_Real8_))
-                   FluxBats_anis(iE,iPa,iT,3) = 1./sqrt(M1(3)) &
-                        * exp(-1.0*eCent*MU(ipa)**2/MhdPpar(3) - 1.0*eCent*(1-MU(ipa)**2)/MhdPper(3)) &
-                        * factor * MhdDensPres_VII(1,iT,3) &
-                        /(MhdPper(3)/1000.0_Real8_*sqrt(MhdPpar(3)/1000.0_Real8_))
-                   FluxBats_anis(iE,iPa,iT,4) = 1./sqrt(M1(4)) &
-                        * exp(-1.0*eCent*MU(ipa)**2/MhdPpar(4) - 1.0*eCent*(1-MU(ipa)**2)/MhdPper(4)) &
-                        * factor * MhdDensPres_VII(1,iT,4) &
-                        /(MhdPper(4)/1000.0_Real8_*sqrt(MhdPpar(4)/1000.0_Real8_))
-                end do
-             elseif(NameDistrib .eq. 'KAPA')then
-                ! assume a bi-kappa distribution 
-                do iPa=1, nPa
-                   FluxBats_anis(iE,iPa,iT,1) = 1./sqrt(M1(1)) * &
-                        (1+1.0*eCent*MU(ipa)/((kappa-1.5)*MhdPpar(1) ) + &
-                        1.0*eCent*(1-MU(ipa)**2)/((kappa-1.5)*MhdPper(1)))**(-(kappa+1))*&
-                        factor1*factor * MhdDensPres_VII(1,iT,1)  &
-                        /(MhdPper(1)/1000.0_Real8_*sqrt(MhdPpar(1)/1000.0_Real8_))
-                   FluxBats_anis(iE,iPa,iT,2) = 1./sqrt(M1(2)) * &
-                        (1+1.0*eCent*MU(ipa)/((kappa-1.5)*MhdPpar(2) ) + &
-                        1.0*eCent*(1-MU(ipa)**2)/((kappa-1.5)*MhdPper(2)))**(-(kappa+1))*&
-                        factor1*factor * MhdDensPres_VII(1,iT,2)  &
-                        /(MhdPper(2)/1000.0_Real8_*sqrt(MhdPpar(2)/1000.0_Real8_))
-                   FluxBats_anis(iE,iPa,iT,3) = 1./sqrt(M1(3)) * &
-                        (1+1.0*eCent*MU(ipa)/((kappa-1.5)*MhdPpar(3) ) + &
-                        1.0*eCent*(1-MU(ipa)**2)/((kappa-1.5)*MhdPper(3)))**(-(kappa+1))*&
-                        factor1*factor * MhdDensPres_VII(1,iT,3)  &
-                        /(MhdPper(3)/1000.0_Real8_*sqrt(MhdPpar(3)/1000.0_Real8_))
-                   FluxBats_anis(iE,iPa,iT,4) = 1./sqrt(M1(4)) * &
-                        (1+1.0*eCent*MU(ipa)/((kappa-1.5)*MhdPpar(4) ) + &
-                        1.0*eCent*(1-MU(ipa)**2)/((kappa-1.5)*MhdPper(4)))**(-(kappa+1))*&
-                        factor1*factor * MhdDensPres_VII(1,iT,4)  &
-                        /(MhdPper(4)/1000.0_Real8_*sqrt(MhdPpar(4)/1000.0_Real8_))
-                end do
-             else
-                call CON_stop(NameSub//' NameDistribution not recognized: '//NameDistrib)
-             end if
-          end if
-
-       end do
-    end do
+             end if ! NameDistrib if
+          case('anisoP')
+             call CON_stop(NameSub//' TypeMhd not currently supported: '//TypeMhd)
+          case('multiS')
+             call CON_stop(NameSub//' TypeMhd not currently supported: '//TypeMhd)
+          case('multiF')
+             call CON_stop(NameSub//' TypeMhd not currently supported: '//TypeMhd)
+          case('mult3F')
+             call CON_stop(NameSub//' TypeMhd not currently supported: '//TypeMhd)
+          end select ! TypeMhd select
+       end do ! nT Loop
+    end do ! nE Loop
     
     ! Remove ridiculously small values.
-    if (TypeMhd .ne. 'anisoP')then
-       where(FluxBats_IIS .lt. 1.0E-30) FluxBats_IIS = 0.0
-    else
-       where(FluxBats_anis .lt. 1.0E-30) FluxBats_anis = 0.0
-    end if
-
-    ! If using two hydrogen species (case of Mult3F), one is saved in 
-    ! helium's spot.  Combine H+ fluxes and set He flux to small fraction.
-    if (TypeMhd .eq. 'mult3F') then
-       FluxBats_IIS(:,:,2) = FluxBats_IIS(:,:,2) + FluxBats_IIS(:,:,3)
-       FluxBats_IIS(:,:,3) = 0.01 * FluxBats_IIS(:,:,2) ! 1% of H+ flux.
-    end if
+    where(FluxBats_IIS .lt. 1.0E-30) FluxBats_IIS = 0.0
 
     if(DoTestMe)call write_FluxGM
     
@@ -759,13 +564,7 @@ contains
        write(UnitTmp_, *) &
             'Flux file for TimeRam, iSpecies = ', TimeRamElapsed, iS
        do iT=1, nT
-          if(TypeMhd .ne. 'anisoP')then
-             write(UnitTmp_,StringFormat) 1.0, iT-1.0, FluxBats_IIS(:,iT,iS)
-          else
-             do iPa=1,nPa
-                write(UnitTmp_,StringFormat) 1.0, iT-1.0, FluxBats_anis(:,ipa,iT,iS)
-             end do
-          end if
+          write(UnitTmp_,StringFormat) 1.0, iT-1.0, FluxBats_IIS(:,iT,iS)
        end do
        write(UnitTmp_,*)'Necessary Footer.'
        close(UnitTmp_)

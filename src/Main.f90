@@ -16,8 +16,9 @@ use ModRamParams,    ONLY: DoSaveFinalRestart, DoVarDt, IsComponent, &
 use ModRamTiming,    ONLY: DtsFramework, DtsMax, DtsMin, DtsNext, Dts, Dt_hI, &
                            TimeRamStart, TimeRamNow, TimeMax, TimeRamElapsed, &
                            UTs, Dt_bc, DtEfi
-
+use ModRamVariables, ONLY: species
 !!!! Module Subroutines and Functions
+use ModRamSpecies,   ONLY: DefineSpecies
 use ModRamScbRun,    ONLY: run_ramscb
 use ModRamGSL,       ONLY: GSL_Initialize
 use ModRamTiming,    ONLY: init_timing, finalize_timing
@@ -62,6 +63,7 @@ call init_timing()
 call read_file('PARAM.in', iComm)
 call read_init('  ', iSessionIn=1, iLineIn=0)
 call IM_set_parameters
+call DefineSpecies
 
 ! Allocate Arrays
 call ram_allocate

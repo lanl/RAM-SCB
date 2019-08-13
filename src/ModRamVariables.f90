@@ -5,10 +5,15 @@
 
 Module ModRamVariables
 
+  use ModRamSpecies, ONLY: SpeciesType
   use ModRamGrids, ONLY: dR, dPhi
   use nrtype, ONLY: DP
 
   implicit none
+
+  ! Species variables
+  type(SpeciesType), allocatable :: species(:)
+  real(DP), allocatable :: composition(:)
 
   integer, allocatable :: outsideMGNP(:,:)
 

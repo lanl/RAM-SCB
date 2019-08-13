@@ -16,7 +16,7 @@ MODULE ModRamBoundary
 subroutine get_boundary_flux
 
 !!!! Module Variables
-  use ModRamMain,   ONLY: S
+  use ModRamGrids,  ONLY: nS
   use ModRamTiming, ONLY: TimeRamElapsed
   use ModRamParams, ONLY: BoundaryFiles
   use ModRamIO,     ONLY: write_prefix
@@ -26,14 +26,13 @@ subroutine get_boundary_flux
   integer :: iS
 
   ! Update boundary conditions and wave diffusion matrix
-  do iS=1,4
-     S = iS
-     IF (S.EQ.1) THEN
+  do iS=1,nS
+     IF (iS.EQ.1) THEN
         write(*,*) ''
         call write_prefix
         write(*,'(a,F10.2)') 'Calling GEOSB at time:    ', TimeRamElapsed
      ENDIF
-     CALL GEOSB
+     CALL GEOSB(iS)
   end do
 
 end subroutine get_boundary_flux
@@ -232,51 +231,30 @@ end subroutine get_geomlt_flux
 !                                GEOSB
 !                       Boundary conditions set up
 !**************************************************************************
-  SUBROUTINE GEOSB
+  SUBROUTINE GEOSB(S)
 
 !!!! Module Variables
-    use ModRamMain,      ONLY: DP, S
+    use ModRamMain,      ONLY: DP
     use ModRamParams,    ONLY: IsComponent, boundary, BoundaryFiles, WriteBoundary, &
-                               verbose
+                               FixedComposition, verbose
     use ModRamGrids,     ONLY: NTL, NEL, NT, NE, NR
     use ModRamTiming,    ONLY: TimeRamElapsed
-    use ModRamVariables, ONLY: FFACTOR, UPA, Kp, F107
+    use ModRamVariables, ONLY: FFACTOR, UPA, Kp, F107, species
     use ModRamCouple,    ONLY: FluxBats_IIS
 
 !!!! Module Subroutines and Functions
     use ModRamIO, ONLY: write_dsbnd
 
     implicit none
+    integer, intent(in) :: S
 
-    character(len=8) :: SpeciesName
     integer  :: ij, ik, l, u
-    real(DP) :: bexp, ahe0, ahe1, gexp, fracComposition, T
+    real(DP) :: bexp, ahe0, ahe1, gexp, T
     real(DP), ALLOCATABLE :: RELAN(:,:), FLAN(:,:), FluxLanl(:,:)
 
     ALLOCATE(RELAN(NTL,NEL),FLAN(NT,NEL),FluxLanl(nT,nE))
     RELAN = 0.0; FLAN = 0.0; FluxLanl = 0.0
     T = TimeRamElapsed
-
-    ! Create Young et al. composition ratios.
-    BEXP=(4.5E-2)*EXP(0.17*KP+0.01*F107)
-    AHE0=6.8E-3
-    AHE1=0.084
-    GEXP=0.011*EXP(0.24*KP+0.011*F107)
-    GEXP=BEXP*(AHE0/GEXP+AHE1)
-    select case(s)
-      case(2)! Fraction H+
-        fracComposition=4./(4.+BEXP+2.*GEXP)
-        SpeciesName = 'Proton  '
-      case(3)! Fraction He+
-        fracComposition=2.*GEXP/(4.+BEXP+2.*GEXP)
-        SpeciesName = 'Helium+ '
-      case(4)! Fraction O+
-        fracComposition=BEXP/(4.+BEXP+2.*GEXP)
-        SpeciesName = 'Oxygen+ '
-      case default ! Electrons.
-        fracComposition=1.0
-        SpeciesName = 'Electron'
-    end select
 
     ! Zero out FGEOS at this species.
     FGEOS(S,:,:,:)=0.
@@ -284,7 +262,7 @@ end subroutine get_geomlt_flux
     ! Read LANL flux (1/cm2/s/sr/keV) assumed isotropic
     IF (boundary.EQ.'LANL') THEN
       ! LANL interpolated flux files.
-      if (s==1) then
+      if (species(S)%s_name=="Electron") then
         call get_geomlt_flux('elec', FluxLanl)
       else
         call get_geomlt_flux('prot', FluxLanl)
@@ -293,7 +271,7 @@ end subroutine get_geomlt_flux
         FluxLanl(1,iK)=FluxLanl(nT,iK)
       end do
       ! Adjust flux for composition
-      FluxLanl=FluxLanl*fracComposition
+      FluxLanl=FluxLanl*species(S)%s_comp
       do ik=1,NE
         do ij=1,nT
           u = int(upa(nR)-1,kind=4)
@@ -302,9 +280,9 @@ end subroutine get_geomlt_flux
           end do
         end do
       end do
+
     ELSEIF (boundary .EQ. 'SWMF') THEN
       !! Read SWMF flux (1/cm2/s/sr/keV) assumed isotropic
-      write(*,*) 'RAM_SCB: Getting flux from BATS-R-US'
       do iK=1, nE
         do iJ=1,nT
           u = int(UPA(NR)-1,kind=4)
@@ -316,12 +294,12 @@ end subroutine get_geomlt_flux
     END IF
 
     if (verbose) then
-       write(*,'(1x,a,2E10.2)') 'Max, Min '//SpeciesName//' boundary flux = ', &
+       write(*,'(1x,a,2E10.2)') 'Max, Min '//species(S)%s_code//' boundary flux = ', &
              maxval(FGEOS(s,:,:,:)), minval(FGEOS(s,:,:,:), MASK=FGEOS(s,:,:,:).GT.0)
     endif
 
     ! Write interpolated dfluxes to file.
-    if (WriteBoundary) call write_dsbnd
+    if (WriteBoundary) call write_dsbnd(S)
 
     DEALLOCATE(RELAN,FLAN,FluxLanl)
     RETURN

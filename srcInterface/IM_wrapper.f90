@@ -416,43 +416,28 @@ module IM_wrapper
             sqrt( MhdLines_IIV(iLine, 1, 3)**2   &
             +     MhdLines_IIV(iLine, 1, 4)**2   &
             +     MhdLines_IIV(iLine, 1, 5)**2)
-       
-       ! Grab total dens and pressure, use first point in trace.
-       if (iEnd(iLine) == 0) then
-          MhdDensPres_VII(1,iT,1) = -1.0
-          MhdDensPres_VII(2,iT,1) = -1.0
-       else
-          MhdDensPres_VII(1,iT,1) = MhdLines_IIV(iLine, 1, TotalRho_)
-          MhdDensPres_VII(2,iT,1) = MhdLines_IIV(iLine, 1, TotalPres_)
-       endif
-       
-       if (TypeMhd .eq. 'anisoP')then
-          ! anisotropic pressure from GM                           
-          MhdDensPres_VII(3,iT,1) = MhdLines_IIV(iLine, 1, Ppar_)
-       end if
-       
-       if (TypeMhd .ne. 'single') then
-          MhdDensPres_VII(1,iT,2) = MhdLines_IIV(iLine, 1, RhoH_)
-          MhdDensPres_VII(1,iT,4) = MhdLines_IIV(iLine, 1, RhoO_)
-          ! Only MultiS has He; only Mult3F has Sw H+.
-          ! Store it in Helium's slot.
-          if (TypeMhd .eq. 'mult3F') then
-             MhdDensPres_VII(1,iT,3) = MhdLines_IIV(iLine, 1, RhoSw_)
+      
+       select case (TypeMhd)
+       case('single') 
+          ! Grab total dens and pressure, use first point in trace.
+          if (iEnd(iLine) == 0) then
+             MhdDensPres_VII(1,iT,0) = -1.0
+             MhdDensPres_VII(2,iT,0) = -1.0
           else
-             MhdDensPres_VII(1,iT,3) = MhdLines_IIV(iLine, 1, RhoHe_)
-          end if
-       end if
-       
-       if (TypeMhd .eq. 'multiF') then
-          MhdDensPres_VII(2,iT,2) = MhdLines_IIV(iLine, 1, PresH_)
-          MhdDensPres_VII(2,iT,3) = MhdLines_IIV(iLine, 1, PresHe_)
-          MhdDensPres_VII(2,iT,4) = MhdLines_IIV(iLine, 1, PresO_)
-       end if
-       if (TypeMhd .eq. 'mult3F') then
-          MhdDensPres_VII(2,iT,2) = MhdLines_IIV(iLine, 1, PresH_ )
-          MhdDensPres_VII(2,iT,3) = MhdLines_IIV(iLine, 1, PresSw_)
-          MhdDensPres_VII(2,iT,4) = MhdLines_IIV(iLine, 1, PresO_ )
-       end if
+             MhdDensPres_VII(1,iT,0) = MhdLines_IIV(iLine, 1, TotalRho_)
+             MhdDensPres_VII(2,iT,0) = MhdLines_IIV(iLine, 1, TotalPres_)
+          endif
+       case('anisoP')
+          call CON_stop(NameSub//' TypeMhd not currently supported: '//TypeMhd)
+       case('multiS')
+          call CON_stop(NameSub//' TypeMhd not currently supported: '//TypeMhd)
+       case('multiF')
+          call CON_stop(NameSub//' TypeMhd not currently supported: '//TypeMhd)
+       case('mult3F')
+          call CON_stop(NameSub//' TypeMhd not currently supported: '//TypeMhd)
+       case default
+          call CON_stop(NameSub//' TypeMhd not recognized: '//TypeMhd)
+       end select
     end do
 
     ! Rotate the local time coordinates by 12 Hours.
@@ -464,7 +449,7 @@ module IM_wrapper
     
     if(DoTest) then
        write(*,*) 'IM_Wrapper: pressure, in Pa:'
-       write(*,*) MhdDensPres_VII(2,:,1)
+       write(*,*) MhdDensPres_VII(2,:,0)
     end if
     
     ! Call routine that converts density/pressure into flux.
@@ -616,64 +601,31 @@ module IM_wrapper
     
     DoMultiFluidGMCoupling = .false.
     DoAnisoPressureGMCoupling = .false.
-    
-    if(NameVar == 'p:rho:Hpp:Opp:Hprho:Oprho')then
+
+    select case(NameVar)
+    case('p:rho')
+       ! Sum pressure:
+       call ram_sum_pressure()
+
+       ! Fill pressure from computational cells; rotate 180.
+       do iT=1, nT
+          iRot = mod(iT+((nT-1)/2-1),nT-1) + 1 ! Even # of cells, 1 ghost cell.
+          Buffer_IIV(1:nR,iRot,pres_) = PAllSum(1:nR,iT)
+          Buffer_IIV(1:nR,iRot,dens_) = NAllSum(1:nR,iT)
+       end do
+       Buffer_IIV(1:nR,nT,pres_) = Buffer_IIV(1:nR,1,pres_)
+       Buffer_IIV(1:nR,nT,dens_) = Buffer_IIV(1:nR,1,dens_)
+       Buffer_IIV(:,:,pres_) = Buffer_IIV(:,:,pres_)*cEnerToPa
+       Buffer_IIV(nR+1:nRextend,:,pres_) = -1
+
+    case('p:rho:Hpp:Opp:Hprho:Oprho')
+       call CON_stop(NameSub//' NameVar not currently supported: '//trim(NameVar))
        DoMultiFluidGMCoupling = .true.
-    elseif(NameVar == 'p:rho:ppar:bmin')then                             
+    case('p:rho:ppar:bmin')
+       call CON_stop(NameSub//' NameVar not currently supported: '//trim(NameVar))
        DoAnisoPressureGMCoupling = .true.
-    elseif (NameVar /= 'p:rho') then
+    case default
        call CON_stop(NameSub//' invalid NameVar='//NameVar)
-    end if
-    
-    ! Sum pressure:
-    call ram_sum_pressure()
-    
-    ! Fill pressure from computational cells; rotate 180.
-    do iT=1, nT
-       iRot = mod(iT+((nT-1)/2-1),nT-1) + 1 ! Even # of cells, 1 ghost cell.
-       Buffer_IIV(1:nR,iRot,pres_) = PAllSum(1:nR,iT)
-       Buffer_IIV(1:nR,iRot,dens_) = NAllSum(1:nR,iT)
-       if (DoAnisoPressureGMCoupling)then
-          Buffer_IIV(1:nR,iRot,parpres_) = PparSum(1:nR,iT)
-          Buffer_IIV(1:nR,iRot,bmin_)    = BNES(1:nR, iT)
-       end if
-       if (DoMultiFluidGMCoupling)then
-          Buffer_IIV(1:nR,iRot,Hpres_)   = HPAllSum(1:nR,iT)
-          Buffer_IIV(1:nR,iRot,Opres_)   = OPAllSum(1:nR,iT)
-          Buffer_IIV(1:nR,iRot,Hdens_)   = HNAllSum(1:nR,iT)
-          Buffer_IIV(1:nR,iRot,Odens_)   = ONAllSum(1:nR,iT)
-       end if
-    end do
-    
-    ! Azimuthal continuity about zero:
-    Buffer_IIV(1:nR,nT,pres_) = Buffer_IIV(1:nR,1,pres_)
-    if (DoAnisoPressureGMCoupling)then
-       Buffer_IIV(1:nR,nT,parpres_) = Buffer_IIV(1:nR,1,parpres_)
-       Buffer_IIV(1:nR,nT,bmin_) = Buffer_IIV(1:nR,1,bmin_)
-    end if
-    if (DoMultiFluidGMCoupling)then
-       Buffer_IIV(1:nR,nT,Hpres_)   = Buffer_IIV(1:nR,1,Hpres_)
-       Buffer_IIV(1:nR,nT,Opres_)   = Buffer_IIV(1:nR,1,Opres_)
-       Buffer_IIV(1:nR,nT,Hdens_)   = Buffer_IIV(1:nR,1,Hdens_)
-       Buffer_IIV(1:nR,nT,Odens_)   = Buffer_IIV(1:nR,1,Odens_)
-    end if
-    
-    ! Convert Units.
-    Buffer_IIV(:,:,pres_) = Buffer_IIV(:,:,pres_)*cEnerToPa
-    if (DoAnisoPressureGMCoupling) &
-         Buffer_IIV(:,:,parpres_) = Buffer_IIV(:,:,parpres_)*cEnerToPa
-    
-    ! Fill pressure from ghost cells as -1 (i.e., no coupling).
-    Buffer_IIV(nR+1:nRextend,:,pres_) = -1
-    if (DoAnisoPressureGMCoupling)then
-       Buffer_IIV(nR+1:nRextend,:,parpres_) = -1
-       Buffer_IIV(nR+1:nRextend,:,bmin_) = -1
-    end if
-    if (DoMultiFluidGMCoupling)then
-       Buffer_IIV(nR+1:nRextend,:,Hpres_) = -1
-       Buffer_IIV(nR+1:nRextend,:,Opres_) = -1
-       Buffer_IIV(nR+1:nRextend,:,Hdens_) = -1
-       Buffer_IIV(nR+1:nRextend,:,Odens_) = -1
     end if
     
     if(DoTestMe)then
@@ -694,6 +646,7 @@ module IM_wrapper
     use ModRamParams, ONLY: IsComponent, StrRamDescription, IsComponent
     use ModRamCouple, ONLY: RAMCouple_Allocate
     use ModRamGsl,    ONLY: gsl_initialize
+    use ModRamSpecies, ONLY: DefineSpecies
     use ModRamInit,   ONLY: ram_init, ram_allocate, init_input
     use ModScbInit,   ONLY: scb_init, scb_allocate
     use ModSceInit,   ONLY: sce_init, sce_allocate
@@ -740,6 +693,7 @@ module IM_wrapper
     if(DoTest) write(*,'(a, E12.6, a)')'IM: Simulation duration (s) = ', TimeMax
     
     ! Allocate Arrays
+    call DefineSpecies
     call ram_allocate
     call scb_allocate
     call ramscb_allocate
