@@ -752,8 +752,8 @@
 !==============================================================================
 SUBROUTINE pressure
     !!!! Module Variables
-    USE ModRamVariables, ONLY: PParH, PPerH, PParO, PPerO, PParHe, PPerHe, PParE, &
-                               PPerE, PHI, LZ
+    USE ModRamVariables, ONLY: PParT, PPerT, PHI, LZ, species
+    use ModRamGrids,     ONLY: nS
     use ModRamParams,    ONLY: boundary
     use ModScbMain,      ONLY: iCountPressureCall
     use ModScbParams,    ONLY: iLossCone, iOuterMethod, iReduceAnisotropy, isotropy, &
@@ -780,7 +780,7 @@ SUBROUTINE pressure
 
     implicit none
 
-    INTEGER :: i, j, j1, k, k1, GSLerr
+    INTEGER :: i, j, j1, k, k1, iS, GSLerr
     REAL(DP) :: radius, angle, bEqSq, aN, pperN, pparN, yyp, gParam, pEq, ratioB, rBI, &
                 colatitudeMid, colatitudeNoo
     REAL(DP) :: aTemp(500), bTemp(500)
@@ -791,11 +791,8 @@ SUBROUTINE pressure
                              pperEqOld(:,:), pparEqOld(:,:), radGridEq(:,:), angleGridEq(:,:)
 
     REAL(DP), ALLOCATABLE :: dipoleFactorMid(:,:), dipoleFactorNoo(:,:)
-    REAL(DP), ALLOCATABLE :: xRaw(:,:), YRaw(:,:),pressProtonPerRaw(:,:), pressProtonParRaw(:,:), &
-                             pressOxygenPerRaw(:,:), pressOxygenParRaw(:,:), pressHeliumPerRaw(:,:), &
-                             pressHeliumParRaw(:,:), pressPerRaw(:,:), pressParRaw(:,:), &
-                             pressEleParRaw(:,:), pressElePerRaw(:,:), radRaw_local(:), &
-                             ratioRaw(:,:), azimRaw_local(:)
+    REAL(DP), ALLOCATABLE :: xRaw(:,:), YRaw(:,:), pressPerRaw(:,:), pressParRaw(:,:), &
+                             radRaw_local(:), ratioRaw(:,:), azimRaw_local(:)
     REAL(DP), ALLOCATABLE :: pressPerRawExt(:,:), pressParRawExt(:,:), outputPer(:,:), &
                              outputPar(:,:), radRawExt(:), azimRawExt(:)
 
@@ -809,11 +806,7 @@ SUBROUTINE pressure
              dSqPresdZetaSq(npsi,nzeta+1), dSqPresdRhodZeta(npsi,nzeta+1), pperEq(npsi,nzeta+1), &
              pparEq(npsi,nzeta+1), pperEqOld(npsi,nzeta+1), pparEqOld(npsi,nzeta+1), &
              radGridEq(npsi, nzeta), angleGridEq(npsi,nzeta))
-    ALLOCATE(xRaw(nXRaw,nYRaw), YRaw(nXRaw,nYRaw), pressProtonPerRaw(nXRaw,nYRaw), &
-             pressProtonParRaw(nXRaw,nYRaw), pressOxygenPerRaw(nXRaw,nYRaw), &
-             pressOxygenParRaw(nXRaw,nYRaw), pressHeliumPerRaw(nXRaw,nYRaw), &
-             pressHeliumParRaw(nXRaw,nYRaw), pressPerRaw(nXRaw,nYRaw), pressParRaw(nXRaw,nYRaw), &
-             pressEleParRaw(nXRaw,nYRaw), pressElePerRaw(nXRaw,nYRaw), &
+    ALLOCATE(xRaw(nXRaw,nYRaw), YRaw(nXRaw,nYRaw), pressPerRaw(nXRaw,nYRaw), pressParRaw(nXRaw,nYRaw), &
              radRaw_local(nXRaw), azimRaw_local(nYRaw), ratioRaw(nXRaw,nYRaw))
     ALLOCATE(dipoleFactorMid(nthe,npsi),dipoleFactorNoo(nthe,npsi))
     ALLOCATE(pressPerRawExt(nXRawExt,nAzimRAM), pressParRawExt(nXRawExt,nAzimRAM), &
@@ -823,9 +816,7 @@ SUBROUTINE pressure
     press = 0.0; dPresdRho = 0.0; dPresdZeta = 0.0; xEq = 0.0; yEq = 0.0; aratio = 0.0; aratioOld = 0.0
     aLiemohn = 0.0; dSqPresdRhoSq = 0.0; dSqPresdZetaSq = 0.0; dSqPresdRhodZeta = 0.0; pperEq = 0.0
     pparEq = 0.0; pperEqOld = 0.0; pparEqOld = 0.0; radGridEq = 0.0; angleGridEq = 0.0
-    xRaw = 0.0; YRaw = 0.0; pressProtonPerRaw = 0.0; pressProtonParRaw = 0.0; pressOxygenPerRaw = 0.0
-    pressOxygenParRaw = 0.0; pressHeliumPerRaw = 0.0; pressHeliumParRaw = 0.0; pressPerRaw = 0.0
-    pressParRaw = 0.0; pressEleParRaw = 0.0; pressElePerRaw = 0.0; radRaw_local = 0.0; ratioRaw = 0.0
+    xRaw = 0.0; YRaw = 0.0; pressPerRaw = 0.0; pressParRaw = 0.0; radRaw_local = 0.0; ratioRaw = 0.0
     dipoleFactorMid = 0.0; dipoleFactorNoo = 0.0
 
     DO  j = 1,npsi
@@ -872,14 +863,14 @@ SUBROUTINE pressure
           DO k1 = 1, nYRaw
              radRaw_local(j1) = LZ(j1+1)
              azimRaw_local(k1) = PHI(k1)*12/pi_d
-             pressProtonPerRaw(j1,k1) = PPERH(j1+1,k1)
-             pressProtonParRaw(j1,k1) = PPARH(j1+1,k1)
-             pressOxygenPerRaw(j1,k1) = PPERO(j1+1,k1)
-             pressOxygenParRaw(j1,k1) = PPARO(j1+1,k1)
-             pressHeliumPerRaw(j1,k1) = PPERHE(j1+1,k1)
-             pressHeliumParRaw(j1,k1) = PPARHE(j1+1,k1)
-             pressElePerRaw(j1,k1)    = PPERE(j1+1,k1)
-             pressEleParRaw(j1,k1)    = PPARE(j1+1,k1)
+             pressPerRaw(j1,k1) = 0.0
+             pressParRaw(j1,k1) = 0.0
+             do iS = 1, nS
+                if (species(iS)%SCB) then
+                   pressPerRaw(j1,k1) = pressPerRaw(j1,k1) + PPerT(iS,j1+1,k1)
+                   pressParRaw(j1,k1) = pressParRaw(j1,k1) + PParT(iS,j1+1,k1)
+                endif
+             enddo
           END DO
        END DO
 
@@ -892,8 +883,8 @@ SUBROUTINE pressure
 
        azimRawExt(1:nAzimRAM) = azimRaw_local(1:nYRaw) ! nYRaw = nAzimRAM
        IF (PressMode == 'SKD') then
-          pressPerRaw = 0.16_dp * (pressProtonPerRaw + pressOxygenPerRaw + pressHeliumPerRaw) ! from keV/cm^3 to nPa
-          pressParRaw = 0.16_dp * (pressProtonParRaw + pressOxygenParRaw + pressHeliumParRaw) ! from keV/cm^3 to nPa
+          pressPerRaw = 0.16_dp * (pressPerRaw) ! from keV/cm^3 to nPa
+          pressParRaw = 0.16_dp * (pressParRaw) ! from keV/cm^3 to nPa
           pressPerRawExt(1:nXRaw,:) = pressPerRaw(1:nXRaw,:)
           pressParRawExt(1:nXRaw,:) = pressParRaw(1:nXRaw,:)
           DO k1 = 1, nAzimRAM
@@ -907,8 +898,8 @@ SUBROUTINE pressure
              END DO
           END DO
        ELSEIF (PressMode == 'ROE') then
-          pressPerRaw = 0.16_dp * (pressProtonPerRaw + pressOxygenPerRaw + pressHeliumPerRaw) ! from keV/cm^3 to nPa
-          pressParRaw = 0.16_dp * (pressProtonParRaw + pressOxygenParRaw + pressHeliumParRaw) ! from keV/cm^3 to nPa
+          pressPerRaw = 0.16_dp * (pressPerRaw) ! from keV/cm^3 to nPa
+          pressParRaw = 0.16_dp * (pressParRaw) ! from keV/cm^3 to nPa
           pressPerRawExt(1:nXRaw,:) = pressPerRaw(1:nXRaw,:)
           pressParRawExt(1:nXRaw,:) = pressParRaw(1:nXRaw,:)
           DO k1 = 1, nAzimRAM
@@ -918,8 +909,8 @@ SUBROUTINE pressure
              END DO
           END DO
        ELSEIF (PressMode == 'EXT') then
-          pressPerRaw = 0.16_dp * (pressProtonPerRaw + pressOxygenPerRaw + pressHeliumPerRaw) ! from keV/cm^3 to nPa
-          pressParRaw = 0.16_dp * (pressProtonParRaw + pressOxygenParRaw + pressHeliumParRaw) ! from keV/cm^3 to nPa
+          pressPerRaw = 0.16_dp * (pressPerRaw) ! from keV/cm^3 to nPa
+          pressParRaw = 0.16_dp * (pressParRaw) ! from keV/cm^3 to nPa
           pressPerRawExt(1:nXRaw,:) = pressPerRaw(1:nXRaw,:)
           pressParRawExt(1:nXRaw,:) = pressParRaw(1:nXRaw,:)
           DO k1 = 1, nAzimRAM
@@ -933,8 +924,8 @@ SUBROUTINE pressure
              END DO
           END DO
        ELSEIF (PressMode == 'FLT') then
-          pressPerRaw = 0.16*(pressProtonPerRaw + pressOxygenPerRaw + pressHeliumPerRaw + pressElePerRaw) ! from keV/cm^3 to nPa
-          pressParRaw = 0.16*(pressProtonParRaw + pressOxygenParRaw + pressHeliumParRaw + pressEleParRaw) ! from keV/cm^3 to nPa
+          pressPerRaw = 0.16_dp * (pressPerRaw) ! from keV/cm^3 to nPa
+          pressParRaw = 0.16_dp * (pressParRaw) ! from keV/cm^3 to nPa
           pressPerRawExt(1:nXRaw,:) = pressPerRaw(1:nXRaw,:)
           pressParRawExt(1:nXRaw,:) = pressParRaw(1:nXRaw,:)
           do k1 = 1, nAzimRAM
@@ -1198,9 +1189,7 @@ SUBROUTINE pressure
     DEALLOCATE(press, dPresdRho, dPresdZeta, xEq, yEq, aratio, aratioOld, &
                aLiemohn, dSqPresdRhoSq, dSqPresdZetaSq, dSqPresdRhodZeta, pperEq, &
                pparEq, pperEqOld, pparEqOld, radGridEq, angleGridEq)
-    DEALLOCATE(xRaw, YRaw, pressProtonPerRaw, pressProtonParRaw, pressOxygenPerRaw, &
-               pressOxygenParRaw, pressHeliumPerRaw, pressHeliumParRaw, pressPerRaw, &
-               pressParRaw, pressEleParRaw, pressElePerRaw, radRaw_local, ratioRaw)
+    DEALLOCATE(xRaw, YRaw, pressPerRaw, pressParRaw, radRaw_local, ratioRaw)
     DEALLOCATE(dipoleFactorMid, dipoleFactorNoo)
     DEALLOCATE(pressPerRawExt, pressParRawExt, radRawExt, azimRawExt, outputPer, &
                outputPar, azimraw_local)

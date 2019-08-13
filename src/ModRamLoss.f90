@@ -20,17 +20,20 @@ MODULE ModRamLoss
     use ModRamMain,      ONLY: DP
     use ModRamGrids,     ONLY: NE, NR, NT, NPA
     use ModRamTiming,    ONLY: DTs
-    use ModRamVariables, ONLY: EKEV, V, RLZ, HDNS, CHARGE, ATLOS
-
+    use ModRamVariables, ONLY: EKEV, V, RLZ, HDNS, CHARGE, ATLOS, species
+    use ModRamIO,        ONLY: read_CHEX_file
+    use ModRamGSL,       ONLY: GSL_Interpolation_1D
     implicit none
 
     integer, intent(in) :: S
-    integer :: l, k, i, j
+    integer :: l, k, i, j, GSLErr
     real(DP) :: x, y, alpha, taub
+    real(DP), allocatable :: velocity(:), sig_H(:)
 
     ! Calculate charge exchange crosss-section of ring species S with H
     ! and then the charge exchange decay rate ACHAR
-    IF (S.EQ.2) THEN
+    select case(species(S)%s_name)
+    case("Hydrogen")
        DO L=2,NPA
           DO K=2,NE
              DO I=2,NR
@@ -45,7 +48,7 @@ MODULE ModRamLoss
              ENDDO
           ENDDO
        ENDDO
-    ELSEIF (S.EQ.3) THEN
+    case ("HeliumP1")
        DO L=2,NPA
           DO K=2,NE
              DO I=2,NR
@@ -60,7 +63,7 @@ MODULE ModRamLoss
              ENDDO
           ENDDO
        ENDDO
-    ELSEIF (S.EQ.4) THEN
+    case("OxygenP1")
        DO L=2,NPA
           DO K=2,NE
              DO I=2,NR
@@ -75,7 +78,26 @@ MODULE ModRamLoss
              ENDDO
           ENDDO
        ENDDO
-    ENDIF
+    case default
+    !!! ADD FILE DEPENDENT CHARGE EXCHANGE CROSSS SECTIONS HERE -ME
+       if (trim(species(S)%cross_sections) == 'na') then
+          CHARGE(S,:,:,:,:) = 0._dp
+       else
+          call read_CHEX_file(trim(species(S)%cross_sections),Velocity,Sig_H)
+          DO K = 1, nE
+             call GSL_Interpolation_1D(Velocity,Sig_H,V(S,K),Y,GSLerr)
+             DO L = 1, nPa
+                DO I = 1, nR
+                   DO J = 1, nT
+                      ALPHA = Y*V(S,K)*HDNS(I,J,L)*DTs
+                      CHARGE(S,I,J,K,L) = EXP(-ALPHA)
+                   ENDDO
+                ENDDO
+             ENDDO
+          ENDDO
+          deallocate(Velocity,Sig_H)
+       end if
+    end select
 
     ! Calculate the losses due to the collis with atmosphere
     DO K=2,NE

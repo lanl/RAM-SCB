@@ -13,11 +13,18 @@ MODULE ModRamInit
   subroutine ram_allocate
   
     use ModRamVariables ! Need to allocate and initialize all the variables
+    use ModRamParams,    ONLY: IsComponent, FixedComposition
+    use ModRamSpecies,   ONLY: RAMSpecies, nSpecies
     use ModRamGrids,     ONLY: nR, nRExtend, nT, nE, nPa, &
                                Slen, ENG, NCF, NL, nS, nX, &
-                               RadMaxScb, RadiusMin, RadiusMax
-  
+                               RadMaxScb, RadiusMin, RadiusMax, &
+                               NameVar
+ 
     implicit none
+
+    character(len=100) :: tempStr
+    character(len=2)   :: tempSpc
+    integer :: i, iS, nChar
 
     logical :: DoTest, DoTestMe
     character(len=*), parameter :: NameSub='ram_allocate'
@@ -29,7 +36,22 @@ MODULE ModRamInit
     nX = NPA
 
     if(DoTest)write(*,*)'IM/',NameSub,': nRextend = ', nRextend
-    
+ 
+    allocate(species(nS))
+    tempStr = trim(NameVar)
+    do i = 1, nS
+       nChar = index(tempStr, ' ')
+       if (nChar.eq.-1) nChar = len(trim(tempStr))
+       tempSpc = trim(tempStr(1:nChar))
+       do iS = 1, nSpecies
+          if (tempSpc == RAMSpecies(iS)%s_code) then
+             species(i) = RAMSpecies(iS)
+             if (FixedComposition) species(i)%s_comp = composition(i)
+          endif
+       enddo
+       tempStr = trim(tempStr(nChar+1:len(tempStr)))
+    enddo
+   
   !!!!!!!! Allocate Arrays
     ALLOCATE(outsideMGNP(nR,nT))
     outsideMGNP = 0
@@ -97,11 +119,12 @@ MODULE ModRamInit
   subroutine ram_deallocate
   
     use ModRamVariables ! Need to deallocate all variables
-  
+ 
     implicit none
   
   !!!!!!!! Deallocate Arrays
     DEALLOCATE(outsideMGNP)
+    DEALLOCATE(species)
   ! Main RAM Variables
     DEALLOCATE(F2, FLUX,PPerH, PParH, PPerE, PParE, PPerO, PParO, PPerHe, PParHe, &
                PAllSum, PParSum, PPerT, PParT, FNHS, FNIS, BOUNHS, BOUNIS, dIdt, &
@@ -126,22 +149,23 @@ MODULE ModRamInit
                LNCN, LNCD, LECN, LECD, ENERN, ENERD, ATEW, ATAW, ATAC, ATEC, &
                XNE, ATMC, ATAW_emic, NECR)
   !!!!!!!!!
-  
+ 
+ 
   end subroutine ram_deallocate
 
 !==================================================================================================
   SUBROUTINE ram_init
     !!!! Module Variables
     use ModRamParams,    ONLY: DoUseWPI, DoUseBASDiff, IsRestart, IsComponent
-    use ModRamMain,      ONLY: DP, S, PathRestartIn, nIter
+    use ModRamMain,      ONLY: DP, PathRestartIn, nIter
     use ModRamTiming,    ONLY: TimeRamStart, TimeMax, TimeRamRealStart, TimeRamNow, &
                                TimeRamElapsed, TimeMax, TimeRestart, TimeRamFinish, &
                                TOld
-    use ModRamGrids,     ONLY: RadiusMax, RadiusMin, nR, nRExtend, nT, dR, dPhi
+    use ModRamGrids,     ONLY: RadiusMax, RadiusMin, nR, nRExtend, nT, dR, dPhi, nS
     use ModRamVariables, ONLY: PParH, PPerH, PParHe, PPerHe, PParO, PPerO, PParE, &
                                PPerE, LSDR, LSCHA, LSATM, LSCOE, LSCSC, LSWAE, ELORC, &
                                SETRC, XNN, XND, ENERN, ENERD, LNCN, LNCD, LECN, LECD, &
-                               Lz, GridExtend, Phi, kp, F107
+                               Lz, GridExtend, Phi, kp, F107, species
     use ModScbVariables, ONLY: radRaw, azimRaw
     !!!! Modules Subroutines/Functions
     use ModRamWPI,     ONLY: WAPARA_HISS, WAPARA_BAS, WAPARA_CHORUS, WAVEPARA1, WAVEPARA2
@@ -157,7 +181,7 @@ MODULE ModRamInit
   
     real(DP) :: dPh
   
-    integer :: iR, iPhi, j, k
+    integer :: iR, iPhi, j, k, iS
     integer :: nrIn, ntIn, neIn, npaIn
     logical :: TempLogical
     logical :: StopCommand, IsStopTimeSet
@@ -211,12 +235,6 @@ MODULE ModRamInit
     call get_indices(TimeRamNow%Time, Kp, f107)
   
   !!!!!!!!! Zero Values
-    ! Initialize Pressures.
-    PPerH  = 0._dp; PParH  = 0._dp
-    PPerO  = 0._dp; PParO  = 0._dp
-    PPerHe = 0._dp; PParHe = 0._dp
-    PPerE  = 0._dp; PParE  = 0._dp
-  
     ! Initial loss is zero
     LNCN  = 0._dp; LNCD  = 0._dp
     LECN  = 0._dp; LECD  = 0._dp
@@ -270,21 +288,19 @@ MODULE ModRamInit
     END DO
 
     ! Intialize arrays
-    do S=1,4
-       call Arrays
-       IF (DoUseWPI) THEN
-          if (S.EQ.1) then
-             CALL WAPARA_HISS
+    do iS=1,nS
+       call Arrays(iS)
+       if (species(iS)%WPI) then
+          IF (DoUseWPI) THEN
+             CALL WAPARA_HISS(iS)
              IF (DoUseBASdiff) then
-                CALL WAPARA_BAS
+                CALL WAPARA_BAS(iS)
              ELSE
-                CALL WAPARA_CHORUS
+                CALL WAPARA_CHORUS(iS)
              ENDIF
-          end if
-       ELSE
-          if (S.EQ.1) then
-             CALL WAVEPARA1
-             CALL WAVEPARA2
+          ELSE
+             CALL WAVEPARA1(iS)
+             CALL WAVEPARA2(iS)
           end if
        ENDIF
     end do
@@ -295,28 +311,29 @@ MODULE ModRamInit
 !                               ARRAYS
 !                       Set up all the arrays
 !**************************************************************************
-  SUBROUTINE ARRAYS
+  SUBROUTINE ARRAYS(S)
     !!!! Module Variables
-    use ModRamMain,      ONLY: DP, S
-    use ModRamConst,     ONLY: RE, PI, M1, MP, CS, Q, HMIN
+    use ModRamMain,      ONLY: DP
+    use ModRamConst,     ONLY: RE, PI, MP, CS, Q, HMIN
     use ModRamGrids,     ONLY: RadiusMax, RadiusMin, NR, NPA, Slen, NT, NE, &
-                               NLT, EnergyMin, dR, dPhi
+                               NLT, EnergyMin, dR, dPhi, nS
     use ModRamParams,    ONLY: DoUsePlane_SCB
     use ModRamVariables, ONLY: amla, DL1, Lz, RLz, IR1, EKEV, Mu, WMu, DMu, &
                                RMAS, WE, DE, EBND, GRBND, V, Pa, Pabn, UPA, &
                                FFACTOR, GREL, ZrPabn, VBND, PHI, BE, MLT, &
                                ERNH, EPP, FACGR, CONF1, CONF2, IP1, &
-                               MDR, RFACTOR
+                               MDR, RFACTOR, species
     !!!! Module Subroutines/Functions
     use ModRamFunctions, ONLY: ACOSD, ASIND, COSD, SIND
 
     implicit none
+    integer, intent(in) :: S
 
     real(DP) :: degrad, camlra, elb, rw, rwu
     real(DP) :: clc, spa, MUBOUN
     real(DP), ALLOCATABLE :: CONE(:),RLAMBDA(:)
 
-    integer :: i, j, k, l, iml, ic, ip
+    integer :: i, j, k, l, iml, ic, ip, iS
 
     ALLOCATE(CONE(NR+4),RLAMBDA(NPA))
     CONE = 0.0; RLAMBDA = 0.0
@@ -364,8 +381,8 @@ MODULE ModRamInit
     END DO
     IP1=(MLT(2)-MLT(1))/0.5
 
-    DO I=1,4
-      RMAS(I)=MP*M1(I) ! rest mass of each species (kg)
+    DO iS=1,nS
+      RMAS(iS)=MP*species(iS)%s_mass ! rest mass of each species (kg)
     END DO
 
     ! Calculate Kinetic Energy EKEV [keV] at cent, RW depends on NE

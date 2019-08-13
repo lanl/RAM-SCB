@@ -6,7 +6,8 @@ subroutine IM_set_parameters
 
 !!!!! Module Variables
   use ModRamMain,    ONLY: PathRestartIn, nIter
-  use ModRamGrids,   ONLY: NEL, NTL, NR, NT, NE, NPA
+  use ModRamGrids,   ONLY: nS, NEL, NTL, NR, NT, NE, NPA, NameVar
+  use ModRamVariables, ONLY: composition
   use ModRamTiming,  ONLY: TimeRamElapsed, TimeRamStart, TimeRamRealStart, &
                            TimeRamNow, DtLogFile, DtRestart, DtsMax, TimeMax, &
                            TimeRestart, MaxIter, Dt_hI, Dt_bc, DtEfi, DtW_hI, &
@@ -28,7 +29,7 @@ subroutine IM_set_parameters
 
   implicit none
 
-  integer :: nrIn, ntIn, neIn, npaIn
+  integer :: i, nChar, nrIn, ntIn, neIn, npaIn
   logical :: TempLogical
   logical :: StopCommand, IsStopTimeSet
   character(len=100) :: StringLine, NameCommand, RestartFile
@@ -80,6 +81,17 @@ subroutine IM_set_parameters
 !!!!!! RAM Parameters
      case('#USERAM')
         call read_var('DoUseRAM', DoUseRAM)
+
+     case('#SPECIES')
+        call read_var('nS', nS)
+        call read_var('NameVar', NameVar)
+        call read_var('FixedComp',FixedComposition)
+        if (FixedComposition) then
+           allocate(composition(nS))
+           do i=1,nS
+              call read_var('Composition',composition(i))
+           enddo
+        endif
 
      case('#FLAT_INITIALIZATION')
         InitializeOnFile = .false.

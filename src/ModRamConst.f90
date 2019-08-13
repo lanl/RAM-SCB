@@ -19,11 +19,8 @@ MODULE ModRamConst
                        PI    = cPi,       &   ! pi used to be 3.141592654
                        b0dip = 30570.0        ! Doesn't really matter what this value is
 
-  real(kind=Real8_), dimension(4) :: M1 = (/5.4462E-4,1.,4.,16./) ! Mass number of e-, H+, He+ and O+
-
   integer, parameter :: monthday(12) = (/0,30,59,90,120,151,181,212,243,273,304,334/)
   integer, parameter :: leapday(12)  = (/0,30,60,91,121,152,182,213,244,274,305,335/)
-
 
 END MODULE ModRamConst
 

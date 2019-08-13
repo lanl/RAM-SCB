@@ -22,6 +22,7 @@ module ModRamParams
   logical :: WritePotential = .false.
   logical :: integral_smooth = .true.
   logical :: InitializeOnFile = .true. 
+  logical :: FixedComposition = .false.
 
   ! Standalone or Component (default = standalone)  logical :: IsComponent = .false.
   logical :: IsComponent = .false.

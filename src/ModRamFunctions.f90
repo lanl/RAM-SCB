@@ -40,7 +40,7 @@ module ModRamFunctions
     ! Sums over all species, corrects for internal currents (factor of 1.3).
 
     use ModRamMain, ONLY: Real8_
-    use ModRamGrids, ONLY: NR, NE, NT, NPA
+    use ModRamGrids, ONLY: NR, NE, NT, NPA, nS
     use ModRamVariables, ONLY: f2, rfactor, upa, we, wmu, ekev, outsideMGNP
 
     implicit none
@@ -55,7 +55,7 @@ module ModRamFunctions
     dstOut = 0.0
     factor2 =-5.174E-30
     ! Sum energy over whole domain and all species.
-    do s=1,4; do i=2,nR; do k=2,nE; do l=1,nPa
+    do s=1,nS; do i=2,nR; do k=2,nE; do l=1,nPa
        if(l.ge.uPa(i))cycle
        do j=1, nT-1
           if (outsideMGNP(i,j) == 0) then
@@ -329,36 +329,28 @@ module ModRamFunctions
   !=============================================================================
   subroutine ram_sum_pressure
 
-    use ModRamVariables, ONLY: PAllSum, PParH, PPerH, PParO, PPerO, &
-                               PParE, PPerE, PParHe, PPerHe, PParSum, &
-                               NAllSum, HPAllSum, OPAllSum, HePAllSum, &
-                               ePAllSum, HNAllSum, ONAllSum, HeNAllSum, &
-                               OutsideMGNP
-    use ModRamParams,    ONLY: DoAnisoPressureGMCoupling, electrons
-    use ModRamGrids,     ONLY: NR, NT
-
+    use ModRamVariables, ONLY: PAllSum, PParT, PPerT, PParSum
+    use ModRamGrids,     ONLY: NR, NT, nS
     use nrtype, ONLY: DP
 
     implicit none
     
     real(DP), parameter :: onethird=1.0/3.0, twothird=2.0/3.0
-    integer :: i, j
+    integer :: i, j, iS
     !------------------------------------------------------------------------
-
+   
     do i=1, nR
        do j=1, nT
-          PAllSum(i,j) = &
-               twothird * PPerO( i,j) + onethird * PParO( i,j) + &
-               twothird * PPerH( i,j) + onethird * PParH( i,j) + &
-               twothird * PPerHe(i,j) + onethird * PParHe(i,j)
-          PparSum(i,j) = PParO(i,j) + PParH(i,j) + PParHe(i,j)
-          if (electrons) then
-             PAllSum(i,j) = PAllSum(i,j) + twothird * PPerE( i,j) + onethird * PParE( i,j)
-             PParSum(i,j) = PParSum(i,j) + PParE(i,j)
-          endif
+          PAllSum(i,j) = 0.0
+          PParSum(i,j) = 0.0
+          do iS = 1, nS
+             PAllSum(i,j) = PAllSum(i,j) &
+                          + twothird*PPerT(iS,i,j) + onethird*PParT(iS,i,j)
+             PParSum(i,j) = PParSum(i,j) + PParT(iS,i,j)
+          enddo
        end do
     end do
-    NAllSum = -1.0
+    
 
   end subroutine ram_sum_pressure
 
