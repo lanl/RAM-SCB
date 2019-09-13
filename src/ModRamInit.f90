@@ -66,6 +66,9 @@ MODULE ModRamInit
     PParO = 0._dp; PPerHe = 0._dp; PParHe = 0._dp; PAllSum = 0._dp; PParSum = 0._dp; PPerT = 0._dp
     PParT = 0._dp; FNHS = 0._dp; FNIS = 0._dp; BOUNHS = 0._dp; BOUNIS = 0._dp; dIdt = 0._dp
     dBdt = 0._dp; dIbndt = 0._dp; HDNS = 0._dp; BNES = 0._dp; dHdt = 0._dp
+   ! ModRamPlasmasphere Variables
+   ALLOCATE(flux_volume(nR,nT), tau(nR,nT), uL(nR,nT), uT(nT,nR), gdLon(nR,nT), gdLat(nR,nT), &
+            nECR(nR,nT))
    ! ModRamCouple and IM_wrapper Variables
     ALLOCATE(NAllSum(nR,nT), DensO(nR,nT), DensH(nR,nT), DensHe(nR,nT), HPAllSum(nR,nT), &
              OPAllSum(nR,nT), HePAllSum(nR,nT), ePAllSum(nR,nT), HNAllSum(nR,nT), &
@@ -106,7 +109,7 @@ MODULE ModRamInit
              LSCSC(NS), LSWAE(NS), XNN(NS,NR), XND(NS,NR), LNCN(NS,NR), LNCD(NS,NR), &
              LECN(NS,NR), LECD(NS,NR), ENERN(NS,NR), ENERD(NS,NR), ATEW(NR,NT,NE,NPA), &
              ATAW(NR,NT,NE,NPA), ATAC(NR,NT,NE,NPA), ATEC(NR,NT,NE,NPA), XNE(NR,NT), &
-             ATMC(NR,NT,NE,NPA), ATAW_emic(NR,NT,NE,NPA), NECR(NL,0:48))
+             ATMC(NR,NT,NE,NPA), ATAW_emic(NR,NT,NE,NPA))
     SETRC = 0._dp; ELORC = 0._dp; LSDR = 0._dp; LSCHA = 0._dp; LSATM = 0._dp; LSCOE = 0._dp
     LSCSC = 0._dp; LSWAE = 0._dp; XNN = 0._dp; XND = 0._dp; LNCN = 0._dp; LNCD = 0._dp
     LECN = 0._dp; LECD = 0._dp; ENERN = 0._dp; ENERD = 0._dp; ATEW = 0._dp; ATAW = 0._dp
@@ -129,6 +132,8 @@ MODULE ModRamInit
     DEALLOCATE(F2, FLUX,PPerH, PParH, PPerE, PParE, PPerO, PParO, PPerHe, PParHe, &
                PAllSum, PParSum, PPerT, PParT, FNHS, FNIS, BOUNHS, BOUNIS, dIdt, &
                dBdt, dIbndt, HDNS, BNES, dHdt)
+  ! ModRamPlasmasphere Variables
+    DEALLOCATE(flux_volume, tau, uL, uT, gdLon, gdLat, NECR)
   ! ModRamInit Variables
     DEALLOCATE(RMAS, V, VBND, GREL, GRBND, FACGR, EPP, ERNH, UPA, WE, DE, EKEV, &
                EBND, PHI, LT, MLT, MU, DMU, WMU, PAbn, LZ, RLZ, AMLA, BE, GridExtend, &
@@ -147,7 +152,7 @@ MODULE ModRamInit
   ! ModRamRun Variables
     DEALLOCATE(SETRC, ELORC, LSDR, LSCHA, LSATM, LSCOE, LSCSC, LSWAE, XNN, XND, &
                LNCN, LNCD, LECN, LECD, ENERN, ENERD, ATEW, ATAW, ATAC, ATEC, &
-               XNE, ATMC, ATAW_emic, NECR)
+               XNE, ATMC, ATAW_emic)
   !!!!!!!!!
  
  
@@ -647,21 +652,6 @@ MODULE ModRamInit
         NameBoundMag = NameBoundMagTemp 
        endif
  
-       ! NECR needed for the plasmasphere model (PLANE)
-       ! XNE needed for wave particle interactions (WPI)
-       ! Initialize both of them even if not using WPI or PLANE 
-       OPEN(UNITTMP_,FILE='ne_full.dat',STATUS='OLD') ! Kp=1-2 (quiet)
-       READ(UNITTMP_,'(A)') HEADER
-       READ(UNITTMP_,*) ((NECR(I,J),I=1,NL),J=0,NLT)  ! L= 1.5 to 10
-       CLOSE(UNITTMP_)
-       DO I=2,NR
-         I1=int((I-2)*IR1+3,kind=4)
-         DO J=1,NT
-           J1=int((J-1)*IP1,kind=4)
-           XNE(I,J)=NECR(I1,J1)
-         ENDDO
-       ENDDO
-
     end if
   !!!!!!!!
   

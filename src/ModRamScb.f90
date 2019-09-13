@@ -142,8 +142,8 @@ Module ModRamScb
 !==================================================================================================
   SUBROUTINE computehI(iter)
   
-    use ModRamVariables, ONLY: FNHS, FNIS, BNES, HDNS, dBdt, dHdt, &
-                               dIdt, dIbndt, BOUNHS, BOUNIS, EIR, EIP, &
+    use ModRamVariables, ONLY: gdLon, gdLat, FNHS, FNIS, BNES, HDNS, dBdt, dHdt, &
+                               dIdt, dIbndt, BOUNHS, BOUNIS, EIR, EIP, flux_volume, &
                                LZ, MU, MLT, PAbn, PA, DL1, outsideMGNP
     use ModRamTiming,    ONLY: TimeRamElapsed, TOld
     use ModRamConst,     ONLY: b0dip

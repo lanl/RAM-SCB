@@ -3,10 +3,11 @@
 !                Fortran version converted by Ben Foster at NCAR 2008         !
 !------------------------------------------------------------------------------
 module w05
-  use nrtype
 
   implicit none
 
+  INTEGER, parameter, private :: DP = kind(1.d0)
+  REAL(DP), private :: PI_D=3.141592653589793238462643383279502884197_dp
 !
 ! Data read from W05scEpot.dat or W05scBpot.dat:
 !
@@ -541,7 +542,7 @@ real(dp) function factorial05(n)
 end function factorial05
 !-----------------------------------------------------------------------
 subroutine read_potential_coeff05(infile)
-  use ModIoUnit,      ONLY: UnitTmp_
+
   ! read three data files combined from W04scEpot.dat, SCHAtable.data, 
   ! and W05scBndy.data
 
@@ -560,10 +561,10 @@ subroutine read_potential_coeff05(infile)
 ! ---------------------------------- 
 
   !PRINT *,infile
-  open(UnitTmp_,file=infile,status='old')
-  read(UnitTmp_,"(a)") fname
-  read(UnitTmp_,"(28i3)") ab
-  read(UnitTmp_,"(3i3)") csize_rd,d1_rd,d2_rd
+  open(9,file=infile,status='old')
+  read(9,"(a)") fname
+  read(9,"(28i3)") ab
+  read(9,"(3i3)") csize_rd,d1_rd,d2_rd
   if (csize_rd /= csize) then 
     write(6,"('>>> read_potential: file ',a,': incompatable csize: ',&
       &'csize_rd=',i4,' csize=',i4)") fname,csize_rd,csize
@@ -580,33 +581,33 @@ subroutine read_potential_coeff05(infile)
     stop 'd2'
   endif
   do i=1,csize
-    read(UnitTmp_,"(6e20.9)") alschfits(:,i)
+    read(9,"(6e20.9)") alschfits(:,i)
   enddo
-  read(UnitTmp_,"(2f10.3)") ex_pot
-  read(UnitTmp_,"(28i3)") ls
-  read(UnitTmp_,"(2i3)") maxl_pot,maxm_pot
-  read(UnitTmp_,"(28i3)") ms
+  read(9,"(2f10.3)") ex_pot
+  read(9,"(28i3)") ls
+  read(9,"(2i3)") maxl_pot,maxm_pot
+  read(9,"(28i3)") ms
   do i=1,csize 
-    read(UnitTmp_,"(6e20.9)") schfits(:,i)
+    read(9,"(6e20.9)") schfits(:,i)
   enddo
 
 !-----------------------------------
 ! Read ascii data file SCHAtable.dat
 ! ----------------------------------
-  read(UnitTmp_,"(a)") fname
-  read(UnitTmp_,"(2i3)") maxk_scha,maxm_scha
+  read(9,"(a)") fname
+  read(9,"(2i3)") maxk_scha,maxm_scha
   do i=1,d3_scha
     do j=1,d2_scha
-      read(UnitTmp_,"(6e20.9)") allnkm(:,j,i)
+      read(9,"(6e20.9)") allnkm(:,j,i)
     enddo
   enddo
-  read(UnitTmp_,"(8f10.4)") th0s
+  read(9,"(8f10.4)") th0s
 
 !-----------------------------------
 ! Read ascii data file W05scBndy.dat
 !-----------------------------------
-  read(UnitTmp_,"(a)") fname
-  read(UnitTmp_,"(2i3)") rd_na,rd_nb
+  read(9,"(a)") fname
+  read(9,"(2i3)") rd_na,rd_nb
   if (rd_na /= na) then 
     write(6,"('>>> read_potential: file ',a,': incompatable na: ',&
       &'rd_na=',i4,' na=',i4)") fname,rd_na,na
@@ -617,9 +618,9 @@ subroutine read_potential_coeff05(infile)
       &'rd_nb=',i4,' nb=',i4)") fname,rd_nb,nb
     stop 'nb'
   endif
-  read(UnitTmp_,"(8e20.9)") bndya
-  read(UnitTmp_,"(8e20.9)") bndyb
-  read(UnitTmp_,"(8e20.9)") ex_bndy
+  read(9,"(8e20.9)") bndya
+  read(9,"(8e20.9)") bndyb
+  read(9,"(8e20.9)") ex_bndy
 
   close(lu)
 

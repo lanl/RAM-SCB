@@ -113,10 +113,40 @@ C 2012.01 01/24/12 STORME_AP: change 365 to 366 leap year    [F. Simoes]
 C 2012.01 06/30/12 HMF2ED: hmF2 too low foF2/foE ge 1.7 [I.Zakharenkova]
 C 2012.01 09/14/12 SHAMDB0D,SHAB1D: initializing CONS2      [P. Coisson]
 C 2012.02 12/12/12 STORME_AP: add KONSOL and ERROR ouput STORME_AP=-5.
-C 2014.00 01/22/14 TPCORR: INVDIP --> INVDP                [J.K. Knight]
-C 2014.02 07/24/14 COMMON/iounit/ added 'mess'
-C 2014.03 08/25/14 ELTEIK,INVDPC,SOCO: ACOS: if(abs(x).gt.1) x=sign(1,x)
-C 2014.03 10/02/14 IONLOW,IONHIGH: C1(82) added for SPHARM_IK [J.C. Xue]
+C 2012.03 01/22/14 TPCORR: INVDIP --> INVDP                [J.K. Knight]
+C 2012.04 07/24/14 COMMON/iounit/ added 'mess'
+C 2012.05 08/25/14 ELTEIK,INVDPC,SOCO: ACOS: if(abs(x).gt.1) x=sign(1,x)
+C 2012.06 10/02/14 IONLOW,IONHIGH: C1(82) added for SPHARM_IK [J.C. Xue]
+C 2012.07 12/22/14 APFMSIS: changed text if out of range of APF107.DAT
+C 2012.08 04/27/15 TCON: ionoindx(806),indrz(806)
+C 2012.09 07/12/15 add read_ig_rz, readapf107 change TCON,APF* 
+C 2012.10 07/20/15 APFMSIS: remove duplicate iiap(8)         [E. Blanch]
+C 2012.11 04/11/18 read_ig_rz: rz=rz_new*0.7 from 01/2014, ig_rz_10_2016
+C 2012.12 04/16/18 Versioning now based on year of major releases
+C
+C 2016.01 08/13/15 DATA in subr: DATA values only used first CALL 
+C 2016.01 08/13/15 COMMON/CONST/UMR,PI 
+C 2016.02 09/30/15 hmF2 new: SHAMDHMF2, SDMF2 and associated subroutines 
+C 2016.02 09/30/15 ELTEIK,CALION,IONLOW,IONHIGH w/o invdip calc; INVDPC
+C 2016.03 10/12/15 READAPF107: F365 -> F107_365             [M. Hausman]
+C 2016.04 10/14/15 LEGFUN: replace print * with write(konsol,..)
+C 2016.04 10/14/15 SHAMDB0D,SHAB1D,SCHNEVPD: COMMON/ATB/
+C 2016.04 10/14/15 CLCMLT,DPMTRX --> IGRF.FOR
+C 2016.05 02/01/16 TAL: if(SHBR.le.0.0) -> RETURN
+C 2016.05 02/01/16 IONLOW,IONHIGH: ALT -> ALTI extrapolation  [S.R. Zhang]
+C 2016.06 02/24/16 SCHNEVPH: COSD(X) -> COS(X*UMR); CONST/UMR   [W. Toler]
+C 2016.06 02/24/16 SCHNEVP,LEGFUN: COMMON/COST/dfarg,PI         [W. Toler]
+C 2016.07 03/23/16 CALION, IONLOW, IONHIGH, INVDPC  revised   [V. Truhlik]
+C 2016.08 07/19/16 XE3_1: change D1F1 to C1                    [I. Galkin]
+C 2016.09 09/08/16 CALION: Version 2.5 C/NOFS correction      [V. Truhlik]
+C 2016.09 09/08/16 NEW: model_hmF2                             [V. Shubin]
+C 2016.10 10/19/16 read_ig_rz: *0.7 for r12_new starting 01/2014
+C 2016.11 02/23/17 SHAB1D: new SCHNEVPDB1 and COMMON/ATB1/ 
+C 2016.12 03/22/18 INVDPC= ... ALFA*SIGN(1.0,DIPL)*INVL       [V. Truhlik]
+C 2016.12 03/22/18 INVDPC_OLD for ELTEIK                      [V. Truhlik]
+C 2016.13 04/06/18 read_data_SD: add web dir. location for mcsat%%.dat
+C 2016.14 04/23/18 Versioning now based on year of major releases
+C 2016.15 05/07/18 StormVd: AE7_12S -> AEd7_12S                [K. Knight]
 C                  
 c- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 c IRI functions and subroutines:
@@ -126,11 +156,14 @@ C		    SPLINE,SPLINT,SWAPEL,TEDIFI,TPCAS,TPCORR},TEBA,SPHARM,
 C           ELTE,TEDE,TI,TN
 C Ni:       RPID,RDHHE,RDNO,KOEFP1,KOEFP2,KOEFP3,SUFE,IONDANI,IONCO1, 
 C           IONCO2,APROK,CALION,IONLOW,IONHIGH,INVDPC
-C PEAKS:    FOUT,XMOUT,HMF2ED,FOF1ED,f1_c1,f1_prob,FOEEDI,XMDED,GAMMA1
-C PROFILE:  TOPH05, CHEBISH, SHAMDB0D, SHAB1D, SCHNEVPD, TBFIT,  
-C           LEGFUN,B0_98,TAL,VALGUL, DREGION
+C PEAKS:    FOUT,XMOUT,HMF2ED,XM3000HM,SHAMDHMF2,SCHNEVPDH,model_hmF2,
+C     		SDMF2,hmF2_med_SD,read_data_SD,fun_hmF2_SD,fun_Gk,Legendre, 
+C     		fun_hmF2UT,Koeff_UT,fun_Akp_UT,fun_Fk_UT,fun_Gk_UT
+C     		FOF1ED,f1_c1,f1_prob,FOEEDI,XMDED,GAMMA1
+C PROFILE:  TOPH05,CHEBISH,SHAMDB0D,SHAB1D,SCHNEVPD,TBFIT,LEGFUN,  
+C           B0_98,TAL,VALGUL,DREGION
 C MAG. FIELD: FIELDG, CONVER(Geom. Corrected Latitude)
-C TIME:     SOCO,HPOL,MODA,UT_LT,CLCMLT,SUN
+C TIME:     SOCO,HPOL,MODA,UT_LT,SUN
 C EPSTEIN:  RLAY,D1LAY,D2LAY,EPTR,EPST,EPSTEP,EPLA
 C LAY:      XE2TO5,XEN,ROGUL,LNGLSN,LSKNM,INILAY
 C INDICES:  TCON,APF,APFMSIS,APF_ONLY
@@ -294,11 +327,11 @@ C ELECTRON DENSITY FOR THE F1-LAYER (HZ.....HMF1)
 C USING THE NEW DEFINED F1-LAYER FUNCTION (Reinisch and Huang, Advances 
 C in Space Research, Volume 25, Number 1, 81-88, 2000)
         COMMON	/BLOCK1/	HMF2,XNMF2,HMF1,F1REG
-     &		/BLOCK2/	B0,B1,D1F1
+     &		/BLOCK2/	B0,B1,C1
 	    logical	f1reg
 C
 	    h1bar=h
-        if (f1reg) H1BAR=HMF1*(1.0-((HMF1-H)/HMF1)**(1.0+D1F1))
+        if (f1reg) H1BAR=HMF1*(1.0-((HMF1-H)/HMF1)**(1.0+C1))
         XE3_1=XE2(H1BAR)
         RETURN
         END
@@ -397,8 +430,9 @@ C**********************************************************
 C***************** ELECTRON TEMPERATURE ********************                    
 C**********************************************************                     
 C
-      SUBROUTINE ELTEIK(CRD,PF107Y,INVDIP,FL,DIMO,B0,
-     &                   DIPL,MLT,ALT,DDD,PF107,TE,SIGTE)
+      SUBROUTINE ELTEIK(PF107Y,INVDIP,MLT,ALT,DDD,PF107,TE,SIGTE)
+c      SUBROUTINE ELTEIK(CRD,PF107Y,INVDIP,FL,DIMO,B0,
+c     &                   DIPL,MLT,ALT,DDD,PF107,TE,SIGTE)
 C----------------------------------------------------------------------
 C Empirical model of electron temperature (Te) in the outer ionosphere
 C with inclusion of solar activity.
@@ -410,19 +444,19 @@ C Linear extrapolation is used for altitude ranges <300;350)km
 C and (2000;2500> km. For days between seasons centred at
 C (21.3. = 79; 21.6. = 171; 23.9. 265; 21.12. = 354) Te is
 C interpolated by a harmonic function.
-C Inputs: CRD - 0 .. INVDIP
-C               1 .. FL, DIMO, B0, DIPL (used for calc. INVDIP inside)
+Cc Inputs: CRD - 0 .. INVDIP
+Cc               1 .. FL, DIMO, B0, DIPL (used for calc. INVDIP inside)
 C         PF107Y - 0 .. PF107 correction NOT included
 C                  1 .. PF107 correction included
 C         INVDIP - "mix" coordinate of the dip latitude and of
-C                    the invariant latitude;
-C                    positive northward, in deg, range <-90.0;90.0>
-C         FL, DIMO, BO - McIlwain L parameter, dipole moment in
-C                        Gauss, magnetic field strength in Gauss -
-C                        parameters needed for invariant latitude
-C                        calculation
-C         DIPL - dip latitude
+C                the invariant latitude (can be computed with INVDPC)
 C                positive northward, in deg, range <-90.0;90.0>
+Cc         FL, DIMO, BO - McIlwain L parameter, dipole moment in
+Cc                        Gauss, magnetic field strength in Gauss -
+Cc                        parameters needed for invariant latitude
+Cc                        calculation
+Cc         DIPL - dip latitude
+Cc                positive northward, in deg, range <-90.0;90.0>
 C         MLT - magnetic local time (central dipole)
 C               in hours, range <0;24)
 C         ALT - altitude above the Earth's surface;
@@ -448,8 +482,10 @@ C         141 31 Praha 4, Sporilov
 C         Czech Republic
 C         e-mail: vtr@ufa.cas.cz
 C----------------------------------------------------------------------
-      REAL INVDIP,FL,DIMO,B0,DIPL,MLT,ALT,PF107,TE,SIGTE
-      INTEGER CRD,PF107Y,DDD,SEZDAY,XDAY
+c      REAL INVDIP,FL,DIMO,B0,DIPL,MLT,ALT,PF107,TE,SIGTE
+c      INTEGER CRD,PF107Y,DDD,SEZDAY,XDAY
+      REAL INVDIP,MLT,ALT,PF107,TE,SIGTE
+      INTEGER PF107Y,DDD,SEZDAY,XDAY
       INTEGER MIRREQ(81)
       REAL D(5,3,81),DERRTE(5,3,81),DPF107(5,3,81)
       DOUBLE PRECISION B(8),A
@@ -484,27 +520,29 @@ C//////////////////////thresholds of solar activity/////////////////////////////
 C////////////////////////////////////////////////////////////////////////////////////
       DPI=3.1415926535897
       DTOR=DPI/180.0
-      IF (CRD .EQ. 1) THEN
+c      IF (CRD .EQ. 1) THEN
 C      calculation of INVDIP from FL, DIMO, BO, and DIPL
 C      invariant latitude calculated by highly
 C      accurate polynomial expansion
-       A=(DIMO/B0)**(1.0D0/3.0D0)/FL
-       ASA=A*(B(1)+B(2)*A+B(3)*A**2+B(4)*A**3+B(5)*A**4+
-     &        B(6)*A**5+B(7)*A**6+B(8)*A**7)
-       IF (ASA .GT. 1.0) ASA=1.0
-       IF (ASA .LT. 0.0) ASA=0.0
+c       A=(DIMO/B0)**(1.0D0/3.0D0)/FL
+c       ASA=A*(B(1)+B(2)*A+B(3)*A**2+B(4)*A**3+B(5)*A**4+
+c     &        B(6)*A**5+B(7)*A**6+B(8)*A**7)
+c       IF (ASA .GT. 1.0) ASA=1.0
+c       IF (ASA .LT. 0.0) ASA=0.0
 C      invariant latitude (absolute value)
-       RINVL=ACOS(SQRT(ASA))
-       INVL=RINVL/DTOR
-       RDIPL=DIPL*DTOR
-       ALFA=SIN(ABS(RDIPL))**3
-       BETA=COS(RINVL)**3
-       INVDP=(ALFA*SIGN(1.0,DIPL)*INVL+BETA*DIPL)/(ALFA+BETA)
-      ELSE IF	(CRD .EQ. 0) THEN
-       INVDP=INVDIP
-      ELSE
-       RETURN
-      END IF
+c       RINVL=ACOS(SQRT(ASA))
+c       INVL=RINVL/DTOR
+c       RDIPL=DIPL*DTOR
+c       ALFA=SIN(ABS(RDIPL))**3
+c       BETA=COS(RINVL)**3
+c       INVDP=(ALFA*SIGN(1.0,DIPL)*INVL+BETA*DIPL)/(ALFA+BETA)
+c      ELSE IF	(CRD .EQ. 0) THEN
+c       INVDP=INVDIP
+c      ELSE
+c       RETURN
+c      END IF
+
+      INVDP=INVDIP
       RMLT=MLT*DTOR*15.0
       RCOLAT=(90.0-INVDP)*DTOR
       CALL SPHARM_IK(C,8,8,RCOLAT,RMLT)
@@ -729,7 +767,7 @@ C-------------------------------------------------------------------------------
         INTEGER N,L,S,S0,I
         REAL V(N),X(N),XOUT,Y2(N),YOUT,X0(4),V0(4)
         REAL XA,XB,XC,VA,VB,VC
-        CALL locate_(X,N,XOUT,S)
+        CALL locate(X,N,XOUT,S)
         IF (L .EQ. 0) THEN   
 C       Spline interpolation (L=0)       
          IF (S .LT. 2) S=2
@@ -738,8 +776,8 @@ C       Spline interpolation (L=0)
          DO 10 I=1,4
           X0(I)=X(S0+I-1)
 10        V0(I)=V(S0+I-1)
-         CALL SPLINE_(X0,V0,4,1e30,1e30,Y2)              
-         CALL SPLINT_(X0,V0,Y2,4,XOUT,YOUT)
+         CALL SPLINE(X0,V0,4,1e30,1e30,Y2)              
+         CALL SPLINT(X0,V0,Y2,4,XOUT,YOUT)
         END IF 
         IF (L .EQ. 1) THEN
 C       Linear interpolation (L=1)       
@@ -1687,7 +1725,7 @@ C///////////////////////////////////////////////////////////////////////////////
       END
 C     
 C
-      SUBROUTINE locate_(xx,n,x,j)
+      SUBROUTINE locate(xx,n,x,j)
 C------------------------------------------------------------------------------------
       INTEGER j,n
       REAL x,xx(n)
@@ -1746,7 +1784,7 @@ C-------------------------------------------------------------------------------
       END
 C     
 C
-      SUBROUTINE spline_(x,y,n,yp1,ypn,y2)
+      SUBROUTINE spline(x,y,n,yp1,ypn,y2)
 C------------------------------------------------------------------------------------
       INTEGER n,NMAX
       REAL yp1,ypn,x(n),y(n),y2(n)
@@ -1783,7 +1821,7 @@ C-------------------------------------------------------------------------------
       END
 C
 C
-      SUBROUTINE splint_(xa,ya,y2a,n,x,y)
+      SUBROUTINE splint(xa,ya,y2a,n,x,y)
 C------------------------------------------------------------------------------------
       INTEGER n
       REAL x,y,xa(n),y2a(n),ya(n)
@@ -2377,7 +2415,7 @@ C HEMISOHERE: IS=1 SPRING, IS=2 SUMMER ....
 C ALSO CALCULATED ARE THE TEMPERATURES AT 400 KM ALTITUDE FOR
 C MIDNIGHT (TE(5)) AND NOON (TE(6)).   
       DIMENSION C(4,2,81),A(82),TE(6)
-      COMMON    /CONST/UMR      /const1/humr,dumr
+      COMMON    /CONST/UMR,PI      /const1/humr,dumr
       DATA (C(1,1,J),J=1,81)/                      
      &.3100E1,-.3215E-2,.2440E+0,-.4613E-3,-.1711E-1,.2605E-1,                  
      &-.9546E-1,.1794E-1,.1270E-1,.2791E-1,.1536E-1,-.6629E-2,                  
@@ -2483,7 +2521,8 @@ C MIDNIGHT (TE(5)) AND NOON (TE(6)).
      &-.1922E-2,-.1063E-2,.3803E-3,.1343E-3,.1771E-1,-.1038E-2,                 
      &-.4645E-3,-.2481E-3,-.2251E-1,-.29E-2,-.3977E-3,-.516E-3,                 
      &-.8079E-2,-.1528E-2,.306E-3,-.1582E-1,-.8536E-3,.1565E-3,                 
-     &-.1252E-1,.2319E-3,.4311E-2,.1024E-2,.1296E-5,.179E-1/                    
+     &-.1252E-1,.2319E-3,.4311E-2,.1024E-2,.1296E-5,.179E-1/ 
+                        
         IF(NS.LT.3) THEN
            IS=NS
         ELSE IF(NS.GT.3) THEN
@@ -2525,6 +2564,7 @@ C---------- TEMPERATURE AT 400KM AT MIDNIGHT AND NOON
 4       TE(J+4)=10.**STE                             
       RETURN          
       END             
+C
 C
       SUBROUTINE SPHARM(C,L,M,COLAT,AZ)            
 C CALCULATES THE COEFFICIENTS OF THE SPHERICAL HARMONIC                         
@@ -2686,24 +2726,18 @@ C
 C THIEMANN,1979,COEFFICIENTS PG1O FOR CALCULATING  O+ PROFILES                  
 C BELOW THE F2-MAXIMUM. CHOSEN TO APPROACH DANILOV-                             
 C SEMENOV'S COMPILATION.                           
-      DIMENSION PG1O(80)                           
-      REAL FELD (80)  
-      DATA FELD/-11.0,-11.0,4.0,-11.0,0.08018,     
-     &0.13027,0.04216,0.25  ,-0.00686,0.00999,     
-     &5.113,0.1 ,170.0,180.0,0.1175,0.15,-11.0,    
-     &1.0 ,2.0,-11.0,0.069,0.161,0.254,0.18,0.0161,                             
-     &0.0216,0.03014,0.1,152.0,167.0,0.04916,      
-     &0.17,-11.0,2.0,2.0,-11.0,0.072,0.092,0.014,0.21,                          
-     &0.01389,0.03863,0.05762,0.12,165.0,168.0,0.008,                           
-     &0.258,-11.0,1.0,3.0,-11.0,0.091,0.088,       
-     &0.008,0.34,0.0067,0.0195,0.04,0.1,158.0,172.0,                            
-     &0.01,0.24,-11.0,2.0,3.0, -11.0,0.083,0.102,  
-     &0.045,0.03,0.00127,0.01,0.05,0.09,167.0,185.0,                            
-     &0.015,0.18/     
-      K=0             
+      DIMENSION PG1O(80), FELD (80)  
+      DATA FELD/-11.0,-11.0,4.0,-11.0,0.08018,0.13027,0.04216,     
+     &0.25,-0.00686,0.00999,5.113,0.1 ,170.0,180.0,0.1175,0.15,    
+     &-11.0,1.0 ,2.0,-11.0,0.069,0.161,0.254,0.18,0.0161,0.0216,                             
+     &0.03014,0.1,152.0,167.0,0.04916,0.17,-11.0,2.0,2.0,-11.0,                          
+     &0.072,0.092,0.014,0.21,0.01389,0.03863,0.05762,0.12,165.0,                           
+     &168.0,0.008,0.258,-11.0,1.0,3.0,-11.0,0.091,0.088,0.008,       
+     &0.34,0.0067,0.0195,0.04,0.1,158.0,172.0,0.01,0.24,-11.0,                            
+     &2.0,3.0,-11.0,0.083,0.102,0.045,0.03,0.00127,0.01,0.05,                            
+     &0.09,167.0,185.0,0.015,0.18/     
       DO 10 I=1,80    
-      K=K+1           
-10    PG1O(K)=FELD(I)                              
+10    	PG1O(I)=FELD(I)                              
       RETURN          
       END             
 C
@@ -2711,17 +2745,13 @@ C
       SUBROUTINE KOEFP2(PG2O)                      
 C THIEMANN,1979,COEFFICIENTS FOR CALCULATION OF O+ PROFILES                     
 C ABOVE THE F2-MAXIMUM (DUMBS,SPENNER:AEROS-COMPILATION)                        
-      DIMENSION PG2O(32)                           
-      REAL FELD(32)   
-      DATA FELD/1.0,-11.0,-11.0,1.0,695.0,-.000781,                             
-     &-.00264,2177.0,1.0,-11.0,-11.0,2.0,570.0,    
-     &-.002,-.0052,1040.0,2.0,-11.0,-11.0,1.0,695.0,                            
-     &-.000786,-.00165,3367.0,2.0,-11.0,-11.0,2.0, 
-     &575.0,-.00126,-.00524,1380.0/                
-      K=0             
+      DIMENSION PG2O(32), FELD(32)   
+      DATA FELD/1.0,-11.0,-11.0,1.0,695.0,-.000781,-.00264,                             
+     &2177.0,1.0,-11.0,-11.0,2.0,570.0,-.002,-.0052,1040.0,    
+     &2.0,-11.0,-11.0,1.0,695.0,-.000786,-.00165,3367.0,2.0, 
+     &-11.0,-11.0,2.0,575.0,-.00126,-.00524,1380.0/                
       DO 10 I=1,32    
-      K=K+1           
-10    PG2O(K)=FELD(I)                              
+10    	PG2O(I)=FELD(I)                              
       RETURN          
       END             
 C
@@ -2729,26 +2759,19 @@ C
       SUBROUTINE  KOEFP3(PG3O)                     
 C THIEMANN,1979,COEFFICIENTS FOR CALCULATING O2+ PROFILES.                      
 C CHOSEN AS TO APPROACH DANILOV-SEMENOV'S COMPILATION.                          
-      DIMENSION PG3O(80)                           
-      REAL FELD(80)   
-      DATA FELD/-11.0,1.0,2.0,-11.0,160.0,31.0,130.0,                           
-     &-10.0,198.0,0.0,0.05922,-0.07983,            
-     &-0.00397,0.00085,-0.00313,0.0,-11.0,2.0,2.0,-11.0,                        
-     &140.0,30.0,130.0,-10.0,                      
-     &190.0,0.0,0.05107,-0.07964,0.00097,-0.01118,-0.02614,                     
-     &-0.09537,       
-     &-11.0,1.0,3.0,-11.0,140.0,37.0,125.0,0.0,182.0,                           
-     &0.0,0.0307,-0.04968,-0.00248,                
-     &-0.02451,-0.00313,0.0,-11.0,2.0,3.0,-11.0,   
-     &140.0,37.0,125.0,0.0,170.0,0.0,              
-     &0.02806,-0.04716,0.00066,-0.02763,-0.02247,-0.01919,                      
-     &-11.0,-11.0,4.0,-11.0,140.0,45.0,136.0,-9.0, 
-     &181.0,-26.0,0.02994,-0.04879,                
-     &-0.01396,0.00089,-0.09929,0.05589/           
-      K=0             
+      DIMENSION PG3O(80), FELD(80)   
+      DATA FELD/-11.0,1.0,2.0,-11.0,160.0,31.0,130.0,-10.0,                           
+     &198.0,0.0,0.05922,-0.07983,-0.00397,0.00085,-0.00313,            
+     &0.0,-11.0,2.0,2.0,-11.0,140.0,30.0,130.0,-10.0,190.0,                      
+     &0.0,0.05107,-0.07964,0.00097,-0.01118,-0.02614,-0.09537,       
+     &-11.0,1.0,3.0,-11.0,140.0,37.0,125.0,0.0,182.0,0.0,                           
+     &0.0307,-0.04968,-0.00248,-0.02451,-0.00313,0.0,-11.0,   
+     &2.0,3.0,-11.0,140.0,37.0,125.0,0.0,170.0,0.0,0.02806,              
+     &-0.04716,0.00066,-0.02763,-0.02247,-0.01919,-11.0,-11.0,                      
+     &4.0,-11.0,140.0,45.0,136.0,-9.0,181.0,-26.0,0.02994,                
+     &-0.04879,-0.01396,0.00089,-0.09929,0.05589/           
       DO 10 I=1,80    
-      K=K+1           
-10    PG3O(K)=FELD(I)                              
+10    	PG3O(I)=FELD(I)                              
       RETURN          
       END             
 C
@@ -2794,7 +2817,7 @@ c Uses ionco2 (DS-95) for the molecular ions and ionco1 (DY-85)
 c for the atomic ions.
 c-------------------------------------------------------
         dimension       dion(7)
-        common  /const/ umr
+        common  /const/umr,pi
 
         do 1122 i=1,7
 1122    dion(i)=0.
@@ -2852,7 +2875,7 @@ c     &                  pn(5,6),phe(5,6),pno(5,6),po2(5,6),pcl(5,6)
      &                  pn(5,6),phe(5,6)
 
         common  /argexp/argmax
-        common  /const/ umr
+        common  /CONST/UMR,PI
         data po/4*0.,98.5,4*0.,320.,4*0.,-2.59E-4,2.79E-4,-3.33E-3,
      &          -3.52E-3,-5.16E-3,-2.47E-2,4*0.,-2.5E-6,1.04E-3,
      &          -1.79E-4,-4.29E-5,1.01E-5,-1.27E-3/
@@ -2926,13 +2949,13 @@ C
 C
       Subroutine ionco2(hei,xhi,it,F,R1,R2,R3,R4)
 *----------------------------------------------------------------
-*     INPUT DATA :
+*     INPUT:
 *      hei  -  altitude in km
 *      xhi  -  solar zenith angle in degree
 *      it   -  seasonal month (Northern Hemisphere January 
 *              is ismo=1 and so is Southern Hemisohere July)
 *      F    -  10.7cm solar radio flux (12-month running mean)
-*     OUTPUT DATA :
+*     OUTPUT:
 *     R1 -  NO+ concentration (in percent)
 *     R2 -  O2+ concentration (in percent) 
 *     R3 -  Cb+ concentration (in percent) 
@@ -3348,35 +3371,27 @@ c-----------------------------------------------------------------
           R2=R2+(R12-R2)*rk
         endif
        end
-c
-c
-	SUBROUTINE CALION(CRD,INVDIP,FL,DIMO,B0,
-     &                    DIPL,MLT,ALT,DDD,F107,NO,NH,NHE,NN)
+C
+C
+	SUBROUTINE CALION(INVDIP,MLT,ALT,DDD,PF107,NO,NH,NHE,NN)
 C----------------------------------------------------------------------
-C Version 1.0 (released 20.12.2002)
-C CALION calculates relative density of O+, H+, He+ and N+  in the outer
+C Version 2.5 (released 6.4.2016) (Includes a correction for PF107<87.5 
+C based on C/NOFS CINDI data)
+C CALION calculates ion density of O+, H+, He+ and N+  in the outer
 C ionosphere with regard to solar activity (F107 index).
 C CALION uses subroutines IONLOW and IONHIGH.
-C Linearly interpolates for solar activity.
-C Inputs: CRD - 0 .. INVDIP
-C               1 .. FL, DIMO, B0, DIPL (used for calculation INVDIP inside)
-C         INVDIP - "mix" coordinate of the dip latitude and of
+C Linearly interpolates the logarithmic ion densities in solar activity.
+C Inputs: INVDIP - "mix" coordinate of the dip latitude and of
 C                    the invariant latitude;
 C                    positive northward, in deg, range <-90.0;90.0>
-C         FL, DIMO, B0 - McIlwain L parameter, dipole moment in
-C                        Gauss, magnetic field strength in Gauss -
-C                        parameters needed for invariant latitude
-C                        calculation
-C         DIPL - dip latitude
-C                positive northward, in deg, range <-90.0;90.0>
 C         MLT - magnetic local time (central dipole)
 C               in hours, range <0;24)
 C         ALT - altitude above the Earth's surface;
 C               in km, range <350;2000>
 C         DDD - day of year; range <0;365>
-C         F107 - F107 index
-C Output: NO,NH,NHE,NN - relative density of O+, H+, He+, and N+
-C Versions:  1.0 FORTRAN
+C         PF107 - PF107 index
+C Output: NO,NH,NHE,NN - relative density of O+, H+, He+, and N+ in %
+C Versions:  2.5 FORTRAN
 C
 C REFERENCES:
 C   Triskova, L., Truhlik, V., Smilauer, J. An empirical model of ion
@@ -3385,6 +3400,11 @@ C      653–663, 2003.
 C   Truhlik, V., Triskova, L., Smilauer, J. New advances in empirical
 C      modeling of ion composition in the outer ionosphere. Adv. Space
 C      Res. 33, 844–849, 2004.
+C   Truhlik V., D. Bilitza, L. Triskova, Towards better description of 
+C     solar activity variation in the International Reference Ionosphere 
+C     topside ion composition model, Advances in Space Research, 
+C     Volume 55, Issue 8, 15 April 2015, Pages 2099-2105, ISSN 0273-1177, 
+C     http://dx.doi.org/10.1016/j.asr.2014.07.033.
 C
 C Author of the code:
 C         Vladimir Truhlik
@@ -3395,1104 +3415,1253 @@ C         Czech Republic
 C         e-mail: vtr@ufa.cas.cz
 C         tel/fax: +420 267103058, +420 728073539 / +420 272 762528
 C----------------------------------------------------------------------
-      REAL INVDIP,FL,DIMO,B0,DIPL,MLT,ALT,F107
-	INTEGER CRD,DDD,ION
+      REAL INVDIP,MLT,ALT,PF107
+      INTEGER DDD,ION
       REAL NO,NH,NHE,NN,NOH,NHH,NHEH,NNH,NOL,NHL,NHEL,NNL,NTOT
-      DIMENSION  DOL(3,3,49),DHL(3,3,49),DHEL(3,3,49),DNL(3,3,49)
+      REAL NOCORR,NHCORR
+      DIMENSION  DOL(4,3,49),DHL(4,3,49),DHEL(4,3,49),DNL(4,3,49)
       DIMENSION  DOH(4,3,49),DHH(4,3,49),DHEH(4,3,49),DNH(4,3,49)
+      DIMENSION  CORRO(3),CORRH(3)
 C/////////////////////coefficients high solar activity////////////////////////
 C//////////////////////////////////O+/////////////////////////////////////////
 C     550km equinox
-      DATA (DOH(1,1,J),J=1,49)/-1.2838E-002, 3.3892E-009,-4.9527E-003,
-     &                        9.6584E-009,-2.8249E-004, 9.2209E-009,
-     &                       -1.5708E-003,-1.5997E-003,-1.7077E-010,
-     &                        6.0805E-004,-3.2035E-009, 4.6574E-004,
-     &                       -3.0838E-009,-1.7719E-003, 1.7746E-009,
-     &                        2.0281E-003, 5.9550E-010,-8.4087E-004,
-     &                        7.3645E-010, 1.6083E-003,-1.9020E-010,
-     &                       -5.6389E-004, 2.1437E-010,-9.1530E-005,
-     &                       -8.1471E-004,-1.4259E-009,-5.3451E-004,
-     &                       -6.4989E-010, 9.7174E-005,-9.1365E-004,
-     &                        3.6711E-010,-2.8037E-005, 7.6651E-011,
-     &                        1.5422E-003, 1.4647E-010,-1.7107E-005,
-     &                        2.1872E-010, 1.4265E-004, 6.1624E-010,
-     &                        1.2512E-004, 4.8548E-004,-1.6132E-010,
-     &                       -1.4022E-005,-1.1307E-004, 1.6024E-010,
-     &                        2.7979E-004, 6.1773E-011,-2.7536E-005,
-     &                        3.7412E-005/
+      DATA (DOH(1,1,J),J=1,49)/ 1.1638E+001, 2.1979E-006,-2.3248E-001,
+     &                       -3.3214E-007, 1.1898E-001, 3.0748E-006,
+     &                        2.6115E-003,-2.4560E-001, 1.2462E-007,
+     &                        2.0023E-002, 1.6400E-007, 6.2374E-003,
+     &                       -6.4331E-008,-2.6353E-001, 3.3890E-008,
+     &                        3.6762E-002, 1.8064E-007,-2.2751E-002,
+     &                        2.8274E-008, 1.1224E-001,-1.9642E-007,
+     &                       -8.7787E-003,-6.0584E-009,-4.6188E-003,
+     &                        1.0754E-002, 1.0973E-007, 8.7284E-003,
+     &                        5.2698E-008, 5.1970E-003,-6.6284E-002,
+     &                       -5.0381E-007, 2.5389E-003, 1.7134E-007,
+     &                        2.2995E-002, 4.7651E-007, 4.8065E-004,
+     &                       -1.5021E-008, 2.1538E-003,-1.8609E-007,
+     &                        5.0122E-003, 3.2356E-003, 2.1760E-008,
+     &                        9.9773E-004,-1.6112E-003,-1.7006E-007,
+     &                        4.5044E-003, 8.6730E-008, 1.4997E-003,
+     &                       -4.2748E-003/
 C     550km June solstice
-      DATA (DOH(1,2,J),J=1,49)/-1.3612E-002,-5.5550E-003,-8.8001E-003,
-     &                       -6.7878E-003,-2.5424E-003,-6.6143E-004,
-     &                       -3.0189E-003,-5.1701E-004,-3.4954E-004,
-     &                       -2.9469E-005, 4.0382E-005, 3.1389E-006,
-     &                        5.8065E-005, 1.6808E-003,-2.0046E-004,
-     &                        1.1039E-003, 1.0451E-003,-1.0243E-004,
-     &                       -1.6330E-004, 1.3405E-003,-4.0310E-004,
-     &                        2.9640E-004, 3.3187E-004, 1.5748E-004,
-     &                       -1.0201E-003,-3.4733E-004,-1.8801E-004,
-     &                        1.3370E-004,-3.8261E-005, 2.5237E-004,
-     &                        9.9983E-005, 5.3315E-005, 6.1462E-005,
-     &                       -2.2161E-004, 3.8285E-004, 3.6890E-005,
-     &                       -2.8965E-006,-2.6102E-005, 2.1884E-005,
-     &                        5.6101E-005, 3.2898E-004, 4.8422E-005,
-     &                        8.9837E-007, 2.0305E-005, 1.3643E-005,
-     &                        1.1488E-004, 4.8798E-005,-1.7122E-006,
-     &                        1.3591E-004/
+      DATA (DOH(1,2,J),J=1,49)/ 1.1466E+001, 4.0119E-001,-4.1736E-001,
+     &                       -1.9200E-001, 3.7017E-002,-2.6320E-002,
+     &                       -7.3409E-002,-1.6393E-001,-7.5744E-003,
+     &                        4.7543E-002,-5.9249E-003,-9.1045E-003,
+     &                        7.5707E-003,-6.6604E-002, 3.3164E-002,
+     &                        8.8713E-003, 6.9505E-003,-3.7147E-003,
+     &                       -9.4076E-003,-4.7440E-002, 5.1116E-004,
+     &                       -2.0023E-002, 1.1603E-002, 5.8822E-003,
+     &                       -1.8973E-002,-3.2266E-004,-1.0472E-002,
+     &                        8.7367E-003, 8.7078E-004, 3.0624E-002,
+     &                       -1.4384E-002, 1.1849E-003, 1.6199E-003,
+     &                        5.2375E-002,-5.1855E-003, 5.0677E-003,
+     &                        5.8491E-004,-2.6023E-002, 2.1862E-003,
+     &                        1.7057E-004, 1.4512E-003, 9.2850E-003,
+     &                       -1.8361E-003,-1.5087E-002, 1.6268E-003,
+     &                       -5.1916E-003, 3.1410E-003,-7.5738E-003,
+     &                        2.0747E-003/
 C     900km equinox
-      DATA (DOH(2,1,J),J=1,49)/-1.1873E-001,-7.9543E-008, 8.8754E-002,
-     &                        1.2749E-007, 3.7834E-002,-3.7071E-008,
-     &                       -3.3659E-002,-1.3753E-001,-6.7705E-008,
-     &                       -7.8370E-003, 5.0045E-008, 1.7354E-002,
-     &                       -1.2451E-008,-5.5262E-002,-1.6397E-008,
-     &                        9.0203E-003,-3.1764E-009, 3.2200E-004,
-     &                        4.4309E-009,-4.7726E-002,-1.6271E-008,
-     &                       -1.6568E-002, 8.7942E-009, 3.9707E-003,
-     &                       -1.3873E-002,-1.3387E-008,-5.5410E-003,
-     &                        3.2760E-009, 1.5026E-003, 5.4130E-004,
-     &                       -4.3665E-009,-8.5634E-003, 2.2732E-009,
-     &                       -7.3394E-003,-9.4292E-009,-4.1713E-003,
-     &                        2.0113E-009, 2.5152E-003,-1.4286E-010,
-     &                       -2.7636E-003, 1.4591E-003,-3.7848E-009,
-     &                       -2.1361E-003,-1.7300E-003,-6.3066E-012,
-     &                       -1.8190E-003,-1.1929E-009,-2.4384E-003,
-     &                        4.5096E-003/
+      DATA (DOH(2,1,J),J=1,49)/ 1.0822E+001, 1.0243E-006,-1.1612E-002,
+     &                       -3.9090E-006, 1.7949E-001, 5.2434E-006,
+     &                       -5.5277E-002,-4.2250E-001, 2.2743E-007,
+     &                       -1.7850E-002,-2.1446E-007, 2.0109E-002,
+     &                        2.5441E-008,-2.8437E-001, 2.8675E-007,
+     &                        4.6531E-002,-1.7470E-007,-1.2887E-002,
+     &                       -7.0467E-008,-1.1997E-001, 2.0672E-007,
+     &                       -2.1904E-002, 3.2349E-008, 1.4037E-002,
+     &                        5.9543E-002, 4.1880E-007,-3.2790E-004,
+     &                       -9.1809E-008, 8.8505E-003,-1.0878E-002,
+     &                       -4.1668E-007,-1.6918E-002, 4.1870E-008,
+     &                       -3.1914E-002, 2.2837E-007,-1.0269E-002,
+     &                       -3.4403E-008, 6.6131E-004,-1.4563E-007,
+     &                       -6.0043E-003,-1.7662E-002,-1.6897E-009,
+     &                       -7.6391E-003,-3.0607E-003,-1.5907E-007,
+     &                       -8.2787E-003, 2.1356E-009,-7.6774E-003,
+     &                        1.2753E-002/
 C     900km June solstice
-      DATA (DOH(2,2,J),J=1,49)/-1.1400E-001, 7.2284E-002, 5.9514E-002,
-     &                       -9.2827E-002, 2.4670E-002, 1.8185E-002,
-     &                       -5.3528E-003,-1.0798E-001, 4.9821E-002,
-     &                       -5.4609E-003,-7.3866E-003, 5.5822E-003,
-     &                       -2.2066E-003,-9.4552E-003,-7.0287E-003,
-     &                        1.5038E-002,-4.9536E-003,-2.1970E-003,
-     &                        1.8018E-003,-5.1372E-002, 1.5935E-002,
-     &                       -7.7984E-004,-9.8830E-004,-6.1488E-004,
-     &                       -5.4875E-003,-6.8829E-003, 9.0910E-003,
-     &                       -3.6180E-003, 4.6157E-004,-3.7871E-003,
-     &                       -9.0714E-005, 6.0385E-004, 1.6097E-004,
-     &                       -7.2617E-003,-1.9084E-003, 3.5375E-003,
-     &                       -8.3529E-004,-7.7380E-003, 1.0796E-004,
-     &                        5.0314E-004,-1.3759E-002, 5.3603E-004,
-     &                        6.4259E-004,-6.4764E-003,-1.6915E-004,
-     &                       -7.3788E-003, 3.5767E-004,-3.8287E-003,
-     &                       -3.2403E-003/
+      DATA (DOH(2,2,J),J=1,49)/ 1.0620E+001, 4.1405E-001, 4.7224E-002,
+     &                       -1.7052E-001, 2.0812E-002,-1.6568E-002,
+     &                       -1.7739E-002,-3.6758E-001, 1.2945E-001,
+     &                       -5.7690E-002, 1.6517E-002, 4.3426E-004,
+     &                       -8.4872E-003,-1.7111E-001,-4.3498E-002,
+     &                        9.6720E-002, 6.6361E-003,-1.7696E-002,
+     &                       -7.3752E-003,-5.9474E-002, 7.0600E-002,
+     &                       -2.1261E-002,-4.5486E-003,-2.3596E-003,
+     &                       -6.0694E-002,-3.4020E-002, 2.5395E-002,
+     &                       -1.0267E-002, 5.1524E-003, 2.4349E-002,
+     &                        1.2764E-002, 4.7153E-003, 3.0511E-003,
+     &                        7.1283E-002, 7.9275E-003, 9.1649E-003,
+     &                       -1.2318E-003,-4.2938E-002,-3.0165E-003,
+     &                        2.9838E-003,-1.6615E-002, 1.2946E-003,
+     &                        2.7673E-003,-3.7213E-002, 6.0640E-004,
+     &                       -2.7206E-002, 1.4542E-003,-2.8307E-002,
+     &                       -7.3467E-003/
 C     1500km equinox
-      DATA (DOH(3,1,J),J=1,49)/-5.0096E-001, 3.9699E-007, 5.4222E-001,
-     &                       -4.2933E-007, 4.2261E-002,-1.2006E-007,
-     &                       -1.3304E-001,-5.7614E-001, 1.9950E-007,
-     &                        4.2972E-002,-3.6102E-008, 3.6207E-002,
-     &                       -8.1212E-009,-3.0608E-001, 7.6853E-008,
-     &                        6.8090E-002,-5.5044E-008,-4.6984E-003,
-     &                        2.6068E-008,-1.5518E-001,-2.0579E-008,
-     &                       -2.1672E-002, 9.6017E-009, 7.6241E-003,
-     &                       -1.5461E-001, 3.9902E-008, 3.9501E-003,
-     &                       -9.3205E-009, 3.6564E-003,-1.8591E-002,
-     &                       -1.5121E-008,-1.0493E-002, 5.6094E-009,
-     &                        2.3030E-002,-4.0654E-008,-6.5416E-004,
-     &                        1.2860E-010,-3.5348E-002, 1.1426E-008,
-     &                       -4.0794E-003, 2.4538E-002,-2.8703E-008,
-     &                        1.1241E-003, 3.0503E-003, 7.4212E-010,
-     &                       -9.1099E-003,-6.3420E-009,-2.4364E-003,
-     &                        7.8412E-003/
+      DATA (DOH(3,1,J),J=1,49)/ 9.7937E+000,-1.9164E-006, 3.5453E-001,
+     &                        1.6223E-006, 2.0156E-001,-1.0210E-006,
+     &                       -1.1503E-001,-8.2204E-001, 5.7192E-008,
+     &                       -4.8372E-002, 9.9279E-008, 6.0963E-002,
+     &                        4.4030E-008,-4.0169E-001,-1.2124E-006,
+     &                        1.1542E-001, 7.4444E-007,-1.6794E-002,
+     &                       -7.7795E-008,-2.3478E-001, 1.8889E-006,
+     &                       -5.7216E-002,-8.5613E-008, 2.2638E-003,
+     &                       -1.8245E-001,-6.7741E-007, 5.6764E-004,
+     &                        1.0843E-007, 8.6873E-003,-3.2154E-002,
+     &                        1.2769E-006,-2.3455E-002, 2.3495E-008,
+     &                        4.4324E-002, 5.8249E-007,-9.7873E-003,
+     &                       -4.9479E-008,-4.3582E-002, 2.4400E-007,
+     &                       -4.7593E-003, 1.1520E-002, 6.1115E-007,
+     &                       -6.1079E-003, 4.6842E-003,-7.7660E-008,
+     &                       -1.4542E-002, 1.3010E-007, 1.2669E-004,
+     &                        2.6225E-002/
 C     1500km June solstice
-      DATA (DOH(3,2,J),J=1,49)/-3.8369E-001, 2.8162E-001, 3.3410E-001,
-     &                       -4.4591E-001, 1.2217E-001, 1.4901E-001,
-     &                       -1.2365E-001,-3.3668E-001, 1.4641E-001,
-     &                        1.5156E-002,-4.2536E-002, 2.6524E-002,
-     &                       -5.5077E-003,-1.1957E-001, 6.0421E-002,
-     &                       -3.9161E-003,-1.0382E-002, 1.1853E-002,
-     &                       -7.9129E-003, 5.4055E-002,-3.9953E-002,
-     &                        7.1875E-003, 6.0955E-003,-3.0049E-003,
-     &                       -4.5588E-003,-7.0102E-003, 8.8947E-005,
-     &                        4.6705E-003,-1.5544E-003, 5.2816E-002,
-     &                       -3.2857E-002, 7.5772E-003, 3.3781E-004,
-     &                        5.3629E-002,-2.2430E-002, 2.4118E-003,
-     &                        3.1271E-004,-1.4393E-002,-6.6816E-003,
-     &                        1.7099E-003, 4.2075E-003,-2.0012E-003,
-     &                       -6.8627E-004,-1.6996E-002, 1.9841E-003,
-     &                       -1.0077E-002,-4.0022E-004,-3.5827E-003,
-     &                        1.0792E-003/
+      DATA (DOH(3,2,J),J=1,49)/ 9.7559E+000, 7.3006E-001, 2.3915E-002,
+     &                       -3.5479E-001, 2.3232E-001, 4.3105E-002,
+     &                       -8.3276E-002,-6.1803E-001, 2.4574E-001,
+     &                        1.0126E-002,-1.3819E-002, 5.2543E-002,
+     &                       -2.4424E-002,-1.6943E-001, 4.6190E-002,
+     &                        5.4503E-002,-4.7693E-002, 2.8382E-002,
+     &                       -4.0051E-002, 3.6658E-002,-7.1019E-002,
+     &                        3.3261E-002, 1.4489E-003, 2.5216E-003,
+     &                       -2.6986E-003, 2.8257E-003, 1.1303E-002,
+     &                        1.3446E-002, 6.4292E-004, 7.0927E-002,
+     &                       -4.8257E-002, 1.1750E-002, 2.9293E-004,
+     &                        3.0686E-002,-2.9274E-002,-1.4456E-004,
+     &                        2.2379E-003,-1.6401E-002,-1.1951E-002,
+     &                       -8.3522E-005,-2.2854E-003,-5.1928E-003,
+     &                       -1.0387E-003,-2.4951E-002, 2.3471E-003,
+     &                       -1.3592E-002,-2.2130E-003,-7.8338E-003,
+     &                        7.0712E-004/
 C     2250km equinox
-      DATA (DOH(4,1,J),J=1,49)/-7.5121E-001, 4.7106E-006, 9.8731E-001,
-     &                       -1.1517E-005,-2.1953E-001, 7.7259E-006,
-     &                       -7.3014E-002,-3.4116E-001,-1.3414E-006,
-     &                        3.8833E-002,-6.9663E-007, 1.0871E-002,
-     &                        5.1607E-007,-5.2445E-001, 1.5335E-006,
-     &                        1.1675E-001,-9.3384E-007,-8.9381E-003,
-     &                        1.5077E-007,-4.9602E-003,-6.4438E-007,
-     &                       -1.0283E-002,-3.9542E-008, 1.7114E-003,
-     &                       -1.1767E-001, 2.1163E-007,-1.4566E-003,
-     &                       -2.4207E-007, 1.9790E-003,-8.8082E-003,
-     &                       -4.2416E-008, 1.0644E-003,-2.3959E-009,
-     &                        9.4817E-002,-7.9695E-007,-4.1841E-003,
-     &                       -5.9703E-008, 4.2488E-002, 4.4664E-008,
-     &                        1.6134E-003, 4.5698E-002,-2.0829E-007,
-     &                       -1.2046E-003,-1.0719E-004, 1.8530E-007,
-     &                        8.5126E-003, 4.9934E-008, 7.7988E-003,
-     &                        1.4431E-003/
+      DATA (DOH(4,1,J),J=1,49)/ 9.1209E+000,-3.5060E-008, 5.6220E-001,
+     &                        7.2825E-007, 1.8242E-001, 1.6496E-006,
+     &                       -1.3481E-001,-6.2102E-001, 1.3313E-006,
+     &                       -7.2196E-002, 2.8528E-007, 3.9029E-002,
+     &                        5.3745E-008,-6.0644E-001, 3.8846E-007,
+     &                        1.0864E-001,-2.9182E-007, 1.9555E-002,
+     &                        1.1610E-008,-1.1778E-001, 6.6455E-009,
+     &                       -4.3774E-002, 2.4623E-007,-7.3456E-003,
+     &                       -1.0794E-001, 2.8097E-007,-6.1924E-003,
+     &                        5.5108E-008, 6.5963E-003, 9.7996E-003,
+     &                       -1.4108E-007, 1.3135E-002, 3.9136E-009,
+     &                        2.0612E-001, 1.5759E-007, 2.9679E-003,
+     &                        1.9150E-007, 5.5943E-002,-9.0442E-009,
+     &                        8.7562E-003, 7.1924E-002,-8.2087E-008,
+     &                        3.7554E-003, 3.5717E-003, 7.9697E-008,
+     &                        7.6157E-003,-8.0663E-008,-3.9358E-003,
+     &                        1.0457E-002/
 C     2250km June solstice
-      DATA (DOH(4,2,J),J=1,49)/-8.2190E-001, 3.6727E-001, 8.6943E-001,
-     &                       -5.1681E-001, 4.3418E-002, 1.4628E-001,
-     &                       -1.6190E-001,-4.8689E-001, 7.9939E-002,
-     &                        2.9131E-002, 9.4168E-003, 1.6115E-002,
-     &                       -1.1809E-002,-4.8438E-001, 1.0166E-001,
-     &                        1.2800E-001,-6.1316E-002,-1.6983E-002,
-     &                        1.4167E-002, 3.5405E-003,-7.8288E-003,
-     &                       -3.2292E-003, 8.7041E-003,-3.6171E-003,
-     &                       -1.5451E-001,-1.1808E-002, 2.8659E-002,
-     &                       -2.7932E-004,-2.7786E-003, 1.5649E-001,
-     &                       -4.8513E-003,-2.4998E-003,-9.9171E-004,
-     &                       -8.0071E-002,-2.4185E-003, 6.4073E-003,
-     &                       -2.6383E-004,-4.7954E-003,-8.6720E-003,
-     &                        1.5965E-003,-7.1514E-003, 7.0614E-003,
-     &                       -1.8408E-003,-1.1994E-002,-4.7379E-003,
-     &                       -2.0841E-002,-2.9637E-003,-4.9867E-003,
-     &                       -1.4069E-002/
+      DATA (DOH(4,2,J),J=1,49)/ 8.9497E+000, 6.7881E-001, 3.9055E-001,
+     &                       -3.2002E-001, 1.3908E-001, 2.8471E-002,
+     &                       -1.7994E-001,-7.3377E-001, 1.1401E-001,
+     &                       -1.6313E-002, 5.8219E-002,-2.4831E-003,
+     &                       -1.8989E-002,-6.0576E-001, 1.2761E-001,
+     &                        7.9504E-002,-5.2144E-002, 1.1163E-002,
+     &                        6.6893E-004,-3.4924E-002, 1.6598E-002,
+     &                       -7.1152E-003, 4.5419E-003,-2.5894E-003,
+     &                       -1.7938E-001,-9.1538E-003,-5.5001E-003,
+     &                        8.3203E-003, 1.2648E-003, 1.8489E-001,
+     &                        2.9295E-003, 7.8076E-003,-6.2127E-003,
+     &                       -6.9425E-002, 6.4065E-003,-3.1037E-003,
+     &                        2.8284E-003,-1.5089E-002, 1.3666E-003,
+     &                        2.2100E-003, 3.6826E-003, 9.4428E-003,
+     &                       -2.4497E-003,-1.0100E-002,-4.1794E-003,
+     &                       -2.4757E-002, 8.2641E-005,-9.0907E-003,
+     &                       -5.7800E-003/
 C//////////////////////////////////////////////////////////////////////
 C//////////////////////////////////H+//////////////////////////////////
 C     550km equinox
-      DATA (DHH(1,1,J),J=1,49)/-3.1678E+000, 3.6289E-007,-5.5819E-002,
-     &                       -1.0303E-006,-1.1119E-001,-1.7286E-007,
-     &                        2.9466E-002, 6.9927E-001,-1.0867E-007,
-     &                       -3.8446E-002,-3.1427E-008, 1.4009E-002,
-     &                        4.5348E-008, 2.6142E-001, 9.8583E-008,
-     &                       -1.5370E-002,-8.8257E-008, 1.1618E-002,
-     &                        9.8907E-008,-5.4724E-002, 2.2519E-007,
-     &                        1.5621E-002,-1.0045E-008, 3.6467E-003,
-     &                       -1.2359E-001, 4.9284E-008,-1.1143E-002,
-     &                        2.3898E-009,-5.8604E-003,-1.0020E-003,
-     &                       -1.1869E-007,-8.7861E-004,-1.0543E-008,
-     &                        9.8818E-002, 7.4183E-008, 1.3692E-002,
-     &                       -1.6456E-008,-3.8041E-002, 3.5978E-008,
-     &                       -3.9582E-003, 2.8077E-002,-2.2537E-008,
-     &                        1.5597E-003,-3.7610E-003,-2.4712E-008,
-     &                        4.0460E-003, 7.7021E-009,-1.4101E-003,
-     &                        1.6789E-002/
+      DATA (DHH(1,1,J),J=1,49)/ 8.4599E+000,-9.9884E-007,-3.5443E-001,
+     &                       -6.5810E-007,-2.9651E-002, 5.2904E-007,
+     &                        9.3573E-003, 4.5701E-001, 1.9996E-007,
+     &                       -2.4248E-002, 7.7567E-008, 1.1724E-002,
+     &                       -2.3639E-008, 4.2217E-003,-1.1230E-007,
+     &                        2.3361E-002, 1.2442E-007,-7.5842E-003,
+     &                        2.9140E-008, 5.0338E-002,-5.2187E-008,
+     &                        7.0107E-003,-6.2618E-008,-1.1794E-003,
+     &                       -1.2422E-001,-7.0145E-008,-6.0802E-003,
+     &                       -1.7967E-008,-3.5129E-003,-5.8675E-002,
+     &                        1.8341E-008, 1.2289E-003,-1.1887E-008,
+     &                        1.1607E-001, 2.2739E-008, 1.4341E-002,
+     &                       -8.2486E-009,-3.2079E-002,-4.4285E-008,
+     &                        2.1810E-003, 4.0119E-002, 3.4542E-009,
+     &                        1.4022E-003,-9.4002E-003, 2.0700E-008,
+     &                        6.9210E-003, 1.3041E-008,-3.3684E-004,
+     &                        8.8583E-003/
 C     550km June solstice
-      DATA (DHH(1,2,J),J=1,49)/-2.8141E+000,-4.4836E-001, 8.2760E-003,
-     &                        1.9407E-001, 2.8119E-002,-2.6308E-002,
-     &                       -1.5432E-002, 4.8983E-001, 8.6385E-002,
-     &                       -7.5200E-002, 1.8661E-002, 4.9780E-003,
-     &                       -1.6762E-002, 1.8896E-001,-8.6811E-002,
-     &                        5.1824E-004,-6.4436E-003, 3.5544E-003,
-     &                        9.4714E-003, 2.0099E-002, 1.9941E-002,
-     &                        2.5581E-002,-5.2659E-003,-3.4378E-003,
-     &                       -1.2902E-001, 1.4578E-002,-2.5016E-003,
-     &                       -2.0760E-002, 3.4195E-003,-8.2338E-002,
-     &                        5.0698E-003,-3.4081E-004,-2.7512E-003,
-     &                       -4.0443E-002, 2.2658E-003,-8.0779E-003,
-     &                       -3.1290E-003,-1.5350E-003, 2.5313E-003,
-     &                       -3.4740E-003, 8.2225E-003,-2.6921E-003,
-     &                        1.3247E-003, 5.7483E-003, 4.0066E-003,
-     &                        1.3048E-002, 1.6612E-004, 6.5345E-003,
-     &                        6.1813E-003/
+      DATA (DHH(1,2,J),J=1,49)/ 8.7052E+000,-1.0386E-002,-3.9422E-001,
+     &                        2.2079E-002, 1.0061E-001,-1.0053E-001,
+     &                       -3.8012E-002, 4.0303E-001, 1.1450E-001,
+     &                       -3.6893E-002, 7.1546E-003, 4.8412E-003,
+     &                       -3.1532E-003, 5.3452E-002,-7.1005E-002,
+     &                        1.1385E-002, 2.0830E-004,-3.4358E-003,
+     &                       -9.9962E-004, 1.0466E-001, 2.6587E-002,
+     &                       -5.0469E-004, 1.0174E-002,-3.1445E-004,
+     &                       -1.4247E-001, 1.0854E-002,-8.3255E-003,
+     &                       -1.0450E-002, 3.3930E-003,-4.1298E-002,
+     &                        8.3111E-003, 2.4336E-003,-2.3697E-003,
+     &                       -2.1893E-002, 1.5365E-002, 3.0954E-003,
+     &                       -5.5201E-003,-1.1731E-002, 1.1634E-002,
+     &                       -1.4933E-003, 5.2614E-004, 7.8891E-003,
+     &                       -1.0120E-003,-8.6891E-003, 8.2004E-003,
+     &                        6.2137E-003, 4.2136E-003,-1.3120E-002,
+     &                        9.2474E-003/
 C     900km equinox
-      DATA (DHH(2,1,J),J=1,49)/-1.5293E+000, 1.9563E-007,-7.1593E-001,
-     &                        5.0551E-008,-1.0967E-001, 1.4302E-007,
-     &                        2.3166E-001, 7.0241E-001, 6.7276E-008,
-     &                       -3.9113E-003,-2.3431E-008,-2.9279E-002,
-     &                       -2.1680E-008, 3.0214E-001, 8.5569E-008,
-     &                       -5.9577E-002,-7.4572E-008, 1.3847E-002,
-     &                        1.9007E-008, 9.1829E-002,-8.0079E-008,
-     &                        2.6453E-002, 2.1214E-008,-3.2018E-003,
-     &                       -2.1978E-001, 1.7330E-009,-1.1862E-003,
-     &                        2.2427E-008, 1.3491E-003, 2.8588E-002,
-     &                       -5.3489E-008, 1.1135E-002,-1.3678E-009,
-     &                        7.9619E-002, 1.5714E-008, 7.1930E-003,
-     &                        2.9905E-009,-3.8042E-002, 1.1725E-008,
-     &                        3.4274E-003,-4.9647E-003, 2.1675E-009,
-     &                        7.9079E-003,-7.9338E-003, 3.6623E-008,
-     &                        8.5068E-004, 1.7537E-009, 2.3308E-002,
-     &                       -2.1869E-002/
+      DATA (DHH(2,1,J),J=1,49)/ 9.3870E+000,-1.3719E-007,-8.3508E-001,
+     &                       -5.9282E-007, 6.1012E-002,-5.2218E-007,
+     &                        1.9141E-001, 4.1174E-001, 3.8016E-007,
+     &                       -2.5064E-002,-9.7075E-008,-3.3704E-002,
+     &                       -3.0830E-008, 6.3980E-002, 5.1005E-007,
+     &                       -2.2929E-002, 3.6584E-007,-1.2908E-003,
+     &                       -4.1545E-008, 2.3400E-002,-3.5827E-008,
+     &                        1.6850E-002, 1.4133E-007, 4.5264E-003,
+     &                       -1.6435E-001, 1.7264E-007, 4.2052E-003,
+     &                        1.6665E-007, 5.7113E-003, 2.6847E-002,
+     &                        2.0150E-007, 7.1160E-004, 2.6940E-008,
+     &                        5.9238E-002, 3.4505E-008, 2.3152E-003,
+     &                       -1.4563E-010,-3.0566E-002, 9.2142E-009,
+     &                        3.3032E-004,-2.0039E-002, 1.0352E-008,
+     &                        1.9382E-003,-5.5282E-004,-6.9643E-008,
+     &                       -4.2814E-003, 8.0598E-008, 1.1031E-002,
+     &                       -2.6108E-002/
 C     900km June solstice
-      DATA (DHH(2,2,J),J=1,49)/-1.3652E+000,-3.7141E-001,-6.9554E-001,
-     &                        2.1456E-001, 9.1424E-002, 4.0012E-002,
-     &                        9.3601E-002, 4.8116E-001, 3.2264E-002,
-     &                        6.8285E-002, 9.8315E-003,-3.4080E-003,
-     &                       -1.1225E-003, 1.2620E-001, 3.3225E-002,
-     &                       -4.8420E-002,-2.8323E-002,-2.2914E-003,
-     &                        7.9720E-003, 1.2455E-001,-4.2949E-002,
-     &                       -5.3643E-003, 6.7441E-003, 1.4582E-002,
-     &                       -4.0379E-002, 3.8848E-002,-3.2937E-003,
-     &                        9.1013E-003,-7.5494E-003,-6.2580E-002,
-     &                        1.1877E-002,-4.8900E-003,-5.3770E-003,
-     &                        1.5066E-002,-9.2034E-004,-7.2370E-003,
-     &                       -3.5355E-004, 8.6705E-003, 1.0198E-002,
-     &                        2.0618E-003, 5.7210E-002, 6.8151E-003,
-     &                       -1.8874E-003, 1.7634E-002, 9.8946E-003,
-     &                        1.8101E-002, 5.3287E-003, 3.0321E-002,
-     &                        6.8488E-003/
+      DATA (DHH(2,2,J),J=1,49)/ 9.4299E+000,-5.1759E-002,-8.1008E-001,
+     &                        1.3248E-001, 1.4374E-001, 2.8595E-002,
+     &                       -3.6756E-003, 2.4542E-001, 8.4647E-002,
+     &                        2.6415E-002, 3.3343E-002,-1.5748E-002,
+     &                       -7.9269E-003, 8.0631E-002, 1.0277E-002,
+     &                       -1.8242E-002,-2.3267E-002,-1.0559E-003,
+     &                        8.2585E-003, 2.1509E-002,-8.1102E-003,
+     &                        3.9426E-003,-1.0183E-003, 6.8868E-003,
+     &                       -5.1945E-002, 1.8767E-002, 7.0042E-003,
+     &                        3.0618E-003,-1.3121E-003,-6.8901E-002,
+     &                        2.3944E-002, 4.5513E-003,-5.0356E-003,
+     &                       -1.6834E-004, 3.4679E-003, 5.1671E-003,
+     &                       -5.0158E-004, 8.3745E-003, 1.1080E-002,
+     &                        2.6952E-003, 1.5059E-002, 4.1633E-003,
+     &                        1.9192E-003,-2.1979E-003, 1.0921E-002,
+     &                       -2.1533E-003, 6.5616E-003, 3.8826E-004,
+     &                        1.1183E-004/
 C     1500km equinox
-      DATA (DHH(3,1,J),J=1,49)/-8.1841E-001, 1.3246E-007,-9.9407E-001,
-     &                       -3.5826E-007,-1.1572E-001,-3.8968E-007,
-     &                        1.8954E-001, 2.6643E-001,-1.2399E-008,
-     &                        2.2029E-002, 3.5262E-008,-2.5895E-002,
-     &                        2.5542E-008, 1.7279E-001,-1.0393E-008,
-     &                       -3.0719E-002,-6.3703E-009, 7.5848E-003,
-     &                       -1.4497E-008, 9.7870E-002,-1.3003E-007,
-     &                       -2.0224E-003,-3.9366E-008,-3.2416E-003,
-     &                        1.5904E-002,-1.5451E-008,-3.5652E-003,
-     &                       -1.3658E-009,-7.7126E-003,-1.5924E-002,
-     &                        1.6773E-008,-3.7276E-003, 1.7795E-008,
-     &                        7.4727E-003, 3.0856E-008, 7.4715E-004,
-     &                        7.3372E-009, 1.3716E-002, 4.6691E-008,
-     &                        4.0197E-003,-1.1936E-002, 5.8220E-009,
-     &                        3.8995E-003, 7.2715E-003,-2.0243E-008,
-     &                        4.1793E-003,-3.2785E-009, 1.3978E-002,
-     &                       -6.1225E-003/
+      DATA (DHH(3,1,J),J=1,49)/ 9.5205E+000,-2.0222E-006,-1.1864E+000,
+     &                        7.5985E-007,-2.6909E-002,-4.4005E-007,
+     &                        3.0973E-001, 1.3675E-001,-4.8308E-007,
+     &                       -2.2609E-002,-3.7822E-007,-3.5004E-002,
+     &                        4.5696E-008, 6.1285E-002, 2.5084E-007,
+     &                       -1.2329E-002,-4.2144E-008,-8.3540E-003,
+     &                       -2.0386E-007, 4.9594E-002,-2.5843E-007,
+     &                       -1.3798E-002,-1.6222E-007,-1.1448E-002,
+     &                       -4.3079E-002,-2.8827E-007, 7.7978E-003,
+     &                       -2.7406E-008, 1.7355E-003,-3.0989E-002,
+     &                       -1.1889E-007,-1.2109E-002,-1.3616E-008,
+     &                        1.4991E-002, 3.3699E-008,-7.4128E-005,
+     &                       -5.9458E-009, 7.1308E-003, 6.3098E-008,
+     &                        1.0935E-003,-2.3455E-002,-1.2795E-007,
+     &                        1.5102E-003,-1.3092E-003, 3.8446E-008,
+     &                       -3.8817E-004, 5.9744E-008,-3.7063E-003,
+     &                       -8.6531E-003/
 C     1500km June solstice
-      DATA (DHH(3,2,J),J=1,49)/-8.1500E-001,-3.1034E-001,-1.0382E+000,
-     &                        2.2304E-001,-1.3799E-001, 6.2362E-002,
-     &                        2.6902E-001, 2.6612E-001,-4.7466E-002,
-     &                        1.9184E-002,-7.0576E-002,-1.7642E-002,
-     &                        1.4685E-002, 7.7755E-002,-3.1315E-002,
-     &                        1.9684E-002,-1.3324E-002, 3.4012E-003,
-     &                        3.7043E-002,-1.8646E-002, 2.6457E-002,
-     &                        9.8637E-003, 2.6819E-003, 1.7598E-003,
-     &                       -2.1755E-002, 4.2552E-003,-1.6633E-002,
-     &                       -6.7044E-003, 3.4964E-003,-4.8719E-003,
-     &                        5.9790E-003, 2.3021E-005, 5.4778E-003,
-     &                       -1.2598E-002, 9.9962E-003,-1.0507E-003,
-     &                        5.7994E-003, 2.0765E-002, 1.1593E-002,
-     &                       -3.2365E-004,-1.5353E-003, 1.4942E-003,
-     &                        1.9642E-003, 8.8836E-003, 4.2172E-003,
-     &                       -1.8502E-004, 2.3092E-003, 1.8370E-003,
-     &                       -3.7978E-004/
+      DATA (DHH(3,2,J),J=1,49)/ 9.4197E+000,-1.4545E-002,-1.3593E+000,
+     &                        3.3999E-001,-1.9479E-001, 4.7850E-002,
+     &                        3.7597E-001, 1.5466E-001,-5.5988E-002,
+     &                        5.9355E-002,-4.2765E-002,-2.5813E-002,
+     &                        3.1549E-002, 3.0235E-002,-3.1327E-002,
+     &                        7.0621E-002,-3.5920E-002, 8.6809E-003,
+     &                        2.1371E-002,-1.5567E-002,-2.0810E-002,
+     &                        3.6965E-002,-1.1192E-002, 4.8831E-003,
+     &                       -1.1065E-003, 1.4821E-002, 1.0736E-003,
+     &                        3.4666E-003,-2.4916E-003,-1.3773E-002,
+     &                        7.9809E-003,-3.6052E-003, 4.3504E-003,
+     &                       -3.6110E-002, 8.2627E-003,-4.7435E-003,
+     &                        7.3676E-003, 2.1851E-002, 1.0228E-002,
+     &                       -2.6510E-003,-2.3925E-003, 1.1321E-005,
+     &                        2.1796E-003, 9.6299E-003, 5.5079E-003,
+     &                        5.9111E-003, 4.1776E-003, 2.1261E-003,
+     &                        2.4663E-003/
 C     2250km equinox
-      DATA (DHH(4,1,J),J=1,49)/-6.6978E-001, 4.5698E-007,-1.2361E+000,
-     &                       -1.5676E-007,-1.2804E-001,-6.0241E-007,
-     &                        2.7591E-001, 4.0136E-002,-1.1570E-007,
-     &                        2.1493E-002,-4.5863E-008, 2.6574E-003,
-     &                        1.7588E-008, 1.5964E-001, 1.2470E-007,
-     &                        1.8918E-002, 9.3632E-008,-2.4488E-003,
-     &                        2.0725E-008, 6.6975E-002, 1.1782E-008,
-     &                        1.9413E-002, 6.2877E-009, 5.3689E-003,
-     &                       -1.5363E-002,-2.0022E-009,-2.1002E-002,
-     &                       -6.7078E-009,-2.9894E-003, 6.1202E-003,
-     &                        1.2119E-008,-2.2888E-003, 4.3298E-009,
-     &                       -4.6405E-002,-5.8474E-008,-3.6078E-003,
-     &                       -1.6963E-008,-1.8254E-002,-1.0377E-009,
-     &                       -1.3715E-003,-2.2111E-003, 3.4185E-009,
-     &                        9.5343E-004,-2.2094E-003, 2.7066E-009,
-     &                       -2.4215E-003,-3.1546E-009,-1.0581E-003,
-     &                       -1.0098E-003/
+      DATA (DHH(4,1,J),J=1,49)/ 9.3714E+000,-3.4200E-006,-1.6846E+000,
+     &                       -8.1017E-008,-1.7081E-002, 3.8242E-006,
+     &                        4.5205E-001, 4.3324E-002,-1.2896E-007,
+     &                        1.0528E-003,-1.8358E-007,-4.1534E-002,
+     &                       -1.3077E-007, 1.5865E-001,-5.4277E-007,
+     &                        3.9447E-002,-3.1248E-007,-6.7779E-003,
+     &                        2.9556E-007,-7.9049E-003, 1.2398E-007,
+     &                       -5.0936E-003, 6.8695E-008,-4.9243E-003,
+     &                       -3.9880E-002,-1.0480E-007,-2.4017E-002,
+     &                       -5.0755E-008,-3.1475E-003, 1.3985E-002,
+     &                       -1.2591E-008,-1.1025E-003,-9.3741E-009,
+     &                       -2.9468E-002,-1.2756E-008,-7.7319E-003,
+     &                       -1.9948E-008, 1.7882E-003,-3.5214E-009,
+     &                        9.4125E-004,-4.4217E-003,-6.8571E-009,
+     &                        1.5396E-003,-3.7219E-004, 2.5287E-009,
+     &                        6.3584E-004, 8.8245E-009,-1.0107E-003,
+     &                       -5.4499E-003/
 C     2250km June solstice
-      DATA (DHH(4,2,J),J=1,49)/-5.6899E-001,-2.5609E-001,-1.0606E+000,
-     &                       -1.6164E-002,-1.9427E-001, 1.0428E-001,
-     &                        1.9448E-001, 1.1527E-001, 1.6518E-002,
-     &                        3.6148E-002,-7.0688E-003, 1.0841E-002,
-     &                        3.6512E-003, 1.0339E-001,-2.1704E-003,
-     &                       -7.0271E-003, 1.9422E-002, 4.1677E-003,
-     &                       -6.6189E-003, 4.3364E-002,-2.5002E-002,
-     &                        1.4219E-002,-2.2654E-003, 5.6440E-003,
-     &                       -3.7866E-002, 1.0338E-004,-3.9639E-003,
-     &                       -3.3311E-003,-3.3289E-004,-5.2423E-002,
-     &                        2.5430E-003,-7.1279E-003, 3.2787E-003,
-     &                        5.9375E-003, 7.2932E-003,-1.9167E-003,
-     &                       -1.8983E-003, 4.5326E-003, 6.8099E-003,
-     &                       -7.4999E-005,-7.8634E-003,-5.5813E-003,
-     &                       -5.3892E-004, 8.5280E-004, 1.4028E-003,
-     &                        3.5032E-003,-3.7237E-004,-2.5767E-005,
-     &                       -8.0710E-004/
+      DATA (DHH(4,2,J),J=1,49)/ 9.2865E+000,-3.1689E-002,-1.6086E+000,
+     &                        1.1140E-001,-1.7424E-001, 1.2264E-001,
+     &                        3.9063E-001,-4.0969E-002, 6.4995E-002,
+     &                       -3.0890E-002, 2.6063E-002,-4.6020E-002,
+     &                        1.0435E-002, 4.0526E-002, 2.4349E-003,
+     &                       -7.3789E-003, 3.2772E-002,-5.0331E-003,
+     &                       -1.7989E-002, 1.3328E-002,-1.0732E-002,
+     &                       -1.5973E-002, 5.7027E-003,-5.3769E-003,
+     &                       -6.0208E-002, 3.3963E-002,-1.2802E-002,
+     &                        6.6097E-003,-2.5335E-003,-4.0039E-002,
+     &                       -5.7030E-003,-8.9255E-003,-1.2960E-003,
+     &                       -9.5029E-003, 2.6328E-002,-5.4759E-003,
+     &                        1.8651E-003,-8.9029E-003, 7.3539E-003,
+     &                       -1.2681E-003, 2.2857E-003,-4.7377E-003,
+     &                       -8.9554E-004, 1.3359E-003, 1.3630E-003,
+     &                        3.7962E-003, 2.9694E-003,-4.0318E-003,
+     &                        4.5768E-003/
 C//////////////////////////////////////////////////////////////////////
 C//////////////////////////////////He+/////////////////////////////////
 C     550km equinox
-      DATA (DHEH(1,1,J),J=1,49)/-3.0827E+000, 4.4643E-007,-3.4361E-001,
-     &                       -4.7996E-007,-2.9473E-001, 1.5576E-007,
-     &                        2.0815E-001, 4.0991E-001,-2.9466E-008,
-     &                       -5.9793E-002, 3.8185E-008, 2.5958E-002,
-     &                       -5.2957E-008, 6.6694E-001, 1.1803E-007,
-     &                       -2.9476E-002, 1.4225E-008,-1.3761E-002,
-     &                       -7.2518E-008,-2.8967E-001,-2.0293E-008,
-     &                        1.8383E-002, 1.0666E-008,-9.8637E-003,
-     &                       -2.1268E-001, 4.3123E-008,-1.3389E-002,
-     &                        2.6780E-009, 9.9442E-004,-7.8858E-003,
-     &                        5.6098E-009,-4.9395E-003,-4.3890E-010,
-     &                       -8.3089E-002, 5.4720E-008, 1.4305E-002,
-     &                       -9.3089E-009,-6.8383E-003,-7.1157E-009,
-     &                       -3.9638E-003, 9.9653E-003, 1.0788E-008,
-     &                       -1.1729E-003,-2.9558E-003, 1.6849E-008,
-     &                        1.2213E-003,-8.7021E-009,-1.4505E-002,
-     &                       -5.6113E-004/
+      DATA (DHEH(1,1,J),J=1,49)/ 8.5562E+000,-6.7753E-008,-5.9333E-001,
+     &                        1.0384E-006,-2.8833E-001,-8.8932E-007,
+     &                        1.3836E-001, 2.0484E-001, 1.3434E-008,
+     &                       -5.7765E-002,-4.4369E-008, 2.7521E-002,
+     &                       -8.8706E-008, 3.9828E-001, 9.9476E-008,
+     &                       -1.9442E-002, 3.6408E-007,-2.6872E-002,
+     &                       -3.1503E-007,-1.9197E-001,-4.7243E-008,
+     &                        8.8640E-004,-1.3824E-008,-1.3470E-002,
+     &                       -2.7662E-001, 1.2720E-007,-9.6029E-003,
+     &                        4.5527E-008, 1.0784E-003,-9.8919E-002,
+     &                       -3.6199E-009,-7.8780E-003, 1.1979E-008,
+     &                       -6.3545E-002, 5.1229E-009, 2.1340E-002,
+     &                        6.9696E-008,-2.0368E-003, 1.9672E-008,
+     &                        1.3091E-003, 1.4277E-002, 8.1100E-008,
+     &                        1.5916E-003,-6.1413E-003, 4.4252E-009,
+     &                        5.2119E-003, 4.2404E-008,-1.5831E-002,
+     &                        8.7771E-003/
 C     550km June solstice
-      DATA (DHEH(1,2,J),J=1,49)/-2.9760E+000,-8.6799E-001, 4.8259E-002,
-     &                        4.8124E-001,-9.2323E-003,-1.7802E-001,
-     &                        1.2279E-001, 1.6776E-001, 2.1054E-001,
-     &                       -5.1912E-002,-1.0298E-002, 1.5834E-002,
-     &                       -8.3905E-003, 1.5721E-001,-2.7260E-002,
-     &                       -6.7125E-002,-3.9449E-002, 4.7324E-003,
-     &                        1.0327E-002,-1.8399E-001, 2.0860E-002,
-     &                        4.3145E-002,-4.9043E-003,-5.6411E-003,
-     &                       -2.4448E-001, 7.1468E-002,-1.2413E-002,
-     &                       -1.3358E-002,-2.2098E-003,-3.9760E-002,
-     &                       -7.9188E-003, 6.9939E-004,-5.3921E-003,
-     &                       -5.5414E-002, 8.5107E-003,-9.8890E-003,
-     &                        5.1361E-004, 6.6272E-002,-2.5510E-003,
-     &                       -7.3423E-003, 2.0118E-003,-6.4885E-003,
-     &                        2.7256E-003, 8.6778E-003,-8.9810E-004,
-     &                        1.0350E-002,-3.1749E-003, 1.6338E-002,
-     &                       -2.1051E-003/
+      DATA (DHEH(1,2,J),J=1,49)/ 8.4548E+000,-4.6108E-001,-2.8570E-001,
+     &                        3.1867E-001,-1.3751E-003,-2.2585E-001,
+     &                        2.7861E-002, 5.3882E-002, 2.4531E-001,
+     &                       -1.6614E-002,-2.1614E-002, 5.2188E-004,
+     &                       -7.1877E-004, 1.0749E-001, 7.9494E-003,
+     &                       -5.7983E-002,-3.5115E-002, 2.1946E-003,
+     &                        4.4208E-003,-1.2911E-001, 6.0450E-002,
+     &                        1.7482E-002, 5.5533E-003,-4.0699E-003,
+     &                       -2.3475E-001, 6.2598E-002,-2.5732E-002,
+     &                       -6.0082E-003, 4.0616E-004,-3.5725E-002,
+     &                       -7.0466E-003, 3.2939E-003,-4.0902E-003,
+     &                       -1.5459E-002, 2.4557E-003,-1.6614E-003,
+     &                       -8.6784E-004, 2.9412E-002,-7.3953E-004,
+     &                       -3.2179E-003,-4.6908E-003,-1.4583E-003,
+     &                        9.0449E-004,-7.5250E-003,-1.0508E-003,
+     &                        1.8460E-003,-1.3508E-003,-6.8072E-003,
+     &                       -1.3448E-003/
 C     900km equinox
-      DATA (DHEH(2,1,J),J=1,49)/-1.7100E+000, 5.2540E-007,-8.2280E-001,
-     &                       -8.2344E-007,-4.0545E-001,-5.5031E-007,
-     &                        3.3911E-001, 2.5554E-001, 8.4842E-008,
-     &                        8.3244E-002, 9.6193E-008,-6.0073E-002,
-     &                       -2.0823E-007, 3.0060E-001, 7.9876E-008,
-     &                       -1.1750E-001,-2.9524E-008,-3.5514E-002,
-     &                       -2.9102E-008,-4.5851E-002,-4.7236E-009,
-     &                        2.4348E-002, 4.2832E-009,-7.4072E-003,
-     &                       -1.1252E-001, 9.5787E-008, 2.6864E-002,
-     &                        1.7685E-008,-5.9893E-003,-1.6605E-001,
-     &                       -1.3665E-007, 1.2534E-002, 1.1691E-008,
-     &                        4.7303E-002, 6.8012E-010, 1.0472E-002,
-     &                        1.9695E-009,-8.2855E-003,-8.1465E-009,
-     &                        5.7602E-003, 7.8478E-003,-2.5233E-008,
-     &                        3.0308E-003,-8.5876E-003, 2.5667E-009,
-     &                        6.5844E-003,-1.7771E-008,-6.1409E-003,
-     &                       -1.0949E-002/
+      DATA (DHEH(2,1,J),J=1,49)/ 9.2145E+000, 1.6979E-007,-9.1857E-001,
+     &                        2.0716E-006,-2.3914E-001,-3.5727E-006,
+     &                        3.1041E-001,-4.7453E-002, 1.0117E-006,
+     &                        6.5570E-002, 3.0985E-007,-6.6558E-002,
+     &                       -4.5164E-007, 7.7242E-002, 2.8717E-007,
+     &                       -8.9984E-002, 5.2001E-008,-4.5497E-002,
+     &                       -1.4626E-007,-1.0729E-001,-3.8360E-008,
+     &                        1.6964E-002, 8.6957E-008, 1.8799E-004,
+     &                       -1.8424E-002,-1.4543E-007, 3.3958E-002,
+     &                        1.0099E-007,-2.6298E-003,-1.6571E-001,
+     &                        6.3739E-008,-1.7494E-003, 1.6987E-007,
+     &                        5.1204E-002, 2.6500E-007, 5.0013E-003,
+     &                        3.6144E-008, 8.7354E-003,-3.7456E-008,
+     &                        2.8601E-003,-1.7103E-003,-7.1480E-009,
+     &                       -2.5359E-003,-3.0116E-003, 5.7501E-008,
+     &                        5.6945E-003, 6.9904E-008,-1.9349E-002,
+     &                       -1.2641E-002/
 C     900km June solstice
-      DATA (DHEH(2,2,J),J=1,49)/-2.0393E+000,-8.1007E-001,-4.3286E-001,
-     &                        3.0351E-001,-1.7024E-001, 4.6307E-002,
-     &                       -2.4220E-003,-6.3442E-002,-1.6370E-003,
-     &                        6.7460E-002,-1.0338E-002,-4.4583E-002,
-     &                        9.6863E-003, 5.3744E-003, 2.6359E-003,
-     &                       -5.8995E-002,-1.6310E-002, 7.3342E-003,
-     &                        9.4701E-004, 6.9508E-002,-4.3418E-002,
-     &                       -5.1968E-003,-3.0680E-003, 1.1837E-002,
-     &                       -1.2321E-001, 4.2603E-002,-3.5437E-002,
-     &                        1.6518E-002,-1.2969E-002, 3.2534E-002,
-     &                        2.8450E-003, 3.5741E-003,-2.0381E-003,
-     &                       -5.0507E-002, 8.2961E-003, 3.8507E-004,
-     &                        1.0441E-003, 4.1571E-002,-2.9669E-003,
-     &                       -7.7910E-004, 2.2211E-002,-3.5130E-003,
-     &                        2.3044E-003, 2.9926E-002, 2.6085E-003,
-     &                        2.5759E-002, 3.9804E-004, 3.1126E-002,
-     &                        1.0860E-002/
+      DATA (DHEH(2,2,J),J=1,49)/ 8.7717E+000,-4.8916E-001,-5.3663E-001,
+     &                        2.0667E-001,-1.1371E-001, 2.6697E-003,
+     &                        1.4339E-002,-2.7105E-001, 3.6089E-002,
+     &                        1.6995E-002, 3.0412E-002,-5.3812E-002,
+     &                       -5.6648E-003,-4.5882E-002,-1.2868E-002,
+     &                       -1.8613E-002,-9.6389E-003,-5.0658E-003,
+     &                       -5.5670E-003, 6.7055E-003,-1.0661E-002,
+     &                       -8.0307E-003,-4.6221E-003, 8.3254E-003,
+     &                       -1.2762E-001, 2.5276E-002,-2.4689E-002,
+     &                        1.2249E-002,-1.0867E-002, 2.5041E-002,
+     &                        1.8546E-002, 1.0281E-002,-2.5269E-003,
+     &                       -5.5967E-002, 1.4229E-002, 1.0142E-002,
+     &                        2.1503E-003, 3.5215E-002, 5.8207E-003,
+     &                       -4.2017E-004, 2.7797E-003,-1.4003E-003,
+     &                        1.5366E-003, 1.4103E-002, 6.1949E-003,
+     &                        1.0431E-002, 1.7503E-003, 1.6873E-002,
+     &                        1.0208E-002/
 C     1500km equinox
-      DATA (DHEH(3,1,J),J=1,49)/-1.2078E+000,-8.3889E-008,-8.6323E-001,
-     &                       -1.5199E-007,-4.4768E-001, 2.5090E-007,
-     &                        3.5311E-001, 1.3210E-001,-4.2130E-009,
-     &                       -2.5480E-003, 3.0688E-008,-4.3178E-002,
-     &                        1.8903E-009, 8.9046E-002,-1.0776E-008,
-     &                        2.9388E-002, 2.2664E-008,-1.1335E-002,
-     &                       -1.4036E-008,-4.9870E-002,-2.0597E-008,
-     &                        5.1163E-003, 1.5444E-008, 7.0597E-003,
-     &                       -1.1044E-001, 3.2974E-008, 3.3729E-002,
-     &                        9.6660E-009,-2.0066E-002,-4.7281E-002,
-     &                        1.0175E-008, 4.5853E-003, 3.9224E-009,
-     &                       -5.6840E-002, 3.2182E-008, 1.2884E-002,
-     &                        6.6859E-009, 4.2958E-002, 7.5059E-009,
-     &                        5.0972E-003,-3.4220E-002, 4.4177E-009,
-     &                        6.6776E-003,-4.7692E-003, 1.1823E-008,
-     &                       -8.8228E-003,-2.5359E-009,-1.1986E-002,
-     &                       -5.1509E-003/
+      DATA (DHEH(3,1,J),J=1,49)/ 9.1382E+000,-1.6957E-006,-1.0442E+000,
+     &                        1.2347E-006,-3.4358E-001, 6.8230E-007,
+     &                        4.4436E-001, 1.6324E-002,-4.3446E-007,
+     &                       -2.3140E-002,-1.8743E-007,-3.8261E-002,
+     &                        1.6702E-007,-3.1722E-002,-5.1618E-007,
+     &                        4.6237E-002,-1.1968E-007,-1.7095E-002,
+     &                        2.3684E-007,-1.0912E-001, 8.5906E-008,
+     &                       -7.5780E-003,-5.7318E-008, 3.4197E-003,
+     &                       -1.6487E-001,-5.7436E-007, 3.4923E-002,
+     &                       -4.8531E-010,-1.2999E-002,-5.7078E-002,
+     &                        3.2258E-008,-4.1749E-003, 4.3545E-008,
+     &                       -4.3926E-002, 8.9899E-009, 9.0836E-003,
+     &                       -1.0023E-008, 2.6406E-002,-4.3460E-008,
+     &                        9.7611E-004,-4.5719E-002, 9.5360E-008,
+     &                        3.2015E-003,-3.0497E-003,-4.9917E-008,
+     &                       -5.2358E-003, 1.5254E-008,-2.0919E-002,
+     &                       -4.6316E-003/
 C     1500km June solstice
-      DATA (DHEH(3,2,J),J=1,49)/-1.5728E+000,-6.8726E-001,-4.6811E-001,
-     &                        2.4677E-002,-4.5196E-001, 1.5523E-001,
-     &                        3.0631E-001, 1.4197E-001,-7.8123E-002,
-     &                       -1.7428E-002,-1.7897E-002,-1.8015E-002,
-     &                        2.7210E-002, 6.0701E-002,-1.3212E-001,
-     &                       -2.2745E-002,-1.7608E-002,-1.2909E-002,
-     &                        2.0402E-002,-4.0894E-003, 3.9555E-003,
-     &                       -3.6464E-003, 1.4643E-002,-5.5944E-003,
-     &                       -8.8090E-002,-1.0930E-002,-7.3501E-003,
-     &                       -5.6046E-003, 2.6169E-003,-1.6782E-002,
-     &                        1.4274E-002,-2.7868E-004, 2.1147E-003,
-     &                       -1.8199E-002, 8.8925E-003,-1.5835E-003,
-     &                        1.8784E-003, 1.1248E-002, 7.2779E-003,
-     &                        4.4115E-004, 1.8361E-003,-1.1211E-003,
-     &                        1.1060E-003, 1.1001E-002, 1.2477E-003,
-     &                        9.0196E-003,-5.8886E-004, 9.7300E-003,
-     &                        4.9376E-003/
+      DATA (DHEH(3,2,J),J=1,49)/ 8.6956E+000,-3.7513E-001,-7.6166E-001,
+     &                        5.8258E-002,-4.4109E-001, 1.1952E-001,
+     &                        4.4731E-001, 6.1168E-002,-5.0179E-002,
+     &                        5.2661E-003,-1.0086E-002,-1.1434E-002,
+     &                        2.4774E-002, 3.4482E-002,-1.3156E-001,
+     &                        3.0048E-002,-6.1629E-002,-8.0153E-003,
+     &                       -3.4766E-003, 1.7056E-002,-2.5625E-002,
+     &                        1.6715E-002, 6.7878E-003,-2.1396E-003,
+     &                       -4.9347E-002, 1.5841E-002, 1.7152E-003,
+     &                        7.2410E-004, 1.6179E-003,-3.0269E-002,
+     &                        1.6246E-002, 1.4672E-003, 2.1578E-003,
+     &                       -2.5516E-002, 1.2958E-002,-6.5452E-003,
+     &                        3.3270E-003,-1.6907E-003, 7.4365E-003,
+     &                       -1.1628E-003, 1.0449E-002,-1.2092E-003,
+     &                        2.5582E-003, 7.1529E-003, 1.1959E-003,
+     &                        9.8574E-003, 1.6045E-003, 3.2251E-003,
+     &                        7.2336E-003/
 C     2250km equinox
-      DATA (DHEH(4,1,J),J=1,49)/-1.1230E+000,-2.9419E-007,-9.5822E-001,
-     &                       -3.4817E-007,-3.5165E-001, 2.2927E-007,
-     &                        3.3646E-001, 8.9248E-002,-1.1195E-007,
-     &                        3.8351E-002,-7.4946E-008, 2.5411E-005,
-     &                        2.1650E-008,-8.8392E-003,-1.7418E-008,
-     &                        1.2222E-002, 4.5854E-009,-2.1108E-002,
-     &                        3.0780E-008, 3.1391E-002,-9.2939E-009,
-     &                        1.1868E-002,-2.3493E-009, 4.0791E-003,
-     &                       -9.2411E-003,-3.1598E-009,-2.5908E-003,
-     &                       -9.0595E-009,-1.0797E-003, 4.0200E-002,
-     &                       -2.9380E-009,-1.5619E-003,-2.7627E-010,
-     &                        2.2044E-002,-1.6962E-008,-8.5223E-003,
-     &                       -3.6076E-009, 2.3448E-002,-4.9645E-009,
-     &                       -5.8718E-004,-1.5134E-002,-8.6918E-009,
-     &                       -2.3766E-003, 7.2023E-004, 9.0865E-010,
-     &                        3.0388E-003,-2.6828E-009, 4.6501E-004,
-     &                       -7.7390E-004/
+      DATA (DHEH(4,1,J),J=1,49)/ 8.8817E+000,-2.4391E-006,-1.3655E+000,
+     &                        8.4386E-007,-2.2789E-001, 8.7854E-007,
+     &                        4.3537E-001, 1.8615E-002,-7.1575E-007,
+     &                        1.3645E-002,-4.9988E-007,-3.2013E-002,
+     &                        3.6249E-007,-1.4024E-002,-4.6747E-007,
+     &                        4.3299E-002,-2.0939E-007,-1.9031E-002,
+     &                        5.3640E-007,-5.7979E-002,-1.1916E-007,
+     &                       -9.7389E-003,-7.0552E-008,-3.8403E-003,
+     &                       -1.8747E-002,-4.5508E-007, 5.8662E-004,
+     &                       -1.4839E-007,-2.3248E-003, 3.5164E-002,
+     &                       -3.8530E-008, 1.4493E-003, 9.0911E-009,
+     &                        6.5064E-002,-7.7367E-008,-7.6839E-003,
+     &                       -4.4329E-008, 2.6307E-002, 6.0727E-008,
+     &                        2.6258E-003,-8.0157E-003,-8.9614E-009,
+     &                        5.7615E-004,-1.3741E-003, 1.9524E-008,
+     &                        3.2822E-003,-5.1476E-009,-1.3574E-003,
+     &                        1.7923E-003/
 C     2250km June solstice
-      DATA (DHEH(4,2,J),J=1,49)/-1.3029E+000,-4.3965E-001,-4.3540E-001,
-     &                       -1.2774E-001,-5.4683E-001, 8.9815E-002,
-     &                        2.4691E-001, 1.5207E-001, 4.5816E-002,
-     &                        4.2447E-002,-2.7108E-002, 2.7242E-003,
-     &                       -7.3419E-003,-4.7334E-002, 5.0151E-002,
-     &                       -2.1149E-002,-2.3378E-002, 4.3055E-003,
-     &                       -1.6985E-002, 1.5813E-002,-1.6609E-002,
-     &                        1.1566E-002, 6.2104E-003, 5.0605E-003,
-     &                       -3.5118E-002,-2.0272E-002,-8.5016E-003,
-     &                       -9.0160E-003,-6.8417E-003,-2.5045E-002,
-     &                       -1.0184E-002,-6.3754E-003, 6.0554E-003,
-     &                       -2.0355E-002,-2.8685E-003,-2.6734E-003,
-     &                       -1.5766E-003, 6.4888E-003,-1.6234E-003,
-     &                       -2.5859E-003, 6.6457E-003,-1.4526E-003,
-     &                       -1.1457E-003, 2.2648E-003,-8.7925E-004,
-     &                        4.1493E-003,-2.3712E-004, 7.9344E-004,
-     &                        1.8450E-003/
+      DATA (DHEH(4,2,J),J=1,49)/ 8.5683E+000,-1.4807E-001,-8.1147E-001,
+     &                       -1.8822E-002,-4.5791E-001, 6.8315E-002,
+     &                        4.1478E-001,-3.7850E-002, 1.2571E-001,
+     &                        1.2702E-002, 7.4260E-003,-3.1216E-002,
+     &                        1.3414E-002,-9.9827E-002, 4.7220E-002,
+     &                       -2.3880E-003,-6.6048E-003,-6.6849E-003,
+     &                       -1.4619E-002,-1.1156E-002, 3.6579E-003,
+     &                        4.1293E-003, 1.4703E-002, 3.9578E-003,
+     &                       -5.7658E-002, 3.0119E-003,-1.0730E-002,
+     &                        3.4455E-003,-5.9462E-003,-1.8327E-002,
+     &                       -1.0196E-002,-5.1724E-003, 2.0240E-003,
+     &                       -2.8124E-002, 1.0821E-002,-4.7065E-003,
+     &                        3.4806E-003,-1.4711E-002, 4.2184E-003,
+     &                       -2.0076E-003, 9.1568E-003,-2.7745E-003,
+     &                        9.3070E-004,-1.1010E-003,-2.9865E-004,
+     &                       -1.0161E-003, 1.0107E-003, 7.9248E-004,
+     &                        4.3800E-003/      
 C//////////////////////////////////////////////////////////////////////
 C///////////////////////////////////N+/////////////////////////////////
 C     550km equinox
-      DATA (DNH(1,1,J),J=1,49)/-1.6313E+000, 3.3826E-009, 2.3816E-001,
-     &                        2.8373E-007,-2.0961E-002,-5.3533E-007,
-     &                        8.7160E-002, 9.8248E-002, 4.4888E-008,
-     &                       -3.2244E-002,-2.0063E-008,-2.0732E-002,
-     &                        1.4134E-009, 6.8670E-002, 3.8855E-008,
-     &                       -7.9258E-002, 3.6878E-008, 3.0244E-002,
-     &                       -3.3364E-008,-6.6861E-002, 3.2622E-008,
-     &                        2.0265E-002,-1.4791E-008, 6.6954E-003,
-     &                        2.1340E-002,-3.2037E-008, 9.0073E-003,
-     &                        2.0858E-008,-5.2152E-003, 3.9714E-002,
-     &                       -1.9344E-009,-8.9600E-005,-3.7487E-009,
-     &                       -4.0648E-002, 1.7220E-008, 5.6330E-003,
-     &                        4.4101E-009, 4.1397E-003,-4.3699E-010,
-     &                       -3.5601E-003,-1.6551E-002,-2.6274E-009,
-     &                        8.3802E-004, 1.2105E-003,-1.0517E-008,
-     &                       -8.5131E-003, 4.5467E-009,-2.2753E-003,
-     &                       -3.3013E-003/
+      DATA (DNH(1,1,J),J=1,49)/ 1.0019E+001, 2.5723E-006,-8.4960E-004,
+     &                        8.1102E-007, 9.7779E-002, 1.0615E-006,
+     &                        7.6222E-002,-1.4428E-001, 3.2342E-007,
+     &                       -1.4089E-002,-3.4285E-007,-1.3037E-002,
+     &                        7.6984E-008,-2.0229E-001, 8.1544E-007,
+     &                       -4.2526E-002, 1.9650E-007, 8.5229E-003,
+     &                        2.0090E-007, 4.4525E-002,-7.3598E-008,
+     &                        1.1851E-002,-7.3302E-008, 1.0225E-003,
+     &                        2.3862E-002, 2.6317E-008, 1.7643E-002,
+     &                       -6.8800E-008,-1.8743E-003,-2.5839E-002,
+     &                        2.0570E-008, 3.7364E-003,-7.4188E-008,
+     &                       -2.1742E-002,-9.5189E-008, 5.7009E-003,
+     &                       -2.2182E-008, 2.5205E-003, 6.1330E-008,
+     &                        1.2046E-003,-1.4426E-002, 2.2803E-008,
+     &                        1.8722E-003,-2.2612E-003,-8.6377E-008,
+     &                       -2.3099E-003, 6.1868E-008,-2.2280E-003,
+     &                       -7.2127E-003/
 C     550km June solstice
-      DATA (DNH(1,2,J),J=1,49)/-1.5950E+000, 1.2602E-001, 2.4136E-001,
-     &                        1.6546E-001, 1.7991E-002,-1.3398E-002,
-     &                        9.3804E-002,-7.7106E-003, 1.4206E-002,
-     &                       -2.3237E-003,-1.2863E-003, 2.3217E-004,
-     &                       -2.2888E-003,-3.3507E-002, 2.1777E-002,
-     &                       -2.3190E-002,-2.6550E-002, 5.4864E-003,
-     &                        6.3951E-003,-4.8363E-002, 2.1732E-002,
-     &                       -2.9250E-003,-7.9064E-003,-5.4980E-003,
-     &                        4.0796E-002, 1.3459E-002, 7.4514E-003,
-     &                       -5.7685E-003, 2.1205E-004,-1.9001E-002,
-     &                       -1.4431E-003, 6.2449E-004,-1.2225E-003,
-     &                        4.9048E-003,-1.4864E-002,-1.6067E-003,
-     &                       -1.5020E-003,-3.7769E-003,-1.3646E-003,
-     &                       -1.4496E-003,-1.2677E-002,-2.8348E-003,
-     &                       -3.0407E-005,-3.0275E-003,-1.4841E-003,
-     &                       -6.7625E-003,-2.2857E-003,-1.9180E-003,
-     &                       -5.1806E-003/
+      DATA (DNH(1,2,J),J=1,49)/ 9.8950E+000, 5.3898E-001,-1.8438E-001,
+     &                       -3.3234E-002, 6.1092E-002,-4.4223E-002,
+     &                        4.9314E-002,-1.6885E-001, 2.3645E-002,
+     &                        4.9904E-002,-1.3272E-002,-1.0006E-002,
+     &                        9.8171E-003,-1.2770E-001, 5.4348E-002,
+     &                       -9.4108E-003,-1.6097E-002, 2.5746E-003,
+     &                       -5.6109E-003,-9.5980E-002, 2.4506E-002,
+     &                       -1.9320E-002, 4.4041E-003, 5.8621E-004,
+     &                        1.0298E-002, 6.6383E-003,-3.6596E-003,
+     &                        3.1693E-003,-1.2114E-003, 2.7192E-002,
+     &                       -1.2499E-002, 2.2087E-003, 7.1793E-005,
+     &                        2.9456E-002,-1.8417E-002, 6.6479E-003,
+     &                       -1.0839E-003,-3.2662E-002, 2.4478E-003,
+     &                       -1.3406E-003,-2.3848E-002, 3.9534E-003,
+     &                       -1.9607E-003,-2.4437E-002,-2.5257E-004,
+     &                       -1.2976E-002, 5.7891E-004,-1.3725E-002,
+     &                        3.9792E-004/
 C     900km equinox
-      DATA (DNH(2,1,J),J=1,49)/-1.4724E+000, 6.2234E-007, 1.9984E-001,
-     &                       -6.2436E-007,-5.9609E-002, 5.3063E-008,
-     &                        4.0544E-002,-2.9918E-002, 4.1071E-007,
-     &                        5.6303E-004,-4.7255E-008, 8.0654E-003,
-     &                       -3.4962E-008, 1.6174E-002, 1.0136E-007,
-     &                        1.1632E-002,-2.4108E-008, 1.0895E-002,
-     &                       -1.4658E-008,-4.3236E-002, 1.5584E-007,
-     &                       -7.6984E-003, 1.8395E-008, 6.3333E-004,
-     &                       -5.2038E-003, 1.5845E-007,-6.8821E-003,
-     &                       -1.8127E-008, 1.2382E-003,-6.6883E-002,
-     &                        6.0510E-008,-7.3364E-003, 1.1055E-008,
-     &                       -2.0130E-002, 1.0636E-007,-4.3419E-003,
-     &                       -5.6930E-009,-1.9632E-002, 2.3733E-008,
-     &                       -1.7396E-003, 4.7721E-003, 5.6015E-008,
-     &                       -1.6795E-003,-4.7359E-004,-1.4109E-008,
-     &                        1.4272E-004, 2.0978E-008,-2.9585E-003,
-     &                        1.0551E-002/
+      DATA (DNH(2,1,J),J=1,49)/ 9.4694E+000,-1.6544E-006, 1.2337E-001,
+     &                        7.6922E-006, 4.0844E-002,-6.2726E-006,
+     &                       -1.2085E-002,-3.1155E-001,-2.2502E-006,
+     &                        5.2141E-003, 1.5292E-006, 4.6169E-003,
+     &                       -3.4430E-007,-2.0980E-001,-6.0445E-007,
+     &                        4.9811E-002, 5.3263E-007, 6.5131E-004,
+     &                       -1.6033E-007,-1.0316E-001,-1.1576E-006,
+     &                       -1.6319E-002, 1.8240E-007, 1.0867E-002,
+     &                        7.1700E-002,-1.0400E-006, 1.5320E-003,
+     &                        7.3160E-007, 5.7948E-003,-7.4410E-002,
+     &                       -5.4983E-007,-1.1335E-002,-9.1272E-009,
+     &                       -4.2801E-002,-6.1656E-007,-1.0028E-002,
+     &                        1.2323E-007,-2.0959E-003,-2.8620E-007,
+     &                       -4.1891E-003,-1.0114E-002,-2.4946E-007,
+     &                       -5.4484E-003,-1.0014E-004,-6.1357E-008,
+     &                        2.5335E-003,-1.4098E-007,-2.7616E-002,
+     &                        1.7588E-002/
 C     900km June solstice
-      DATA (DNH(2,2,J),J=1,49)/-1.4816E+000, 2.5836E-001, 2.5713E-001,
-     &                       -1.1671E-002,-1.1685E-001,-8.0473E-002,
-     &                       -2.5842E-002, 1.7538E-002, 3.1480E-002,
-     &                       -5.2361E-003,-2.0114E-002, 1.0788E-002,
-     &                        6.0475E-003,-8.2585E-002, 1.5506E-002,
-     &                       -9.3973E-003, 6.9887E-003, 1.6035E-003,
-     &                       -4.6125E-003, 1.2645E-003, 2.8444E-002,
-     &                        8.2369E-003,-2.6763E-003,-7.5445E-004,
-     &                        2.6349E-002,-1.6736E-002, 1.3463E-003,
-     &                        1.7333E-005,-9.0561E-004,-8.1050E-003,
-     &                       -5.6762E-003, 3.1943E-003,-3.0766E-004,
-     &                       -2.6193E-002,-1.2177E-002,-1.2289E-003,
-     &                        4.1217E-004,-2.4327E-002,-6.1348E-003,
-     &                       -1.2113E-003,-1.7103E-002,-2.2901E-003,
-     &                        6.3735E-004,-1.2284E-002,-3.8308E-003,
-     &                       -1.0159E-002,-1.7879E-003,-1.2510E-002,
-     &                       -1.0009E-002/
+      DATA (DNH(2,2,J),J=1,49)/ 9.2850E+000, 5.5985E-001, 2.2704E-001,
+     &                       -7.0123E-002,-1.1388E-001,-9.4701E-002,
+     &                        2.8391E-002,-1.9589E-001, 6.8225E-002,
+     &                       -5.3756E-002, 1.4622E-002, 5.7994E-004,
+     &                       -2.9261E-003,-2.4712E-001,-1.7103E-002,
+     &                        6.1000E-002, 1.5448E-002,-1.2181E-002,
+     &                       -8.6816E-003,-2.4797E-002, 6.9824E-002,
+     &                       -4.3173E-004,-2.9083E-003,-1.6011E-003,
+     &                       -2.1840E-002,-3.5010E-002, 1.4547E-002,
+     &                       -9.2115E-003, 4.7761E-003, 1.2071E-002,
+     &                        7.7499E-003, 8.1855E-003, 2.2545E-003,
+     &                        2.4944E-002,-6.0505E-003, 7.8059E-003,
+     &                        2.3805E-003,-5.1867E-002,-8.0380E-003,
+     &                       -9.7830E-004,-2.9220E-002,-1.9427E-003,
+     &                        3.0433E-003,-3.3815E-002,-2.2415E-003,
+     &                       -2.9646E-002,-3.4173E-003,-2.9588E-002,
+     &                       -9.4138E-003/
 C     1500km equinox
-      DATA (DNH(3,1,J),J=1,49)/-1.6315E+000, 1.1175E-007, 4.7753E-001,
-     &                       -1.0014E-007,-1.0097E-001,-1.0216E-007,
-     &                       -5.3935E-002,-3.3570E-001, 2.0709E-007,
-     &                        4.4824E-002, 1.8159E-008, 2.2117E-002,
-     &                       -8.4695E-008,-1.6189E-001, 9.9261E-008,
-     &                        5.7796E-002, 4.8814E-008,-7.5845E-003,
-     &                       -5.1309E-008,-1.2423E-001, 1.3321E-007,
-     &                       -1.6181E-002,-7.7736E-009, 4.6002E-003,
-     &                       -1.2281E-001, 2.4201E-007, 1.4288E-002,
-     &                        1.1896E-008,-5.3069E-003,-1.8104E-002,
-     &                       -1.9814E-008,-8.4131E-003, 2.2753E-009,
-     &                        5.1336E-003, 1.4694E-007, 4.9619E-003,
-     &                        4.1959E-009,-2.2226E-002,-5.4731E-008,
-     &                       -5.2711E-003, 1.3040E-002, 4.8906E-008,
-     &                        2.2301E-003,-2.7938E-004,-2.2648E-008,
-     &                       -1.5969E-002,-6.5911E-009, 3.6104E-003,
-     &                        2.9534E-003/
+      DATA (DNH(3,1,J),J=1,49)/ 8.7155E+000, 1.4741E-006, 3.3257E-001,
+     &                       -3.9187E-007, 9.1878E-003,-1.6825E-006,
+     &                       -4.4178E-002,-4.9152E-001, 1.8469E-006,
+     &                       -1.0781E-002, 4.6555E-007, 3.2247E-002,
+     &                       -4.2322E-007,-2.7076E-001, 5.7315E-007,
+     &                        1.0441E-001, 1.5751E-007,-1.9427E-002,
+     &                       -2.5181E-007,-1.5498E-001, 4.8205E-007,
+     &                       -2.9731E-002, 8.4155E-008, 2.7337E-003,
+     &                       -1.5423E-001, 4.0527E-007, 1.0853E-002,
+     &                        1.7637E-007, 2.9832E-004,-3.2027E-002,
+     &                        4.2496E-008,-1.0391E-002, 1.6182E-008,
+     &                        2.0184E-002, 1.1780E-007,-3.6163E-003,
+     &                        7.9778E-008,-3.7631E-002, 3.5515E-008,
+     &                       -3.8295E-003, 2.5399E-003,-4.9073E-009,
+     &                       -2.8015E-003, 2.1214E-004, 2.7217E-008,
+     &                       -1.1954E-002,-9.2222E-008,-9.6978E-003,
+     &                        6.5686E-003/
 C     1500km June solstice
-      DATA (DNH(3,2,J),J=1,49)/-1.5647E+000, 4.2744E-001, 4.7853E-001,
-     &                       -2.7160E-001,-3.7019E-002, 2.1446E-002,
-     &                       -1.3457E-001,-1.1104E-001, 8.7769E-002,
-     &                        4.0593E-003,-2.7075E-002, 8.4188E-003,
-     &                       -1.2262E-002,-6.4727E-002, 7.1687E-002,
-     &                       -3.8468E-002,-7.9663E-003, 1.2872E-002,
-     &                        2.8088E-003,-1.2956E-002,-3.9502E-002,
-     &                       -7.9875E-005, 6.1428E-003,-1.2074E-003,
-     &                        3.8344E-003, 3.3477E-003,-3.3677E-003,
-     &                       -3.0964E-003, 9.6501E-004, 8.2409E-003,
-     &                       -2.8989E-002, 4.3657E-003, 9.4355E-005,
-     &                        1.3130E-002,-1.8814E-002, 2.7093E-003,
-     &                       -1.2167E-003,-5.7969E-003,-6.4927E-003,
-     &                        4.1950E-004,-9.1788E-003,-7.2444E-003,
-     &                       -1.4730E-003,-1.0845E-002,-2.5005E-003,
-     &                       -8.2969E-003,-1.9660E-003,-6.3399E-003,
-     &                       -5.8925E-003/
+      DATA (DNH(3,2,J),J=1,49)/ 8.6689E+000, 7.7532E-001, 1.6981E-001,
+     &                       -1.6926E-001,-1.6344E-002,-4.9955E-002,
+     &                       -3.0453E-002,-2.4772E-001, 1.2450E-001,
+     &                        1.3351E-002, 8.7996E-004, 1.8177E-002,
+     &                       -2.5308E-002,-1.0649E-001, 7.8115E-002,
+     &                        7.8976E-003,-3.8263E-002, 2.3854E-002,
+     &                       -3.1419E-002,-1.3547E-003,-7.1151E-002,
+     &                        2.6453E-002,-6.8153E-004, 1.0626E-003,
+     &                        2.1740E-002, 3.1895E-002, 1.2209E-003,
+     &                        6.4036E-003, 2.8330E-003, 5.4547E-003,
+     &                       -2.6100E-002, 6.7990E-003,-1.1911E-003,
+     &                       -7.8806E-003,-1.5986E-002,-6.6544E-003,
+     &                        2.2161E-003,-1.6487E-002,-8.9076E-003,
+     &                        4.5130E-004,-1.1831E-002,-1.1070E-002,
+     &                       -2.2416E-003,-1.4739E-002,-3.8693E-003,
+     &                       -1.1053E-002,-1.5497E-003,-1.3144E-002,
+     &                       -6.7004E-003/
 C     2250km equinox
-      DATA (DNH(4,1,J),J=1,49)/-1.7525E+000,-1.0714E-006, 8.6183E-001,
-     &                        1.1184E-006,-2.7829E-001, 2.7162E-007,
-     &                       -1.0538E-001,-1.3943E-001,-1.1095E-007,
-     &                        4.5835E-002,-1.8177E-007, 8.3712E-003,
-     &                        1.0937E-007,-4.2987E-001,-3.9255E-007,
-     &                        6.6012E-002, 5.4483E-008, 9.0376E-003,
-     &                        7.3468E-008, 5.0653E-003,-6.8615E-009,
-     &                       -1.3051E-002,-4.6976E-009, 3.9132E-003,
-     &                       -3.8456E-002, 1.6913E-008,-8.3270E-004,
-     &                       -3.9315E-008, 2.9990E-003,-5.9986E-003,
-     &                        6.4241E-009,-3.6095E-004,-4.3472E-009,
-     &                        9.3971E-002, 6.1373E-008,-7.0760E-003,
-     &                       -2.7203E-009, 4.5148E-002,-1.1452E-008,
-     &                       -1.6323E-004, 2.2101E-002, 5.6630E-009,
-     &                       -9.0528E-004, 6.7390E-003, 1.1191E-009,
-     &                        5.7927E-003, 2.2189E-009, 8.9446E-003,
-     &                       -6.3752E-004/
+      DATA (DNH(4,1,J),J=1,49)/ 8.2446E+000,-3.9022E-006, 4.2086E-001,
+     &                       -8.4724E-008,-4.5965E-002, 5.3823E-007,
+     &                       -1.3220E-002,-2.2697E-001,-5.8269E-007,
+     &                       -1.4812E-002,-2.9880E-007,-3.9232E-003,
+     &                        1.7290E-008,-4.6253E-001,-9.6196E-008,
+     &                        6.2313E-002, 4.2635E-007, 1.7812E-002,
+     &                        1.2969E-007,-6.4979E-002, 1.4935E-007,
+     &                       -3.5472E-002, 6.1687E-008,-7.7464E-003,
+     &                       -4.4305E-002,-3.3255E-007,-2.1269E-003,
+     &                       -2.9698E-007, 4.2903E-003, 1.0216E-002,
+     &                        2.0950E-008, 3.3693E-003, 1.5003E-008,
+     &                        1.4030E-001, 9.8769E-008,-4.3899E-003,
+     &                       -6.7915E-008, 6.9364E-002, 4.3913E-008,
+     &                        3.6741E-003, 2.6018E-002, 8.9366E-008,
+     &                        3.9212E-004, 8.6551E-003, 6.6664E-008,
+     &                        9.1264E-003, 1.4846E-008,-1.1903E-003,
+     &                        6.8326E-005/
 C     2250km June solstice
-      DATA (DNH(4,2,J),J=1,49)/-1.7520E+000, 3.8232E-001, 8.1527E-001,
-     &                       -2.8870E-001,-1.0730E-001, 7.0220E-002,
-     &                       -1.6764E-001,-2.1758E-001,-2.0171E-002,
-     &                        3.4368E-002,-2.2874E-003, 2.7205E-002,
-     &                       -6.4735E-003,-3.3147E-001, 9.2558E-002,
-     &                        4.9336E-002,-4.1876E-002, 5.0738E-003,
-     &                        1.2235E-002,-1.2631E-002,-2.6016E-002,
-     &                        1.0295E-002,-6.0847E-003, 2.2948E-003,
-     &                       -1.8060E-001,-1.7793E-002, 5.4176E-003,
-     &                        2.2462E-004, 1.8786E-003, 1.1605E-001,
-     &                        1.7233E-003,-1.5451E-003, 1.3382E-003,
-     &                       -7.3353E-002,-3.7852E-004, 1.3236E-003,
-     &                       -9.6993E-004, 1.8479E-002,-5.6199E-003,
-     &                        8.0329E-004,-1.7815E-002, 3.5429E-003,
-     &                       -1.5325E-003,-4.6303E-003,-3.9437E-003,
-     &                       -1.7196E-002,-2.0703E-003,-3.6631E-004,
-     &                       -1.6702E-002/
+      DATA (DNH(4,2,J),J=1,49)/ 8.1232E+000, 6.3400E-001, 3.4451E-001,
+     &                       -1.7706E-001,-9.6395E-002,-3.3631E-002,
+     &                       -3.8348E-002,-3.7099E-001, 4.3368E-002,
+     &                       -2.2563E-002, 4.1095E-002,-2.2098E-002,
+     &                        3.7783E-003,-3.8367E-001, 1.1212E-001,
+     &                        3.9900E-002,-3.4603E-002, 9.0102E-004,
+     &                        1.7867E-004,-4.9073E-002, 5.7379E-003,
+     &                       -1.6769E-002, 9.4616E-003,-4.8618E-003,
+     &                       -2.0081E-001, 7.2646E-003,-9.1609E-003,
+     &                        8.1090E-003,-5.8271E-004, 1.3650E-001,
+     &                       -2.4914E-003,-1.2280E-003,-4.3112E-004,
+     &                       -9.0520E-002, 2.2466E-002,-7.9454E-003,
+     &                        2.7647E-003, 8.3267E-003,-6.3168E-003,
+     &                        2.2216E-003,-8.6691E-003, 2.5916E-003,
+     &                       -1.9514E-003,-4.9024E-003,-3.6766E-003,
+     &                       -2.3492E-002,-7.9399E-004, 3.7814E-003,
+     &                       -1.6833E-002/
 C//////////////////////////////////////////////////////////////////////
 C/////////////////coefficients low solar activity///////////////////// 
 C//////////////////////////////////O+//////////////////////////////////
 C     400km equinox
-      DATA (DOL(1,1,J),J=1,49)/-3.4295E-003, 4.8322E-010, 7.9335E-004,
-     &                        1.8237E-009, 1.0320E-003,-7.3733E-010,
-     &                       -5.8045E-004,-2.1541E-003,-6.5013E-010,
-     &                       -3.1081E-004,-9.8478E-012, 8.0628E-005,
-     &                        2.1821E-010,-1.9044E-003,-8.3791E-010,
-     &                       -1.5618E-004,-4.6595E-011, 1.5868E-004,
-     &                       -1.6618E-010, 7.2724E-005,-3.1159E-010,
-     &                        1.5783E-004,-6.1281E-010,-3.2544E-005,
-     &                       -5.8917E-004,-6.1467E-010,-1.0295E-004,
-     &                        5.7992E-011, 5.7641E-005, 6.7711E-005,
-     &                        6.1432E-010, 8.6370E-005,-2.3670E-010,
-     &                        2.2941E-005,-4.7808E-011, 4.7716E-005,
-     &                        2.1198E-011, 2.8298E-006, 3.6265E-010,
-     &                       -4.4578E-006, 1.7541E-004, 2.1511E-010,
-     &                        2.5195E-005,-2.7325E-005,-2.3875E-011,
-     &                       -3.1418E-006, 4.6152E-011,-2.9151E-005,
-     &                        3.7913E-005/
+      DATA (DOL(1,1,J),J=1,49)/ 1.1028E+001,-5.9947E-007,-3.3742E-001,
+     &                        7.8683E-007, 1.3937E-001, 8.3175E-008,
+     &                       -4.8640E-002,-2.4412E-001, 3.1765E-007,
+     &                       -3.0586E-002,-3.2124E-008,-2.0091E-002,
+     &                        9.5865E-008,-2.4533E-001,-3.1051E-007,
+     &                       -1.3402E-002, 1.5715E-007,-3.5108E-002,
+     &                       -7.0552E-009, 7.2451E-002,-5.4795E-008,
+     &                        4.6388E-003, 2.6538E-008,-1.7863E-003,
+     &                       -3.2795E-002, 2.1667E-007,-1.6886E-003,
+     &                       -1.1351E-007, 4.8819E-004,-1.8702E-002,
+     &                        1.5855E-008, 2.4774E-003,-6.0513E-011,
+     &                        2.6071E-002,-1.5258E-008, 5.4362E-003,
+     &                        2.6064E-008,-5.8978E-003,-5.6781E-009,
+     &                        1.7888E-003, 7.9854E-003, 4.3021E-008,
+     &                        7.5171E-004,-3.4351E-003, 2.3671E-008,
+     &                        1.8393E-003, 4.3624E-011,-3.1620E-003,
+     &                        2.2396E-003/
 C     400km June solstice
-      DATA (DOL(1,2,J),J=1,49)/-7.5061E-003, 4.2214E-003, 3.2811E-003,
-     &                       -4.3773E-003, 4.1127E-005, 2.7276E-003,
-     &                       -4.5069E-004,-6.9573E-003, 3.2289E-003,
-     &                        4.5324E-004,-5.4022E-004,-2.8733E-004,
-     &                        1.7425E-004,-4.4235E-003,-1.1619E-005,
-     &                        1.3238E-003,-5.1465E-004,-3.3052E-004,
-     &                        3.8804E-004, 6.8531E-004,-1.9665E-004,
-     &                        1.9622E-004, 2.8863E-004,-6.5642E-005,
-     &                       -2.8855E-003, 5.0512E-004, 7.0149E-004,
-     &                       -1.5869E-004,-1.5202E-004, 1.5939E-003,
-     &                       -5.6796E-004,-1.0670E-004, 1.2569E-007,
-     &                       -8.3699E-004,-8.4185E-005, 2.4768E-005,
-     &                        4.6445E-005, 1.9761E-004, 6.0184E-005,
-     &                       -1.0454E-005, 3.2389E-004,-3.7438E-005,
-     &                       -3.4186E-005,-3.5859E-004,-6.1472E-005,
-     &                       -4.7218E-004, 7.6277E-006, 1.4752E-004,
-     &                       -4.5090E-004/
-C     650km equinox
-      DATA (DOL(2,1,J),J=1,49)/-2.6245E-001, 8.4041E-007, 2.2991E-001,
-     &                       -2.1060E-006,-5.9700E-002, 5.5301E-006,
-     &                        2.6165E-002,-3.4817E-001, 2.5875E-007,
-     &                        1.7171E-002,-7.7857E-007,-6.4432E-003,
-     &                        6.9845E-007,-1.3705E-001, 1.0700E-006,
-     &                        7.5614E-003,-5.6468E-007, 8.2754E-004,
-     &                        1.9031E-007,-2.5396E-002,-7.2603E-007,
-     &                       -1.7557E-002, 2.1324E-007,-1.0498E-003,
-     &                       -6.4057E-002, 4.6894E-007,-9.1390E-003,
-     &                        9.6493E-009, 1.7969E-004, 7.0926E-002,
-     &                       -3.6416E-007,-6.9695E-003, 8.9469E-008,
-     &                        2.4310E-002,-1.7204E-007,-5.4500E-003,
-     &                        9.1857E-008, 2.1846E-002, 8.1249E-008,
-     &                       -7.2438E-004, 2.1225E-002,-1.1084E-008,
-     &                       -4.9135E-004,-1.5282E-003, 5.4962E-008,
-     &                       -2.0812E-003, 3.7817E-008,-4.2919E-004,
-     &                        1.7766E-004/
-C     650km June solstice
-      DATA (DOL(2,2,J),J=1,49)/-3.1262E-001, 2.1640E-001, 2.9808E-001,
-     &                       -2.9615E-001, 6.4926E-002, 3.8438E-003,
-     &                       -9.0777E-002,-3.8422E-001, 1.3193E-001,
-     &                        3.1168E-002,-3.6264E-002, 2.3774E-002,
-     &                       -9.3167E-003,-1.5581E-001, 1.5604E-002,
-     &                        2.3125E-002, 1.3240E-002,-1.2961E-003,
-     &                       -1.1848E-002,-3.2185E-002,-5.1446E-003,
-     &                        1.0193E-002,-7.9351E-003, 3.2452E-003,
-     &                       -1.3403E-001,-1.0768E-003, 1.2773E-002,
-     &                        2.9588E-003,-9.6663E-004, 5.6863E-002,
-     &                       -2.1862E-002, 1.0585E-002,-3.1121E-003,
-     &                       -3.3781E-002,-1.2186E-002, 4.7556E-003,
-     &                       -5.7030E-004, 1.2328E-002,-6.4108E-003,
-     &                        1.7929E-003,-2.1691E-003,-8.2313E-003,
-     &                        1.9333E-003,-1.1646E-002,-1.6945E-003,
-     &                       -2.7066E-002, 1.3570E-004,-8.5273E-003,
-     &                       -1.5711E-002/
+      DATA (DOL(1,2,J),J=1,49)/ 1.0935E+001, 4.3766E-001,-3.1289E-001,
+     &                       -1.3726E-001, 1.3358E-001, 4.3905E-002,
+     &                        5.0160E-002,-2.5849E-001, 4.5659E-002,
+     &                        5.4857E-003, 2.2218E-002,-2.8317E-002,
+     &                        8.2630E-003,-2.8326E-001,-9.6791E-003,
+     &                        4.1894E-002, 7.7419E-003,-1.9546E-002,
+     &                       -1.0279E-002, 3.9292E-002,-1.5802E-002,
+     &                        9.4275E-003,-8.1618E-004, 1.8252E-003,
+     &                       -4.4936E-002,-9.5925E-003, 1.0290E-002,
+     &                       -4.3728E-003, 2.6103E-003, 1.7584E-002,
+     &                       -1.5570E-004,-5.0717E-003, 2.2696E-004,
+     &                        7.7040E-003, 3.7456E-003,-1.7878E-003,
+     &                        8.0229E-004,-1.4827E-002, 6.1296E-003,
+     &                       -1.2200E-003, 1.6822E-003, 6.2744E-003,
+     &                       -2.1599E-003,-2.2537E-002, 3.3963E-003,
+     &                       -8.4230E-003, 2.8959E-003,-1.7315E-002,
+     &                       -4.7823E-003/
+C     550km equinox
+      DATA (DOL(2,1,J),J=1,49)/ 1.0441E+001,-1.8583E-007,-1.5392E-001,
+     &                        1.3279E-006,-2.8910E-002, 4.6595E-008,
+     &                       -4.0713E-002,-4.8280E-001,-4.4062E-007,
+     &                        8.8233E-003, 1.5207E-007,-2.6193E-002,
+     &                       -5.6026E-008,-2.5563E-001, 3.7636E-007,
+     &                       -5.3640E-002,-2.5118E-007,-3.9499E-002,
+     &                        5.6905E-008, 6.3005E-002,-1.0823E-007,
+     &                       -4.6264E-003, 1.3677E-008, 5.7388E-003,
+     &                       -2.6456E-002, 2.1980E-007,-6.3113E-003,
+     &                       -9.6352E-008, 6.3825E-003, 2.1161E-002,
+     &                       -1.1267E-007,-3.3647E-003, 1.6196E-008,
+     &                        2.6800E-002, 1.7619E-007, 9.5012E-003,
+     &                       -4.3477E-009, 1.9645E-002, 6.8076E-009,
+     &                        8.3642E-004, 2.0048E-002,-2.6173E-008,
+     &                        2.8416E-003, 1.2859E-003, 2.4308E-008,
+     &                       -3.1225E-003,-7.8282E-009,-4.2809E-003,
+     &                        6.4016E-003/
+C     550km June solstice
+      DATA (DOL(2,2,J),J=1,49)/ 1.0428E+001, 5.0284E-001,-1.0415E-001,
+     &                       -2.3068E-001, 9.9921E-002, 2.4525E-002,
+     &                        1.0017E-001,-4.3949E-001, 7.7712E-002,
+     &                        2.7670E-002, 9.8040E-003,-4.0890E-002,
+     &                        1.1955E-002,-2.3115E-001,-1.7800E-002,
+     &                        2.9761E-002, 3.2814E-003,-1.0608E-002,
+     &                       -1.1838E-002, 4.6797E-002,-2.5308E-002,
+     &                       -2.1772E-003,-6.2791E-004, 3.9284E-004,
+     &                       -9.5448E-002,-7.5227E-003, 4.7040E-003,
+     &                        5.5001E-003, 1.1420E-003, 5.9417E-002,
+     &                       -1.0356E-002,-1.1835E-002, 4.9372E-003,
+     &                       -1.6572E-002, 7.7212E-003, 2.5303E-003,
+     &                       -2.1244E-003, 1.8799E-003, 7.5457E-003,
+     &                       -3.9116E-003, 2.9587E-003, 1.0549E-003,
+     &                       -1.6082E-004,-2.2565E-002,-3.8407E-004,
+     &                       -6.4016E-003, 1.9367E-003,-2.4715E-002,
+     &                       -4.3424E-003/
+C     750km equinox
+      DATA (DOL(3,1,J),J=1,49)/ 9.7046E+000,-1.9504E-006, 1.6453E-001,
+     &                        4.1395E-006,-2.8124E-002,-5.0045E-006,
+     &                        1.6867E-001,-9.4930E-001,-1.9466E-006,
+     &                        7.2760E-004, 4.5795E-007,-4.0390E-002,
+     &                        3.8333E-009,-4.1313E-001, 7.3783E-007,
+     &                       -9.0851E-002, 8.4989E-007,-9.4220E-003,
+     &                       -8.8451E-007, 8.8378E-002,-2.2731E-007,
+     &                       -1.3118E-003,-2.4401E-007, 6.7618E-003,
+     &                       -7.5769E-002, 3.1554E-007,-9.4427E-003,
+     &                       -3.2472E-008,-8.2261E-004, 1.2120E-001,
+     &                        9.9090E-008,-9.4052E-003, 7.1322E-008,
+     &                        9.7052E-002, 1.2635E-007, 1.2328E-002,
+     &                       -6.2071E-008, 2.3364E-002, 2.8730E-009,
+     &                       -4.0942E-003, 4.4158E-002,-8.1883E-008,
+     &                        9.6001E-004, 3.4871E-003,-8.4680E-008,
+     &                       -2.9931E-003,-8.0600E-008, 3.5474E-004,
+     &                        5.9745E-003/
+C     750km June solstice
+      DATA (DOL(3,2,J),J=1,49)/ 9.7665E+000, 7.0796E-001, 9.7141E-002,
+     &                       -3.4388E-001, 1.5406E-001,-9.9645E-002,
+     &                        8.6633E-002,-6.6761E-001, 1.9789E-001,
+     &                        1.2181E-002, 1.9043E-002,-1.4917E-002,
+     &                       -1.3319E-002,-2.4644E-001, 1.9972E-002,
+     &                        7.0064E-003, 2.0894E-002,-4.9076E-003,
+     &                       -1.8647E-002, 2.7701E-002,-7.5134E-003,
+     &                       -1.0716E-003,-3.5230E-003, 3.1439E-003,
+     &                       -1.9860E-001, 1.9707E-002, 3.3487E-003,
+     &                        2.0649E-002, 2.9560E-004, 9.4027E-002,
+     &                       -3.3459E-002, 3.2062E-003, 2.2061E-003,
+     &                       -4.4366E-002, 8.8768E-003, 3.6112E-003,
+     &                        6.0056E-004,-9.2459E-003,-4.6701E-003,
+     &                        1.9506E-003,-1.4880E-003,-9.6133E-003,
+     &                        2.2348E-003,-3.2551E-002,-5.1712E-003,
+     &                       -2.8312E-002,-1.5611E-004,-3.9494E-002,
+     &                       -1.3699E-002/
 C     1000km equinox
-      DATA (DOL(3,1,J),J=1,49)/-8.9352E-001, 2.4097E-005, 3.7286E-001,
-     &                       -1.0359E-005, 1.0068E-002,-1.7035E-005,
-     &                       -2.0139E-002,-1.0039E+000, 8.8331E-006,
-     &                       -1.3731E-001, 4.7035E-006,-3.6637E-002,
-     &                       -2.6654E-006,-2.0386E-001, 1.5439E-005,
-     &                       -3.6661E-002, 1.0260E-005,-4.5066E-002,
-     &                       -2.8682E-006,-1.7254E-001,-4.9526E-006,
-     &                       -6.7622E-002,-1.0877E-006,-1.2351E-002,
-     &                       -1.0953E-001, 7.0854E-006,-1.4296E-002,
-     &                        6.7187E-006,-2.0577E-002, 6.4692E-002,
-     &                       -3.0932E-006,-1.1908E-002,-1.6660E-006,
-     &                        6.6329E-002,-7.0914E-007,-1.5392E-002,
-     &                        2.1883E-006, 4.5838E-003,-8.4412E-007,
-     &                        5.4739E-004, 2.8565E-002,-9.7635E-007,
-     &                        5.0974E-003,-5.1648E-004,-2.9444E-008,
-     &                       -1.0738E-003,-2.7121E-007, 3.4379E-003,
-     &                       -2.1828E-003/
+      DATA (DOL(4,1,J),J=1,49)/ 9.1361E+000,-9.7430E-007, 1.6267E-001,
+     &                        4.3277E-006, 1.1540E-001,-3.0602E-006,
+     &                        5.8135E-002,-1.1270E+000,-6.2546E-007,
+     &                       -4.8728E-002, 1.7487E-006,-2.1179E-002,
+     &                       -4.7905E-007,-4.0648E-001, 1.3901E-006,
+     &                       -1.2238E-001,-4.2540E-007,-3.9834E-002,
+     &                        1.7409E-007,-3.8208E-002,-1.0080E-006,
+     &                        3.4987E-003, 5.4186E-007,-8.0568E-004,
+     &                       -5.4931E-002, 8.2682E-007, 2.1062E-002,
+     &                        2.2819E-007,-8.6679E-003, 7.2199E-002,
+     &                        5.2536E-008,-5.0089E-003,-2.0015E-008,
+     &                        8.7559E-002, 3.1601E-007, 8.5504E-003,
+     &                        1.1819E-007,-3.0228E-003, 8.0826E-008,
+     &                       -2.8599E-003, 2.6641E-002, 2.1867E-007,
+     &                       -2.9991E-003,-1.8339E-003, 4.6824E-008,
+     &                       -1.7178E-003, 1.4137E-007, 2.2711E-003,
+     &                       -3.6990E-004/
 C     1000km June solstice
-      DATA (DOL(3,2,J),J=1,49)/-6.9317E-001, 3.3146E-001, 5.9247E-001,
-     &                       -3.8841E-001, 1.5031E-001, 3.4648E-002,
-     &                       -2.0436E-001,-7.6788E-001, 1.1303E-001,
-     &                       -3.0861E-002, 3.1730E-002, 5.8057E-002,
-     &                       -3.2321E-002,-2.3509E-001, 1.2907E-001,
-     &                       -2.5901E-002, 9.7355E-003, 3.0717E-002,
-     &                       -2.7170E-002,-1.0447E-001,-7.0094E-002,
-     &                       -2.6774E-002, 2.0725E-002, 2.4860E-004,
-     &                       -2.9119E-001, 9.3440E-002,-8.0132E-003,
-     &                       -1.9018E-003, 4.4841E-003, 5.9359E-002,
-     &                       -1.9317E-002,-1.8184E-002, 5.0489E-003,
-     &                       -1.0292E-001, 1.2137E-002, 8.1073E-004,
-     &                        7.1284E-004, 8.3372E-003, 1.3340E-002,
-     &                       -6.7512E-003, 1.7102E-002,-2.4549E-003,
-     &                       -1.7239E-003, 1.9465E-002,-5.4019E-003,
-     &                        4.8407E-002,-4.4151E-003,-1.9067E-002,
-     &                        1.5001E-002/
+      DATA (DOL(4,2,J),J=1,49)/ 9.2203E+000, 6.2242E-001, 3.7901E-001,
+     &                       -3.7432E-001, 2.3634E-001,-2.0471E-001,
+     &                        3.3947E-002,-7.8196E-001, 7.2937E-002,
+     &                       -4.0200E-003, 1.4082E-002, 2.6208E-002,
+     &                       -2.7142E-002,-2.9473E-001,-2.0525E-002,
+     &                        9.2248E-002, 7.9193E-003, 4.4462E-002,
+     &                       -4.4945E-002,-2.9301E-002,-7.1699E-002,
+     &                       -5.8144E-003,-4.6876E-003,-5.4680E-003,
+     &                       -2.1563E-001, 2.8593E-002, 9.6277E-003,
+     &                        1.9712E-002, 1.3128E-002, 7.2789E-002,
+     &                       -1.0102E-002, 1.0531E-003,-5.9706E-003,
+     &                        1.7574E-002,-3.6999E-003,-2.9097E-004,
+     &                        5.3090E-003,-1.2282E-002,-4.8710E-004,
+     &                        6.4886E-004, 8.4747E-003, 8.8815E-005,
+     &                       -3.6183E-003,-1.4276E-002,-5.3265E-003,
+     &                       -2.2889E-002, 3.0205E-003,-1.1674E-002,
+     &                       -4.9931E-003/
 C//////////////////////////////////////////////////////////////////////
 C//////////////////////////////////H+//////////////////////////////////
 C     400km equinox
-      DATA (DHL(1,1,J),J=1,49)/-2.3735E+000,-4.1106E-007,-1.5043E-001,
-     &                        7.1050E-008,-4.4023E-002, 5.1900E-008,
-     &                        7.5167E-002, 2.6079E-001,-5.4677E-008,
-     &                        4.0421E-002, 8.4393E-009, 4.2554E-003,
-     &                        1.7166E-008, 1.9018E-001,-6.0764E-008,
-     &                        3.8687E-002, 6.3717E-008, 6.4895E-003,
-     &                       -4.0891E-008, 3.8167E-002, 1.8652E-008,
-     &                       -1.0038E-002, 1.9645E-008, 2.1804E-003,
-     &                       -1.4444E-002, 6.5822E-009, 7.0666E-003,
-     &                       -8.4659E-009,-5.5334E-003, 1.5556E-002,
-     &                        1.2414E-008,-4.3661E-003, 4.4984E-009,
-     &                        9.3627E-003,-2.4554E-009,-3.6096E-003,
-     &                        7.8989E-009,-1.2352E-002, 1.0504E-008,
-     &                       -4.5357E-006, 7.8762E-004,-5.2915E-009,
-     &                       -1.9697E-003, 4.2966E-004, 5.9770E-009,
-     &                        3.7248E-003, 6.9259E-009, 3.0955E-003,
-     &                        2.7742E-003/
+      DATA (DHL(1,1,J),J=1,49)/ 8.6764E+000,-5.8497E-007,-4.5196E-001,
+     &                        7.6173E-007, 8.3042E-002, 7.3664E-008,
+     &                        1.8834E-003, 9.2107E-003,-1.1006E-007,
+     &                       -2.3918E-003, 9.0788E-008,-1.0721E-002,
+     &                       -1.2242E-008,-3.9583E-002,-1.9542E-007,
+     &                        3.4700E-002, 2.6014E-007,-2.6578E-002,
+     &                       -6.0613E-008, 1.1531E-001, 3.2992E-008,
+     &                       -9.5224E-003, 1.9769E-008,-7.9370E-004,
+     &                       -6.5651E-002,-1.3860E-008, 7.9121E-003,
+     &                        2.2614E-008,-2.7439E-003,-1.8201E-002,
+     &                        5.4429E-008, 1.4850E-003, 1.3296E-008,
+     &                        2.5910E-002,-2.0974E-008, 3.0923E-003,
+     &                        9.1638E-009,-1.6210E-002,-1.6375E-008,
+     &                        7.0846E-004, 2.0751E-002, 5.2109E-009,
+     &                       -7.3979E-004,-4.2000E-003,-1.3623E-008,
+     &                        3.9613E-003, 2.3420E-008,-3.6036E-003,
+     &                        3.7577E-003/
 C     400km June solstice
-      DATA (DHL(1,2,J),J=1,49)/-2.2303E+000,-2.7930E-001,-1.6289E-001,
-     &                        8.4439E-002, 4.3059E-002,-1.0900E-002,
-     &                        5.9060E-003, 3.8539E-001,-9.7745E-002,
-     &                        1.8579E-002, 1.4256E-002, 6.8489E-004,
-     &                       -1.1027E-003, 2.3516E-001, 3.8591E-002,
-     &                       -2.9264E-002,-1.9275E-003, 2.4632E-002,
-     &                       -3.0091E-004,-2.4136E-002, 2.1471E-002,
-     &                       -1.4274E-002,-2.9073E-003, 4.0650E-003,
-     &                        2.6483E-002, 3.9806E-003,-1.3560E-002,
-     &                        3.6952E-004, 5.3108E-004,-3.9132E-002,
-     &                        2.3689E-002,-6.6253E-004, 1.3556E-003,
-     &                        2.3462E-002,-3.2744E-003, 1.4565E-003,
-     &                        2.4812E-004,-3.2051E-004, 2.6108E-003,
-     &                        7.5391E-004,-1.9602E-002, 5.0088E-003,
-     &                        8.0312E-004, 1.3604E-002, 3.2853E-003,
-     &                        8.1745E-003, 1.9033E-003, 1.6966E-002,
-     &                        1.2348E-002/
-C     650km equinox
-      DATA (DHL(2,1,J),J=1,49)/-7.5599E-001,-2.3535E-007,-4.1761E-001,
-     &                       -2.8901E-008, 4.8799E-002,-1.4005E-007,
-     &                       -7.5257E-002, 5.0850E-001,-5.5769E-008,
-     &                        7.4268E-002,-4.0953E-008, 2.0880E-002,
-     &                       -3.9792E-008, 1.9637E-001, 3.5212E-008,
-     &                        3.5924E-002,-3.2961E-008,-1.1911E-002,
-     &                        5.4324E-009, 2.9918E-002, 1.0830E-008,
-     &                        3.4518E-002,-5.4744E-009, 1.0144E-002,
-     &                       -1.5615E-002, 9.3932E-009, 7.9662E-003,
-     &                       -4.4936E-009,-1.4126E-003,-3.1648E-002,
-     &                        2.2804E-008, 6.2742E-003,-9.5574E-009,
-     &                       -1.1306E-002, 1.6269E-009, 2.2078E-004,
-     &                        2.8647E-009,-1.7932E-002,-5.0077E-009,
-     &                       -2.3559E-003,-9.2953E-003,-5.1441E-009,
-     &                       -2.2185E-003, 2.9117E-005,-4.8547E-009,
-     &                        4.4236E-003,-2.8102E-009, 9.3261E-004,
-     &                        1.9538E-003/
-C     650km June solstice
-      DATA (DHL(2,2,J),J=1,49)/-7.6906E-001,-4.2549E-001,-6.2598E-001,
-     &                        2.2279E-001, 1.4493E-001, 1.0653E-001,
-     &                        2.7012E-001, 3.8710E-001,-6.1640E-002,
-     &                        4.6697E-002,-5.7444E-002, 2.0933E-002,
-     &                        8.8119E-003, 1.4986E-001, 2.1907E-002,
-     &                       -1.8032E-002,-4.6878E-002,-1.6714E-002,
-     &                        4.2935E-002,-2.4183E-002, 2.0290E-002,
-     &                       -1.0109E-002, 5.2285E-003,-6.9878E-003,
-     &                        4.2781E-002, 5.6690E-003,-1.1873E-002,
-     &                       -4.5405E-003,-3.6632E-003,-2.2072E-002,
-     &                        1.2209E-003,-5.8301E-003, 3.1915E-006,
-     &                        1.0209E-002, 1.9771E-003, 1.3042E-003,
-     &                        1.4817E-003, 2.0904E-003,-7.5031E-004,
-     &                        2.2646E-003, 1.1547E-002, 6.7321E-003,
-     &                        9.5170E-004, 1.7845E-002, 6.1338E-003,
-     &                        1.2967E-002, 2.3311E-003, 2.9597E-002,
-     &                       -2.2654E-003/
+      DATA (DHL(1,2,J),J=1,49)/ 8.7464E+000, 1.3755E-001,-4.9056E-001,
+     &                       -4.8260E-002, 1.6354E-001, 6.8999E-002,
+     &                        8.5903E-002, 1.1020E-001,-1.7707E-002,
+     &                        1.2783E-002, 9.1457E-003,-1.7928E-002,
+     &                        1.1734E-002,-3.8862E-002, 2.3903E-002,
+     &                        7.1281E-003, 1.1954E-002,-2.2804E-003,
+     &                       -8.6807E-003, 6.1365E-002, 2.8978E-003,
+     &                       -9.6905E-004,-4.6418E-004, 3.6991E-003,
+     &                       -6.0207E-002, 1.2697E-002,-4.1056E-003,
+     &                       -4.5619E-003, 1.2074E-003,-1.6589E-002,
+     &                        1.6563E-002,-2.1209E-004, 2.4490E-003,
+     &                        2.9887E-002, 3.8303E-003, 1.9922E-003,
+     &                        2.0211E-004,-2.0114E-002, 5.2825E-003,
+     &                        2.5115E-004, 2.2024E-003, 8.1118E-003,
+     &                       -9.7042E-004,-7.7664E-003, 6.0330E-003,
+     &                        6.8127E-004, 3.9275E-003,-3.8098E-003,
+     &                        5.7959E-003/
+C     550km equinox
+      DATA (DHL(2,1,J),J=1,49)/ 9.3142E+000,-4.9414E-007,-6.4289E-001,
+     &                       -2.0151E-006,-7.8257E-002,-1.3701E-006,
+     &                       -1.2501E-001, 6.5449E-002,-4.8812E-007,
+     &                        1.4953E-002, 3.4548E-007,-3.3211E-002,
+     &                       -5.4121E-007, 1.7444E-003,-3.9167E-007,
+     &                        1.3480E-002, 5.4127E-007,-6.9938E-002,
+     &                       -1.6812E-007, 1.0559E-001,-2.5102E-008,
+     &                       -1.0793E-003,-1.5060E-007, 5.9427E-003,
+     &                       -7.9428E-004, 2.9945E-007, 1.1037E-002,
+     &                        1.2265E-008, 1.8328E-003,-3.5544E-002,
+     &                       -1.6020E-007,-6.0623E-004, 1.8470E-008,
+     &                        8.4732E-003,-5.0107E-008, 5.1421E-003,
+     &                        1.0662E-008,-2.9206E-002, 4.8502E-008,
+     &                       -2.6379E-003, 1.4690E-002, 5.0003E-008,
+     &                        1.8659E-004,-3.9958E-003, 2.9606E-008,
+     &                        6.9968E-003, 1.1040E-008,-5.9425E-004,
+     &                        1.2121E-003/
+C     550km June solstice
+      DATA (DHL(2,2,J),J=1,49)/ 9.4313E+000,-7.1878E-002,-6.9971E-001,
+     &                        1.6547E-001, 1.0161E-001, 1.5780E-001,
+     &                        2.9380E-001, 1.4776E-001,-6.2061E-002,
+     &                        1.8808E-002,-1.2118E-002,-2.0569E-002,
+     &                        3.2844E-002,-3.5689E-003, 1.0216E-002,
+     &                       -1.7151E-002,-1.6616E-002,-1.2647E-002,
+     &                        1.0205E-002, 6.1252E-002, 1.0258E-002,
+     &                       -1.0887E-002, 3.1761E-003,-2.8283E-003,
+     &                       -4.9813E-002, 3.4723E-002,-3.1727E-002,
+     &                        1.5177E-002,-6.5093E-003,-2.4869E-002,
+     &                        3.0012E-003,-1.5630E-003, 6.6333E-004,
+     &                        7.3866E-003, 1.8974E-002,-1.6075E-003,
+     &                        3.4999E-003,-2.2340E-003, 5.1294E-004,
+     &                        2.3417E-003, 1.1325E-002, 4.8485E-003,
+     &                       -1.3997E-003, 7.1165E-003, 5.1959E-003,
+     &                        7.3597E-003, 4.3606E-003, 1.0201E-002,
+     &                        6.5080E-003/
+C     750km equinox
+      DATA (DHL(3,1,J),J=1,49)/ 9.5154E+000, 4.4387E-007,-8.3777E-001,
+     &                       -1.4337E-007,-3.6703E-002, 1.1904E-006,
+     &                        5.7850E-002, 8.9301E-002,-1.0837E-007,
+     &                        6.9043E-002,-2.5006E-007,-3.6223E-002,
+     &                        3.6250E-007,-3.6352E-002,-1.4407E-007,
+     &                       -2.8911E-002,-7.3010E-008,-4.7333E-002,
+     &                        9.3189E-008, 6.4058E-002,-2.5044E-008,
+     &                        1.5224E-002, 5.7261E-008, 1.0738E-002,
+     &                        1.4165E-002,-2.4750E-007, 9.8615E-003,
+     &                       -2.6232E-007, 1.7438E-003,-4.4838E-003,
+     &                        1.1605E-007, 1.5004E-003, 6.3422E-008,
+     &                        2.0907E-002,-6.8549E-008, 3.1254E-003,
+     &                       -6.0456E-008,-2.6752E-002, 3.1056E-009,
+     &                       -3.9871E-003, 2.9555E-003,-2.4656E-009,
+     &                        1.4655E-003,-5.2332E-004,-1.1751E-007,
+     &                        1.6169E-003, 3.9033E-008,-1.3868E-003,
+     &                        7.0440E-004/
+C     750km June solstice
+      DATA (DHL(3,2,J),J=1,49)/ 9.5243E+000,-5.9807E-002,-8.7275E-001,
+     &                        2.2117E-001, 1.5301E-001, 1.0504E-001,
+     &                        3.3841E-001, 1.0576E-001,-7.2307E-002,
+     &                        9.6274E-002,-2.9255E-002,-1.4589E-002,
+     &                        2.0619E-002, 3.9283E-002,-5.8550E-002,
+     &                       -9.2836E-003,-4.7394E-002,-1.7612E-002,
+     &                        4.0558E-002, 7.2842E-002,-1.3231E-002,
+     &                        7.7768E-003,-9.7764E-003, 2.0915E-003,
+     &                       -1.8160E-002,-1.9791E-002,-8.6255E-003,
+     &                        1.2757E-003, 1.8743E-003,-6.6028E-003,
+     &                       -5.7812E-003,-1.1538E-002, 4.6084E-003,
+     &                        2.8366E-003,-2.2018E-003, 4.9727E-003,
+     &                       -5.6196E-003,-1.0703E-003, 6.8549E-003,
+     &                       -5.9359E-004,-1.0457E-003, 2.7387E-003,
+     &                       -2.9393E-003, 6.8835E-003, 4.3346E-003,
+     &                        8.0149E-003, 1.5508E-003, 8.8104E-003,
+     &                        4.8858E-003/
 C     1000km equinox
-      DATA (DHL(3,1,J),J=1,49)/-3.1869E-001, 1.5090E-007,-4.0560E-001,
-     &                        2.8552E-007,-4.2289E-003, 3.6878E-008,
-     &                        1.9957E-001, 2.7526E-001, 4.0798E-007,
-     &                        1.1343E-001,-1.0028E-007, 5.1526E-002,
-     &                       -6.0643E-008, 9.2397E-002,-2.1866E-007,
-     &                        8.6528E-002, 2.3460E-008, 3.6848E-002,
-     &                        6.2456E-008, 1.5483E-002,-1.7108E-007,
-     &                        3.6333E-002,-1.0845E-008, 1.0259E-002,
-     &                        4.3320E-003,-2.6987E-007,-1.0254E-002,
-     &                       -8.8644E-008,-2.1170E-003,-2.1956E-002,
-     &                       -1.3044E-007,-6.8424E-003,-3.8852E-008,
-     &                       -1.6083E-002,-2.8545E-008, 4.7800E-003,
-     &                        4.3092E-008,-9.4451E-004,-4.6383E-008,
-     &                        1.7086E-003, 7.9651E-003, 2.1903E-007,
-     &                        3.3880E-004, 4.5247E-004, 1.0538E-007,
-     &                        3.7229E-003,-8.6806E-008,-5.2132E-004,
-     &                       -5.7966E-004/
+      DATA (DHL(4,1,J),J=1,49)/ 9.5646E+000, 7.0950E-007,-8.9711E-001,
+     &                        1.9288E-006,-1.6734E-001, 4.3813E-006,
+     &                        1.1898E-001,-2.0680E-003, 7.7446E-007,
+     &                        7.0217E-002, 3.5016E-007, 1.7233E-002,
+     &                        5.7925E-007,-1.1643E-001, 2.5154E-007,
+     &                       -6.3259E-002, 5.6847E-007,-1.1006E-002,
+     &                        5.3229E-008, 7.9520E-002, 3.0792E-007,
+     &                        2.3250E-002, 1.2250E-007, 5.4205E-003,
+     &                        6.0078E-003, 5.5043E-007,-1.1446E-002,
+     &                        2.6075E-007,-2.6486E-003,-1.7948E-002,
+     &                        5.7737E-008,-7.7932E-003, 7.3237E-009,
+     &                        1.3457E-002, 1.4871E-007,-1.8273E-003,
+     &                        9.6374E-008,-1.4154E-002, 3.4815E-008,
+     &                       -5.0702E-003, 1.3526E-002, 3.8902E-008,
+     &                       -1.5015E-003, 2.5405E-003, 8.9053E-008,
+     &                        5.4088E-003,-2.6652E-008, 3.6377E-003,
+     &                        3.5619E-004/
 C     1000km June solstice
-      DATA (DHL(3,2,J),J=1,49)/-4.6737E-001,-1.2403E-001,-6.4613E-001,
-     &                        1.8831E-001, 1.2419E-001,-5.9911E-002,
-     &                        1.9218E-001, 2.9484E-001, 4.0311E-002,
-     &                        9.8207E-002,-2.9219E-002,-1.1908E-002,
-     &                        3.8705E-002,-1.8943E-003,-4.2874E-002,
-     &                       -4.6060E-002,-3.4199E-002,-2.2322E-002,
-     &                        2.5785E-002, 2.5357E-002, 2.7261E-002,
-     &                        9.8865E-003, 1.6691E-003, 6.2808E-003,
-     &                       -9.1296E-003,-1.3707E-002,-8.7014E-003,
-     &                       -3.4345E-003,-4.6994E-003,-2.5409E-002,
-     &                       -6.7929E-003, 1.2701E-003, 3.6829E-003,
-     &                       -2.9346E-003,-2.1371E-003,-7.4109E-003,
-     &                        1.4351E-003,-7.4944E-003,-2.3530E-003,
-     &                       -2.3960E-003,-8.2307E-003,-4.0801E-004,
-     &                        1.9430E-003, 1.8990E-003, 6.7012E-004,
-     &                       -2.2565E-003,-4.5399E-004,-1.7694E-003,
-     &                       -6.3397E-004/
+      DATA (DHL(4,2,J),J=1,49)/ 9.4220E+000, 1.2025E-001,-7.9687E-001,
+     &                        1.4928E-001, 2.1997E-001,-2.5538E-001,
+     &                        3.6075E-001, 1.6937E-001,-1.3366E-002,
+     &                        1.9409E-001,-4.7118E-002,-1.3312E-002,
+     &                        1.9160E-002,-4.4608E-003,-1.3351E-001,
+     &                        2.7297E-002,-4.4798E-002,-1.2571E-002,
+     &                        3.3471E-002, 6.4905E-002,-2.7860E-002,
+     &                        4.0406E-002,-1.1265E-002, 1.3243E-002,
+     &                        3.2774E-004,-4.9982E-002, 8.1220E-003,
+     &                        3.5041E-003, 7.9319E-004, 9.8909E-003,
+     &                       -5.4041E-003, 7.0907E-004, 4.7071E-004,
+     &                        4.4426E-002,-5.3094E-003, 1.0420E-003,
+     &                       -1.3821E-003,-2.5690E-002, 2.5739E-003,
+     &                       -1.2000E-003, 3.9956E-003,-3.3401E-003,
+     &                        3.1321E-003,-1.0688E-002, 1.5289E-003,
+     &                       -4.8343E-003, 6.6546E-004,-9.5524E-003,
+     &                       -2.9806E-003/
 C//////////////////////////////////////////////////////////////////////
 C//////////////////////////////////He+/////////////////////////////////
 C     400km equinox
-      DATA (DHEL(1,1,J),J=1,49)/-2.8533E+000,-2.1986E-007, 7.2644E-002,
-     &                        2.2489E-007,-1.8677E-001,-3.9095E-007,
-     &                        1.0850E-002, 2.2428E-001,-1.5216E-008,
-     &                       -1.0736E-001,-7.9766E-008,-4.1078E-002,
-     &                        4.7277E-008, 6.3340E-001,-1.5529E-008,
-     &                        8.1139E-003, 1.4044E-008, 5.8076E-003,
-     &                       -4.6109E-008,-8.8933E-002,-6.0933E-009,
-     &                        8.9345E-003, 7.8024E-009, 1.0524E-002,
-     &                       -7.0800E-002, 3.0069E-008,-3.8559E-002,
-     &                        1.9810E-009,-2.7640E-002,-3.8927E-002,
-     &                        2.5396E-008,-5.9943E-003, 1.4326E-008,
-     &                       -2.0216E-002,-1.0963E-008,-1.0778E-002,
-     &                       -3.1408E-009,-9.0961E-003,-1.6521E-008,
-     &                        5.3029E-003,-3.3221E-002, 2.9052E-011,
-     &                       -1.9158E-003, 6.3675E-003,-8.1957E-009,
-     &                        7.4360E-003,-7.6241E-009, 6.5228E-003,
-     &                        3.2586E-003/
+      DATA (DHEL(1,1,J),J=1,49)/ 8.0470E+000,-1.2106E-006,-1.8765E-001,
+     &                       -4.5251E-007,-1.8951E-001,-1.9758E-007,
+     &                        1.3990E-001,-7.3152E-002,-7.7520E-007,
+     &                       -1.8854E-002, 3.0364E-007,-3.3138E-002,
+     &                       -3.4716E-007, 4.1146E-001,-2.3661E-007,
+     &                        3.9635E-002,-3.3287E-009, 2.9161E-003,
+     &                       -6.2000E-008, 3.1584E-002,-1.7889E-007,
+     &                       -1.1569E-002, 2.1482E-008, 3.2708E-003,
+     &                        3.1773E-002, 2.0077E-008,-1.2848E-002,
+     &                       -8.0711E-008,-1.3686E-002,-1.8028E-002,
+     &                       -8.6107E-008,-8.6541E-003, 1.6977E-008,
+     &                        2.1756E-002,-1.0723E-007, 5.4701E-003,
+     &                       -9.9269E-009, 1.9697E-002, 3.8353E-008,
+     &                       -3.1468E-004,-8.2770E-003,-3.4043E-008,
+     &                       -2.7124E-003, 2.9360E-003, 8.8432E-009,
+     &                        1.9854E-003,-3.0817E-009, 1.6478E-003,
+     &                        2.2964E-003/
 C     400km June solstice
-      DATA (DHEL(1,2,J),J=1,49)/-3.0612E+000,-1.0562E+000, 8.8532E-002,
-     &                        8.5373E-002, 8.1474E-002, 2.8747E-002,
-     &                        1.3534E-001, 4.3580E-001, 4.4317E-002,
-     &                       -1.8054E-002,-1.3027E-002, 4.1295E-002,
-     &                       -4.4592E-003, 1.0223E-001, 1.3085E-001,
-     &                       -7.7696E-002,-7.3836E-002, 1.9780E-002,
-     &                        1.5735E-002,-5.9522E-002, 4.8434E-002,
-     &                        1.5970E-002, 3.5974E-003,-3.8010E-003,
-     &                       -1.0031E-001, 1.7651E-002, 1.2491E-002,
-     &                        9.0502E-003,-8.7768E-003,-9.6294E-003,
-     &                        1.8994E-002, 4.6892E-003, 2.5748E-004,
-     &                       -9.6002E-003,-6.2450E-003, 9.0447E-003,
-     &                       -1.8477E-003, 1.8898E-002,-6.9182E-003,
-     &                        2.0626E-003, 4.7967E-003,-5.7386E-003,
-     &                       -6.0267E-004, 2.5325E-002, 1.1937E-003,
-     &                        2.1619E-002,-1.3459E-003, 3.7915E-002,
-     &                        1.7314E-002/
-C     650km equinox
-      DATA (DHEL(2,1,J),J=1,49)/-1.6103E+000,-1.3811E-007, 1.1838E-001,
-     &                        2.4209E-007,-1.2965E-001,-6.5882E-008,
-     &                        1.3191E-001, 4.6161E-001,-2.5600E-007,
-     &                        1.2864E-001, 7.8717E-008, 2.9376E-002,
-     &                       -2.0378E-009, 3.7085E-001, 2.5941E-007,
-     &                        2.3336E-002,-2.5896E-007, 7.0754E-002,
-     &                        1.5037E-007,-1.6104E-001, 2.5861E-008,
-     &                        2.1873E-002,-3.9311E-010, 1.7883E-002,
-     &                       -5.9487E-002, 7.5016E-008,-3.8658E-003,
-     &                       -1.5184E-008,-2.2297E-002,-3.2125E-002,
-     &                        1.3503E-008,-1.0069E-003, 2.3685E-008,
-     &                       -2.3076E-002, 1.6395E-008,-4.7465E-003,
-     &                        2.1465E-009,-2.1087E-002,-1.0412E-008,
-     &                       -4.4450E-003, 6.9945E-003, 1.6080E-008,
-     &                        3.1289E-003, 9.4760E-003,-8.4313E-009,
-     &                       -2.1643E-003,-8.3007E-009, 2.3316E-003,
-     &                       -8.8253E-003/
-C     650km June solstice
-      DATA (DHEL(2,2,J),J=1,49)/-2.2374E+000,-7.4507E-001,-1.4689E-001,
-     &                       -2.5946E-002, 4.7283E-002, 1.4143E-001,
-     &                        3.2299E-001, 1.9366E-001, 8.7688E-002,
-     &                        1.2526E-002,-2.2810E-002,-2.2711E-003,
-     &                       -1.1824E-002,-4.8523E-002,-8.2298E-004,
-     &                       -2.2395E-001,-3.4992E-002, 1.8125E-002,
-     &                        1.4230E-002,-2.7661E-002, 2.3424E-002,
-     &                        4.7094E-003,-1.0739E-002,-3.4746E-003,
-     &                       -2.2153E-001,-1.8756E-002,-7.1623E-003,
-     &                        4.6047E-003,-4.5071E-003, 2.2894E-002,
-     &                       -2.4285E-002,-5.5847E-003,-9.8852E-004,
-     &                        6.7171E-002,-5.0134E-004,-2.9361E-003,
-     &                       -4.2558E-003, 1.5103E-002,-9.7860E-003,
-     &                       -1.8098E-003, 1.8795E-002, 4.5063E-003,
-     &                        2.4747E-003, 1.1677E-002,-4.2526E-003,
-     &                        1.4606E-002, 2.2638E-003, 2.1285E-002,
-     &                        1.3963E-002/
+      DATA (DHEL(1,2,J),J=1,49)/ 7.7686E+000,-7.0994E-001,-2.9210E-002,
+     &                        4.2677E-003,-2.8787E-003, 2.4734E-002,
+     &                       -4.2253E-002, 1.6763E-003,-2.2820E-002,
+     &                        1.9391E-002, 1.7941E-002, 2.3819E-002,
+     &                       -3.7628E-003,-9.3643E-002, 1.0094E-001,
+     &                       -3.9462E-002,-4.3404E-002,-1.5448E-003,
+     &                       -1.2831E-002,-7.4652E-002, 4.3650E-003,
+     &                        1.4048E-002, 4.5125E-003,-7.4554E-004,
+     &                       -1.7399E-001, 1.3850E-002, 3.1521E-003,
+     &                       -1.1665E-002,-6.9860E-004, 2.9414E-003,
+     &                        9.6906E-003,-6.5594E-003, 7.0166E-004,
+     &                        3.1185E-002,-1.2213E-002, 1.0771E-004,
+     &                        2.6551E-003, 3.5949E-002,-3.5913E-004,
+     &                       -9.4525E-004, 1.8059E-002,-3.3219E-003,
+     &                       -5.0513E-004, 2.7967E-002,-5.3283E-005,
+     &                        1.7352E-002,-9.0916E-004, 2.8545E-002,
+     &                        1.3304E-002/
+C     550km equinox
+      DATA (DHEL(2,1,J),J=1,49)/ 8.5471E+000, 1.0036E-006,-2.1407E-001,
+     &                        1.1825E-006,-3.0424E-001, 1.5359E-006,
+     &                        1.3422E-001,-1.6014E-002, 1.8552E-006,
+     &                        6.7452E-002,-1.4486E-006,-3.6290E-002,
+     &                        1.3742E-006, 1.4981E-001, 4.8550E-008,
+     &                       -2.4666E-003, 1.4397E-007,-2.4247E-002,
+     &                        1.2519E-008,-3.3219E-002,-1.2566E-007,
+     &                        3.8258E-003, 1.2039E-007, 6.3462E-003,
+     &                        3.6086E-002, 3.5782E-007, 1.8118E-002,
+     &                       -3.0822E-008,-1.0032E-002,-3.1399E-002,
+     &                        3.2563E-007, 7.5683E-004,-8.9661E-008,
+     &                        1.0092E-002,-1.6976E-007, 7.8276E-003,
+     &                        5.0854E-008, 5.5042E-003,-1.3474E-007,
+     &                       -2.6094E-003, 2.5317E-004, 1.2753E-007,
+     &                        2.9530E-003, 5.2850E-003,-3.6304E-008,
+     &                       -1.7770E-003,-7.7952E-008, 7.2939E-004,
+     &                       -5.0116E-003/
+C     550km June solstice
+      DATA (DHEL(2,2,J),J=1,49)/ 8.1116E+000,-5.9186E-001,-1.3615E-001,
+     &                       -1.8696E-001, 9.5077E-002, 9.0620E-002,
+     &                        2.3509E-001,-1.4233E-001,-2.2280E-002,
+     &                        7.2726E-002,-1.7002E-002, 1.3668E-002,
+     &                       -1.6439E-002,-1.8320E-001,-2.9248E-002,
+     &                       -8.7976E-002,-5.1588E-002, 2.7987E-002,
+     &                       -2.0067E-002,-6.6101E-002,-1.2527E-002,
+     &                        1.6175E-002,-5.1555E-003, 7.3867E-004,
+     &                       -3.2870E-001,-1.9420E-002,-1.6805E-002,
+     &                        2.5031E-003, 8.4785E-003, 1.3727E-002,
+     &                       -3.3331E-002, 4.1629E-003, 3.6778E-004,
+     &                        1.4714E-002,-4.3042E-003,-1.2047E-003,
+     &                        2.5714E-004, 2.6942E-002,-1.2786E-002,
+     &                        5.0574E-004, 2.9082E-002,-9.3908E-003,
+     &                        5.0755E-003, 1.5606E-002,-5.0868E-003,
+     &                        1.8251E-002,-2.6124E-003, 1.5416E-002,
+     &                        1.8188E-002/
+C     750km equinox
+      DATA (DHEL(3,1,J),J=1,49)/ 8.5395E+000,-1.2355E-006,-3.5963E-001,
+     &                       -8.3898E-007,-3.0322E-001, 1.7365E-006,
+     &                        1.7334E-001, 7.2227E-002,-1.0290E-006,
+     &                        1.0917E-001, 3.3145E-008,-2.0338E-002,
+     &                       -2.8147E-007, 1.9255E-002,-3.5607E-008,
+     &                       -4.7856E-002,-2.9990E-007, 1.7713E-002,
+     &                        8.7537E-008,-3.0223E-002,-2.1642E-007,
+     &                        4.9244E-003,-1.5008E-007, 9.0134E-003,
+     &                       -5.4076E-003,-1.7635E-007, 2.6828E-003,
+     &                        1.8278E-009,-4.6448E-003,-2.0650E-004,
+     &                       -1.1633E-007,-2.3058E-004,-7.8885E-008,
+     &                        5.5645E-003, 2.2420E-008, 3.6199E-003,
+     &                        3.1934E-008,-1.4958E-002,-4.0761E-008,
+     &                       -2.4953E-003, 1.9343E-002,-2.4736E-008,
+     &                        4.8865E-003, 2.6303E-004, 2.6057E-008,
+     &                       -7.6145E-003,-3.5056E-008, 4.4221E-003,
+     &                       -1.1743E-002/
+C     750km June solstice
+      DATA (DHEL(3,2,J),J=1,49)/ 8.0106E+000,-4.4548E-001,-1.8174E-001,
+     &                       -1.4286E-001, 2.3503E-002, 1.5303E-001,
+     &                        3.0849E-001,-1.3076E-001, 6.3870E-002,
+     &                        8.5933E-002,-2.7825E-002,-1.9401E-002,
+     &                       -1.1111E-002,-1.5264E-001,-1.1578E-001,
+     &                       -1.5510E-001,-3.5013E-002, 2.8185E-002,
+     &                       -2.6338E-003, 4.7758E-003, 1.1463E-002,
+     &                        1.0401E-002,-6.6656E-003,-1.2770E-003,
+     &                       -2.7712E-001,-2.2595E-002,-1.7372E-002,
+     &                        3.6625E-003, 1.2089E-003, 3.6612E-002,
+     &                       -3.5766E-002,-4.7622E-003, 8.0404E-004,
+     &                        2.0356E-002,-1.2600E-002,-3.8058E-003,
+     &                       -3.0403E-003, 2.1958E-002,-9.7326E-003,
+     &                       -4.7118E-003,-1.8127E-002,-6.5368E-003,
+     &                        1.8119E-003, 5.6672E-004,-7.0145E-003,
+     &                       -2.2251E-005, 3.0327E-004, 5.2279E-003,
+     &                        7.1842E-003/
 C     1000km equinox
-      DATA (DHEL(3,1,J),J=1,49)/-1.3192E+000, 1.8143E-006,-2.1284E-002,
-     &                       -5.7860E-006,-1.3203E-001, 1.0367E-006,
-     &                        8.7882E-002, 2.5246E-001, 3.0540E-007,
-     &                        1.2671E-001, 7.0752E-007, 5.1175E-002,
-     &                       -1.0432E-006, 1.5597E-001,-1.9061E-007,
-     &                        9.7418E-002, 2.2626E-006, 6.3152E-002,
-     &                       -2.4478E-006,-1.6992E-001,-6.0624E-007,
-     &                       -1.6865E-002, 2.6681E-007, 2.4771E-003,
-     &                       -3.9535E-002, 5.9015E-007,-5.4337E-002,
-     &                       -1.4229E-007,-2.5864E-002, 4.5711E-002,
-     &                        1.4937E-007,-1.9960E-002,-1.0504E-007,
-     &                        1.2233E-002,-6.6122E-008, 8.5225E-004,
-     &                        8.6051E-009, 2.7375E-002, 6.5450E-008,
-     &                       -6.1311E-003, 1.2666E-002, 1.9864E-007,
-     &                        2.8454E-003, 1.9020E-002,-5.1153E-008,
-     &                        4.4576E-003,-2.0117E-008, 8.6293E-003,
-     &                       -5.5447E-003/
+      DATA (DHEL(4,1,J),J=1,49)/ 8.5126E+000, 6.6638E-007,-4.3467E-001,
+     &                        2.6349E-006,-2.1941E-001, 1.2981E-006,
+     &                        7.8944E-002,-2.4220E-002,-5.7262E-007,
+     &                        9.9112E-002,-1.2219E-008, 3.8104E-002,
+     &                        6.1122E-007,-1.3751E-001, 2.0071E-007,
+     &                       -5.3385E-002, 6.6087E-007, 3.8775E-002,
+     &                        3.6086E-007,-6.2806E-002,-4.5958E-008,
+     &                       -5.2240E-003, 2.7794E-008,-1.0112E-002,
+     &                       -2.0386E-002,-4.1445E-007,-4.7492E-002,
+     &                       -3.1373E-008,-1.0906E-002, 3.1090E-002,
+     &                       -7.2809E-009,-7.1495E-003, 3.8796E-008,
+     &                        5.3399E-002, 1.9761E-007,-2.0636E-003,
+     &                       -9.4328E-008,-5.1179E-004,-5.4058E-008,
+     &                       -1.2413E-002, 2.4460E-002,-8.3003E-008,
+     &                       -8.0597E-003, 1.0507E-002,-3.2739E-008,
+     &                        4.9636E-003,-1.8945E-008, 1.3645E-002,
+     &                       -7.1743E-003/
 C     1000km June solstice
-      DATA (DHEL(3,2,J),J=1,49)/-1.9424E+000,-5.8403E-001, 3.4084E-001,
-     &                       -1.9084E-001,-5.4692E-002, 2.0943E-001,
-     &                        6.7653E-003, 1.7048E-001, 1.9560E-001,
-     &                        7.2251E-002,-1.3912E-003, 4.9874E-002,
-     &                       -5.1299E-003,-2.2192E-001,-1.3285E-001,
-     &                       -1.7111E-001,-2.8852E-002, 1.7141E-002,
-     &                       -4.1047E-002, 1.3092E-001, 2.9271E-002,
-     &                        2.1492E-002, 3.1053E-002, 1.7248E-002,
-     &                       -1.7665E-001,-1.9095E-003,-1.0090E-002,
-     &                       -2.8027E-002,-1.5999E-002, 6.9373E-002,
-     &                       -4.0136E-002, 1.3345E-002, 9.5536E-003,
-     &                       -1.0609E-002,-2.2548E-002,-1.5098E-002,
-     &                       -1.1711E-002, 2.6458E-002,-1.5922E-002,
-     &                        3.4746E-003,-1.8009E-002, 4.8529E-004,
-     &                       -3.8353E-003, 1.9446E-003,-7.4106E-003,
-     &                       -3.9309E-003,-1.3632E-003,-4.7108E-003,
-     &                        7.2728E-003/
+      DATA (DHEL(4,2,J),J=1,49)/ 7.8861E+000,-2.5140E-001,-2.4407E-002,
+     &                       -2.0198E-001,-2.5291E-002, 1.1063E-001,
+     &                        1.3606E-001,-5.0165E-002, 1.4380E-001,
+     &                        1.2596E-001,-2.5094E-002,-4.4737E-003,
+     &                       -1.0152E-002,-2.4527E-001,-2.1181E-001,
+     &                       -1.1042E-001,-9.5258E-003, 1.1105E-002,
+     &                       -1.8623E-002, 1.1621E-001, 1.3438E-002,
+     &                        2.1396E-002, 6.3530E-003, 1.0809E-002,
+     &                       -1.5715E-001,-4.7383E-002,-1.0913E-003,
+     &                       -1.4630E-002,-3.6688E-003, 3.7541E-002,
+     &                       -1.2694E-002, 8.7360E-003,-1.1349E-003,
+     &                        4.0484E-002,-2.6862E-002,-3.4730E-003,
+     &                       -7.2372E-003,-3.3460E-003,-8.1202E-003,
+     &                        5.1497E-003,-1.3913E-002,-3.2409E-003,
+     &                        2.1047E-003,-8.3477E-003,-8.1966E-003,
+     &                        4.2594E-003,-2.9227E-003,-9.2693E-003,
+     &                        2.2682E-003/
 C/////////////////////////////////////////////////////////////////////
 C//////////////////////////////////N+/////////////////////////////////
 C     400km equinox
-      DATA (DNL(1,1,J),J=1,49)/-1.7368E+000,-3.0027E-008, 2.2184E-001,
-     &                       -6.7089E-007,-1.0635E-001, 6.8139E-007,
-     &                        5.8091E-002,-6.2121E-002, 3.1864E-007,
-     &                        4.8208E-002,-2.7440E-007,-2.4000E-003,
-     &                        6.6031E-008,-1.0868E-001, 7.2869E-008,
-     &                       -1.0042E-002,-4.6008E-008, 1.6205E-003,
-     &                        4.6331E-009,-3.6398E-002, 1.7139E-007,
-     &                        6.2127E-004,-4.0138E-008, 1.2439E-003,
-     &                       -1.8217E-002, 4.6073E-008, 3.7524E-003,
-     &                       -2.0566E-008,-3.0241E-003, 2.7188E-002,
-     &                        6.3375E-008,-3.7723E-003,-3.9013E-009,
-     &                        6.9304E-003, 5.7030E-008,-1.2236E-004,
-     &                       -6.4988E-009, 1.2409E-002, 6.2839E-009,
-     &                       -1.4527E-003, 1.4370E-003, 1.8605E-008,
-     &                        1.8677E-004, 3.9142E-003,-4.8721E-009,
-     &                       -4.1931E-003, 7.9621E-009, 1.9265E-004,
-     &                       -1.3332E-003/
+      DATA (DNL(1,1,J),J=1,49)/ 9.2765E+000,-1.8499E-007,-3.0195E-002,
+     &                       -2.3630E-007, 1.2337E-002,-5.3134E-007,
+     &                        1.0174E-002,-3.0143E-001,-4.4969E-007,
+     &                        4.0224E-002, 2.5418E-007,-2.2113E-002,
+     &                       -9.3834E-008,-2.6967E-001,-2.2087E-007,
+     &                       -3.0670E-002, 1.8923E-007,-1.7787E-002,
+     &                       -7.4715E-008, 5.8658E-002, 1.0175E-007,
+     &                       -4.9642E-003, 8.0931E-009,-5.8069E-004,
+     &                       -9.6466E-003,-1.9936E-007, 8.5438E-005,
+     &                        9.6678E-008,-1.4405E-003,-8.1367E-003,
+     &                        1.2139E-007,-6.4643E-004,-2.8006E-009,
+     &                        2.1228E-002,-8.6142E-008, 6.2702E-003,
+     &                        3.6155E-008, 8.2411E-003, 4.7083E-008,
+     &                        3.8409E-004, 1.2262E-002,-1.7636E-008,
+     &                        1.5587E-003, 1.9816E-003,-3.3066E-008,
+     &                       -2.7297E-003,-1.8297E-008, 1.2335E-004,
+     &                        1.1364E-003/
 C     400km June solstice
-      DATA (DNL(1,2,J),J=1,49)/-1.7418E+000, 7.0525E-002, 2.9785E-001,
-     &                        1.1675E-002,-9.2159E-002,-1.2950E-001,
-     &                       -5.8461E-002,-1.3966E-001, 1.5042E-002,
-     &                        4.6388E-002,-9.7774E-003, 3.5422E-003,
-     &                       -8.6287E-003,-8.7710E-002, 3.8852E-002,
-     &                       -9.0949E-003,-1.8152E-002, 3.6013E-004,
-     &                        7.2089E-003, 2.5707E-002, 8.4327E-003,
-     &                       -6.5605E-003, 4.8306E-004, 5.0042E-004,
-     &                       -3.1783E-002, 5.7723E-003, 8.8230E-003,
-     &                       -2.6260E-003,-1.1217E-003, 5.7169E-002,
-     &                       -5.2793E-003,-3.1765E-003, 5.1564E-004,
-     &                        1.3519E-002,-3.9896E-003, 1.7336E-003,
-     &                       -2.8791E-004, 1.3395E-002,-5.3013E-003,
-     &                       -5.6986E-004, 3.0630E-003,-3.8017E-003,
-     &                        9.3966E-004,-5.1651E-004,-3.0807E-003,
-     &                       -4.4359E-003,-2.0503E-003, 8.0675E-004,
-     &                        1.1912E-004/
-C     650km equinox
-      DATA (DNL(2,1,J),J=1,49)/-1.5547E+000, 6.7091E-007, 4.0622E-001,
-     &                       -5.5830E-008,-1.3901E-001,-6.7244E-007,
-     &                        1.4880E-001,-8.2658E-002, 2.6659E-007,
-     &                        1.0021E-002, 1.3823E-007,-7.4716E-003,
-     &                       -8.9220E-008,-1.3959E-001, 2.0864E-007,
-     &                       -1.0484E-002, 4.4276E-008, 1.9706E-002,
-     &                       -1.1884E-007,-1.2037E-002,-6.2490E-008,
-     &                       -2.9276E-002, 4.0271E-008,-1.2310E-002,
-     &                       -2.6679E-003, 3.5891E-008,-6.5922E-003,
-     &                       -1.6467E-008,-3.9885E-004, 2.0962E-002,
-     &                       -5.5785E-008,-7.4266E-003, 2.5071E-008,
-     &                        2.2400E-002,-2.8034E-008,-1.2509E-003,
-     &                       -1.9655E-008, 1.0287E-002, 2.6129E-008,
-     &                       -1.3332E-003, 1.0731E-002, 2.4252E-009,
-     &                        1.5417E-003, 3.1698E-003, 1.8012E-008,
-     &                       -3.1057E-003, 1.5340E-008, 3.0302E-003,
-     &                       -2.9436E-003/
-C     650km June solstice
-      DATA (DNL(2,2,J),J=1,49)/-1.5723E+000, 4.0251E-001, 4.0235E-001,
-     &                       -1.6855E-001,-1.4445E-001,-2.9990E-002,
-     &                       -2.0387E-001,-1.7979E-001, 1.9726E-001,
-     &                       -6.8767E-002,-2.7798E-002, 4.5989E-003,
-     &                        1.3561E-002,-1.2212E-001, 2.4244E-002,
-     &                       -4.2670E-002, 6.2073E-002,-5.2021E-003,
-     &                       -2.3860E-002,-6.4837E-002, 3.1524E-002,
-     &                       -1.8784E-002, 1.2402E-002, 1.1119E-005,
-     &                       -1.9303E-002,-2.2166E-002, 1.1413E-002,
-     &                       -2.2769E-003, 1.0334E-003,-3.6042E-003,
-     &                       -3.4116E-003,-4.2969E-003, 3.7668E-003,
-     &                       -1.6617E-002,-2.0903E-002, 1.1176E-002,
-     &                       -3.4928E-003,-1.9803E-002,-3.7789E-003,
-     &                        2.9788E-004,-3.1880E-002,-1.0222E-002,
-     &                        3.7033E-003,-3.0094E-002,-2.2242E-004,
-     &                       -2.8816E-002,-4.4691E-003,-2.2928E-002,
-     &                       -1.6669E-002/
+      DATA (DNL(1,2,J),J=1,49)/ 9.2392E+000, 4.0188E-001, 6.3930E-002,
+     &                       -8.5958E-002,-4.7951E-003,-2.4724E-002,
+     &                       -3.2147E-002,-3.5425E-001, 9.1141E-003,
+     &                        5.4439E-002, 2.1320E-002,-2.7290E-002,
+     &                       -3.2257E-003,-3.2031E-001,-4.7704E-003,
+     &                        4.1115E-002,-3.6383E-003,-1.6398E-002,
+     &                       -2.4104E-003, 8.2126E-004,-1.1835E-002,
+     &                        5.9562E-003, 1.7010E-003, 5.0395E-004,
+     &                       -9.3262E-002,-1.1371E-002, 1.5332E-002,
+     &                       -2.0002E-003,-2.8968E-004, 3.9653E-002,
+     &                       -5.2539E-003,-5.2158E-003,-3.2324E-004,
+     &                        4.3222E-003,-5.3072E-003, 6.3232E-004,
+     &                        6.9118E-004,-6.0341E-003,-6.2083E-004,
+     &                       -1.3747E-003,-4.2513E-005,-4.3487E-003,
+     &                       -2.0489E-004,-1.6498E-002,-3.4412E-003,
+     &                       -1.2307E-002,-3.0081E-003,-1.4694E-002,
+     &                       -9.0169E-003/
+C     550km equinox
+      DATA (DNL(2,1,J),J=1,49)/ 9.0063E+000, 8.5692E-007, 1.3438E-001,
+     &                        7.5368E-007,-1.0519E-001,-5.5276E-006,
+     &                        9.9278E-002,-3.0846E-001, 4.0235E-007,
+     &                        6.3959E-002, 9.1603E-007,-2.7028E-002,
+     &                       -6.3298E-007,-3.8941E-001, 6.3463E-007,
+     &                       -8.3377E-002, 5.6084E-007,-2.0251E-002,
+     &                       -5.4261E-007, 8.9982E-002,-9.5019E-008,
+     &                       -5.2807E-003, 4.6354E-008, 2.9355E-003,
+     &                       -4.6802E-003, 9.8816E-008,-2.7926E-003,
+     &                        2.2151E-007, 1.3646E-003, 2.7718E-002,
+     &                       -3.4461E-009,-5.5476E-003,-2.4872E-008,
+     &                        3.4413E-002,-8.8181E-008, 9.3552E-003,
+     &                        1.3853E-008, 2.2646E-002, 2.8251E-008,
+     &                       -1.5192E-003, 1.3859E-002, 1.6226E-008,
+     &                        3.6852E-003, 2.4081E-003, 3.9640E-008,
+     &                       -9.0767E-003, 7.0011E-008,-1.5147E-003,
+     &                        7.8946E-004/
+C     550km June solstice
+      DATA (DNL(2,2,J),J=1,49)/ 8.9712E+000, 6.2259E-001, 2.5911E-001,
+     &                       -2.9261E-001, 1.1094E-001,-2.2072E-001,
+     &                       -6.3167E-002,-3.7597E-001, 1.1875E-001,
+     &                        6.3175E-004, 9.1767E-003,-1.2431E-002,
+     &                       -1.0901E-002,-2.7977E-001,-1.3503E-002,
+     &                       -1.1409E-002, 2.6856E-002, 9.0748E-003,
+     &                       -3.0204E-002, 5.3404E-002,-2.3036E-002,
+     &                        3.1147E-004, 5.5788E-003,-5.4323E-003,
+     &                       -9.7330E-002,-2.3986E-002, 4.3029E-003,
+     &                        2.0047E-002,-3.7340E-003, 2.3783E-002,
+     &                       -1.5343E-002,-2.8604E-003, 2.7675E-003,
+     &                       -1.5551E-002,-7.1283E-003, 5.3254E-004,
+     &                        1.5451E-003,-1.5329E-002, 8.1201E-004,
+     &                       -2.0467E-003,-1.3033E-002,-5.4349E-003,
+     &                        1.3550E-003,-2.7607E-002,-5.4011E-003,
+     &                       -1.6276E-002,-1.6858E-003,-3.5652E-002,
+     &                       -1.3964E-002/
+C     750km equinox
+      DATA (DNL(3,1,J),J=1,49)/ 8.5862E+000,-3.2389E-007, 2.5327E-001,
+     &                       -5.5733E-006,-1.0952E-001, 1.3457E-006,
+     &                        1.5412E-001,-5.1416E-001, 2.0209E-006,
+     &                       -1.1427E-002,-9.9065E-007,-3.0871E-002,
+     &                       -1.4579E-007,-3.5447E-001,-1.8618E-006,
+     &                       -1.2044E-001, 2.7905E-007,-1.8735E-002,
+     &                       -6.8531E-007, 8.9785E-002, 1.2276E-006,
+     &                       -7.8418E-003, 1.3500E-008, 4.7094E-003,
+     &                        9.3388E-002, 1.3278E-008,-8.3880E-003,
+     &                        4.8633E-007,-5.9264E-003, 4.2086E-002,
+     &                        9.9745E-008,-1.2530E-002,-1.5369E-007,
+     &                        1.0372E-001,-1.7825E-008, 1.1288E-002,
+     &                        2.3850E-007, 8.1607E-003,-1.1460E-009,
+     &                       -2.8998E-003, 1.5298E-002,-1.7277E-008,
+     &                        1.5876E-003, 4.5693E-003, 8.3482E-008,
+     &                       -5.8085E-003, 1.1993E-007,-4.8027E-004,
+     &                       -2.8110E-005/
+C     750km June solstice
+      DATA (DNL(3,2,J),J=1,49)/ 8.6860E+000, 6.2474E-001, 3.9864E-001,
+     &                       -3.5056E-001, 6.7989E-002,-2.0349E-001,
+     &                       -4.3468E-002,-2.8985E-001, 6.9687E-002,
+     &                        3.8408E-002,-3.9263E-002, 2.4613E-002,
+     &                       -1.6681E-002,-2.0418E-001,-4.9327E-002,
+     &                       -1.7733E-002, 6.3639E-002,-1.9788E-003,
+     &                       -4.0926E-002, 4.2652E-002,-2.0606E-002,
+     &                        1.2350E-002,-2.4292E-002, 1.6044E-002,
+     &                       -8.9173E-002,-2.0330E-002, 2.0639E-002,
+     &                        6.8728E-003, 2.5223E-003, 3.1266E-002,
+     &                       -1.4652E-002, 5.5005E-003,-5.0159E-003,
+     &                       -2.7642E-004, 2.0299E-003, 3.6913E-003,
+     &                       -1.7547E-003,-1.6781E-002,-1.4129E-002,
+     &                        7.0872E-003,-1.0006E-002,-2.8588E-003,
+     &                       -6.3962E-004,-3.6016E-002,-7.0462E-003,
+     &                       -2.0823E-002,-1.2145E-003,-3.6628E-002,
+     &                       -1.7476E-002/
 C     1000km equinox
-      DATA (DNL(3,1,J),J=1,49)/-1.7382E+000,-6.0635E-007, 4.4740E-001,
-     &                        4.7518E-007, 9.1015E-002, 8.6631E-007,
-     &                       -4.1582E-003,-3.1542E-001,-8.6896E-007,
-     &                       -8.8282E-002, 1.7889E-007,-3.8424E-002,
-     &                        5.6129E-008,-1.0561E-001, 1.0863E-007,
-     &                       -3.7752E-002,-1.1781E-007,-4.1151E-002,
-     &                       -1.4323E-008,-3.8984E-002,-4.7271E-007,
-     &                       -3.7386E-002, 8.5416E-008,-1.2316E-002,
-     &                        1.0742E-001, 1.5944E-007,-2.8192E-003,
-     &                       -1.2504E-008,-1.6905E-002, 2.8270E-002,
-     &                       -1.9685E-007, 8.9762E-003, 2.8706E-008,
-     &                        6.7218E-002, 5.7165E-008,-8.2717E-003,
-     &                        3.0388E-008, 1.9133E-002, 1.4687E-008,
-     &                        5.5305E-004, 7.9431E-003, 4.8793E-008,
-     &                        8.6786E-003, 4.9010E-003, 3.2400E-008,
-     &                       -3.8863E-003,-2.5953E-008,-2.3986E-003,
-     &                       -6.9512E-003/
+      DATA (DNL(4,1,J),J=1,49)/ 8.2783E+000,-1.3145E-006, 1.6634E-001,
+     &                       -4.4507E-007,-9.3753E-003, 2.7889E-006,
+     &                       -1.1895E-002,-4.9691E-001,-8.0933E-007,
+     &                       -5.0906E-002,-9.0499E-007,-6.5566E-003,
+     &                        5.0452E-007,-3.2368E-001, 4.0711E-007,
+     &                       -1.1566E-001, 2.2821E-008,-4.6834E-002,
+     &                       -1.9870E-008, 8.9269E-002, 5.2219E-007,
+     &                        9.2490E-003,-3.0279E-007,-2.4639E-003,
+     &                        1.2319E-001, 3.4657E-007, 9.8288E-003,
+     &                       -2.0789E-008,-3.0805E-003, 1.2434E-002,
+     &                        2.7959E-007,-5.3884E-003,-4.8629E-008,
+     &                        8.6375E-002,-1.4080E-007, 1.0559E-002,
+     &                        5.5476E-008,-5.8048E-004, 3.2727E-008,
+     &                       -9.9461E-004,-5.6637E-003, 1.7444E-007,
+     &                       -3.0875E-003, 4.4380E-003,-2.7864E-008,
+     &                       -3.0832E-003, 2.9972E-008,-1.9701E-003,
+     &                       -7.5436E-003/
 C     1000km June solstice
-      DATA (DNL(3,2,J),J=1,49)/-1.4667E+000, 1.6300E-001, 6.4765E-001,
-     &                       -1.6832E-001,-1.9603E-001, 1.3735E-001,
-     &                       -2.8157E-001,-9.1417E-002,-2.4826E-002,
-     &                       -2.7273E-002, 3.1754E-002, 2.0120E-002,
-     &                       -6.8389E-003,-9.6535E-002, 1.9137E-002,
-     &                       -3.2374E-002, 7.1156E-002, 1.3993E-002,
-     &                       -3.8484E-002, 3.1979E-002,-4.2560E-002,
-     &                       -3.8190E-003, 1.1174E-002,-2.3599E-003,
-     &                        3.4835E-003,-6.4330E-003,-1.4724E-003,
-     &                       -2.7194E-003, 1.8374E-003, 7.9017E-003,
-     &                       -1.3993E-002, 1.4415E-004, 1.8409E-003,
-     &                        1.5734E-003,-1.3150E-002,-4.3392E-003,
-     &                       -8.7189E-004,-6.9494E-003,-7.0281E-003,
-     &                       -1.5472E-003, 7.6997E-004,-9.7752E-003,
-     &                       -1.0346E-003,-4.2392E-003,-7.3591E-003,
-     &                        1.0610E-002,-5.8767E-003, 2.4544E-004,
-     &                        6.0162E-003/
+      DATA (DNL(4,2,J),J=1,49)/ 8.3694E+000, 5.9656E-001, 4.4055E-001,
+     &                       -2.3417E-001,-1.1354E-001, 1.7281E-002,
+     &                       -5.3018E-002,-3.2389E-001, 4.6938E-003,
+     &                        8.4262E-003,-8.3879E-003, 7.7294E-003,
+     &                        4.6891E-003,-2.2034E-001,-3.4145E-002,
+     &                        6.2052E-002, 4.8528E-002,-5.2128E-003,
+     &                       -2.4769E-002, 1.4277E-002,-3.0019E-002,
+     &                       -1.5376E-002,-6.8305E-003,-1.7002E-003,
+     &                       -4.0215E-002, 1.6609E-002, 2.3233E-002,
+     &                        5.4203E-003, 1.4267E-003, 5.5382E-002,
+     &                       -1.7332E-002,-2.7946E-003,-1.3890E-003,
+     &                        3.7206E-002,-4.1274E-003, 4.2794E-003,
+     &                        2.7750E-004,-7.0599E-003,-1.0803E-004,
+     &                        1.3258E-003,-1.2112E-002, 7.3725E-004,
+     &                        6.3315E-004,-1.2200E-002,-5.4789E-003,
+     &                       -1.6331E-002,-1.5537E-003,-5.9603E-003,
+     &                       -3.9097E-003/
+      DATA (CORRH(J),J=1,3)/ 0.762,0.836,1.033/
+      DATA (CORRO(J),J=1,3)/ 1.872,1.640,1.234/
 C//////////////////////////////////////////////////////////////////////
 C/////////////////////////solar minimum////////////////////////////////
-      CALL IONLOW(CRD,INVDIP,FL,DIMO,B0,DIPL,MLT,ALT,DDD,DOL,0,NOL)
-      CALL IONLOW(CRD,INVDIP,FL,DIMO,B0,DIPL,MLT,ALT,DDD,DHL,1,NHL)
-      CALL IONLOW(CRD,INVDIP,FL,DIMO,B0,DIPL,MLT,ALT,DDD,DHEL,2,NHEL)
-      CALL IONLOW(CRD,INVDIP,FL,DIMO,B0,DIPL,MLT,ALT,DDD,DNL,3,NNL)
-C     normalization
-      NTOT=NOL+NHL+NHEL+NNL
-      NOL=NOL/NTOT
-      NHL=NHL/NTOT
-      NHEL=NHEL/NTOT
-      NNL=NNL/NTOT
+      CALL IONLOW(INVDIP,MLT,ALT,DDD,DOL,0,NOL)
+      CALL IONLOW(INVDIP,MLT,ALT,DDD,DHL,1,NHL)
+      CALL IONLOW(INVDIP,MLT,ALT,DDD,DHEL,2,NHEL)
+      CALL IONLOW(INVDIP,MLT,ALT,DDD,DNL,3,NNL)
 C///////////////////////////solar maximum//////////////////////////////
-      CALL IONHIGH(CRD,INVDIP,FL,DIMO,B0,DIPL,MLT,ALT,DDD,DOH,0,NOH)
-      CALL IONHIGH(CRD,INVDIP,FL,DIMO,B0,DIPL,MLT,ALT,DDD,DHH,1,NHH)
-      CALL IONHIGH(CRD,INVDIP,FL,DIMO,B0,DIPL,MLT,ALT,DDD,DHEH,2,NHEH)
-      CALL IONHIGH(CRD,INVDIP,FL,DIMO,B0,DIPL,MLT,ALT,DDD,DNH,3,NNH)
-C     normalization
-      NTOT=NOH+NHH+NHEH+NNH
-      NOH=NOH/NTOT
-      NHH=NHH/NTOT
-      NHEH=NHEH/NTOT
-      NNH=NNH/NTOT
+      CALL IONHIGH(INVDIP,MLT,ALT,DDD,DOH,0,NOH)
+      CALL IONHIGH(INVDIP,MLT,ALT,DDD,DHH,1,NHH)
+      CALL IONHIGH(INVDIP,MLT,ALT,DDD,DHEH,2,NHEH)
+      CALL IONHIGH(INVDIP,MLT,ALT,DDD,DNH,3,NNH)
 C     interpolation (in logarithm)
-      IF (F107 .GT. 220) F107=220
-	IF (F107 .LT. 65) F107=65
-      NO=(ALOG10(NOH)-ALOG10(NOL))/(200.0-85.0)*(F107-85.0)+ALOG10(NOL)
-      NH=(ALOG10(NHH)-ALOG10(NHL))/(200.0-85.0)*(F107-85.0)+ALOG10(NHL)
-      NHE=(ALOG10(NHEH)-ALOG10(NHEL))/(200.0-85.0)*(F107-85.0)+
+      IF (PF107 .GT. 260) PF107=260
+	IF (PF107 .LT. 65) PF107=65
+      NO=(ALOG10(NOH)-ALOG10(NOL))/(210.0-85.0)*(PF107-85.0)+ALOG10(NOL)
+      NH=(ALOG10(NHH)-ALOG10(NHL))/(210.0-85.0)*(PF107-85.0)+ALOG10(NHL)
+      NHE=(ALOG10(NHEH)-ALOG10(NHEL))/(210.0-85.0)*(PF107-85.0)+
      &     ALOG10(NHEL)
-      NN=(ALOG10(NNH)-ALOG10(NNL))/(200.0-85.0)*(F107-85.0)+ALOG10(NNL)
+      NN=(ALOG10(NNH)-ALOG10(NNL))/(210.0-85.0)*(PF107-85.0)+ALOG10(NNL)
 C     percentages
       NO=10**NO
       NH=10**NH
       NHE=10**NHE
       NN=10**NN
-C     last normalization
+C     normalization
       NTOT=NO+NH+NHE+NN
       NO=NO/NTOT
       NH=NH/NTOT
       NHE=NHE/NTOT
       NN=NN/NTOT
+C     C/NOFS correction
+      IF (PF107 .LE. 67.5) THEN
+       NOCORR=CORRO(1)
+       NHCORR=CORRH(1)
+      ENDIF
+      IF ((PF107 .GT. 67.5) .AND. (PF107 .LT. 87.5)) THEN
+       IL=IFIX((PF107-57.5)/10.0)
+       NOCORR=(CORRO(IL+1)-CORRO(IL))/10.0*(PF107-57.5-10*IL)+CORRO(IL)
+       NHCORR=(CORRH(IL+1)-CORRH(IL))/10.0*(PF107-57.5-10*IL)+CORRH(IL)
+      ENDIF 
+      IF (PF107 .GE. 87.5) GOTO 10
+      NO=NO/NOCORR
+      NH=NH/NHCORR
+      NHE=NHE/NHCORR
+      NN=NN/NOCORR
+C     normalization
+      NTOT=NO+NH+NHE+NN
+      NO=NO/NTOT
+      NH=NH/NTOT
+      NHE=NHE/NTOT
+      NN=NN/NTOT
+10    CONTINUE      
       RETURN
       END
 C
 C
-      SUBROUTINE IONLOW(CRD,INVDIP,FL,DIMO,B0,
-     &                   DIPL,MLT,ALT,DDD,D,ION,NION)
+      SUBROUTINE IONLOW(INVDIP,MLT,ALT,DDD,D,ION,NION)
 C---------------------------------------------------------------------------
-C IONLOW calculates relative density of O+, H+, He+ or N+  in the outer
+C IONLOW calculates absolute density of O+, H+, He+ or N+  in the outer
 C ionosphere for a low solar activity (F107 < 100).
 C Based on spherical harmonics approximation of relative ion density
-C (by AE-C, and AE-E) at altitudes centred on 400km, 650km, and 1000km.
+C (by AE-C, and AE-E) at altitudes centred on 400km, 550km, 750km, and 1000km.
 C For intermediate altitudes an interpolation is used. 
-C Recommended altitude range: 350-2000 km!!!
+C Recommended altitude range: 350-2500 km!!!
 C For days between seasons centred at (21.3. = 79; 21.6. = 171;
 C 23.9. 265; 21.12. = 354) relative ion density is linearly interpolated.
-C Inputs: CRD - 0 .. INVDIP
-C               1 .. FL, DIMO, B0, DIPL (used for calculation INVDIP inside)
-C         INVDIP - "mix" coordinate of the dip latitude and of
+Cc Inputs: INVDIP - "mix" coordinate of the dip latitude and of
 C                    the invariant latitude;
 C                    positive northward, in deg, range <-90.0;90.0>
-C         FL, DIMO, BO - McIlwain L parameter, dipole moment in
-C                        Gauss, magnetic field strength in Gauss -
-C                        parameters needed for invariant latitude
-C                        calculation
-C         DIPL - dip latitude
-C                positive northward, in deg, range <-90.0;90.0>
 C         MLT - magnetic local time (central dipole)
 C               in hours, range <0;24)
 C         ALT - altitude above the Earth's surface;
@@ -4500,38 +4669,34 @@ C               in km, range <350;2000>
 C         DDD - day of year; range <0;365>
 C         D - coefficints of spherical harmonics for a given ion
 C         ION - ion species (0...O+, 1...H+, 2...He+, 3...N+)
-C Output: NION - relative density for a given ion 
+C Output: NION - absolute density for given ion 
 C---------------------------------------------------------------------------
-      REAL INVDIP,FL,DIMO,B0,DIPL,MLT,ALT,NION
-      INTEGER CRD,DDD,ION
-      DIMENSION  D(3,3,49),MIRREQ(49)
-      REAL INVDP,INVDPC,DTOR
+      REAL INVDIP,MLT,ALT,NION
+      INTEGER DDD,ION
+      DIMENSION  D(4,3,49),MIRREQ(49)
+      REAL INVDP,DTOR
       REAL RMLT,RCOLAT
       REAL C(49),C1(82)
       INTEGER SEZA,SEZB,SEZAI,SEZBI,DDDA,DDDB,DDDD
       REAL N0A400,N0B400,N400A,N400B,N400
-      REAL N0A650,N0B650,N650A,N650B,N650
+      REAL N0A550,N0B550,N550A,N550B,N550
+      REAL N0A750,N0B750,N750A,N750B,N750
       REAL N0A100,N0B100,N100A,N100B,N1000
-	REAL ANO(3),AH(3),DNO(1),ST(2)
-	COMMON/ARGEXP/ARGMAX
+	REAL ANO(4),AH(4),DNO(2),ST(3)
+	COMMON/CONST/DTOR,PI
 	DATA (MIRREQ(J),J=1,49)/
      &            1,-1, 1,-1, 1,-1, 1, 1,-1, 1,-1, 1,-1, 1,-1, 1,-1,
      &            1,-1, 1,-1, 1,-1, 1, 1,-1, 1,-1, 1, 1,-1, 1,-1, 1,
      &           -1, 1,-1, 1,-1, 1, 1,-1, 1, 1,-1, 1,-1, 1, 1/
 C////////////////////////////////////////////////////////////////////////////////////
-      DTOR=3.1415926536/180.0
 C     coefficients for mirroring
       DO 10 I=1,49
        D(1,3,I)=D(1,2,I)*MIRREQ(I)
        D(2,3,I)=D(2,2,I)*MIRREQ(I)
-10     D(3,3,I)=D(3,2,I)*MIRREQ(I)
-      IF (CRD .EQ. 1) THEN
-       INVDP=INVDPC(FL,DIMO,B0,DIPL,DTOR)
-      ELSE IF	(CRD .EQ. 0) THEN
-       INVDP=INVDIP
-      ELSE
-       RETURN
-      END IF
+       D(3,3,I)=D(3,2,I)*MIRREQ(I)
+10     D(4,3,I)=D(4,2,I)*MIRREQ(I)
+      INVDP=INVDIP
+
       RMLT=MLT*DTOR*15.0
       RCOLAT=(90.0-INVDP)*DTOR
       CALL SPHARM_IK(C1,6,6,RCOLAT,RMLT)
@@ -4586,89 +4751,97 @@ C     400km level
         N400A=N0A400
         N400B=N0B400
         N400=(N400B-N400A)/(DDDB-DDDA)*(DDDD-DDDA)+N400A
-C     650km level
-      N0A650=0.0
-	N0B650=0.0
+C     550km level
+      N0A550=0.0
+	N0B550=0.0
 	DO 70 I=1,49
-         N0A650=N0A650+C(I)*D(2,SEZAI,I)
-70       N0B650=N0B650+C(I)*D(2,SEZBI,I)
-	N650A=N0A650
-	N650B=N0B650
-	N650=(N650B-N650A)/(DDDB-DDDA)*(DDDD-DDDA)+N650A
+         N0A550=N0A550+C(I)*D(2,SEZAI,I)
+70       N0B550=N0B550+C(I)*D(2,SEZBI,I)
+	N550A=N0A550
+	N550B=N0B550
+	N550=(N550B-N550A)/(DDDB-DDDA)*(DDDD-DDDA)+N550A
+C     750km level
+      N0A750=0.0
+      N0B750=0.0
+	DO 110 I=1,49
+         N0A750=N0A750+C(I)*D(3,SEZAI,I)
+110      N0B750=N0B750+C(I)*D(3,SEZBI,I)
+	N750A=N0A750
+	N750B=N0B750
+	N750=(N750B-N750A)/(DDDB-DDDA)*(DDDD-DDDA)+N750A
 C     1000km level
       N0A100=0.0
-      N0B100=0.0
-	DO 110 I=1,49
-         N0A100=N0A100+C(I)*D(3,SEZAI,I)
-110      N0B100=N0B100+C(I)*D(3,SEZBI,I)
-	N100A=N0A100
-	N100B=N0B100
-	N1000=(N100B-N100A)/(DDDB-DDDA)*(DDDD-DDDA)+N100A
-          
-C      IF (ALT .LT. 650) NO=(N650-N400)/250.0*(ALT-400)+N400
-C      IF (ALT .GE. 650) NO=(N1000-N650)/350.0*(ALT-650)+N650
+	N0B100=0.0
+       DO 150 I=1,49
+        N0A100=N0A100+C(I)*D(4,SEZAI,I)
+150     N0B100=N0B100+C(I)*D(4,SEZBI,I)
+       N100A=N0A100
+       N100B=N0B100
+       N1000=(N100B-N100A)/(DDDB-DDDA)*(DDDD-DDDA)+N100A
 
-C      NION=10**NO
+C     n(O+) AND n(N+) must not increase above 750km
+      IF (((ION .EQ. 0) .OR. (ION .EQ. 3)) .AND. (N1000 .GT. N750))
+     &      N1000=N750
+C     n(H+) and n(He+) must not decrease above 750km
+      IF (((ION .EQ. 1) .OR. (ION .EQ. 2)) .AND. (N1000 .LT. N750)) 
+     &      N1000=N750
 
-C-02/07/09- n(O+) AND n(N+) must not increase above 650km
-      IF (((ION .EQ. 0) .OR. (ION .EQ. 3)) .AND. (N1000 .GT. N650))
-     &      N1000=N650
-C-02/07/09- n(H+) must not decrease above 650km
-      IF ((ION .EQ. 1) .AND. (N1000 .LT. N650)) N1000=N650
-
+      IF (ALT .GE. 960) SUM=(N1000-N750)/220.0*(ALT-740.0)+N750     
+      IF (ALT .GE. 960) GOTO 240
+                
       ANO(1)=N400
-	 ANO(2)=N650
-	  ANO(3)=N1000
-	  
-	AH(1)=400.
-       AH(2)=650.
-        AH(3)=1000.
-      
-      DNO(1)=20.
-      
-      ST1=(ANO(2)-ANO(1))/(AH(2)-AH(1))
-      I=2
-      ST2=(ANO(I+1)-ANO(I))/(AH(I+1)-AH(I))
-      ANO(I)=ANO(I)-(ST2-ST1)*DNO(I-1)*ALOG(2.)
+	 ANO(2)=N550
+	  ANO(3)=N750
+	   ANO(4)=N1000
 
-      DO 220 I=1,2
+C	AH(1)=400.
+C       AH(2)=550.
+C        AH(3)=750.
+C         AH(4)=1000.
+
+C     exact values
+	AH(1)=390.
+       AH(2)=550.
+        AH(3)=740.
+         AH(4)=960.
+      DNO(1)=20.
+       DNO(2)=20.
+
+      ST1=(ANO(2)-ANO(1))/(AH(2)-AH(1))
+      DO 200 I=2,3
+       ST2=(ANO(I+1)-ANO(I))/(AH(I+1)-AH(I))
+       ANO(I)=ANO(I)-(ST2-ST1)*DNO(I-1)*ALOG(2.)
+200   ST1=ST2
+
+      DO 220 I=1,3
 220   ST(I)=(ANO(I+1)-ANO(I))/(AH(I+1)-AH(I))
 
-      ARGMAX=88.0
+c      ARGMAX=88.0
       SUM=ANO(1)+ST(1)*(ALT-AH(1))                     
      
-      I=1
+      DO 230 I=1,2
 	aa = eptr(alt  ,dno(i),ah(i+1))
 	bb = eptr(ah(1),dno(i),ah(i+1))
-      SUM=SUM+(ST(I+1)-ST(I))*(AA-BB)*DNO(I)
+230   SUM=SUM+(ST(I+1)-ST(I))*(AA-BB)*DNO(I)
                 
-      NION=10**SUM       
+240   NION=10**SUM       
       RETURN
-      END
+      END     
 C
 C
-      SUBROUTINE IONHIGH(CRD,INVDIP,FL,DIMO,B0,
-     &                   DIPL,MLT,ALT,DDD,D,ION,NION)
+      SUBROUTINE IONHIGH(INVDIP,MLT,ALT,DDD,D,ION,NION)
 C---------------------------------------------------------------------------
-C IONHIGH calculates relative density of O+, H+, He+ or N+  in the outer
-C ionosphere for high solar activity conditions (F107 >= 100).
+C IONHIGH calculates absolute density of O+, H+, He+ or N+  in the outer
+C ionosphere for high solar activity conditions (PF10.7 = 210).
 C Based on spherical harmonics approximation of relative ion density
 C (by IK24) at altitudes centred on 550km, 900km, 1500km, and 2250km.
 C For intermediate altitudes a interpolation is used. 
-C Recommended altitude range: 500-3000 km!!!
+C Recommended altitude range: 500-2500 km!!!
 C For days between seasons centred at (21.3. = 79; 21.6. = 171;
 C 23.9. 265; 21.12. = 354) relative ion density is linearly interpolated.
-C Inputs: CRD - 0 .. INVDIP
-C               1 .. FL, DIMO, B0, DIPL (used for calculation INVDIP inside)
-C         INVDIP - "mix" coordinate of the dip latitude and of
+Cc Inputs: INVDIP - "mix" coordinate of the dip latitude and of
 C                    the invariant latitude;
 C                    positive northward, in deg, range <-90.0;90.0>
-C         FL, DIMO, BO - McIlwain L parameter, dipole moment in
-C                        Gauss, magnetic field strength in Gauss -
-C                        parameters needed for invariant latitude
-C                        calculation
-C         DIPL - dip latitude
-C                positive northward, in deg, range <-90.0;90.0>
 C         MLT - magnetic local time (central dipole)
 C               in hours, range <0;24)
 C         ALT - altitude above the Earth's surface;
@@ -4676,12 +4849,12 @@ C               in km, range <500;3000>
 C         DDD - day of year; range <0;365>
 C         D - coefficints of spherical harmonics for a given ion
 C         ION - ion species (0...O+, 1...H+, 2...He+, 3...N+)
-C Output: NION - relative density for a given ion 
+C Output: NION - absolute density for given ion 
 C---------------------------------------------------------------------------
-      REAL INVDIP,FL,DIMO,B0,DIPL,MLT,ALT,NION
-	INTEGER CRD,DDD,ION
+      REAL INVDIP,MLT,ALT,NION
+	  INTEGER DDD,ION
       DIMENSION  D(4,3,49),MIRREQ(49)
-      REAL INVDP,INVDPC,DTOR
+      REAL INVDP,DTOR
       REAL RMLT,RCOLAT
       REAL C(49),C1(82)
       INTEGER SEZA,SEZB,SEZAI,SEZBI,DDDA,DDDB,DDDD
@@ -4690,26 +4863,20 @@ C---------------------------------------------------------------------------
       REAL N0A150,N0B150,N150A,N150B,N1500
       REAL N0A250,N0B250,N250A,N250B,N2500
 	REAL ANO(4),AH(4),DNO(2),ST(3)
-	COMMON/ARGEXP/ARGMAX
+	COMMON/CONST/DTOR,PI
 	DATA (MIRREQ(J),J=1,49)/
      &            1,-1, 1,-1, 1,-1, 1, 1,-1, 1,-1, 1,-1, 1,-1, 1,-1,
      &            1,-1, 1,-1, 1,-1, 1, 1,-1, 1,-1, 1, 1,-1, 1,-1, 1,
      &           -1, 1,-1, 1,-1, 1, 1,-1, 1, 1,-1, 1,-1, 1, 1/
 C////////////////////////////////////////////////////////////////////////////////////
-      DTOR=3.1415926536/180.0
 C     coefficients for mirroring
       DO 10 I=1,49
        D(1,3,I)=D(1,2,I)*MIRREQ(I)
        D(2,3,I)=D(2,2,I)*MIRREQ(I)
        D(3,3,I)=D(3,2,I)*MIRREQ(I)
 10     D(4,3,I)=D(4,2,I)*MIRREQ(I)
-      IF (CRD .EQ. 1) THEN
-       INVDP=INVDPC(FL,DIMO,B0,DIPL,DTOR)
-      ELSE IF	(CRD .EQ. 0) THEN
-       INVDP=INVDIP
-      ELSE
-       RETURN
-      END IF
+      INVDP=INVDIP
+      
       RMLT=MLT*DTOR*15.0
       RCOLAT=(90.0-INVDP)*DTOR
       CALL SPHARM_IK(C1,6,6,RCOLAT,RMLT)
@@ -4784,7 +4951,7 @@ C     1500km level
 	N1500=(N150B-N150A)/(DDDB-DDDA)*(DDDD-DDDA)+N150A
 C     2500km level
       N0A250=0.0
-	N0B250=0.0
+	  N0B250=0.0
        DO 150 I=1,49
         N0A250=N0A250+C(I)*D(4,SEZAI,I)
 150     N0B250=N0B250+C(I)*D(4,SEZBI,I)
@@ -4792,28 +4959,27 @@ C     2500km level
        N250B=N0B250
        N2500=(N250B-N250A)/(DDDB-DDDA)*(DDDD-DDDA)+N250A
 
-C      IF (ALT .LT. 900) NO=(N900-N550)/350.0*(ALT-550)+N550
-C      IF ((ALT .GE. 900) .AND. (ALT .LT. 1500))
-C     &  NO=(N1500-N900)/600.0*(ALT-900)+N900
-c      IF (ALT .GE. 1500) NO=(N2500-N1500)/1000.0*(ALT-1500)+N1500
-
-C     O+ AND N+ may not increase above 1500km 
+C     O+ and N+ may not increase above 1500km 
       IF (((ION .EQ. 0) .OR. (ION .EQ. 3)) .AND. (N2500 .GT. N1500)) 
      & N2500=N1500
-C     H+ may not decrease above 1500km 
-      IF ((ION .EQ. 1) .AND. (N2500 .LT. N1500)) N2500=N1500
-                   
+C     H+ and He+ may not decrease above 1500km 
+      IF (((ION .EQ. 1) .OR. (ION .EQ. 2)) .AND. (N2500 .LT. N1500)) 
+     & N2500=N1500
+              
+      IF (ALT .GE. 2250.0) SUM=(N2500-N1500)/750.0*(ALT-2250.0)+N2500
+      IF (ALT .GE. 2250.0) GOTO 240
+      
       ANO(1)=N550
-	 ANO(2)=N900
+	  ANO(2)=N900
 	  ANO(3)=N1500
-	   ANO(4)=N2500
+	  ANO(4)=N2500
 
-	AH(1)=550.
-       AH(2)=900.
-        AH(3)=1500.
-         AH(4)=2250.
+	  AH(1)=550.
+      AH(2)=900.
+      AH(3)=1500.
+      AH(4)=2250.
       DNO(1)=20.
-       DNO(2)=20.
+      DNO(2)=20.
 
       ST1=(ANO(2)-ANO(1))/(AH(2)-AH(1))
       DO 200 I=2,3
@@ -4824,28 +4990,35 @@ C     H+ may not decrease above 1500km
       DO 220 I=1,3
 220   ST(I)=(ANO(I+1)-ANO(I))/(AH(I+1)-AH(I))
 
-      ARGMAX=88.0
+c      ARGMAX=88.0
       SUM=ANO(1)+ST(1)*(ALT-AH(1))                     
      
       DO 230 I=1,2
-	aa = eptr(alt  ,dno(i),ah(i+1))
-	bb = eptr(ah(1),dno(i),ah(i+1))
-230   SUM=SUM+(ST(I+1)-ST(I))*(AA-BB)*DNO(I)
+		aa = eptr(alt  ,dno(i),ah(i+1))
+		bb = eptr(ah(1),dno(i),ah(i+1))
+230   	SUM=SUM+(ST(I+1)-ST(I))*(AA-BB)*DNO(I)
                 
-      NION=10**SUM       
+240   NION=10**SUM       
       RETURN
       END
 C
 C
-      REAL FUNCTION INVDPC(FL,DIMO,B0,DIPL,DTOR)
+      REAL FUNCTION INVDPC(FL,DIMO,B0,DIPL)
 C---------------------------------------------------------------------------
-C      calculation of INVDIP from FL, DIMO, BO, and DIPL
-C      invariant latitude calculated by highly
-C      accurate polynomial expansion
+C INPUT:	FL		McIlwain L parameter, 
+C			DIMO	dipole moment in Gauss
+C           B0      magnetic field strength in Gauss 
+C           parameters FL, DIMO and B0 are needed for invariant latitude
+C			computation; uses a highly accurate polynomial expansion
+C			DIPL	dip latitude in degree
+C                	positive northward, in deg, range <-90.0;90.0>
+C RESULT:   invdip 	a "mix" coordinate of the dip latitude (DIPL) and 
+C 					of the invariant latitude; INVDIP is positive northward 
+C					in degree and ranges from -90.0 to 90.0.
 C---------------------------------------------------------------------------
-      REAL FL,DIMO,B0,DIPL
-	DOUBLE PRECISION B(8),A
-      REAL DTOR,ASA,INVL,RINVL,RDIPL,ALFA,BETA
+      REAL FL,DIMO,B0,DIPL,DTOR,ASA,INVL,RINVL,RDIPL,ALFA,BETA
+	  DOUBLE PRECISION B(8),A
+	  COMMON/CONST/DTOR,PI
       DATA B/1.259921D0  ,-0.1984259D0 ,-0.04686632D0,-0.01314096D0,
      &      -0.00308824D0, 0.00082777D0,-0.00105877D0, 0.00183142D0/
        A=(DIMO/B0)**(1.0D0/3.0D0)/FL
@@ -4856,12 +5029,43 @@ C---------------------------------------------------------------------------
 C      invariant latitude (absolute value)
        RINVL=ACOS(SQRT(ASA))
        INVL=RINVL/DTOR
-       RDIPL=DIPL*DTOR
-       ALFA=SIN(ABS(RDIPL))**3
-       BETA=COS(RINVL)**3
+       ALFA=2.0-(1.0/(exp((DIPL-25.0)/2.0)+1.0)+
+     &           1.0/(exp((-DIPL-25.0)/2.0)+1.0))
+       BETA=1.0/(exp((INVL-25.0)/2.0)+1.0)+
+     &      1.0/(exp((-INVL-25.0)/2.0)+1.0)-1.0
+c       INVDPC=(ALFA*INVL+BETA*DIPL)/(ALFA+BETA)
        INVDPC=(ALFA*SIGN(1.0,DIPL)*INVL+BETA*DIPL)/(ALFA+BETA)
+       RETURN
+       END
+C
+C       
+      REAL FUNCTION INVDPC_OLD(FL,DIMO,B0,DIPL)
+C---------------------------------------------------------------------------
+C     calculation of INVDIP from FL, DIMO, BO, and DIPL
+C     invariant latitude calculated by highly
+C     accurate polynomial expansion
+C---------------------------------------------------------------------------
+      REAL FL,DIMO,B0,DIPL
+      DOUBLE PRECISION B(8),A
+      REAL DTOR,ASA,INVL,RINVL,RDIPL,ALFA,BETA
+	  COMMON/CONST/DTOR,PI
+      DATA B/1.259921D0  ,-0.1984259D0 ,-0.04686632D0,-0.01314096D0,
+     &      -0.00308824D0, 0.00082777D0,-0.00105877D0, 0.00183142D0/
+      A=(DIMO/B0)**(1.0D0/3.0D0)/FL
+      ASA=A*(B(1)+B(2)*A+B(3)*A**2+B(4)*A**3+B(5)*A**4+
+     &        B(6)*A**5+B(7)*A**6+B(8)*A**7)
+      IF (ASA .GT. 1.0) ASA=1.0
+      IF (ASA .LT. 0.0) ASA=0.0
+c      invariant latitude (absolute value)
+      RINVL=ACOS(SQRT(ASA))
+      INVL=RINVL/DTOR
+      RDIPL=DIPL*DTOR
+      ALFA=SIN(ABS(RDIPL))**3
+      BETA=COS(RINVL)**3
+      INVDPC_OLD=(ALFA*SIGN(1.0,DIPL)*INVL+BETA*DIPL)/(ALFA+BETA)
       RETURN
       END
+
 C
 C                     
 C*************************************************************                  
@@ -4941,6 +5145,1015 @@ c--------------------------------------------------------------
       END             
 C
 C
+	SUBROUTINE  SHAMDHMF2 (RLAT,FLON,T,RZ,HMF2)
+C-------------------------------------------------------------------
+C	COMPUTES THE HOURLY VALUES OF hmF2 FROM A SET OF SH COEFFICIENTS
+C	IN A POINT OF A GIVEN GEOCENTRIC LATITUDE AND LONGITUDE OF THE 
+C	EARTH'S SURFACE FOR A GIVEN MONTH AND A GIVEN SUNSPOT NUMBER.
+C   PARAMETERS AND COEFFICIENTS ARE GIVEN IN DATA STATEMENTS.
+C
+C INPUT:	RLAT    The geographic latitude on the FLON meridian  
+C                   where the modified dip latitude is equal to the 
+C                   modip value for the considered point in space.
+C           FLON    =LONGITUDE+15.*UT(hours)
+C           T       Month as a REAL number (1.0 to 12.0)
+C           RZ      12-month running mean
+C OUTPUT:   HMF2    F2 peak altitude in km
+C
+C Altadill, D., S. Magdaleno, J.M. Torta, and E. Blanch 
+C     Adv. Space Res. 52, 1756-1769, 2013.
+C-------------------------------------------------------------------
+      PARAMETER   (IBO=0,JBO=1,KDIM=8,LDIM=4,L=-1)
+      DIMENSION   FN(0:KDIM,0:KDIM), CONST(0:KDIM,0:KDIM)
+      DIMENSION   GNM(0:KDIM,0:KDIM,1-IBO-JBO:LDIM),
+     *			  HNM(0:KDIM,0:KDIM,1-IBO-JBO:LDIM)
+	  DIMENSION     GANM(0:KDIM,0:KDIM,1-IBO-JBO:LDIM),
+     *			  HANM(0:KDIM,0:KDIM,1-IBO-JBO:LDIM),
+     *            GBNM(0:KDIM,0:KDIM,1-IBO-JBO:LDIM),
+     *			  HBNM(0:KDIM,0:KDIM,1-IBO-JBO:LDIM)
+      DIMENSION   BINT(0:KDIM,0:KDIM,1-IBO-JBO:LDIM),
+     *            BEXT(0:KDIM,0:KDIM,1-IBO-JBO:LDIM)
+      CHARACTER*1 IE       
+      COMMON/AMTB/BINT,BEXT,RE,TZERO,IFIT,IB,KINT,LINT,KEXT,
+     *              LEXT,KMAX,FN
+c     ,CONST
+
+      DATA THETA,RE,TZERO,IFIT,ICEN,IREF,IB,KINT,LINT,KEXT,LEXT
+     *     /180.,6371.2,1.0,  -1,  0,   0,   2, 8,   4,   0,   -1/
+
+  	  DATA ((CONST(N,M), M=0,N), N=0,KDIM)
+     *	 /4*1.,1.73205,0.866025,1.,2.44949,1.93649,0.7905691,1.,
+     *	  3.16228,3.35410,2.09165,0.739510,1.,3.87298,5.12348,
+     *	  4.18330,2.21853,0.701561,1.,4.58258,2*7.24569,4.96078,
+     *      2.32681,0.671693,1.,5.29150,9.72111,11.4564,9.49918,
+     *      5.69951,2.42182,0.647260,1.,6.,12.5499,16.9926,16.4531,
+     *      11.8645,6.40755,2.50683,0.626707/
+
+	  DATA IE /"I"/
+
+      DATA (((GANM(N,M,J),GBNM(N,M,J),HANM(N,M,J),HBNM(N,M,J),
+     *    	J=0,LDIM), M=0,N), N=0,KDIM)
+     * / 340.552,-0.376,   0.000, 0.000,
+     *   -70.823, 1.150,   0.000, 0.000, -49.250, 0.591,   0.000, 0.000,
+     *    24.037,-0.401,   0.000, 0.000,  -8.780, 0.282,   0.000, 0.000,
+     *   -38.548, 0.177,   0.000, 0.000,
+     *    52.811,-0.282,   0.000, 0.000,  35.165,-0.265,   0.000, 0.000,
+     *   -21.227, 0.273,   0.000, 0.000,  10.183,-0.064,   0.000, 0.000,
+     *    67.946, 1.288,  67.397, 0.850,
+     *   -47.987,-1.643, -93.888,-1.257, -40.298,-1.075, -56.623,-0.768,
+     *    19.471, 0.532,  37.264, 0.400,  -0.830,-0.267, -17.603,-0.243,
+     *  -139.733,-1.204,   0.000, 0.000,
+     *   140.567, 1.145,   0.000, 0.000,  93.356, 0.980,   0.000, 0.000,
+     *   -48.353,-0.427,   0.000, 0.000,  21.370,-0.016,   0.000, 0.000,
+     *   -64.759, 0.228, -83.194, 0.121,
+     *    83.857,-0.228, 107.345, 0.013,  63.040,-0.268,  80.004,-0.254,
+     *   -48.692, 0.109, -52.767, 0.079,  15.922, 0.004,  14.904, 0.172,
+     *  -134.112, 3.405, 152.622,-2.016,
+     *   192.632,-4.277,-188.201, 2.383, 114.890,-2.568,-121.624, 1.712,
+     *   -69.827, 1.414,  76.826,-0.902,  35.669,-0.723, -33.598, 0.290,
+     *  -241.557,-0.964,   0.000, 0.000,
+     *   303.719, 1.393,   0.000, 0.000, 198.143, 0.731,   0.000, 0.000,
+     *  -136.985,-0.557,   0.000, 0.000,  56.365, 0.420,   0.000, 0.000,
+     *  -173.032, 0.275, -59.684,-0.368,
+     *   251.737,-0.285,  79.946, 0.667, 184.674,-0.313,  30.894, 0.828,
+     *  -100.746, 0.190, -14.771,-0.389,  30.175, 0.002,  21.618,-0.069,
+     *     6.871, 0.189,  70.508,-0.893,
+     *   -12.804, 0.018, -91.499, 1.128,  -5.759,-0.284, -60.616, 0.712,
+     *    21.336, 0.036,  37.937,-0.537,  -9.778, 0.175, -15.741, 0.211,
+     *    28.298, 1.499,  40.261,-2.376,
+     *   -54.316,-1.889, -45.615, 2.789, -34.102,-1.211, -36.189, 2.006,
+     *    20.337, 0.617,  15.090,-1.031, -10.873,-0.285,  -4.738, 0.324,
+     *   -90.022, 1.611,   0.000, 0.000,
+     *   139.241,-1.741,   0.000, 0.000,  69.750,-0.769,   0.000, 0.000,
+     *   -28.658, 0.280,   0.000, 0.000,  22.881,-0.282,   0.000, 0.000,
+     *   -44.702,-0.560,  87.636,-0.530,
+     *    53.150, 0.510,-119.895, 0.539,  31.695, 0.735, -87.077, 0.547,
+     *     6.348,-0.394,  54.557,-0.382,   0.875,-0.114, -15.031,-0.032,
+     *  -159.602, 0.277,-144.746, 0.246,
+     *   188.366,-0.118, 186.080,-0.124, 123.670,-0.172, 107.109,-0.067,
+     *   -58.392, 0.093, -64.485,-0.014,  30.929,-0.054,  37.817, 0.010,
+     *    19.949,-0.483,  29.250, 0.916,
+     *   -30.468, 0.725, -36.526,-1.320, -13.301, 0.259, -31.395,-0.638,
+     *    12.609,-0.244,  27.485, 0.374, -10.153, 0.253,  -5.509,-0.324,
+     *    42.493,-0.379, 138.667,-1.337,
+     *   -50.716, 0.303,-181.247, 1.744, -47.625, 0.434,-110.876, 1.038,
+     *    27.315,-0.192,  57.106,-0.545,   0.778,-0.106, -30.096, 0.284,
+     *   125.336, 0.325,   0.000, 0.000,
+     *  -164.302,-0.458,   0.000, 0.000,-119.173, 0.120,   0.000, 0.000,
+     *    78.273,-0.125,   0.000, 0.000, -26.471,-0.234,   0.000, 0.000,
+     *  -164.084, 1.528,  68.950,-2.145,
+     *   187.815,-1.754, -97.028, 2.521, 123.385,-1.348, -54.733, 1.333,
+     *   -58.316, 0.589,  33.701,-0.805,  27.475,-0.118, -22.520, 0.539,
+     *    30.638,-1.477, -71.140, 1.204,
+     *   -43.070, 1.448,  86.162,-1.443, -31.966, 1.202,  68.472,-1.014,
+     *    23.982,-0.552, -29.584, 0.633,  -3.900, 0.025,   4.363,-0.167,
+     *    81.222, 0.150,  66.889, 0.006,
+     *   -98.117,-0.095, -82.546, 0.149, -65.414,-0.057, -59.117,-0.113,
+     *    33.457, 0.113,  34.682,-0.021, -13.056,-0.019, -12.982, 0.178,
+     *    39.267,-0.337, -33.557, 0.109,
+     *   -42.755, 0.319,  34.263,-0.255, -26.894, 0.297,  30.837,-0.086,
+     *     6.342,-0.172, -17.113, 0.082,  -4.386,-0.001,   2.650,-0.097,
+     *  20*0.000,
+     *   -56.482,-0.951,   0.000, 0.000,
+     *    49.870, 1.103,   0.000, 0.000,  47.355, 0.689,   0.000, 0.000,
+     *   -21.830,-0.374,   0.000, 0.000,   0.708, 0.176,   0.000, 0.000,
+     *     8.535, 0.422, -56.552, 0.790,
+     *   -27.737,-0.208,  76.156,-0.834,  -9.129,-0.660,  44.140,-0.477,
+     *    -5.598, 0.234, -24.694, 0.257,  -2.797, 0.226,   9.278,-0.054,
+     *   -97.867, 1.578,  44.857,-0.495,
+     *   116.177,-1.680, -49.651, 0.408,  93.725,-1.524, -42.861, 0.447,
+     *   -55.150, 0.740,  28.612,-0.210,   7.615, 0.039,  -7.158,-0.040,
+     *    84.841,-1.243, -74.812, 0.103,
+     *  -100.335, 1.300,  87.349,-0.037, -78.486, 1.059,  70.399,-0.062,
+     *    50.717,-0.613, -36.938, 0.044, -12.384, 0.093,   7.046, 0.005,
+     *    50.573,-0.185,  47.967,-0.154,
+     *   -59.881, 0.390, -55.625, 0.206, -35.187, 0.074, -39.209, 0.028,
+     *    12.490,-0.039,  18.874,-0.072, -11.613, 0.191,  -8.454, 0.127,
+     *  40*0.000,
+     *  -243.265, 1.567,   0.000, 0.000,
+     *   306.183,-1.910,   0.000, 0.000, 183.262,-0.922,   0.000, 0.000,
+     *   -97.132, 0.553,   0.000, 0.000,  53.004,-0.403,   0.000, 0.000,
+     *  -212.916, 1.108,   8.322,-0.089,
+     *   257.690,-1.278, -15.853, 0.247, 179.077,-0.962, -15.457, 0.243,
+     *   -99.826, 0.628,   1.487,-0.098,  34.120,-0.178,   1.112,-0.006,
+     *   -61.739, 2.205,  62.259,-1.018,
+     *    69.646,-2.288, -77.640, 1.293,  46.838,-1.850, -65.274, 0.858,
+     *   -20.796, 0.919,  33.662,-0.542,   7.719,-0.165,  -5.840, 0.227,
+     *    57.782, 0.176,  30.904,-0.524,
+     *   -64.106,-0.272, -32.527, 0.468, -42.125,-0.123, -22.160, 0.471,
+     *    21.006, 0.034,  12.768,-0.214,  -9.326,-0.077,  -3.047,-0.047,
+     *   -15.644,-0.224, -96.643, 1.478,
+     *    30.526, 0.117, 116.896,-1.707,   8.932, 0.254,  72.474,-1.045,
+     *    -8.442,-0.098, -38.557, 0.559,  12.040,-0.100,  20.158,-0.290,
+     *  60*0.000,
+     *   -93.235, 1.670,   0.000, 0.000,
+     *   115.863,-1.904,   0.000, 0.000,  42.475,-0.878,   0.000, 0.000,
+     *   -16.805, 0.317,   0.000, 0.000,  26.766,-0.353,   0.000, 0.000,
+     *   -10.938,-0.552, 229.921,-3.050,
+     *     8.234, 0.386,-289.115, 3.548,   3.405, 0.746,-184.290, 2.115,
+     *    12.877,-0.410, 116.519,-1.229,  -3.016,-0.147, -49.942, 0.564,
+     *   -40.203,-0.273,   4.801, 0.004,
+     *    46.012, 0.180, -11.896, 0.129,  38.085, 0.142,   2.665,-0.054,
+     *    -6.701,-0.111,  -8.326, 0.065,   2.219,-0.065,  -3.252, 0.071,
+     *    -5.474, 0.833,  61.060,-0.178,
+     *     0.739,-0.777, -79.078, 0.293,  17.611,-0.764, -55.985, 0.102,
+     *    -7.107, 0.359,  40.779,-0.184,  -8.184, 0.030, -14.352, 0.127,
+     *   -51.003, 0.485,  36.183, 0.144,
+     *    65.647,-0.752, -42.617,-0.228,  33.590,-0.298, -27.554,-0.093,
+     *   -15.194, 0.193,  20.247, 0.033,  14.304,-0.227,  -6.789,-0.088,
+     *  80*0.000/                                
+
+      KMAX = MAX(KINT,KEXT)
+      IF (KMAX .GT. KDIM)  GO TO 9999
+      KT = MAX(LINT,LEXT)
+      IF (KT .GT. LDIM)  GO TO 9999
+
+	  DO 500 N=0,KMAX
+	  DO 500 M=0,N
+
+	  DO J=0,KT
+	    GNM(N,M,J)=GANM(N,M,J)+GBNM(N,M,J)*rz
+	    HNM(N,M,J)=HANM(N,M,J)+HBNM(N,M,J)*rz
+	    ENDDO
+ 
+      IF (IE .EQ. 'I')  THEN
+         IF (N .GT. KINT)  GO TO 500
+         LJ = LINT
+      ELSE
+         IF (N .GT. KEXT)  GO TO 500
+         LJ = LEXT
+      END IF
+
+      FN(N,M) = FLOAT(N)
+
+      IF (M .GT. 0)  GO TO 300
+      DO 301 J=1-IBO-JBO,KT
+      IF (IE .EQ. 'I')  THEN
+         BINT(N,M,J)   = GNM(N,M,J)
+      ELSE
+         BEXT(N,M,J)   = GNM(N,M,J)
+         END IF
+  301 CONTINUE
+      GO TO 500
+  300 continue
+      DO 302 J=1-IBO-JBO,LJ
+      IF (IE .EQ. 'I')  THEN
+         BINT(N,M,J)   = GNM(N,M,J)
+         BINT(M-1,N,J) = HNM(N,M,J)
+      ELSE
+         BEXT(N,M,J)   = GNM(N,M,J)
+         BEXT(M-1,N,J) = HNM(N,M,J)
+         END IF
+  302 CONTINUE
+C
+  500 CONTINUE
+C     **********************************************************
+C     SYNTHESIZES THE VALUE OF HMF2 FROM THE MODEL	
+C     **********************************************************
+      CALL SCHNEVPDH (RZ,RLAT,FLON,dum,T,L,dum,dum,HMF2)
+	  RETURN
+9999  STOP
+      END
+C
+C
+      SUBROUTINE SCHNEVPDH (RZ,FLAT,FLON,R,T,L,BN,BE,BV)
+C------------------------------------------------------------------------
+C WHEN L IS POSITIVE:
+C COMPUTES SPHERICAL CAP HARMONIC (GEOCENTRIC) FIELD COMPONENTS
+C HORIZONTAL NORTH BN,HORIZONTAL EAST BE,AND VERTICAL DOWNWARD BV.
+C WHEN L IS NEGATIVE:
+C COMPUTES GENERAL FUNCTION BV, ITS HORIZONTAL NORTH DERIVATIVE BN,
+C AND ITS HORIZONTAL EAST DERIVATIVE BE, ON SPHERICAL CAP SURFACE.
+C NOTE THAT THESE ARE METRICAL DERIVATIVES, AND BE IS THE
+C LONGITUDINAL DERIVATIVE DIVIDED BY SIN(COLATITUDE).
+C	  INPUT:
+C FLAT,FLON,R ARE GEOCENTRIC SPHERICAL CAP LATITUDE,LONGITUDE,RADIAL
+C DISTANCE; T IS TIME.
+C L =  0  ON FIRST CALL:  RETURNS SPHERICAL CAP POLE POSITION FLATO,FLONO
+C         AND HALF-ANGLE THETA AS BN,BE, AND BV AFTER INITIALIZATION.
+C         ON SUBSEQUENT CALLS:  ACTS AS L=1.
+C      1  COMPUTES POTENTIAL FIELD COMPONENTS FROM INTERNAL COEFFICIENTS.
+C      2  COMPUTES POTENTIAL FIELD COMPONENTS FROM EXTERNAL COEFFICIENTS.
+C      3  COMPUTES FIELD FROM BOTH INTERNAL AND EXTERNAL COEFFICIENTS.
+C     -1  COMPUTES GENERAL FUNCTION BV AND DERIVATIVES BN WITH RESPECT TO
+C         LATITUDE AND BE WITH RESPECT TO LONGITUDE DIVIDED BY COS(LAT)
+C         (R IS DUMMY VARIABLE IN THIS CASE).
+C NOTE:   SUBROUTINE IS INITIALIZED DURING FIRST CALL REGARDLESS OF L.
+C
+C SUBROUTINE USED:  LEGFUN
+C
+C PARAMS & COEFFS TRANSFERRED FROM MAIN PROGRAM IN COMMON/AMTB/
+C
+C ADAPTED FROM SUBROUTINE SCHNEV OF G.V. HAINES (COMPUTERS & GEOSCIENCES, 
+C 14, 413-447, 1988)
+C------------------------------------------------------------------------
+
+      PARAMETER   (IBO=0,JBO=1,KDIM=8,LDIM=4)                           
+      DIMENSION   FN(0:KDIM,0:KDIM), CONSTP(0:KDIM,0:KDIM)
+      DIMENSION   CML(KDIM), SML(KDIM)
+      DIMENSION   DELT(0:LDIM)
+      DIMENSION   BINT(0:KDIM,0:KDIM,1-IBO-JBO:LDIM),
+     *            BEXT(0:KDIM,0:KDIM,1-IBO-JBO:LDIM)
+      COMMON	/CONST/UMR,PI
+     * 			/AMTB/BINT,BEXT,RE,TZERO,IFIT,IB,KINT,LINT,KEXT,
+     *              LEXT,KMAX,FN
+C     ,CONST
+      CHARACTER*1 IE,RESP
+  	  DATA ((CONSTP(N,M), M=0,N), N=0,KDIM)
+     *	 /4*1.,1.73205,0.866025,1.,2.44949,1.93649,0.7905691,1.,
+     *	  3.16228,3.35410,2.09165,0.739510,1.,3.87298,5.12348,
+     *	  4.18330,2.21853,0.701561,1.,4.58258,2*7.24569,4.96078,
+     *      2.32681,0.671693,1.,5.29150,9.72111,11.4564,9.49918,
+     *      5.69951,2.42182,0.647260,1.,6.,12.5499,16.9926,16.4531,
+     *      11.8645,6.40755,2.50683,0.626707/
+
+C     IBF   =  0   TO USE ORDINARY POLYNOMIALS AS BASIS FUNCTIONS
+C              1          LEGENDRE POLYNOMIALS
+C              2          FOURIER SERIES
+C              3          COSINE SERIES
+C              4          SINE SERIES
+C     NOTE:    TZERO AND THINT MAY DEPEND ON IBF.
+      IBF   =  2                                                        
+      T1=1.
+      T2=12.
+      CALL TBFIT (T1,T2,IBF,THINT,TZERO)                                
+
+C      IF (L .NE. 0)  GO TO 100
+C      BN = FLATO
+C      BE = FLONO
+C      BV = THETA
+C      RETURN
+
+  100 IF (L .GE. 0)  THEN
+         IF (IFIT .LT. 0)  GO TO 999
+         AOR = RE/R
+         AR = AOR**2
+         IF (L .GT. 1)  GO TO 107
+      ELSE
+         IF (IFIT .GE. 0)  GO TO 999
+         AR = -1.
+         END IF
+      KT = LINT
+      GO TO 109
+  107 IF (KEXT .GT. 0)  AOR3 = AOR*AR
+      IF (L .GT. 2)  GO TO 108
+      KT = LEXT
+      GO TO 109
+  108 KT = MAX (LINT,LEXT)
+  109 DELT(0) = 1.
+      IF (KT .LE. 0)  GO TO 103
+      DEL = (T - TZERO)/THINT
+      DO 102 I=1,KT
+      IF (I .EQ. 1)  THEN
+         IF (IBF .LE. 1) THEN
+             DELT(I) = DEL
+             ELSE IF (IBF .EQ. 2)  THEN
+             ST = SIN(DEL)
+             DELT(I) = ST
+             ELSE IF (IBF .EQ. 3)  THEN
+             DELT(I) = COS(DEL)
+             ELSE
+             DELT(I) = SIN(DEL)
+             ENDIF
+         GO TO 102
+         ENDIF
+      IF (IBF .EQ. 0)  THEN
+          DELT(I) = DELT(I-1)*DEL
+      ELSE IF (IBF .EQ. 1)  THEN
+          RECIP = 1./FLOAT(I)
+          DELT(I) = (2.-RECIP)*DELT(I-1)*DEL - (1.-RECIP)*DELT(I-2)
+      ELSE IF (IBF .EQ. 2)  THEN
+           IF ((I/2)*2 .EQ. I)  THEN
+             IF (I .EQ. 2)  THEN
+                CT = COS(DEL)
+                DELT(I) = CT
+                ELSE
+                DELT(I) = DELT(I-2)*CT - DELT(I-3)*ST
+                ENDIF
+             ELSE
+             DELT(I) = DELT(I-2)*CT + DELT(I-1)*ST
+             ENDIF
+      ELSE IF (IBF .EQ. 3)  THEN
+          DELT(I) = COS(I*DEL)
+      ELSE IF (IBF .EQ. 4)  THEN
+          DELT(I) = SIN(I*DEL)
+      ELSE
+          GO TO 999
+      ENDIF
+  102 CONTINUE
+      incept = 0                                                       !     set up
+      if ((ibf.eq.2 .or. ibf.eq.3) .and. incept .eq. 1)  then
+c     change to intercept form of fourier series.
+          do i=2,lint,4-ibf
+          delt(i) = 1. - delt(i)
+          enddo
+          endif
+  103 X = 0.
+      Y = 0.
+      Z = 0.
+      IF (L .EQ. 2)  GO TO 106
+      IF (KINT .LT. 0)  GO TO 106
+      GTI = 0.
+      DO 105 I=1-IBO-JBO,LINT
+  105 GTI = GTI + BINT(0,0,I)*DELT(I)
+      Z = -AR*GTI
+      N =  0
+  106 COLAT = 90. - FLAT
+      DO 150 N=1,KMAX
+      IF (N .GT. 1)  GO TO 115
+      CL = COS(FLON*UMR)
+      SL = SIN(FLON*UMR)
+      CML(1) = CL
+      SML(1) = SL
+      GO TO 120
+  115 SML(N) = SL*CML(N-1) + CL*SML(N-1)
+      CML(N) = CL*CML(N-1) - SL*SML(N-1)
+  120 CONTINUE
+      DO 150 M=0,N
+      IF (IB .EQ. 2)  GO TO 121
+      NMM = N - M
+      IF ((NMM/2)*2 .NE. NMM)  GO TO 150
+  121 FFN = FN(N,M)
+      CALL LEGFUN (M,FFN,CONSTP(N,M),COLAT,P,DP,PMS,0)
+      IF (L .GE. 0)  THEN
+         AR = AOR**(FFN+2.)
+      ELSE
+         AR = 1.
+         FFN = -2.
+         DP = -DP
+         PMS = -PMS
+         END IF
+      IF (M .NE. 0)  GO TO 130
+      BT1 = 0.
+      BT3 = 0.
+      BT  = 0.
+      IF (L .EQ. 2)  GO TO 123
+      IF (N .GT. KINT)  GO TO 123
+      GTI = 0.
+      DO 122 I=1-IBO-JBO,LINT
+  122 GTI  = GTI  + BINT(N,M,I)*DELT(I)
+      BT1  = AR*GTI
+      BT3  = BT1
+  123 IF (L .LE. 1)  GO TO 125
+      IF (N .GT. KEXT)  GO TO 125
+      GTE = 0.
+      DO 124 I=1-IBO-JBO,LEXT
+  124 GTE = GTE + BEXT(N,M,I)*DELT(I)
+      BT  = AOR3/AR*GTE
+      BT1 = BT1 + BT
+  125 X = X + BT1*DP
+      Z = Z - (FFN*(BT3-BT)+BT3)*P
+      GO TO 150
+  130 BT1 = 0.
+      BT2 = 0.
+      BT3 = 0.
+      BT  = 0.
+      IF (L .EQ. 2)  GO TO 133
+      IF (N .GT. KINT)  GO TO 133
+      GTI = 0.
+      HTI = 0.
+      DO 132 I=1-IBO-JBO,LINT
+      GTI = GTI + BINT(N,M,I)*DELT(I)
+  132 HTI = HTI + BINT(M-1,N,I)*DELT(I)
+      BT1 = AR*(GTI*CML(M) + HTI*SML(M))
+      BT2 = AR*(GTI*SML(M) - HTI*CML(M))
+      BT3 = BT1
+  133 IF (L .LE. 1)  GO TO 135
+      IF (N .GT. KEXT)  GO TO 135
+      GTE = 0.
+      HTE = 0.
+      DO 134 I=1-IBO-JBO,LEXT
+      GTE = GTE + BEXT(N,M,I)*DELT(I)
+  134 HTE = HTE + BEXT(M-1,N,I)*DELT(I)
+      RA = AOR3/AR
+      BT = RA*(GTE*CML(M) + HTE*SML(M))
+      BT1 = BT1 + BT
+      BT2 = BT2 + RA*(GTE*SML(M) - HTE*CML(M))
+  135 X = X + BT1*DP
+      Y = Y + BT2*PMS
+      Z = Z - (FFN*(BT3-BT)+BT3)*P
+  150 CONTINUE
+      BN = X
+      BE = Y
+      BV = Z
+      RETURN
+  999 STOP
+      END
+C
+C
+      subroutine model_hmF2(day,month,UT,xmodip,long,F107_81,hmF2)
+c--------------------------------------------------------------------------
+c  Input:
+c    day, month (integer)
+c    UT         (real) - universal time
+c    xmodip     (real) - modified dip latitude in degrees
+c    long       (real) - geodatic longitude    in degrees
+c    F107_81    (real) - F10.7 average over 3 solar rotations
+c                        (81 days, centered on the current day)
+c
+c Output:
+c    hmF2       (real) - F2-layer peak height in km
+c--------------------------------------------------------------------------
+	implicit none
+c     .. scalar arguments ..
+      integer day, month
+      real UT, xmodip, long, F107_81, hmF2
+c     .. local scalars ..
+      integer monthr, montha
+	real hmF2_0, hmF2_m, hmF2_p, hmF2med
+c     ..
+	call SDMF2(UT,month,F107_81,xmodip,long,hmF2_0)
+
+      if (day.le.15) then
+         if (day.eq.15) then
+             hmF2med = hmF2_0
+         else
+             monthr = month-1
+             if (monthr.eq.0) monthr = 12
+	       call SDMF2(UT,monthr,F107_81,xmodip,long,hmF2_m)
+             hmF2med = (hmF2_0-(day-15)*(hmF2_m-hmF2_0)/30.)
+         end if
+      else
+         montha = mod(month,12) + 1
+	   call SDMF2(UT,montha,F107_81,xmodip,long,hmF2_p)
+         hmF2med  = (hmF2_0+(day-15)*(hmF2_p-hmF2_0)/30.)
+      end if
+
+	hmF2 = hmF2med
+      return
+      end
+C
+C
+      subroutine SDMF2(UT,monthut,F107A,xmodip,long,hmF2)
+c--------------------------------------------------------------------------
+c    Global median model of the F2-layer peak height
+c
+c  Requires the following subroutines and functions:
+c     SDMF2, hmF2_med_SD, read_data_SD, fun_hmF2_SD,
+c     fun_Gk, Legendre, fun_hmF2UT, Koeff_UT, fun_Akp_UT,
+c     fun_Fk_UT, fun_Gk_UT  
+c
+c Author of the code:
+c         Valentin Shubin
+c         Pushkov Institute of Terrestrial Magnetism,
+c         Ionosphere and Radio wave propagation (IZMIRAN)
+c         Moscow, Troitsk, 142190, Russia
+c         e-mail: shubin@izmiran.ru
+c         
+c     [Ref. V.N. Shubin. Global median model of the F2-layer
+c     peak height based on ionospheric radio-occultation and
+c     ground-based Digisonde observations. Advances in Space Research (2015)
+c     http://dx.doi.org/10.1016/j.asr.2015.05.029]
+c
+c  Input:
+c    UT      - universal time (real)
+c    monthut - month (integer)
+c    xmodip  - modified dip latitude in degrees (real)
+c    long    - geodatic longitude    in degrees (real)
+c    F107A   - F10.7 index averaged over the 3 Sun rotations 
+c              in units of 10^-22 W/(m^2 Hz) (real)
+c
+c  Output:
+c    hmF2  - F2-layer peak height in km (real)
+c--------------------------------------------------------------------------
+      implicit none
+c     .. scalar arguments ..
+      integer monthut
+      real F107A
+      real UT, hmF2
+      real xmodip, long
+c     .. local scalars ..
+      integer i
+      double precision T
+c     .. local arrays ..
+	  double precision xUT(0:23)
+c	.. array in common ..
+	  double precision hmF2_UT(0:23)
+	  common/hmF2UT/hmF2_UT
+c     .. function references .
+      real hmF2_med_SD, fun_hmF2UT
+c
+      hmF2_UT = 0.0
+	  do i=0,23
+         hmF2_UT(i) = hmF2_med_SD(i,monthut,F107A,xmodip,long)
+	     xUT(i) = dble(i)
+         end do
+c 
+      T = dble(UT)
+      hmF2 = fun_hmF2UT(T) 
+c
+      return
+      end
+c
+c
+      real function hmF2_med_SD(iUT,monthut,F107A,xmodip,long)
+c---------------------------------------------------------------------
+c    Input: 
+c      iUT     - universal time (real)
+c      monthut - month (integer)
+c      F107A   - F10.7 index averaged over the 3 Sun rotations 
+c                in units of 10^-22 W/(m^2 Hz) (real)
+c      xmodip  - modified dip latitude in degrees (real)
+c      long    - geodatic longitude    in degrees (real)
+c
+c    function to interpolate hmF2 between the two levels of solar activity
+c    used the following auxiliary subroutines and functions:
+c    read_data_SD, fun_hmF2_SD
+c---------------------------------------------------------------------
+      implicit none
+c	..   scalar arguments ..
+      integer monthut, iUT
+      real F107A
+      real xmodip, long
+c	real xmodip, long, umr, pi
+c	..   local scalars ..
+      real cov, cov1, cov2
+      real a, b, hmF2_1, hmF2_2
+      double precision teta
+c	..   local arrays ..
+      double precision coeff_month(0:148,0:47)
+      double precision Kf(0:148)
+      real ft1(12), ft2(12)
+c
+c    Arrays ft1 (12) and ft2 (12) are the median values of F10.7A,
+c    which were used as the margins for
+c    the low and high solar activity levels      
+c
+c               Jan   Feb   Mar   Apr   May  Jun
+	data ft1/ 73.6, 72.3, 71.8, 70.9, 73.6,73.0,
+     *          71.1, 69.4, 69.1, 70.9, 72.3,74.6/
+	data ft2/144.2,142.9,167.2,125.3,124.4,127.9,
+     *         142.0,165.9,132.6,142.0,145.6,143.0/
+c               Jul   Aug   Sep   Oct   Nov  Dec
+c	.. local in common ..
+	double precision umr
+	common/constt/umr
+c	common/const/umr,pi
+c     .. function references ..
+	real fun_hmF2_SD
+c     .. subroutine references ..
+c     read_data_SD
+c
+	umr=atan(1.0)*4./180
+      teta = 90.0-xmodip
+c
+      call read_data_SD(monthut,coeff_month)
+      Kf = coeff_month(0:148,iUT)
+	hmF2_1 = fun_hmF2_SD(teta,long,Kf)
+      Kf = coeff_month(0:148,iUT+24)
+	hmF2_2 = fun_hmF2_SD(teta,long,Kf)
+c
+      cov = F107A
+	cov1 = ft1(monthut) 
+	cov2 = ft2(monthut)
+c 
+ 	a = (hmF2_2 - hmF2_1)/log(cov2/cov1)
+	b =  hmF2_2 - a*log(cov2)
+	hmF2_med_SD = a*log(cov) + b
+c
+      return
+      end
+c
+c
+      subroutine read_data_SD(month,coeff_month)
+c------------------------------------------------------------------
+c    subroutine to read arrays mcsat11.datÖ mcsat22.dat
+c    with coefficients of hmF2 spatial decomposition
+c    for for 12 month, 24 UT hour and two solar activity levels
+c------------------------------------------------------------------
+	implicit none
+c     .. scalar arguments ..
+	integer month
+c     .. array arguments ..
+	double precision coeff_month(0:148,0:47)
+c     .. local scalars ..
+	integer coeff_month_read(1:12)
+	character(256) filedata
+	integer i, j
+c     .. local arrays ..
+	double precision coeff_month_all(0:148,0:47,1:12)
+	save coeff_month_all
+	data coeff_month_read /12*0/
+c
+      if (coeff_month_read(month) .eq. 0) then
+        write(filedata, 10) month+10
+        open(10, File=filedata, status='old')
+	  do j=0,47
+	    read(10,20) (coeff_month_all(i,j,month),i=0,148)
+        end do
+	  close(10)
+	  coeff_month_read(month) = 1
+	end if
+c
+      coeff_month = coeff_month_all(0:148,0:47,month)	
+c
+c    Previous operator can be replaced by
+c
+c      do i=0,148
+c	   do j=0,47 
+c	      coeff_month(i,j) = coeff_month_all(i,j,month)
+c        end do
+c	end do	   
+c
+	  return
+	
+ 10   format('mcsat',i2,'.dat')
+c-web- special for web version
+c10     FORMAT('/var/www/omniweb/cgi/vitmo/IRI/mcsat',I2,'.dat')
+ 20   format(6(d12.5))
+      end
+c
+c      
+      real function fun_hmF2_SD(teta,long,Kf)
+c---------------------------------------------------------------------
+c    Input: 
+c      teta - (90-modip) in degrees
+c      long - geodatic longitude in degrees
+c      Kf   - coefficients of hmF2 spatial decomposition 
+c
+c    function to calculate spherical harmonics decomposition
+c    for the spatial dependencies of hmF2
+c    used the following auxiliary subroutines and functions:
+c    fun_Gk, Legendre
+c---------------------------------------------------------------------
+      implicit none
+c	.. scalar arguments ..
+      double precision teta
+      real long
+c     .. array arguments ..
+      double precision Kf(0:148)
+c	.. local scalars ..
+      integer k
+      double precision hmF2
+c	 .. local arrays ..
+      double precision Gk(0:148)
+c     .. subroutine references ..
+c     fun_Gk
+c
+	call fun_Gk(teta,long,Gk)
+	hmF2 = 0.d0
+	do k=0,148
+	   hmF2 = hmF2 + Kf(k)*Gk(k) 
+	end do
+      fun_hmF2_SD = hmF2
+c
+      return
+      end
+c
+c
+      subroutine fun_Gk(teta,long,Gk)
+c---------------------------------------------------------------------
+      implicit none
+c	.. scalar arguments ..
+      double precision teta
+      real long
+c      real long, umr, pi
+c     .. array arguments ..
+      double precision Gk(0:148)
+c	.. local scalars ..
+      integer mm, nn, m, n, k
+c	.. local arrays ..
+	double precision Pl_mn(0:8,0:12)
+c	.. local in common ..
+	double precision umr
+	common/constt/umr
+c	common/const/umr,pi
+c     .. subroutine references ..
+c     Legendre
+c
+      Pl_mn = 0.d0
+	mm = 8
+	nn = 12
+      call Legendre(mm,nn,Pl_mn,teta)
+      Gk = 0.d0
+      k = 0
+      do m=0,mm
+         if (m==0) then
+	      do n=0,nn
+              Gk(k) = Pl_mn(m,n)
+			k = k + 1
+            end do
+         else 
+	      do n=m,nn
+              Gk(k)   = Pl_mn(m,n)*cos(m*long*umr)
+		    Gk(k+1) = Pl_mn(m,n)*sin(m*long*umr)
+			k = k + 2
+           end do
+         end if
+      end do
+c
+      return
+      end
+c
+c
+      subroutine Legendre(mm,nn,p,teta)
+c---------------------------------------------------------------------
+c     Input:
+c       mm       - harmonics for longitude
+c       nn       - harmonics for the modified dip latitude (modip) 
+c       teta     - (90-modip) in degrees
+c    Output:
+c       P(mm,nn) - associated Legendre function    
+c
+c    subroutine to calculate associated Legendre function P(mm,nn)
+c    with Schmidt normalization
+c---------------------------------------------------------------------
+	  implicit none
+c     .. scalar arguments ..
+      integer mm, nn
+c      real umr, pi
+      double precision teta
+c     .. array arguments ..
+      double precision p(0:mm,0:nn)
+c     .. local scalars ..
+      integer j,l,m,n
+      double precision z, s
+c	.. local in common ..
+	  double precision umr
+	  common/constt/umr
+c	  common/const/umr,pi
+c
+      p = 0.0
+	  z=cos(umr*teta)
+      p(0,0)=1.
+      p(0,1)=z
+      if (mm.ne.0) p(1,1)=sin(umr*teta)
+c
+      do j=2,mm
+         p(j,j)=(2*j-1)*p(j-1,j-1)*p(1,1)
+      end do
+c
+      do m=0,mm
+	   do n=1,nn
+		  if (m.gt.n) then
+		     p(m,n) = 0.0
+			 cycle
+            end if
+            if ((n+1).gt.nn) exit
+	      if (n+1.eq.m) cycle
+		  if (m.gt.(n-1)) then
+		     p(m,n+1)= (2*n+1)*z*p(m,n)/(n+1-m)
+            else
+		     p(m,n+1)=((2*n+1)*z*p(m,n)-(n+m)*p(m,n-1))/(n+1-m)
+            end if
+         end do
+      end do
+c
+      do n=1,nn
+         do m=1,mm
+		  if (m.gt.n) then
+		     p(m,n) = 0.0
+			 exit
+            end if
+            s=1
+	      do l=n-m+1,n+m
+   	         s=s*l
+            end do
+	      p(m,n)=p(m,n)*sqrt(2./s)
+        end do
+      end do
+c
+      return
+      end
+c
+c
+      real function fun_hmF2UT(T)
+c---------------------------------------------------------------------
+c    Input: T - universal time        
+c 
+c    function to calculate Fourier  decomposition
+c    for the temporal variations of hmF2
+c    used the following auxiliary subroutines:
+c    Koeff_UT, fun_Akp_UT, fun_Fk_UT, fun_Gk_UT
+c---------------------------------------------------------------------
+      implicit none
+c	.. scalar arguments ..
+      double precision T
+c	.. local scalars ..
+      integer k, mm, mk
+c      real dtr, dumr
+      double precision hmF2
+c   .. local arrays ..	
+	  double precision Gk_UT(0:6), Kf_UT(0:6)
+c	.. local in common ..	
+	  double precision dtr
+	  common/radUT/dtr
+c	  common/const1/dtr,dumr
+c   .. subroutine references ..
+c     Koeff_UT, fun_Gk_UT
+c
+      dtr=atan(1.0)*4.0/12.0
+      mm = 3
+	  mk = 2*mm
+c
+	  call Koeff_UT(mm,mk,Kf_UT)
+      call fun_Gk_UT(mm,mk,t,Gk_UT)
+	  hmF2 = 0.d0
+	  do k=0,mk
+	    hmF2 = hmF2 + Kf_UT(k)*Gk_UT(k) 
+	  end do
+      fun_hmF2UT = hmF2
+c
+      return
+      end
+c
+c
+      subroutine Koeff_UT(mm,mk,Kf_UT)
+c---------------------------------------------------------------------
+      implicit none
+c	..  scalar arguments ..
+      integer mm, mk
+c   .. array arguments ..
+	  double precision Kf_UT(0:mk)
+c	.. local scalars ..
+      integer k, m
+      double precision sum_D
+c   .. local arrays ..
+	  double precision Akp_UT(0:mk,0:mk)
+	  double precision Dk_UT(0:mk)
+c   .. subroutine references ..
+c   fun_Akp_UT 
+c
+      call fun_Akp_UT(mm,mk,Akp_UT,Dk_UT)
+      Kf_UT = 0.d0
+      do k=mk,0,-1
+         sum_D = 0.d0
+         do m=k+1,mk
+            sum_D = sum_D + Akp_UT(m,k)*Kf_UT(m)
+         end do
+         Kf_UT(k) = sum_D + Dk_UT(k)
+      end do   
+
+      return
+	  end
+c
+c
+      subroutine fun_Akp_UT(mm,mk,Akp_UT,Dk_UT)
+c---------------------------------------------------------------------
+      implicit none
+c	.. scalar arguments ..
+      integer mm, mk
+c   .. array arguments ..
+      double precision Akp_UT(0:mk,0:mk), Dk_UT(0:mk)
+c	.. local scalars ..
+	  integer i, k, p
+	  double precision t
+	  double precision sum_An, sum_Dn
+	  double precision sum_Ad, sum_Dd
+c   .. local arrays ..
+	  double precision Gk_UT(0:mk), Fk_UT(0:mk)
+c	.. array in common ..	
+	  double precision hmF2_UT(0:23)
+	  common/hmF2UT/hmF2_UT
+c   .. subroutine references ..
+c	fun_Gk_UT, fun_Fk_UT
+c
+      Gk_UT = 0.d0
+      Gk_UT(0) = 1.0
+	  Fk_UT = 0.d0
+      Fk_UT(0) = 1.d0
+	  Akp_UT = 0.d0
+	  Dk_UT = 0.d0
+	  do p=0,mk
+         sum_Dn=0.d0
+         sum_Dd=0.d0
+         do k=p+1,mk
+            sum_An=0.d0
+	        sum_Ad=0.d0
+	        do i=0,23
+               t = dble(i)
+               call fun_Gk_UT(mm,mk,t,Gk_UT)
+	           call fun_Fk_UT(mk,Gk_UT,Akp_UT,Fk_UT)
+		       sum_An = sum_An + Gk_UT(k)*Fk_UT(p)
+		       sum_Ad = sum_Ad + Fk_UT(p)*Fk_UT(p)
+			   if (p.eq.(k-1)) then
+			     sum_Dn = sum_Dn + hmF2_UT(i)*Fk_UT(p)
+                 sum_Dd = sum_Dd + Fk_UT(p)*Fk_UT(p)
+                 end if
+            end do
+            Akp_UT(k,p) = - sum_An/sum_Ad
+	     end do
+         if (p.lt.mk) then
+	        Dk_UT(p) = sum_Dn/sum_Dd
+            end if
+	  end do
+c
+      p=mk
+      sum_Dn=0.d0
+      sum_Dd=0.d0
+      do i=0,23
+         t = dble(i)
+         call fun_Gk_UT(mm,mk,t,Gk_UT)
+         call fun_Fk_UT(mk,Gk_UT,Akp_UT,Fk_UT)
+         sum_Dn = sum_Dn + hmF2_UT(i)*Fk_UT(p)
+         sum_Dd = sum_Dd + Fk_UT(p)*Fk_UT(p)
+      end do
+      Dk_UT(p) = sum_Dn/sum_Dd
+c
+      return
+      end
+c
+c
+      subroutine fun_Fk_UT(mk,Gk_UT,Akp_UT,Fk_UT)
+c---------------------------------------------------------------------
+      implicit none
+c	.. scalar arguments ..
+	  integer mk
+c   .. array arguments ..
+	  double precision Gk_UT(0:mk)
+	  double precision Akp_UT(0:mk,0:mk)
+	  double precision Fk_UT(0:mk)
+c	.. local scalars ..
+      integer k, p
+      double precision sum_G
+c
+      Fk_UT = 0.d0
+      do k=0,mk
+         sum_G = 0.d0
+         do p=0,k
+            if (k.eq.p) cycle
+            sum_G = sum_G + Akp_UT(k,p)*Fk_UT(p)
+         end do
+         Fk_UT(k) = sum_G + Gk_UT(k)
+      end do
+c
+      return
+      end
+c
+c
+	subroutine fun_Gk_UT(mm,mk,t,Gk_UT)
+c---------------------------------------------------------------------
+      implicit none
+c	.. scalar arguments ..
+      integer mm, mk
+c      real dtr, dumr
+      double precision t
+c   .. array arguments ..
+	  double precision Gk_UT(0:mk)
+c	.. local scalars ..
+      integer m, k
+c	.. local in common ..
+	  double precision dtr
+	  common/radUT/dtr
+c	  common/const1/dtr, dumr
+c
+	  Gk_UT = 0.d0
+        k = 0
+        do m=0,mm
+          if (m.eq.0) then
+            Gk_UT(k) = 1
+            k = k + 1
+          else 
+            Gk_UT(k)   = cos(m*t*dtr)
+            Gk_UT(k+1) = sin(m*t*dtr)
+		    k = k + 2
+          end if
+       end do
+c
+      return
+      end
+C
+C
       REAL FUNCTION FOF1ED(YLATI,R,CHI)
 c--------------------------------------------------------------
 C CALCULATES THE F1 PEAK PLASMA FREQUENCY (FOF1/MHZ)
@@ -4954,7 +6167,7 @@ C                                      AND 8, 837-839, 1973
 c       HOWEVER WITH MAGNETIC DIP LATITUDE INSTEAD OF GEOMAGNETIC
 c       DIPOLE LATITUDE, EYFRIG, 1979                    
 C--------------------------------------------- D. BILITZA, 1988.   
-        COMMON/CONST/UMR
+        COMMON/CONST/UMR,PI
 	    fof1ed=0.0
 	    if (chi.gt.90.0) return
 
@@ -4973,11 +6186,11 @@ C--------------------------------------------- D. BILITZA, 1988.
         END             
 C
 C
-	real function f1_c1(xmodip,hour,suxnon,saxnon)
+	real function f1_c1(xmodip,hour,saxnon,suxnon)
 c F1 layer shape parameter C1 after Reinisch and Huang, Advances in
 c Space Research, Volume 25, Number 1, 81-88, 2000.
 
-        common	/const/umr
+        common	/const/umr,pi
         pi = umr * 180.
 	
         ABSMDP=ABS(XMODIP)
@@ -5008,7 +6221,7 @@ c Output: 	f1prob	F1 occurrence probability without L-condition cases
 c 			f1probl	F1 occurrence probability with L-condition cases
 c--------------------------------------------------------------------------
 c
-        common /const/umr
+        common /const/umr,pi
 
 	    xarg = 0.5 + 0.5 * cos(sza*umr)
 		a = 2.98 + 0.0854 * rz12
@@ -5040,7 +6253,7 @@ C       TROST, J. GEOPHYS. RES. 84, 2736, 1979 (was used
 C               to improve the nighttime varition)
 C       RAWER AND BILITZA, Adv. Space Res. 10(8), 5-14, 1990
 C D.BILITZA--------------------------------- AUGUST 1986.    
-        COMMON/CONST/UMR
+        COMMON/CONST/UMR,PI
 C variation with solar activity (factor A) ...............
         A=1.0+0.0094*(COV-66.0)                      
 C variation with noon solar zenith angle (B) and with latitude (C)
@@ -5081,7 +6294,7 @@ C AND YW/M-3 THE ASSUMED CONSTANT NIGHT VALUE.
 C [REF.: D.BILITZA, WORLD DATA CENTER A REPORT UAG-82,7,BOULDER,1981]
 C corrected 4/25/97 - D. Bilitza
 c
-        COMMON/CONST/UMR
+        COMMON/CONST/UMR,PI
 c
         if(xhi.ge.90) goto 100
         Y = 6.05E8 + 0.088E8 * R
@@ -5120,7 +6333,7 @@ C SHEIKH,4.3.77.
 C---------------------------------------------------------------
       REAL*8 C(12),S(12),COEF(100),SUM             
       DIMENSION NQ(K1),XSINX(13),SFE(M3)           
-      COMMON/CONST/UMR
+      COMMON/CONST/UMR,PI
       HOU=(15.0*HOUR-180.0)*UMR                    
       S(1)=SIN(HOU)   
       C(1)=COS(HOU)   
@@ -5201,7 +6414,7 @@ C                        3 equinox (SG=270), 4 winter(SG=360)
 C   SG=season grids=90,180,270,360
 C---------------------------------------------------------------------------------
       DIMENSION CVLEV(4)	
-	  COMMON     /BLOCK1/HMF2,XNMF2,XHMF1,F1REG         
+	  COMMON   /BLOCK1/HMF2,XNMF2,XHMF1,F1REG         
      *         /QTOP/Y05,H05TOP,QF,XNETOP,XM3000,HHALF,TAU
 	  DATA CVLEV/60.,106.,152.,198./
 	  LOGICAL F1REG
@@ -5239,8 +6452,8 @@ C-------------------------------------------------------------------------------
 c      REAL UK(0:10),CR(0:5,5,3,4),YI(5),YY(5,3)
       REAL BR(6,5,3,4),YI(5),YY(5,3)
       REAL PL1(5),PL2(5),PL3(5),CL(0:3)
-C  
-	  DATA rad/0.01745329/
+C
+      COMMON /CONST/rad,pi  
       DATA PL1/-2.,-1.,0.,1.,2./
   	  DATA PL2/2.,-1.,-2.,-1.,2./
   	  DATA PL3/-1.,2.,0.,-2.,1./
@@ -5393,19 +6606,18 @@ C-------------------------------------------------------------------
       PARAMETER   (IBO=0,JBO=1,KDIM=6,LDIM=4,L=-1)
       DIMENSION   FN(0:KDIM,0:KDIM), CONST(0:KDIM,0:KDIM)
       DIMENSION   GNM(0:KDIM,0:KDIM,1-IBO-JBO:LDIM),
-     *			HNM(0:KDIM,0:KDIM,1-IBO-JBO:LDIM)
+     *			  HNM(0:KDIM,0:KDIM,1-IBO-JBO:LDIM)
 	  DIMENSION   GANM(0:KDIM,0:KDIM,1-IBO-JBO:LDIM),
-     *			HANM(0:KDIM,0:KDIM,1-IBO-JBO:LDIM),
+     *			  HANM(0:KDIM,0:KDIM,1-IBO-JBO:LDIM),
      *            GBNM(0:KDIM,0:KDIM,1-IBO-JBO:LDIM),
-     *			HBNM(0:KDIM,0:KDIM,1-IBO-JBO:LDIM)
+     *			  HBNM(0:KDIM,0:KDIM,1-IBO-JBO:LDIM)
       DIMENSION   BINT(0:KDIM,0:KDIM,1-IBO-JBO:LDIM),
      *            BEXT(0:KDIM,0:KDIM,1-IBO-JBO:LDIM)
       CHARACTER*1 IE       
-      COMMON /BLOCK9/ BINT,BEXT,RE,TZERO,IFIT,IB,KINT,LINT,KEXT,
+      COMMON/ATB/BINT,BEXT,RE,TZERO,IFIT,IB,KINT,LINT,KEXT,
      *              LEXT,KMAX,FN
-C     ,CONST
 
-      DATA THETA,RE,    TZERO,IFIT,ICEN,IREF,IB,KINT,LINT,KEXT,LEXT
+      DATA THETA,RE,TZERO,IFIT,ICEN,IREF,IB,KINT,LINT,KEXT,LEXT
      *     /180.,6371.2,1.0,  -1,  0,   0,   2, 6,   4,   0,   -1/
 
   	  DATA ((CONST(N,M), M=0,N), N=0,KDIM)
@@ -5549,6 +6761,230 @@ C     **********************************************************
       END
 C
 C
+      SUBROUTINE SCHNEVPD (RZ,FLAT,FLON,R,T,L,BN,BE,BV)
+C-------------------------------------------------------------------
+C     WHEN L IS POSITIVE:
+C     COMPUTES SPHERICAL CAP HARMONIC (GEOCENTRIC) FIELD COMPONENTS
+C     HORIZONTAL NORTH BN,HORIZONTAL EAST BE,AND VERTICAL DOWNWARD BV.
+C     WHEN L IS NEGATIVE:
+C     COMPUTES GENERAL FUNCTION BV, ITS HORIZONTAL NORTH DERIVATIVE BN,
+C     AND ITS HORIZONTAL EAST DERIVATIVE BE, ON SPHERICAL CAP SURFACE.
+C     NOTE THAT THESE ARE METRICAL DERIVATIVES, AND BE IS THE
+C     LONGITUDINAL DERIVATIVE DIVIDED BY SIN(COLATITUDE).
+
+C     FLAT,FLON,R ARE GEOCENTRIC SPHERICAL CAP LATITUDE,LONGITUDE,RADIAL
+C     DISTANCE; T IS TIME.
+
+C     L =  0  ON FIRST CALL:  RETURNS SPHERICAL CAP POLE POSITION FLATO,FLONO
+C             AND HALF-ANGLE THETA AS BN,BE, AND BV AFTER INITIALIZATION.
+C             ON SUBSEQUENT CALLS:  ACTS AS L=1.
+C          1  COMPUTES POTENTIAL FIELD COMPONENTS FROM INTERNAL COEFFICIENTS.
+C          2  COMPUTES POTENTIAL FIELD COMPONENTS FROM EXTERNAL COEFFICIENTS.
+C          3  COMPUTES FIELD FROM BOTH INTERNAL AND EXTERNAL COEFFICIENTS.
+C         -1  COMPUTES GENERAL FUNCTION BV AND DERIVATIVES BN WITH RESPECT TO
+C             LATITUDE AND BE WITH RESPECT TO LONGITUDE DIVIDED BY COS(LAT)
+C             (R IS DUMMY VARIABLE IN THIS CASE).
+C     NOTE:   SUBROUTINE IS INITIALIZED DURING FIRST CALL REGARDLESS OF L.
+
+C     SUBPROGRAM USED:  LEGFUN
+
+C	***** PARAMS & COEFFS TRANSFERRED FROM MAIN PROGRAM *****
+
+C	ADAPTED FROM SUBROUTINE SCHNEV OF G.V. HAINES (COMPUTERS & GEOSCIENCES, 
+C      14, 413-447, 1988)
+C-------------------------------------------------------------------
+
+      PARAMETER   (IBO=0,JBO=1,KDIM=6,LDIM=4)                                     
+      DIMENSION   FN(0:KDIM,0:KDIM), CONSTP(0:KDIM,0:KDIM)
+      DIMENSION   CML(KDIM), SML(KDIM)
+      DIMENSION   DELT(0:LDIM)
+      DIMENSION   BINT(0:KDIM,0:KDIM,1-IBO-JBO:LDIM),
+     *            BEXT(0:KDIM,0:KDIM,1-IBO-JBO:LDIM)
+      COMMON	/CONST/dfarg,PI 
+     * 			/ATB/BINT,BEXT,RE,TZERO,IFIT,IB,KINT,LINT,KEXT,
+     *              LEXT,KMAX,FN
+      CHARACTER*1 IE,RESP
+C
+      DATA ((CONSTP(N,M), M=0,N), N=0,KDIM)
+     *	 /4*1.,1.73205,0.866025,1.,2.44949,1.93649,0.7905691,1.,
+     *	  3.16228,3.35410,2.09165,0.739510,1.,3.87298,5.12348,
+     *	  4.18330,2.21853,0.701561,1.,4.58258,2*7.24569,4.96078,
+     *      2.32681,0.671693/
+
+C     IBF   =  0   TO USE ORDINARY POLYNOMIALS AS BASIS FUNCTIONS
+C              1          LEGENDRE POLYNOMIALS
+C              2          FOURIER SERIES
+C              3          COSINE SERIES
+C              4          SINE SERIES
+C     NOTE:    TZERO AND THINT MAY DEPEND ON IBF.
+      IBF   =  2                                                       
+      T1=1.
+      T2=12.
+      CALL TBFIT (T1,T2,IBF,THINT,TZERO)                                
+
+C      IF (L .NE. 0)  GO TO 100
+C      BN = FLATO
+C      BE = FLONO
+C      BV = THETA
+C      RETURN
+
+  100 IF (L .GE. 0)  THEN
+         IF (IFIT .LT. 0)  GO TO 999
+         AOR = RE/R
+         AR = AOR**2
+         IF (L .GT. 1)  GO TO 107
+      ELSE
+         IF (IFIT .GE. 0)  GO TO 999
+         AR = -1.
+         END IF
+      KT = LINT
+      GO TO 109
+  107 IF (KEXT .GT. 0)  AOR3 = AOR*AR
+      IF (L .GT. 2)  GO TO 108
+      KT = LEXT
+      GO TO 109
+  108 KT = MAX (LINT,LEXT)
+  109 DELT(0) = 1.
+      IF (KT .LE. 0)  GO TO 103
+      DEL = (T - TZERO)/THINT
+      DO 102 I=1,KT
+      IF (I .EQ. 1)  THEN
+         IF (IBF .LE. 1) THEN
+             DELT(I) = DEL
+             ELSE IF (IBF .EQ. 2)  THEN
+             ST = SIN(DEL)
+             DELT(I) = ST
+             ELSE IF (IBF .EQ. 3)  THEN
+             DELT(I) = COS(DEL)
+             ELSE
+             DELT(I) = SIN(DEL)
+             ENDIF
+         GO TO 102
+         ENDIF
+      IF (IBF .EQ. 0)  THEN
+          DELT(I) = DELT(I-1)*DEL
+      ELSE IF (IBF .EQ. 1)  THEN
+          RECIP = 1./FLOAT(I)
+          DELT(I) = (2.-RECIP)*DELT(I-1)*DEL - (1.-RECIP)*DELT(I-2)
+      ELSE IF (IBF .EQ. 2)  THEN
+           IF ((I/2)*2 .EQ. I)  THEN
+             IF (I .EQ. 2)  THEN
+                CT = COS(DEL)
+                DELT(I) = CT
+                ELSE
+                DELT(I) = DELT(I-2)*CT - DELT(I-3)*ST
+                ENDIF
+             ELSE
+             DELT(I) = DELT(I-2)*CT + DELT(I-1)*ST
+             ENDIF
+      ELSE IF (IBF .EQ. 3)  THEN
+          DELT(I) = COS(I*DEL)
+      ELSE IF (IBF .EQ. 4)  THEN
+          DELT(I) = SIN(I*DEL)
+      ELSE
+          GO TO 999
+      ENDIF
+  102 CONTINUE
+      incept = 0                                                              
+      if ((ibf.eq.2 .or. ibf.eq.3) .and. incept .eq. 1)  then
+c     change to intercept form of fourier series.
+          do i=2,lint,4-ibf
+          delt(i) = 1. - delt(i)
+          enddo
+          endif
+  103 X = 0.
+      Y = 0.
+      Z = 0.
+      IF (L .EQ. 2)  GO TO 106
+      IF (KINT .LT. 0)  GO TO 106
+      GTI = 0.
+      DO 105 I=1-IBO-JBO,LINT
+  105 GTI = GTI + BINT(0,0,I)*DELT(I)
+      Z = -AR*GTI
+      N =  0
+  106 COLAT = 90. - FLAT
+      DO 150 N=1,KMAX
+      IF (N .GT. 1)  GO TO 115
+      CL = COS(FLON*dfarg)
+      SL = SIN(FLON*dfarg)
+      CML(1) = CL
+      SML(1) = SL
+      GO TO 120
+  115 SML(N) = SL*CML(N-1) + CL*SML(N-1)
+      CML(N) = CL*CML(N-1) - SL*SML(N-1)
+  120 CONTINUE
+      DO 150 M=0,N
+      IF (IB .EQ. 2)  GO TO 121
+      NMM = N - M
+      IF ((NMM/2)*2 .NE. NMM)  GO TO 150
+  121 FFN = FN(N,M)
+      CALL LEGFUN (M,FFN,CONSTP(N,M),COLAT,P,DP,PMS,0)
+      IF (L .GE. 0)  THEN
+         AR = AOR**(FFN+2.)
+      ELSE
+         AR = 1.
+         FFN = -2.
+         DP = -DP
+         PMS = -PMS
+         END IF
+      IF (M .NE. 0)  GO TO 130
+      BT1 = 0.
+      BT3 = 0.
+      BT  = 0.
+      IF (L .EQ. 2)  GO TO 123
+      IF (N .GT. KINT)  GO TO 123
+      GTI = 0.
+      DO 122 I=1-IBO-JBO,LINT
+  122 GTI  = GTI  + BINT(N,M,I)*DELT(I)
+      BT1  = AR*GTI
+      BT3  = BT1
+  123 IF (L .LE. 1)  GO TO 125
+      IF (N .GT. KEXT)  GO TO 125
+      GTE = 0.
+      DO 124 I=1-IBO-JBO,LEXT
+  124 GTE = GTE + BEXT(N,M,I)*DELT(I)
+      BT  = AOR3/AR*GTE
+      BT1 = BT1 + BT
+  125 X = X + BT1*DP
+      Z = Z - (FFN*(BT3-BT)+BT3)*P
+      GO TO 150
+  130 BT1 = 0.
+      BT2 = 0.
+      BT3 = 0.
+      BT  = 0.
+      IF (L .EQ. 2)  GO TO 133
+      IF (N .GT. KINT)  GO TO 133
+      GTI = 0.
+      HTI = 0.
+      DO 132 I=1-IBO-JBO,LINT
+      GTI = GTI + BINT(N,M,I)*DELT(I)
+  132 HTI = HTI + BINT(M-1,N,I)*DELT(I)
+      BT1 = AR*(GTI*CML(M) + HTI*SML(M))
+      BT2 = AR*(GTI*SML(M) - HTI*CML(M))
+      BT3 = BT1
+  133 IF (L .LE. 1)  GO TO 135
+      IF (N .GT. KEXT)  GO TO 135
+      GTE = 0.
+      HTE = 0.
+      DO 134 I=1-IBO-JBO,LEXT
+      GTE = GTE + BEXT(N,M,I)*DELT(I)
+  134 HTE = HTE + BEXT(M-1,N,I)*DELT(I)
+      RA = AOR3/AR
+      BT = RA*(GTE*CML(M) + HTE*SML(M))
+      BT1 = BT1 + BT
+      BT2 = BT2 + RA*(GTE*SML(M) - HTE*CML(M))
+  135 X = X + BT1*DP
+      Y = Y + BT2*PMS
+      Z = Z - (FFN*(BT3-BT)+BT3)*P
+  150 CONTINUE
+      BN = X
+      BE = Y
+      BV = Z
+      RETURN
+  999 STOP
+      END
+C
+C
       SUBROUTINE  SHAB1D (FLAT,FLON,T,RZ,B)
 C-------------------------------------------------------------------
 C	COMPUTES THE HOURLY VALUES OF B1 FROM A SET OF SH COEFFICIENTS
@@ -5573,14 +7009,13 @@ C
       DIMENSION   BINT(0:KDIM,0:KDIM,1-IBO-JBO:LDIM),
      *            BEXT(0:KDIM,0:KDIM,1-IBO-JBO:LDIM)
       CHARACTER*1 IE       
-      COMMON /BLOCK9/ BINT,BEXT,RE,TZERO,IFIT,IB,KINT,LINT,KEXT,
+      COMMON/ATB1/BINT,BEXT,RE,TZERO,IFIT,IB,KINT,LINT,KEXT,
      *              LEXT,KMAX,FN
-C      ,CONST
 
 	  DATA ALT /300./
 
-C      DATA THETA,RE,    TZERO,IFIT,ICEN,IREF,IB,KINT,LINT,KEXT,LEXT
-C     *     /180.,6371.2,1.0,  -1,  0,   0,   2, 6,   4,   0,   -1/
+      DATA THETA,RE,TZERO,IFIT,ICEN,IREF,IB,KINT,LINT,KEXT,LEXT
+     *     /180.,6371.2,1.0,  -1,  0,   0,   2, 6,   4,   0,   -1/
 
   	  DATA ((CONST(N,M), M=0,N), N=0,KDIM)
      *	 /4*1.,1.73205,0.866025,1.,2.44949,1.93649,0.7905691,1.,
@@ -5697,18 +7132,17 @@ C     *     /180.,6371.2,1.0,  -1,  0,   0,   2, 6,   4,   0,   -1/
   302 CONTINUE
 
   500 CONTINUE
-C
 C     **********************************************************
 C     SYNTHESIZES THE VALUE OF B1 FROM THE MODEL	
 C     **********************************************************
-      CALL SCHNEVPD(RZ,FLAT,FLON,dum,T,L,dum,dum,B)
+      CALL SCHNEVPDB1(RZ,FLAT,FLON,dum,T,L,dum,dum,B)
 C
       RETURN
- 9999	STOP
+9999  STOP
       END
 C
 C
-      SUBROUTINE SCHNEVPD (RZ,FLAT,FLON,R,T,L,BN,BE,BV)
+      SUBROUTINE SCHNEVPDB1 (RZ,FLAT,FLON,R,T,L,BN,BE,BV)
 C-------------------------------------------------------------------
 C     WHEN L IS POSITIVE:
 C     COMPUTES SPHERICAL CAP HARMONIC (GEOCENTRIC) FIELD COMPONENTS
@@ -5742,23 +7176,21 @@ C      14, 413-447, 1988)
 C-------------------------------------------------------------------
 
       PARAMETER   (IBO=0,JBO=1,KDIM=6,LDIM=4)                                     
-      DIMENSION   FN(0:KDIM,0:KDIM), CONST(0:KDIM,0:KDIM)
+      DIMENSION   FN(0:KDIM,0:KDIM), CONSTP(0:KDIM,0:KDIM)
       DIMENSION   CML(KDIM), SML(KDIM)
       DIMENSION   DELT(0:LDIM)
       DIMENSION   BINT(0:KDIM,0:KDIM,1-IBO-JBO:LDIM),
      *            BEXT(0:KDIM,0:KDIM,1-IBO-JBO:LDIM)
-      COMMON /BLOCK9/ BINT,BEXT,RE,TZERO,IFIT,IB,KINT,LINT,KEXT,
+      COMMON	/CONST/dfarg,PI 
+     * 			/ATB1/BINT,BEXT,RE,TZERO,IFIT,IB,KINT,LINT,KEXT,
      *              LEXT,KMAX,FN
-C     ,CONST
       CHARACTER*1 IE,RESP
 C
-      DATA ((CONST(N,M), M=0,N), N=0,KDIM)
+      DATA ((CONSTP(N,M), M=0,N), N=0,KDIM)
      *	 /4*1.,1.73205,0.866025,1.,2.44949,1.93649,0.7905691,1.,
      *	  3.16228,3.35410,2.09165,0.739510,1.,3.87298,5.12348,
      *	  4.18330,2.21853,0.701561,1.,4.58258,2*7.24569,4.96078,
      *      2.32681,0.671693/
-
-        dfarg=(atan(1.0)*4.)/180.
 
 C     IBF   =  0   TO USE ORDINARY POLYNOMIALS AS BASIS FUNCTIONS
 C              1          LEGENDRE POLYNOMIALS
@@ -5867,7 +7299,7 @@ c     change to intercept form of fourier series.
       NMM = N - M
       IF ((NMM/2)*2 .NE. NMM)  GO TO 150
   121 FFN = FN(N,M)
-      CALL LEGFUN (M,FFN,CONST(N,M),COLAT,P,DP,PMS,0)
+      CALL LEGFUN (M,FFN,CONSTP(N,M),COLAT,P,DP,PMS,0)
       IF (L .GE. 0)  THEN
          AR = AOR**(FFN+2.)
       ELSE
@@ -5988,12 +7420,14 @@ C           -1     PRINT PARAMETERS ONLY
 C     INPUT M,FN,CONST,COLAT,IPRT.   OUTPUT P,DP,PMS
 C	ADAPTED FROM G.V. HAINES (COMPUTERS & GEOSCIENCES, 14, 413-447, 1988).
 C-------------------------------------------------------------------
-      REAL*8  FNN,AL,A,B,PNM,DPNM
-      DIMENSION  AM(60), BM(60)
+      REAL*8  		FNN,AL,A,B,PNM,DPNM
+      DIMENSION  	AM(60), BM(60)
+      LOGICAL		mess
+	  COMMON/iounit/konsol,mess	/CONST/dfarg,PI
 
       DATA   JMAX/60/
 
-      dfarg=(atan(1.0)*4.)/180.
+c      dfarg=(atan(1.0)*4.)/180.
       FNN = FN*(FN+1.)
       IF (COLAT .LT. 60.)  THEN
           X = SIN(dfarg*COLAT/2.)**2
@@ -6042,7 +7476,7 @@ C     CONVERGENCE SLOW OR JMAX TOO SMALL
   105 CONTINUE
 C     NUMERICAL ERROR UNACCEPTABLY LARGE DUE TO ADDING OF
 C     LARGE AND SMALL NUMBERS.
-      PRINT*, M,FN,CONST,J,A,B
+      if (mess) WRITE(konsol,108) M,FN,CONST,J,A,B
   108 FORMAT (//12H ** ERROR **/1X,I5,F10.5,E15.7,I5,2D15.7)
       STOP
 C     SERIES TRUNCATED SUCCESSFULLY.
@@ -6059,11 +7493,11 @@ C     SERIES TRUNCATED SUCCESSFULLY.
   120 CONTINUE
 C     PRINT TERMS OF SERIES
       IF (IPRT .EQ. 0)  RETURN
-      PRINT *,  M,FN,CONST,COLAT,P,DP,PMS,J
+      if (mess) WRITE(konsol,125) M,FN,CONST,COLAT,P,DP,PMS,J
   125 FORMAT (/1X,I5,F10.5,E20.12,F10.2,3F25.14,I5)
       IF (IPRT .LT. 0)  RETURN
       IF (IPRT .EQ. 2)  GO TO 135
-      PRINT *, (AM(I),I=1,J)
+      if (mess) write(konsol,130) (AM(I),I=1,J)
   130 FORMAT (1X,16E8.1)
       IF (IPRT .EQ. 1)  RETURN
   135 CONTINUE
@@ -6108,7 +7542,7 @@ C-------------------------------------------------------------------
      &              233,71,230,65,108,65,142,81,110,68,77,75,
      &              124,98,164,100,120,94,96,112,78,81,94,84,
      &              81,81,65,70,102,87,127,91,109,88,81,78/
-        data    zx/45.,72.,90.,108.,135./,dd/5*3.0/
+      DATA      zx/45.,72.,90.,108.,135./,dd/5*3.0/
 
         num_lat=3
 
@@ -6152,7 +7586,7 @@ C       bfd(2,2) at modip = -18,
 C       bfd(2,1) or bfd(1,1) at modip = 0,
 C       bfd(1,2) at modip = 20,
 C       bfd(1,3) at modip = 45.
-C If the Longitude is between 200 and 320 degrees than the modip 
+C If the Longitude is between 200 and 320 degrees then the modip 
 C equator is in the southern hemisphere and bfd(2,1) is used at the 
 C equator, otherwise bfd(1,1) is used.
 c
@@ -6185,6 +7619,7 @@ c      SUM = bb0
 C
 C
       SUBROUTINE TAL(SHABR,SDELTA,SHBR,SDTDH0,AUS6,SPT)                         
+C-----------------------------------------------------------
 C CALCULATES THE COEFFICIENTS SPT FOR THE POLYNOMIAL
 C Y(X)=1+SPT(1)*X**2+SPT(2)*X**3+SPT(3)*X**4+SPT(4)*X**5               
 C TO FIT THE VALLEY IN Y, REPRESENTED BY:                
@@ -6195,8 +7630,14 @@ C IF THERE IS AN UNWANTED ADDITIONAL EXTREMUM IN THE VALLEY
 C REGION, THEN AUS6=.TRUE., ELSE AUS6=.FALSE..     
 C FOR -SDELTA THE COEFF. ARE CALCULATED FOR THE FUNCTION                        
 C Y(X)=EXP(SPT(1)*X**2+...+SPT(4)*X**5).           
+C-----------------------------------------------------------
       DIMENSION SPT(4)                             
       LOGICAL AUS6    
+      AUS6=.FALSE.
+      if(SHBR.le.0.0) then
+          AUS6=.TRUE.
+          RETURN
+          ENDIF
       Z1=-SDELTA/(100.0*SHABR*SHABR)               
       IF(SDELTA.GT.0.) GOTO 500                    
       SDELTA=-SDELTA  
@@ -6209,7 +7650,6 @@ C Y(X)=EXP(SPT(1)*X**2+...+SPT(4)*X**5).
      &  (2.*SHABR+SHBR)*SPT(4)          
       SPT(2)=-2.0*Z1/SHABR-2.0*SHABR*SPT(3)-3.0*SHABR*SHABR*SPT(4)              
       SPT(1)=Z1-SHABR*(SPT(2)+SHABR*(SPT(3)+SHABR*SPT(4)))                      
-      AUS6=.FALSE.    
       B=4.*SPT(3)/(5.*SPT(4))+SHABR                
       C=-2.*SPT(1)/(5*SPT(4)*SHABR)                
       Z2=B*B/4.-C     
@@ -6241,7 +7681,7 @@ C               VWA     VALLEY WIDTH  (SMALLER, CORRECTED BY RAWER)
 C               HVB     HEIGHT OF VALLEY BASE [KM]
 C -----------------------------------------------------------------------
 C
-        COMMON  /CONST/UMR
+        COMMON  /CONST/UMR,PI
 C
         CS = 0.1 + COS(UMR*XHI)
         ABC = ABS(CS)
@@ -6340,7 +7780,7 @@ C        X,Y COMPONENTS IN THE EQUATORIAL PLANE (X TO ZERO LONGITUDE).
 C        DIP INCLINATION ANGLE(DEGREE). SMODIP RAWER'S MODFIED DIP.             
 C SHEIK,1977.         
       DIMENSION H(144),XI(3),G(144),FEL1(72),FEL2(72)
-      COMMON/CONST/UMR                           
+      COMMON/CONST/UMR,PI                           
       DATA FEL1/0.0, 0.1506723,0.0101742, -0.0286519, 0.0092606,                
      & -0.0130846, 0.0089594, -0.0136808,-0.0001508, -0.0093977,                
      & 0.0130650, 0.0020520, -0.0121956, -0.0023451, -0.0208555,                
@@ -6454,7 +7894,7 @@ C
       SUBROUTINE REGFA1(X11,X22,FX11,FX22,EPS,FW,F,SCHALT,X) 
 C REGULA-FALSI-PROCEDURE TO FIND X WITH F(X)-FW=0. X1,X2 ARE THE                
 C STARTING VALUES. THE COMUTATION ENDS WHEN THE X-INTERVAL                      
-C HAS BECOME LESS THAN EPS . IF SIGN(F(X1)-FW)= SIGN(F(X2)-FW)                  
+C HAS BECOME LESS THEN EPS . IF SIGN(F(X1)-FW)= SIGN(F(X2)-FW)                  
 C THEN SCHALT=.TRUE.  
       LOGICAL L1,LINKS,K,SCHALT                    
       SCHALT=.FALSE.
@@ -6524,7 +7964,7 @@ c       sunrse      local time of sunrise in hours
 c       sunset      local time of sunset in hours 
 c-------------------------------------------------------------------
 c
-        common/const/   dtr     /const1/humr,dumr
+        common/const/dtr,pi     /const1/humr,dumr
 c amplitudes of Fourier coefficients  --  1955 epoch.................
         data    p1,p2,p3,p4,p6 /
      &  0.017203534,0.034407068,0.051610602,0.068814136,0.103221204 /
@@ -6729,114 +8169,7 @@ c
         end
 C
 C
-       SUBROUTINE CLCMLT(IYYYY,DDD,UTHR,GLAT,GLON,MLT)
-C--------------------------------------------------------------------
-C      calculates magnetic local time
-C      Inputs:
-C             IYYYY..Year as YYYY, e.g. 1998
-C             DDD..day of year (1.1. = 0)
-C             UTHR..universal time in decimal hours
-C             GLAT,GLON..latitude north and longitude east in degrees
-C      Output:
-C             MLT..magnetic local time in decimal hours
-C--------------------------------------------------------------------
-       INTEGER IYYYY,DDD
-       REAL UTHR,GLAT,GLON,MLT
-       REAL DTOR,PI,XG,YG,ZG
-       REAL XXM(3),YYM(3),ZZM(3)
-       INTEGER IHOUR,MIN,ISEC
-       REAL GST,SLONG,SRASN,SDEC
-       REAL BE,CAL,SA(3),S,C,SG(3),SM(3)
-       REAL LAM,LAMS,DELLAM 
-       DATA DTOR/0.017453293/
-       DATA PI/3.14159265/
 
-       XG=COS(GLAT*DTOR)*COS(GLON*DTOR)
-       YG=COS(GLAT*DTOR)*SIN(GLON*DTOR)
-       ZG=SIN(GLAT*DTOR)
-       CALL DPMTRX(IYYYY,DDD,XXM,YYM,ZZM)
-       
-C       transform
-       XM=XXM(1)*XG+XXM(2)*YG+XXM(3)*ZG
-       YM=YYM(1)*XG+YYM(2)*YG+YYM(3)*ZG
-       ZM=ZZM(1)*XG+ZZM(2)*YG+ZZM(3)*ZG
-C       
-       IHOUR=INT(UTHR)
-       MIN=INT((UTHR-IHOUR)*60)
-       ISEC=INT((UTHR-IHOUR-MIN/60.0)*3600)
-       CALL SUN (IYYYY,DDD+1,IHOUR,MIN,ISEC,GST,SLONG,SRASN,SDEC)
-       BE=GST
-       CAL=COS(SRASN)
-       SA(3)=SIN(SDEC)
-       SA(1)=COS(SDEC)
-       SA(2)=SA(1)*SIN(SRASN)
-       SA(1)=SA(1)*CAL
-       S=SIN(BE)
-       C=COS(BE)
-       SG(1)=C*SA(1)+S*SA(2)
-       SG(2)=C*SA(2)-S*SA(1)
-       SG(3)=SA(3)       
-C       transform
-       SM(1)=XXM(1)*SG(1)+XXM(2)*SG(2)+XXM(3)*SG(3)
-       SM(2)=YYM(1)*SG(1)+YYM(2)*SG(2)+YYM(3)*SG(3)
-       SM(3)=ZZM(1)*SG(1)+ZZM(2)*SG(2)+ZZM(3)*SG(3)
-C      
-       LAM=ATAN2(YM,XM)
-       LAMS=ATAN2(SM(2),SM(1))
-       DELLAM=LAM-LAMS
-       IF (DELLAM .LT. 0.) DELLAM=DELLAM+2*PI
-       MLT=AMOD(DELLAM/PI*12.+12.,24.)
-       RETURN
-       END
-C
-C
-       SUBROUTINE DPMTRX(IYYYY,DDD,XM,YM,ZM)
-C--------------------------------------------------------------------------
-C      calculates othonormal matrix (columns XM,YM,ZM) for transformation 
-C      from geographic to magnetic coordinates
-C      Inputs:
-C             IYYYY..year
-C               DDD..day of year (1.1 = 0)
-C      Outputs:
-C               XM,YM,ZM..colums of the matrix
-C      Notes:
-C      MX(N),MY(N),MZ(N)..coordinates of the B vector in geographic system 
-C                for years stored in YR(N)
-C      N..number of elements of arrays MX,MY,MZ and YR
-C--------------------------------------------------------------------------
-       INTEGER IYYYY,DDD
-       REAL XM(3),YM(3),ZM(3)
-       REAL YR(10),MX(10),MY(10),MZ(10)
-       REAL INTERP,YEAR
-       REAL M,MXI,MYI,MZI,ZM12
-       INTEGER N
-
-       COMMON /DIPOL/ GHI1,GHI2,GHI3
-
-       DATA N/10/
-
-c IGRF coefficients (dipole) calculated in FELDCOF in IGRF.FOR
-       MXI = -GHI2
-       MYI = -GHI3
-       MZI = -GHI1
-
-C normalization of the vector of the dipole exis of the magnetic field
-       M=SQRT(MXI*MXI+MYI*MYI+MZI*MZI)
-       MYZ=SQRT(MYI*MYI+MZI*MZI)
-       ZM(1)=MXI/M
-       ZM(2)=MYI/M
-       ZM(3)=MZI/M
-       ZM12=SQRT(ZM(1)*ZM(1)+ZM(2)*ZM(2))
-       YM(1)=-ZM(2)/ZM12
-       YM(2)=ZM(1)/ZM12
-       YM(3)=0.
-       XM(1)=YM(2)*ZM(3)-YM(3)*ZM(2)
-       XM(2)=YM(3)*ZM(1)-YM(1)*ZM(3)
-       XM(3)=YM(1)*ZM(2)-YM(2)*ZM(1)
-       RETURN
-       END
-C
-C
       SUBROUTINE SUN (IYEAR,IDAY,IHOUR,MIN,ISEC,GST,SLONG,SRASN,SDEC)
 C-----------------------------------------------------------------------------
 C  CALCULATES FOUR QUANTITIES NECESSARY FOR COORDINATE TRANSFORMATIONS
@@ -6858,19 +8191,19 @@ C     ORIGINAL VERSION WRITTEN BY:    Gilbert D. Mead
 C-----------------------------------------------------------------------------
 C
       DOUBLE PRECISION DJ,FDAY
-      DATA RAD/57.295779513/
+      COMMON /CONST/UMR,PI
 C
       IF(IYEAR.LT.1901.OR.IYEAR.GT.2099) RETURN
       FDAY=DFLOAT(IHOUR*3600+MIN*60+ISEC)/86400.D0
       DJ=365*(IYEAR-1900)+(IYEAR-1901)/4+IDAY-0.5D0+FDAY
       T=DJ/36525.
       VL=DMOD(279.696678+0.9856473354*DJ,360.D0)
-      GST=DMOD(279.690983+.9856473354*DJ+360.*FDAY+180.,360.D0)/RAD
-      G=DMOD(358.475845+0.985600267*DJ,360.D0)/RAD
-      SLONG=(VL+(1.91946-0.004789*T)*SIN(G)+0.020094*SIN(2.*G))/RAD
+      GST=DMOD(279.690983+.9856473354*DJ+360.*FDAY+180.,360.D0)*UMR
+      G=DMOD(358.475845+0.985600267*DJ,360.D0)*UMR
+      SLONG=(VL+(1.91946-0.004789*T)*SIN(G)+0.020094*SIN(2.*G))*UMR
       IF(SLONG.GT.6.2831853) SLONG=SLONG-6.2831853
       IF (SLONG.LT.0.) SLONG=SLONG+6.2831853
-      OBLIQ=(23.45229-0.0130125*T)/RAD
+      OBLIQ=(23.45229-0.0130125*T)*UMR
       SOB=SIN(OBLIQ)
       SLP=SLONG-9.924E-5
 C
@@ -7298,41 +8631,34 @@ C
             END
 c
 c
-           subroutine tcon(yr,mm,day,idn,rz,ig,rsn,nmonth)
+           subroutine read_ig_rz 
 c----------------------------------------------------------------
-c input:        yr,mm,day       year(yyyy),month(mm),day(dd)
-c               idn             day of year(ddd)
-c output:       rz(3)           12-month-smoothed solar sunspot number
-c               ig(3)           12-month-smoothed IG index
-c               rsn             interpolation parameter
-c               nmonth          previous or following month depending
-c                               on day
-c
-c Requires I/O UNIT=12 to read the Rz12 and IG12 indices file IG_RZ.DAT 
+c Reads the Rz12 and IG12 indices file IG_RZ.DAT from I/O UNIT=12 
+c and stores the indices in COMMON:
+c		common/igrz/aig,arziyst,iyed   with aig(806),arz(806),
+c											start year (iyst)
+c                                           end year (iyed)
 c 
-c rz(1) & ig(1) contain the indices for the month mm and rz(2) & ig(2)
-c for the previous month (if day less than 15) or for the following
-c month (otherwise). These indices are for the mid of the month. The
-c indices for the given day are obtained by linear interpolation and
-c are stored in rz(3) and ig(3).
-c
 c The indices file IG_RZ.DAT is structured as follows (values are 
 c separated by comma): 
 c   day, month, year of the last update of this file,
 c   a blank line
 c   start month, start year, end month, end year,
 c   a blank line
-c   the IG index for December of start year - 1 (needed for interpolation)
+c   the IG index for December of start year minus 1 (this value is 
+c		needed for interpolating from 1st to 15th of first year)
 c   the 12 IG indices (13-months running mean) for start year, 
 c   the 12 IG indices for the second year 
-c       .. and so on until the end year,
-c   the IG index for January of end year + 1 (needed for interpolation)
+c       .. and so on until the last year,
+c   the 12 IG indices for the last year 
+c   the IG index for January of end year plus 1 (needed for interpolation)
 c   a blank line
-c   the Rz index for December of start year - 1 (needed for interpolation)
+c   the Rz index for December of start year minus 1 
 c   the 12 Rz indices (13-months running mean) for the start year,
 c   the 12 Rz indices for the second year 
-c       .. and so on until the end year.
-c   the Rz index for January of end year + 1 (needed for interpolation)
+c       .. and so on until the last year.
+c   the 12 Rz indices for the last year 
+c   the Rz index for January of end year plus 1 
 c 
 c A negative Rz index means that the given index is the 13-months-
 C running mean of the solar radio flux (F10.7). The close correlation 
@@ -7351,23 +8677,17 @@ c the file) and onward the indices are therefore based on indices
 c predictions.
 c----------------------------------------------------------------
 
-           integer      yr, mm, day, iflag, iyst, iyend,iymst
-           integer      imst,iymend
-           real         ionoindx(722),indrz(722)
-           real         ig(3),rz(3)
-           logical		mess
+           integer	iyst,iyend,iymst,iupd,iupm,iupy,imst,imend
+           real		aig(806),arz(806)
            
-           common /iounit/konsol,mess
+           common /igrz/aig,arz,iymst,iymend
 
-           save         ionoindx,indrz,iflag,iyst,iymst,iymend,imst
-
-        if(iflag.eq.0) then      
-            open(unit=12,file='ig_rz.dat',status='old')
+           open(unit=12,file='ig_rz.dat',FORM='FORMATTED',status='old')
 
 c-web- special for web version
 c            open(unit=12,file=
-c     *         '/usr/local/etc/httpd/cgi-bin/models/IRI/ig_rz.dat',
-c     *         status='old')
+c     *         '/var/www/omniweb/cgi/vitmo/IRI/ig_rz.dat',
+c     *         FORM='FORMATTED',status='old')
 
 c Read the update date, the start date and the end date (mm,yyyy), and
 c get number of data points to read.
@@ -7376,38 +8696,75 @@ c get number of data points to read.
             read(12,*) imst,iyst,imend,iyend
             iymst=iyst*100+imst
             iymend=iyend*100+imend
-
+     
 c inum_vals= 12-imst+1+(iyend-iyst-1)*12 +imend + 2
 c 1st year \ full years       \last y\ before & after
 
             inum_vals= 3-imst+(iyend-iyst)*12 +imend
 
 c read all the IG12 (ionoindx) and Rz12 (indrz) values
+            read(12,*) (aig(i),i=1,inum_vals)
+            read(12,*) (arz(i),i=1,inum_vals)
 
-            read(12,*) (ionoindx(i),i=1,inum_vals)
-            read(12,*) (indrz(i),i=1,inum_vals)
-            do 1 jj=1,inum_vals
-                rrr=indrz(jj)
-                if(rrr.lt.0.0) then
-                    covr=abs(rrr)
-                    rrr=33.52*sqrt(covr+85.12)-408.99
-                    if(rrr.lt.0.0) rrr=0.0
-                    indrz(jj)=rrr
-                    endif
-                if(ionoindx(jj).gt.-90.) goto 1
-                    zi=-12.349154+(1.4683266-2.67690893e-03*rrr)*rrr
-                    if(zi.gt.274.0) zi=274.0
-                    ionoindx(jj)=zi
-1               continue
+c use scale factor 0.7 for new sunspot number starting from Jan 2014
+c and starting with ig_rz file for Oct 2016.
+            if(iupy*100+iupm.gt.201609) then
+            	inum_chan= 3-imst+(2014-iyst)*12 
+            	do 1 jj=inum_chan,inum_vals
+                	arz(jj)=arz(jj)*0.7
+c                ggg=aig(jj)
+c                if(rrr.lt.0.0) then
+c                    covr=abs(rrr)
+c                    rrr=33.52*sqrt(covr+85.12)-408.99
+c                    if(rrr.lt.0.0) rrr=0.0
+c                    endif
+c                if(ggg.le.-90.) then
+c                    zi=-12.349154+(1.4683266-2.67690893e-03*rrr)*rrr
+c                    if(zi.gt.274.0) zi=274.0
+c                    ggg=zi
+c                    endif
+c                arz(jj)=rrr
+c                aig(jj)=ggg    
+1               	continue
+				endif
             close(unit=12)
-            iflag = 1
-        endif
+
+            return
+            end
+c
+c
+           subroutine tcon(yr,mm,day,idn,rz,ig,rsn,nmonth)
+c----------------------------------------------------------------
+c input:        yr,mm,day       year(yyyy),month(mm),day(dd)
+c               idn             day of year(ddd)
+c output:       rz(3)           12-month-smoothed solar sunspot number
+c               ig(3)           12-month-smoothed IG index
+c               rsn             interpolation parameter
+c               nmonth          previous or following month depending
+c                               on day
+c
+c Uses read_ig_rz and common/igrz/ to get indices 
+c 
+c rz(1) & ig(1) contain the indices for the month mm and rz(2) & ig(2)
+c for the previous month (if day less than 15) or for the following
+c month (if day greater than 15). These indices are for the mid of the 
+c month. The indices for the given day are obtained by linear 
+c interpolation and are stored in rz(3) and ig(3).
+c----------------------------------------------------------------
+
+           integer	yr,mm,day,iyst,iyend,iymst
+           integer	imst,iymend
+           real		ionoindx(806),indrz(806)
+           real		ig(3),rz(3)
+           logical	mess
+           
+           common 	/iounit/konsol,mess  
+           common	/igrz/ionoindx,indrz,iymst,iymend
 
         iytmp=yr*100+mm
-        if (iytmp .lt. iymst .or. iytmp .gt. iymend) then
-               if(mess) write(konsol,8000) iytmp,iymst,
-     &                                            iymend
- 8000          format(1x,I10,'** OUT OF RANGE **'/,5x,
+        if (iytmp.lt.iymst.or.iytmp.gt.iymend) then
+               if(mess) write(konsol,8000) iytmp,iymst,iymend
+8000           format(1x,I10,'** OUT OF RANGE **'/,5x,
      &  'The file IG_RZ.DAT which contains the indices Rz12',
      &  ' and IG12'/5x,'currently only covers the time period',
      &  ' (yymm) : ',I6,'-',I6)
@@ -7415,6 +8772,8 @@ c read all the IG12 (ionoindx) and Rz12 (indrz) values
                return
                endif
 
+		iyst=iymst/100
+		imst=iymst-iyst*100
 c       num=12-imst+1+(yr-iyst-1)*12+mm+1
         num=2-imst+(yr-iyst)*12+mm
 
@@ -7423,10 +8782,9 @@ c       num=12-imst+1+(yr-iyst-1)*12+mm+1
         midm=15
         if(mm.eq.2) midm=14
         call MODA(0,yr,mm,midm,idd1,nrdaym)
+
         if(day.lt.midm) goto 1926
-c
 c day is at or after mid of month
-c
                 imm2=mm+1
                 if(imm2.gt.12) then
                         imm2=1
@@ -7468,22 +8826,24 @@ c               if((yr/4*4.eq.yr).and.(yr/100*100.ne.yr)) idd2=381
             end
 C
 C
-
-        SUBROUTINE APF(IYYYY,IMN,ID,HOUR,IAP)
-c-----------------------------------------------------------------------
-c Finds 3-hourly Ap indices for IRI-STORM model
-c    INPUTS: 	IYYYY (yyyy)	year 
-c 				IMN (mm)		month 
-c				ID (dd)			day 
-c				HOUR			UT in decimal hours
-c    OUTPUT:    IAP(13)			3-hourly Ap index
-c								IAP(13) Ap index for current UT
-c								IAP(1) AP index for UT-39 hours.
+		subroutine readapf107
+C-------------------------------------------------------------------------
+c Reads APF107.DAT file (on UNIT=13) and stores contents in COMMON block:
+C 	COMMON/AAP,AF107,N/ with  AAP(23000,9) and AF107(23000,3)
+C		AAP(*,1)	3-hour Ap indices for the UT interval )0-3)
+C		AAP(*,2)	3-hour Ap indices for the UT interval )3-6)
+C          ....                       ....
+C		AAP(*,8)	3-hour Ap indices for the UT interval )21-6)
+C		AAP(*,9)	daily Ap
+C		AF107(*,1)	F10.7 radio flux for the day
+C		AF107(*,2)	81-day average of F10.7 radio flux 
+C		AF107(*,3)	365-day average of F10.7
+C       N           total number of records
 c
-c Reads APF107.DAT file (on UNIT=13) that is structured as follows:
+c APF107.DAT is structured as follows:
 c 		JY(I3),JMN(I3),JD(I3)	year, month, day 
 c		IIAP(8)	(8I3)			3-hour Ap indices for the UT intervals 
-c								(0-3),)3-6),)6-9), .., )18-21),)21-24(
+c								(0-3(,(3-6(,(6-9(, .., (18-21(,(21-24(
 c		IAPD (I3)				daily Ap
 c		IR (I3)					sunspot number for the day (empty)
 c		F107 (F5.1)				F10.7 radio flux for the day
@@ -7495,85 +8855,105 @@ c                               indices, e.g. for the first date the
 c                               average is only over 40 F10.7 values  
 c                               and over 41 values on the 2nd date.  
 c
+c If date is outside the range of the Ap indices file then IAP(1)=-5  
+C-------------------------------------------------------------------------
+C
+        INTEGER		aap(23000,9),iiap(8)
+        DIMENSION 	af107(23000,3)
+        COMMON		/apfa/aap,af107,n
+
+        Open(13,FILE='apf107.dat',FORM='FORMATTED',STATUS='OLD')
+c-web-sepcial vfor web version
+c      OPEN(13,FILE='/var/www/omniweb/cgi/vitmo/IRI/apf107.dat',
+c     *    FORM='FORMATTED',STATUS='OLD')
+
+		i=1
+1       READ(13,10,END=21) JY,JMN,JD,iiap,iapda,IR,F107D,F107_81,
+     *        F107_365
+10      FORMAT(3I3,9I3,I3,3F5.1)
+
+c 		adate(i)=jy*10000+jmn*100+jd 
+		do j=1,8 
+             aap(i,j)=iiap(j)
+             enddo
+		aap(i,9)=iapda
+c		irza(i)=ir
+ 		if(F107_81.lt.-4.) F107_81=F107D
+ 		if(F107_365.lt.-4.) F107_365=F107D
+		af107(i,1)=f107d 
+        af107(i,2)=f107_81 
+        af107(i,3)=f107_365
+		i=i+1 
+        goto 1
+
+21		n=i-1
+ 
+        CLOSE(13)
+		return
+		end
+C
+C
+
+        SUBROUTINE APF(ISDATE,HOUR,IAP)
+c-----------------------------------------------------------------------
+c Finds 3-hourly Ap indices for IRI-STORM model
+c    INPUTS: 	ISDATE		Array-index from APF_ONLY
+c			    HOUR		UT in decimal hours
+c    OUTPUT:    IAP(1:13)	3-hourly Ap index
+c							IAP(13) Ap index for current UT
+c							IAP(1) AP index for UT-39 hours.
+c
+c Gets indices from COMMON/APFA/
+c
 c If date is outside the range of the Ap indices file than IAP(1)=-5  
 c-----------------------------------------------------------------------
 
-        DIMENSION iiap(8),iap(13),lm(12)
-        LOGICAL	mess
-        COMMON /iounit/konsol,mess
-        DATA LM/31,28,31,30,31,30,31,31,30,31,30,31/
-
-        IYBEG=1958
+        INTEGER		aap(23000,9),iiap(8),iap(13)
+        DIMENSION 	af107(23000,3)
+        LOGICAL 	mess
+        COMMON 		/iounit/konsol,mess	/apfa/aap,af107,nf107
        
         do i=1,8
               iap(i)=-1
               enddo
 
-        if(iyyyy.lt.IYBEG) goto 21   ! file starts at Jan 1, 1958
-
-        OPEN(13,FILe='apf107.dat',
-c-web-sepcial vfor web version
-c      OPEN(13,FILE='/usr/local/etc/httpd/cgi-bin/models/IRI/apf107.dat',
-     *    ACCESS='DIRECT',RECL=55,FORM='FORMATTED',STATUS='OLD')
-                
-        is=0
-        if(iyyyy.gt.IYBEG) then
-            do i=IYBEG,iyyyy-1
-                nyd=365
-                if(i/4*4.eq.i) nyd=366
-                IS=IS+nyd
-                enddo
-            endif   
-
-        lm(2)=28
-        if(iyyyy/4*4.eq.iyyyy) lm(2)=29
-        do i=1,IMN-1
-              IS=IS+LM(i)
-              ENDDO
-
-        IS=IS+ID
+	   IS = ISDATE
 
         ihour=int(hour/3.)+1
         if(ihour.gt.8) ihour=8
 
-        if(is*8+ihour.lt.13) goto 21   ! at least 13 indices available	
-        READ(13,10,REC=IS,ERR=21) JY,JMN,JD,iiap,iapd,IR,F,F81,F365
-        do i9=1,8
-        	if(iiap(i9).lt.-2) goto 21
-        	enddo
+        if(is*8+ihour.lt.13) goto 21   ! less then 13 indices available	
+
         j1=13-ihour
         do i=1,ihour
-           iap(j1+i)=iiap(i)
+           iapi=aap(is,i)
+           if(iapi.lt.-2) goto 21
+           iap(j1+i)=iapi
            enddo
-        iss=is-1
-        READ(13,10,REC=ISS,ERR=21) JY,JMN,JD,iiap,iapd,IR,F,F81,F365
-        do i9=1,8
-        	if(iiap(i9).lt.-2) goto 21
-        	enddo
+
         if(ihour.gt.4) then
-              do i=1,j1
-                iap(i)=iiap(8-j1+i)
-                enddo
+           do i=1,j1
+              iapi=aap(is-1,8-j1+i)
+              if(iapi.lt.-2) goto 21
+              iap(i)=iapi
+              enddo
         else           
-             j2=5-ihour
-             do i=1,8
-                iap(j2+i)=iiap(i)
-                enddo
-             iss=is-2
-             READ(13,10,REC=ISS,ERR=21) JY,JMN,JD,iiap,iapd,IR,F,F81,F365
-        	 do i9=1,8
-        		if(iiap(i9).lt.-2) goto 21
-        		enddo
-             do i=1,j2
-                iap(i)=iiap(8-j2+i)
-                enddo
+           j2=5-ihour
+           do i=1,8
+              iapi=aap(is-1,i)
+              if(iapi.lt.-2) goto 21
+              iap(j2+i)=iapi
+              enddo
+           do i=1,j2
+              iapi=aap(is-2,8-j2+i)
+              if(iapi.lt.-2) goto 21
+              iap(i)=iapi
+              enddo
         endif         
-  10    FORMAT(3I3,9I3,I3,3F5.1)
-        CLOSE(13)
         goto 20
         
 21      if(mess) write(konsol,100)
-100     format(1X,'Date is outside range of Ap indices file.',
+100     format(1X,'One of the ap indeces is negative.',
      &     ' STORM model is turned off.')
         IAP(1)=-5
       
@@ -7581,128 +8961,75 @@ c      OPEN(13,FILE='/usr/local/etc/httpd/cgi-bin/models/IRI/apf107.dat',
       END
 C
 C
-        SUBROUTINE APFMSIS(IYYYY,IMN,ID,HOUR,IAPO)
+        SUBROUTINE APFMSIS(ISDATE,HOUR,IAPO)
 c-----------------------------------------------------------------------
-c Finds 3-hourly Ap indices for NRLMSIS00 model for given year IYYYY 
-C (yyyy), month (IMN), day (ID), and UT (HOUR, decimal hours). The 
-c indices are stored in IAP(13) providing the 13 3-hourly indices 
-c prior to HOUR. 
-C   IAPO(1) DAILY AP
-C   IAPO(2) 3-HR AP INDEX FOR CURRENT TIME			   	STORM  MSIS
-C   IAPO(3) 3-HR AP INDEX FOR 3 HRS BEFORE CURRENT TIME	STORM  MSIS
-C   IAPO(4) 3-HR AP INDEX FOR 6 HRS BEFORE CURRENT TIME	STORM  MSIS
-C   IAPO(5) 3-HR AP INDEX FOR 9 HRS BEFORE CURRENT TIME	STORM  MSIS  
-C   IAPO(6) AVERAGE OF EIGHT 3-HR AP INDICIES FROM 12 TO 33 HRS PRIOR
-C                    TO CURRENT TIME
-C   IAPO(7) AVERAGE OF EIGHT 3 HR AP INDICIES FROM 36 TO 57 HRS PRIOR
-C                    TO CURRENT TIME
+c Finds 3-hourly Ap indices for NRLMSIS00 model 
+c    INPUTS: 	ISDATE		Array-index from APF_ONLY
+c				HOUR		UT in decimal hours
+c    OUTPUT:   	IAPO(1:7)	3-hourly Ap index
+C  
+C IAPO(1) DAILY AP
+C IAPO(2) 3-HR AP INDEX FOR CURRENT TIME			   	
+C IAPO(3) 3-HR AP INDEX FOR 3 HRS BEFORE CURRENT TIME	
+C IAPO(4) 3-HR AP INDEX FOR 6 HRS BEFORE CURRENT TIME	
+C IAPO(5) 3-HR AP INDEX FOR 9 HRS BEFORE CURRENT TIME  
+C IAPO(6) AVERAGE OF EIGHT 3-HR AP INDICIES FROM 12 TO 33 HRS PRIOR
+C         TO CURRENT TIME
+C IAPO(7) AVERAGE OF EIGHT 3 HR AP INDICIES FROM 36 TO 57 HRS PRIOR
+C         TO CURRENT TIME
 c
 c The 3-hour UT intervals during the day are: (0-3),)3-6),)6-9),)9-12),
 c )12-15),)15-18),)18-21),)21-24(.
 c 
-c If date is outside the range of the Ap indices file than IAPO(1)=-5  
+c If date is outside the range of the Ap indices file then IAPO(2)=-5  
 c-----------------------------------------------------------------------
 c
-		REAL IAPO
-        DIMENSION iiap(8),iap(21),lm(12),iapo(7)
-        LOGICAL  mess
+		REAL 		IAPO
+        INTEGER		aap(23000,9),iiap(8)
+        DIMENSION 	af107(23000,3),iap(20),lm(12),iapo(7)
+        LOGICAL  	mess
 
-        common /iounit/konsol,mess
+        COMMON 		/iounit/konsol,mess	/apfa/aap,af107,nf107
 
-        DATA LM/31,28,31,30,31,30,31,31,30,31,30,31/
-
-        IYBEG=1958
-
-        do i=1,21
-              iap(i)=-1
-              enddo
-        do i=1,7
-              iapo(i)=-1.0
-              enddo
-
-        if(iyyyy.lt.IYBEG) goto 21   ! file starts at Jan 1, 1958
-
-        Open(13,FILe='apf107.dat',
-c-web-sepcial vfor web version
-C      OPEN(13,FILE='/usr/local/etc/httpd/cgi-bin/models/IRI/apf107.dat',
-     *    ACCESS='DIRECT',RECL=55,FORM='FORMATTED',STATUS='OLD')
-                
-        is=0
-        if(iyyyy.gt.IYBEG) then
-            do i=IYBEG,iyyyy-1
-                nyd=365
-                if(i/4*4.eq.i) nyd=366
-                IS=IS+nyd
-                enddo
-            endif   
-
-        lm(2)=28
-        if(iyyyy/4*4.eq.iyyyy) lm(2)=29
-        do i=1,IMN-1
-              IS=IS+LM(i)
-              ENDDO
-
-        IS=IS+ID
+        IS=ISDATE
 
         ihour=int(hour/3.)+1
         if(ihour.gt.8) ihour=8
-C
-C calculate daily Ap for day of interest
-C
-        READ(13,10,REC=IS,ERR=21) JY,JMN,JD,iiap,iapd,IR,F,F81,F365
-		iapsum=0
-            do 1234 ijk=1,8
-1234			iapsum=iapsum+iiap(ijk)
-c		iapo(1)=int(iapsum/8.+.5)
-		iapo(1)=iapsum/8.
-		
-C
+
+		iapo(1)=aap(is,9)		
+
 C There must be at least 20 indices available
-C
-        if(is*8+ihour.lt.20) goto 21      	
-C
-C Read indices; first record was already read above
-C
+        if((is-1)*8+ihour.lt.20) goto 21      	
+
+C assemble Ap values as needed by MSIS
         j1=ihour+1
         do i=1,ihour
-           if(iiap(i).lt.-2) goto 21
-           iap(j1-i)=iiap(i)
+           iap(j1-i)=aap(is,i)
            enddo
 
-        iss=is-1
-        READ(13,10,REC=ISS,ERR=21) JY,JMN,JD,iiap,iapd,IR,F,F81,F365
         j1=ihour+9
         do i=1,8
-        	if(iiap(i).lt.-2) goto 21
-            iap(j1-i)=iiap(i)
+            iap(j1-i)=aap(is-1,i)
         	enddo
 
-        iss=is-2
-        READ(13,10,REC=ISS,ERR=21) JY,JMN,JD,iiap,iapd,IR,F,F81,F365
         j1=ihour+17
         j2=8-(20-ihour-8)+1
         if(j2.lt.1) j2=1
         do i=j2,8
-        	if(iiap(i).lt.-2) goto 21
-            iap(j1-i)=iiap(i)
+            iap(j1-i)=aap(is-2,i)
             enddo
 
         if(ihour.lt.4) then
-          iss=is-3
-          READ(13,10,REC=ISS,ERR=21) JY,JMN,JD,iiap,iapd,IR,F,F81,F365
           j1=ihour+25
           j2=8-(20-ihour-16)+1
           do i=j2,8
-        	if(iiap(i).lt.-2) goto 21
-            iap(j1-i)=iiap(i)
+            iap(j1-i)=aap(is-3,i)
             enddo
           endif
 
-10    FORMAT(3I3,9I3,I3,3F5.1)
-        CLOSE(13)
-        
         do 25 i=1,4 
 25         iapo(i+1)=iap(i)*1.0
+
         sum1=0.
         sum2=0.
         do 26 i=1,8
@@ -7715,50 +9042,50 @@ c        iapo(7)=int(sum2/8.+.5)
         goto 20
         
 21      if(mess) write(konsol,100)
-100     format(1X,'MSIS: Only Ap-daily dependence not history')
+100     format(1X,'APFMSIS: No Ap dependence because date is not',
+     &       ' covered by APF107.DAT indices file')
         IAPO(2)=-5.0
-      
-20    RETURN
+20    	continue
+
+	  RETURN
       END
 C
 C
         SUBROUTINE APF_ONLY(IYYYY,IMN,ID,F107D,F107PD,F107_81,F107_365,
-     *        IAPDA)
+     *        IAPDA,ISDATE)
 c-----------------------------------------------------------------------
 c Finds daily F10.7, daily Ap, and 81-day and 365-day F10.7 index: 
 c
-c    INPUTS: 	IYYYY (yyyy)	year 
-c 				IMN (mm)		month 
-c				ID (dd)			day 
-c    OUTPUT:    F107D			F10.7 index for the day (adjusted 
+c    INPUTS:   IYYYY (yyyy)	year 
+c              IMN (mm)		month 
+c	           ID (dd)		day 
+c    OUTPUT:   F107D		F10.7 index for the day (adjusted 
 c								to 1AU)
-C               F107PD  		F10.7 index for one day prior (used in MSIS)
-c				F107_81			F10.7 average over 3 solar rotations
+C              F107PD  		F10.7 index for one day prior (used in MSIS)
+c              F107_81		F10.7 average over 3 solar rotations
 c                               (81 days, centered on the current day) 
-c               F107_365        F10.7 12-month running mean
-c				IAPDA			Daily Ap
+c              F107_365 	F10.7 12-month running mean
+c              IAPDA		Daily Ap
+c              ISDATE		Array-index for the specified date (for
+c                                use in APF subroutine.
 c 
-c Using APF107.DAT file (see subroutine APF) on UNIT=13. 
+c Using COMMON/apfa/ for indices
 c
 c Is used for vdrift and foeedi.
 c
 c If date is outside the range of indices file than F107D=F107_81=-11.1  
 c-----------------------------------------------------------------------
 
-        DIMENSION iiap(8),lm(12)
-        LOGICAL mess
+        INTEGER		aap(23000,9),iiap(8),lm(12)
+        DIMENSION 	af107(23000,3)
+        LOGICAL 	mess
 
-        common /iounit/konsol,mess
+        common 		/iounit/konsol,mess /apfa/aap,af107,nf107
 
         DATA LM/31,28,31,30,31,30,31,31,30,31,30,31/
 
         IYBEG=1958
         if(iyyyy.lt.IYBEG) goto 21   ! APF107.DAT starts at Jan 1, 1958
-
-        Open(13,FILe='apf107.dat',
-c-web-sepcial vfor web version
-C      OPEN(13,FILE='/usr/local/etc/httpd/cgi-bin/models/IRI/apf107.dat',
-     *    ACCESS='DIRECT',RECL=55,FORM='FORMATTED',STATUS='OLD')
 
         is=0
         do i=IYBEG,iyyyy-1
@@ -7766,39 +9093,36 @@ C      OPEN(13,FILE='/usr/local/etc/httpd/cgi-bin/models/IRI/apf107.dat',
             if(i/4*4.eq.i) nyd=366	! leap year
             IS=IS+nyd
             enddo
-
         lm(2)=28
         if(iyyyy/4*4.eq.iyyyy) lm(2)=29	  ! leap year
-                do i=1,IMN-1
-              IS=IS+LM(i)
-              ENDDO
+        do i=1,IMN-1
+            IS=IS+LM(i)
+            ENDDO
         
         IS=IS+ID
+        ISDATE = IS
+        if(IS.gt.nf107) goto 21
 
-        READ(13,10,REC=IS,ERR=21) JY,JMN,JD,iiap,iapda,IR,F107D,F107_81,
-     *        F365
- 		
+        F107D = AF107(IS,1)
+        F107PD = F107D
+		if(IS.gt.1) F107PD = AF107(IS-1,1)
+        F107_81=AF107(IS,2)
  		if(F107_81.lt.-4.) F107_81=F107D
- 		if(F107_365.lt.-4.) F107_365=F107D
-
-        F107PD=F107D
-		if(IS.gt.1) READ(13,10,REC=IS-1,ERR=21) JY,JMN,JD,iiap,
-     *  	idum1,idum2,F107PD,fdum1,fdum2
-                 
-10      FORMAT(3I3,9I3,I3,3F5.1)
-        CLOSE(13)
+        F107_365=AF107(IS,3)
+  		if(F107_365.lt.-4.) F107_365=F107D
+        IAPDA=AAP(is,9)
         goto 20
-
+                 
 21      if(mess) write(konsol,100)
-100     format(1X,'Date is outside range of F10.7D indices file',
-     &    ' (F10.7D = F10.7_81 = F10.7RM12).')
+100     format(1X,'APF_ONLY: Date is outside range of F10.7D indices',
+     &    ' file (F10.7D = F10.7_81 = F10.7RM12).')
         F107D = -11.1
         F107_81 = -11.1
         F107_365 = -11.1
-     
+        IAPDA = -11
+    
 20    RETURN
       END
-
 C      
 C
 C----------------------STORM MODEL --------------------------------
@@ -8132,6 +9456,7 @@ C     ut  ---> (integer, hours 00 to 23) Universal Time of interest.
 C     doy ---> (integer, 1 to 366)Day of the year.
 C     cf  ---> (real) The output; the storm-time correction factor used
 C              to scale foF2, foF2 * cf.
+C     rgma --> corrected magnetic latitude calculated from rga and rgo
 C
 C     This model and computer code was developed by E. Araujo-Pradere,
 C     T. Fuller-Rowell and M. Condrescu, SEC, NOAA, Boulder, USA
@@ -9010,7 +10335,7 @@ C
 
          DO i=-7,-12,-1
             AEd7_12S=AE(iP+i)-130.0D0
-            IF (AEd7_12S.LE.0.0D0) AE7_12S=0.0D0
+            IF (AEd7_12S.LE.0.0D0) AEd7_12S=0.0D0
             AEd7_12=AEd7_12+AEd7_12S
          END DO
 
@@ -9618,7 +10943,7 @@ C
 C The auroral oval boundary is given as an array for corrected magnetic 
 C latitude CGM (ab_mlat). The 48 values correspond to the MLT values 
 C of 0.0,0.5,1.0,1.5,2.0 .. 23.5. If the input xmlt is greater than
-C -1 then the program determines the CGM latitude, cgmlat, that 
+C -1, then the program determines the CGM latitude, cgmlat, that 
 C corresponds to the given MLT value (xmlt).
 C
 C Y. Zhang and L.J. Paxton, An empirical Kp-dependent global auroral 

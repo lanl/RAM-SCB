@@ -172,7 +172,7 @@ SUBROUTINE ionospheric_potential
   !!!! Extra Modules
   use w05
   !!!! NR Modules
-  use nrtype, ONLY: DP
+  use nrtype, ONLY: DP, pi_d
 
 
   implicit none

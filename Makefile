@@ -6,7 +6,8 @@ include Makefile.def
 srcDir = src
 INSTALLFILES = ${srcDir}/Makefile.DEPEND \
 	       ${srcDir}/Makefile.RULES  \
-	       srcInterface/Makefile.DEPEND 
+	       srcInterface/Makefile.DEPEND \
+	       srcExternal/Makefile.DEPEND
 
 help:
 	@echo ' '
@@ -26,22 +27,25 @@ PDF:
 	@cd doc/Tex; make PDF
 
 RAM_SCB:
-	@cd ${SHAREDIR}; 	make LIB
-	@cd ${srcDir};   		make LIB
-	@cd ${srcDir};   		make RAM_SCB
+	@cd ${SHAREDIR}; make LIB
+	@cd srcExternal; make LIB
+	@cd ${srcDir};   make LIB
+	@cd ${srcDir};   make RAM_SCB
 
 install:
 	@touch ${INSTALLFILES}
 
 
 LIB:
-	cd ${srcDir}; make LIB
+	cd ${srcDir};    make LIB
 	cd srcInterface; make LIB
+	cd srcExternal;  make LIB
 
 clean:
 	@touch ${INSTALLFILES}
 	@cd ${srcDir};          make clean
 	@cd srcInterface; make clean
+	@cd srcExternal; make clean
 	@(if [ -d util ];  then cd util;  make clean; fi);
 	@(if [ -d share ]; then cd share; make clean; fi);
 
