@@ -13,6 +13,7 @@ MY_LIB = libRAM_SCB.a
 
 # Other required libraries.
 LIBSHARE = ${LIBDIR}/libSHARE.a
+LIBEXT   = ${LIBDIR}/libEXT.a
 LIBNOMPI  = ${LIBDIR}/libNOMPI.a
 
 # Extra search directories for -I option (-p for Absoft!!!)
@@ -49,17 +50,7 @@ RAM_OBJECTS=                  \
 	IM_set_parameters.o
 
 PLE_OBJECTS=                  \
-        ModPlane.o            \
-        ModRamPl_Ne.o         \
-        plane_scb.o           \
-        fct-source.o          \
-        irisub_2012.o         \
-        iritec.o              \
-        iriflip.o             \
-        iridreg.o             \
-        irifun_2012.o         \
-        nrlmsise00_sub.o      \
-        igrf.o
+        ModRamPlasmasphere.o
 
 SCB_OBJECTS=                  \
         ModScbEquation.o      \
@@ -72,15 +63,7 @@ SCB_OBJECTS=                  \
 	ModScbParams.o        \
 	ModScbRun.o           \
         ModScbVariables.o     \
-	ModScbCompute.o       \
-	Geopack-2008_dp.o     \
-        T89.o		      \
-	T96.o		      \
-	T02.o		      \
-	TS04.o		      \
-	TS07.o                \
-	w2k_r8.o	      \
-	w05.o
+	ModScbCompute.o
 
 SCE_OBJECTS=                  \
 	ModSceVariables.o     \
@@ -100,7 +83,6 @@ CPL_OBJECTS=            \
 	ModRamCouple.o 
 
 EXT_OBJECTS=              \
-        gaussian_filter.o \
 	nrtype.o          \
 	mpi.o             \
 	ModRamMpi.o 
@@ -143,10 +125,11 @@ RAM_SCB: DEPEND
 	@echo ' '
 
 # Libraries should be compiled first, because modules are used in main
-${EXE}: ${OBJECTS_EXE} ${MY_LIB} ${LIBSHARE}
+${EXE}: ${OBJECTS_EXE} ${MY_LIB} ${LIBSHARE} ${LIBEXT}
 	rm -rf Tmp_; mkdir Tmp_
 	cd Tmp_; \
 		ar -x ../${MY_LIB}; \
-		ar -x ${LIBSHARE};
+		ar -x ${LIBSHARE}; \
+		ar -x ${LIBEXT};
 	${LINK.f90} -o ${EXE} ${OBJECTS_EXE} Tmp_/*.o ${LBLAS} ${Lflag1}
 	rm -rf Tmp_

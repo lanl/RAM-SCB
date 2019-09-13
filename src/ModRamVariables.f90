@@ -17,6 +17,10 @@ Module ModRamVariables
 
   integer, allocatable :: outsideMGNP(:,:)
 
+  ! ModRamPlasmasphere Variables
+  real(DP), ALLOCATABLE :: flux_volume(:,:), uL(:,:), uT(:,:), tau(:,:), &
+                           gdLon(:,:), gdLat(:,:)
+
 ! UNKNOWN VARIABLES
   real(DP), ALLOCATABLE :: XNE(:,:)
 !

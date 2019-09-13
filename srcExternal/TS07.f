@@ -2628,7 +2628,6 @@ C                                           THE MAGNETOSPHERE
       END
 
       SUBROUTINE INIT_TS07D_COEFFS (iyear,idoy,dut,ifail)
-         use ModScbParams, ONLY: TS07Path
 
       IMPLICIT NONE
      
@@ -2651,16 +2650,12 @@ C                                           THE MAGNETOSPHERE
 
       COMMON /TS07D_DATA/ M_INX,N_INX,PDYN,TILT,A07(NTOT)
 
-      if (TRIM(TS07Path).ne.'NONE') then
-         TS7DIR=TRIM(TS07Path)
+      CALL GETENV('TS07_DATA_PATH', ts07d_env)
+      if (LEN_TRIM(ts07d_env).ne.0) then 
+        TS7DIR=TRIM(ts07d_env)
       else
-         CALL GETENV('TS07_DATA_PATH', ts07d_env)
-         if (LEN_TRIM(ts07d_env).ne.0) then 
-           TS7DIR=TRIM(ts07d_env)
-         else
-           write(*,*) "error, TS07_DATA_PATH global variable not set"
-           stop
-         endif
+        write(*,*) "error, TS07_DATA_PATH global variable not set"
+        stop
       endif
       i=len(TS7DIR)
       do while (TS7DIR(i:i) == ' ')
@@ -2735,7 +2730,6 @@ C                                                                  UPDATES MAIN 
       end
 
       SUBROUTINE INIT_TS07D_TLPR
-         use ModScbParams, ONLY: TS07Path
 
       IMPLICIT NONE
 
@@ -2751,16 +2745,12 @@ C                                                                  UPDATES MAIN 
       COMMON /TSO/ TSO(80,5,4)
       COMMON /TSE/ TSE(80,5,4)
 
-      if (TRIM(TS07Path).ne.'NONE') then
-         TS7DIR=TRIM(TS07Path)
+      CALL GETENV('TS07_DATA_PATH', ts07d_env)
+      if (LEN_TRIM(ts07d_env).ne.0) then
+        TS7DIR=TRIM(ts07d_env)
       else
-         CALL GETENV('TS07_DATA_PATH', ts07d_env)
-         if (LEN_TRIM(ts07d_env).ne.0) then
-           TS7DIR=TRIM(ts07d_env)
-         else
-           write(*,*) "error, TS07_DATA_PATH global variable not set"
-           stop
-         endif
+        write(*,*) "error, TS07_DATA_PATH global variable not set"
+        stop
       endif
       i=len(TS7DIR)
       do while (TS7DIR(i:i) == ' ')

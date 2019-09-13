@@ -24,6 +24,9 @@ module ModRamParams
   logical :: InitializeOnFile = .true. 
   logical :: FixedComposition = .false.
 
+  ! Use a fixed refilling time from newtau.dat file
+  logical :: UseFixedTau = .false.
+
   ! Standalone or Component (default = standalone)  logical :: IsComponent = .false.
   logical :: IsComponent = .false.
  

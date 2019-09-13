@@ -28,8 +28,9 @@ MODULE ModRamRun
                                IAPO, LSDR, ELORC, LSCHA, LSWAE, LSATM, PPerT, &
                                PParT, PPerO, PParO, PPerH, PParH, PPerE, PParE, &
                                PPerHe, PParHe, F2, outsideMGNP, Upa, wMu, Mu, &
-                               species
+                               species, tau
     !!!! Module Subroutines/Functions
+    use ModRamPlasmasphere, ONLY: CARPENTER
     use ModRamDrift, ONLY: DRIFTPARA, DRIFTR, DRIFTP, DRIFTE, DRIFTMU, DRIFTEND
     use ModRamLoss,  ONLY: CEPARA, CHAREXCHANGE, ATMOL
     use ModRamWPI,   ONLY: WAPARA_KP, WPADIF, WAVELO
@@ -63,7 +64,7 @@ MODULE ModRamRun
        ! For now we will just use the Carpenter model so that we can test the
        ! effects of a plasmasphere. -ME
        CALL TCON(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay,DAY,RZ,IG,rsn,nmonth)
-       CALL CARPENTER(NECR,Kp,DAY,RZ(3))
+       CALL CARPENTER(Kp,DAY,RZ(3))
 
        !CALL APFMSIS(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay,TimeRamNow%iHour,IAPO)
        !CALL PLANE(TimeRamNow%iYear,DAY,T,KP,IAPO(2),RZ(3),F107,2.*DTs,NECR,VT/1e3)
