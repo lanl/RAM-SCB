@@ -142,12 +142,12 @@ Module ModRamScb
 !==================================================================================================
   SUBROUTINE computehI(iter)
   
-    use ModRamVariables, ONLY: gdLon, gdLat, FNHS, FNIS, BNES, HDNS, dBdt, dHdt, &
+    use ModRamVariables, ONLY: FNHS, FNIS, BNES, HDNS, dBdt, dHdt, &
                                dIdt, dIbndt, BOUNHS, BOUNIS, EIR, EIP, flux_volume, &
                                LZ, MU, MLT, PAbn, PA, DL1, outsideMGNP
-    use ModRamTiming,    ONLY: TimeRamElapsed, TOld
+    use ModRamTiming,    ONLY: TimeRamElapsed, TOld, TimeRamNow
     use ModRamConst,     ONLY: b0dip
-    use ModRamParams,    ONLY: NameBoundMag, verbose, checkMGNP, integral_smooth
+    use ModRamParams,    ONLY: NameBoundMag, verbose, checkMGNP, integral_smooth, densityMode
     use ModRamGrids,     ONLY: nR, nT, nPa, radiusMax, radiusMin
   
     use ModScbGrids,     ONLY: nthe, npsi, nzeta
@@ -160,7 +160,7 @@ Module ModRamScb
     use ModRamCouple,    ONLY: BLines_DIII, nPoints, IsClosed_II
 
     use ModRamGSL,       ONLY: GSL_Interpolation_2D, GSL_Interpolation_1D, &
-                               GSL_Integration_hI, GSL_Smooth_1D
+                               GSL_Integration_hI, GSL_Smooth_1D, GSL_BounceAverage
     use ModRamFunctions, ONLY: RamFileName, FUNT, FUNI
     use ModScbFunctions, ONLY: extap, locate, get_dipole_lines
     use ModScbIO,        ONLY: trace, PARMOD, IOPT
@@ -168,6 +168,7 @@ Module ModRamScb
   
     use nrtype,    ONLY: DP, pi_d, twopi_d
   
+use ModTimeConvert, ONLY: n_day_of_year
     implicit none
   
     INTEGER, INTENT(IN) :: iter
@@ -182,7 +183,7 @@ Module ModRamScb
     REAL(DP), ALLOCATABLE :: length(:,:), r0(:,:), BeqDip(:,:)
     REAL(DP), ALLOCATABLE :: distance(:,:,:), H_value(:,:,:), I_value(:,:,:), &
                              Hdens_value(:,:,:), yI(:,:,:), yH(:,:,:), yD(:,:,:), &
-                             bfmirror(:,:,:)
+                             bfmirror(:,:,:), density(:,:,:)
   
     ! Variables for RAM
     integer  :: nEquator
@@ -210,7 +211,8 @@ Module ModRamScb
 
     ! Don't need to run if using Dipole magnetic field boundary unless it is run from the initialization step
     if ((NameBoundMag.eq.'DIPL').and.(iter.ne.0)) return
-
+call RECALC_08(TimeRamNow%iYear,n_day_of_year(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay), &
+               TimeRamNow%iHour,TimeRamNow%iMinute,TimeRamNow%iSecond,-400._dp,0._dp,0._dp)
     clock_rate = 1000
     clock_max = 100000
     LMAX = 1000
@@ -221,7 +223,8 @@ Module ModRamScb
              r0(nR,nT), bfMirror(nR,nT,nPa), yI(nR,nT,NPA), yH(nR,nT,NPA), yD(nR,nT,NPA), &
              BNESPrev(nR+1,nT), FNHSPrev(nR+1,nT,nPa),FNISPrev(nR+1,nT,nPa), &
              BOUNISPrev(nR+1,nT,nPa), BOUNHSPrev(nR+1,nT,nPa), dHbndt(nR+1,nT,nPa), &
-             xRAM(nthe,nR,nT),yRAM(nthe,nR,nT),zRAM(nthe,nR,nT),bRAM(nthe,nR,nT))
+             xRAM(nthe,nR,nT),yRAM(nthe,nR,nT),zRAM(nthe,nR,nT),bRAM(nthe,nR,nT), &
+             density(nthe,nR,nT))
     !!!
 
     h_Cart = 0._dp; I_Cart = 0._dp
@@ -254,7 +257,7 @@ Module ModRamScb
    
   !$OMP PARALLEL DO
        do i = 1,nR
-          do j = 2,nT
+          do j = 1,nT
              ! Convex hull calculation
              xo = LZ(i+1) * COS(MLT(j)*2._dp*pi_d/24._dp - pi_d)
              yo = LZ(i+1) * SIN(MLT(j)*2._dp*pi_d/24._dp - pi_d)
@@ -309,7 +312,7 @@ Module ModRamScb
        ! If a point on the RAM grid lies outside the SCB grid then we need to
        ! calculate the scaling parameters (if still inside the magnetopause) or
        ! set the outsideMGNP flag to 1 so we can track it in RAM
-       do j = 2,nT
+       do j = 1,nT
           do i = 1,nR
              xo = LZ(i+1) * COS(MLT(j)*2._dp*pi_d/24._dp - pi_d)
              yo = LZ(i+1) * SIN(MLT(j)*2._dp*pi_d/24._dp - pi_d)
@@ -358,6 +361,17 @@ Module ModRamScb
        enddo
     END SELECT
 
+    ! Calculations
+    distance(:,:,:) = SQRT(xRAM(:,:,:)**2+yRAM(:,:,:)**2+zRAM(:,:,:)**2) ! Distance from center of earth
+
+    ! Density to use for bounce averaging
+    if (densityMode == "RAIRDEN") then
+        density = 10**(13.326 - 3.6908*distance     &
+                              + 1.1362*distance**2  &
+                              - 0.16984*distance**3 &
+                              + 0.009553*distance**4)
+    endif
+
     !!!!! BEGIN INTEGRAl CALCULATION
     write(*,'(1x,a)',ADVANCE='NO') 'Calculating h and I integrals'
     ! Start timing
@@ -366,9 +380,8 @@ Module ModRamScb
 
   !$OMP PARALLEL DO
     do i = 1, nR
-       do j = 2, nT
+       do j = 1, nT
           if (outsideMGNP(i,j) == 0) then
-             distance(:,i,j) = SQRT(xRAM(:,i,j)**2+yRAM(:,i,j)**2+zRAM(:,i,j)**2) ! Distance from center of earth
              length(i,j) = 0._dp
              do k = 2,nthe
                 length(i,j) = length(i,j) + SQRT((xRAM(k,i,j)-xRAM(k-1,i,j))**2 &
@@ -387,12 +400,12 @@ Module ModRamScb
              bfmirror(i,j,1:NPA-1) = bRAM(nThetaEquator,i,j)/(1._dp -mu(1:NPA-1)**2)
              bfmirror(i,j,NPA)     = bRAM(nthe,i,j)
 
-             CALL GSL_Integration_hI(bfMirror(i,j,:),chiVal(:),bRAM(:,i,j),distance(:,i,j),&
-                                     yI(i,j,:),yH(i,j,:),yD(i,j,:))
+             CALL GSL_Integration_hI(bfMirror(i,j,:), chiVal(:), bRAM(:,i,j), yI(i,j,:), yH(i,j,:))
+             CALL GSL_BounceAverage(density(:,i,j), bfMirror(i,j,:), chiVal(:), bRAM(:,i,j), yD(i,j,:))
 
              I_cart(i,j,:) = (length(i,j)/(pi_d*r0(i,j))) *yI(i,j,:)/SQRT(Bfmirror(i,j,:))
              H_cart(i,j,:) = (length(i,j)/(pi_d*2*r0(i,j))) *yH(i,j,:)*SQRT(Bfmirror(i,j,:))
-             HDens_cart(i,j,:) = 1.E5_dp * yD(i,j,:)/yH(i,j,:) !Re-normalize
+             HDens_cart(i,j,:) = yD(i,j,:)/yH(i,j,:)
              bZEq_Cart(i,j) = bRAM(nThetaEquator,i,j)*bnormal
 
           end if
@@ -624,7 +637,7 @@ Module ModRamScb
 
     DEALLOCATE(length,r0,distance,yI,yH,yD,bfmirror,bbx,bby,bbz,cVal,xx,yy,zz, &
                BNESPrev,FNISPrev,ScaleAt,BOUNISPrev,FNHSPrev,BOUNHSPrev,dHbndt)
-    DEALLOCATE(xRAM,yRAM,zRAM,bRAM,outsideSCB)
+    DEALLOCATE(xRAM,yRAM,zRAM,bRAM,outsideSCB,density)
  
     RETURN
   
