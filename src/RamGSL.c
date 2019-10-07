@@ -425,38 +425,26 @@ void integrate_h_c(int i1, double a, double b, double *cVal, double *bf,
    }
 
 /*===============================================================================================*/
-/*Evaluate hDens integral between points a and b*/
-void integrate_hdens_c(int i1, double a, double b, double *cVal, double *bf,
-                       double mirror, double *dist, double *result, double *error, int *status)
+/*Evaluate bounce average variable integral between points a and b*/
+void integrate_bounceaverage_c(int i1, double a, double b, double *cVal, double *bf,
+                       double mirror, double *var, double *result, double *error, int *status)
    {
-      struct f_params { int i; double *theta; double *field; double bmirror; double *distance; };
-      struct f_params params = { i1, cVal, bf, mirror, dist};
+      struct f_params { int i; double *theta; double *field; double bmirror; double *variable; };
+      struct f_params params = { i1, cVal, bf, mirror, var};
 
       double f_hdens(double thetaLocal, void * p)
          {
             struct f_params * params = (struct f_params *)p;
             int err[1];
-            double bLocal, radius;
+            double bLocal, variable;
 
-            double rairden(double r)
-               {
-                  double rad_local = fmin(r,6.4);
-                  double rairden = 1e-5 * pow(10,13.326 
-                                                  - 3.6908*rad_local 
-                                                  + 1.1362*pow(rad_local,2) 
-                                                  - 0.16984*pow(rad_local,3) 
-                                                  + 0.009552*pow(rad_local,4));
-            
-                  return rairden;
-               }
-      
             integral_interpolate(params->i, params->theta, params->field, &thetaLocal, &bLocal, err);
-            integral_interpolate(params->i, params->theta, params->distance, &thetaLocal, &radius, err);
+            integral_interpolate(params->i, params->theta, params->variable, &thetaLocal, &variable, err);
 
             if (bLocal >= params->bmirror) {
                return 0.0;
             } else {
-               return rairden(radius)*sqrt(1.0/(params->bmirror - bLocal));
+               return variable*sqrt(1.0/(params->bmirror - bLocal));
             }
          }
       unsigned long int nevals = 0;
@@ -489,8 +477,65 @@ void integrate_hdens_c(int i1, double a, double b, double *cVal, double *bf,
    }
 
 /*===============================================================================================*/
-void integrator_c(int nT, int nPa, double *mirror, double *cVal, double *bf,
-                  double *dist, double *yI, double *yH, double *yD)
+void bounceaverage_c(int nT, int nPa, double *mirror, double *cVal, double *bf, double *var, double *yV)
+    {
+        int err, i, L;
+        int LH[nPa], RH[nPa];
+        double a[nPa], b[nPa];
+        double error;
+
+        // Compute mirror points without relying on a strictly increasing B field
+        for (L=1; L<nPa-1; L++) {
+            a[L] = 0;
+            b[L] = 0;
+            LH[L] = 0;
+            RH[L] = 0;
+            for (i=1; i<nT-1; i++) {
+                if (mirror[L] <= bf[i-1] && mirror[L] >= bf[i]) {
+                    a[L] = cVal[i-1];
+                    LH[L] = i-1;
+                    break;
+                }
+            }
+            for (i=nT-2; i>0; i--) {
+                if (mirror[L] >= bf[i-1] && mirror[L] <= bf[i]) {
+                    b[L] = cVal[i];
+                    RH[L] = i;
+                    break;
+                }
+            }
+        }
+
+        // Next integrate over the whole array to get a 'baseline'
+        integrate_bounceaverage_c(nT, cVal[0], cVal[nT-1], cVal, bf, mirror[nPa-1], var, &yV[nPa-1], &error, &err);
+
+        // Next loop over the pitch angles (nPa) starting with nPa
+        for (L=nPa-2; L>0; L--) {
+            // Need to check if it would mirror outside our domain
+            if (mirror[L] >= bf[1]    || a[L] == 0) { a[L] = cVal[0]; }
+            if (mirror[L] >= bf[nT-1] || b[L] == 0) { b[L] = cVal[nT-1]; }
+            if (a[L] <= cVal[0] || b[L] >= cVal[nT-1]) {
+                mirror[L] = mirror[nPa-1];
+                yV[L] = yV[nPa-1];
+            }else{
+                if ((RH[L]-LH[L])<=4) {
+                    yV[L] = yV[L+1];
+                    continue;
+                }
+                // Finally we can compute the integrals
+                integrate_bounceaverage_c(nT, a[L], b[L], cVal, bf, mirror[L], var, &yV[L], &error, &err);
+                if (err) { yV[L] = -1; }
+                if (yV[L] <= 0) { yV[L] = yV[L+1]; }
+            }
+        }
+
+        // The first L (90 degree pitch angle) isn't calculated
+        yV[0] = yV[1];
+
+        return;
+    }
+/*===============================================================================================*/
+void integrator_c(int nT, int nPa, double *mirror, double *cVal, double *bf, double *yI, double *yH)
     {
         int err, i, L;
         int LH[nPa], RH[nPa];
@@ -522,7 +567,6 @@ void integrator_c(int nT, int nPa, double *mirror, double *cVal, double *bf,
         // Next integrate over the whole array to get a 'baseline'
         integrate_i_c(nT, cVal[0], cVal[nT-1], cVal, bf, mirror[nPa-1], &yI[nPa-1], &error, &err);
         integrate_h_c(nT, cVal[0], cVal[nT-1], cVal, bf, mirror[nPa-1], &yH[nPa-1], &error, &err);
-        integrate_hdens_c(nT, cVal[0], cVal[nT-1], cVal, bf, mirror[nPa-1], dist, &yD[nPa-1], &error, &err);
 
         // Next loop over the pitch angles (nPa) starting with nPa
         for (L=nPa-2; L>0; L--) {
@@ -533,12 +577,10 @@ void integrator_c(int nT, int nPa, double *mirror, double *cVal, double *bf,
                 mirror[L] = mirror[nPa-1];
                 yI[L] = yI[nPa-1];
                 yH[L] = yH[nPa-1];
-                yD[L] = yD[nPa-1];
             }else{
                 if ((RH[L]-LH[L])<=4) {
                     yI[L] = yI[L+1];
                     yH[L] = yH[L+1];
-                    yD[L] = yD[L+1];
                     continue;
                 }
                 // Finally we can compute the integrals
@@ -546,19 +588,15 @@ void integrator_c(int nT, int nPa, double *mirror, double *cVal, double *bf,
                 if (err) { yI[L] = -1; }
                 integrate_h_c(nT, a[L], b[L], cVal, bf, mirror[L], &yH[L], &error, &err);
                 if (err) { yH[L] = -1; }
-                integrate_hdens_c(nT, a[L], b[L], cVal, bf, mirror[L], dist, &yD[L], &error, &err);
-                if (err) { yD[L] = -1; }
 
                 // If there was trouble getting the integral, use the previous L's integral
                 if (yI[L] <= 0) { yI[L] = yI[L+1]; }
                 if (yH[L] <= 0) { yH[L] = yH[L+1]; }
-                if (yD[L] <= 0) { yD[L] = yD[L+1]; }
             }
         }
         // The first L (90 degree pitch angle) isn't calculated
         yI[0] = 0;
         yH[0] = yH[1];
-        yD[0] = yD[1];
 
         return;
     }

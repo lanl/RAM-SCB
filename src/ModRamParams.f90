@@ -110,6 +110,8 @@ module ModRamParams
   character(len=200) :: HissFilePath = '/projects/lanl/SHIELDS/RAM_SCB_input/PlHiss/' 
   character(len=200) :: BASFilePath = '/projects/lanl/SHIELDS/shields_codes/BAS_bavDxx/'
 
+  character(len=7) :: densityMode = "RAIRDEN"
+
   ! File write logicals:
   logical :: DoSaveRamSats=.false.
  

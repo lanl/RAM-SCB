@@ -54,12 +54,20 @@ MODULE ModRamGSL
         real(c_double) :: dx(*)
      end subroutine Interpolation_Derivs_c
 
-     subroutine Integrator_c(nT,nPa,mirror,theta,field,distance,yI,yH,yHDens) BIND(C)
+     subroutine Integrator_c(nT,nPa,mirror,theta,field,yI,yH) BIND(C)
          use, intrinsic :: iso_c_binding
         integer(c_int), value :: nT, nPa
-        real(c_double) :: theta(*), field(*), distance(*) ! These have dimension nT
-        real(c_double) :: mirror(*), yI(*), yH(*), yHDens(*) ! These have dimension nPa
+        real(c_double) :: theta(*), field(*) ! These have dimension nT
+        real(c_double) :: mirror(*), yI(*), yH(*) ! These have dimension nPa
      end subroutine Integrator_c
+
+     subroutine BounceAverage_c(nT,nPa,mirror,theta,field,variable,yV) BIND(C)
+         use, intrinsic :: iso_c_binding
+        integer(c_int), value :: nT, nPa
+        real(c_double) :: theta(*), field(*), variable(*) ! These have dimension nT
+        real(c_double) :: mirror(*), yV(*) ! These have dimension nPa
+     end subroutine BounceAverage_c
+
   end interface
 
   ! Spline Interpolation interfaces
@@ -112,41 +120,76 @@ MODULE ModRamGSL
   end subroutine GSL_Initialize
 
 !==================================================================================================
-  subroutine GSL_Integration_hI(bM,theta,field,distance,y_i,y_h,y_hdens)
+  subroutine GSL_BounceAverage(variable,bM,theta,field,y_v)
 
     use, intrinsic :: iso_c_binding
     use nrtype, ONLY: DP
 
     implicit none
 
-    real(DP), INTENT(IN) :: theta(:), field(:), distance(:)
-    real(DP), INTENT(INOUT) :: y_i(:), y_h(:), y_hdens(:), bM(:)
+    real(DP), INTENT(IN) :: theta(:), field(:), variable(:)
+    real(DP), INTENT(INOUT) :: y_v(:), bM(:)
 
     integer(c_int), SAVE :: nT_c, nPa_c
-    real(c_double), ALLOCATABLE, SAVE :: bM_c(:), y_i_c(:), y_h_c(:), y_hdens_c(:)
-    real(c_double), ALLOCATABLE, SAVE :: theta_c(:), field_c(:), distance_c(:)
-    !$OMP THREADPRIVATE(theta_C,field_C,distance_C,bM_c,y_i_c,y_h_c)
-    !$OMP THREADPRIVATE(y_hdens_c,nT_c,nPa_c)
+    real(c_double), ALLOCATABLE, SAVE :: bM_c(:), y_v_c(:)
+    real(c_double), ALLOCATABLE, SAVE :: theta_c(:), field_c(:), variable_c(:)
+    !$OMP THREADPRIVATE(theta_C,field_C,variable_C,bM_c,y_v_c,nT_c,nPa_c)
 
     nT_c = size(theta,1)
     nPa_c = size(bM,1)
 
-    allocate(theta_c(nT_c),field_c(nT_c),distance_c(nT_c))
-    allocate(bM_c(nPa_c),y_i_c(nPa_c),y_h_c(nPa_c),y_hdens_c(nPa_c))
+    allocate(theta_c(nT_c),field_c(nT_c),variable_c(nT_c))
+    allocate(bM_c(nPa_c),y_v_c(nPa_c))
 
     bM_c = REAL(bM,c_double)
     theta_c = REAL(theta,c_double)
     field_c = REAL(field,c_double)
-    distance_c = REAL(distance,c_double)
+    variable_c = REAL(variable,c_double)
 
-    call Integrator_c(nT_c,nPa_c,bM_c,theta_c,field_c,distance_c,y_i_c,y_h_c,y_hdens_c)
+    call BounceAverage_c(nT_c,nPa_c,bM_c,theta_c,field_c,variable_c,y_v_c)
+
+    y_v = REAL(y_v_c,DP)
+    bM = REAL(bM_c,DP)
+
+    deallocate(theta_c, field_c, variable_c, bM_c, y_v_c)
+
+    return
+
+  end subroutine GSL_BounceAverage
+
+!==================================================================================================
+  subroutine GSL_Integration_hI(bM, theta, field, y_i, y_h)
+
+    use, intrinsic :: iso_c_binding
+    use nrtype, ONLY: DP
+
+    implicit none
+
+    real(DP), INTENT(IN) :: theta(:), field(:)
+    real(DP), INTENT(INOUT) :: y_i(:), y_h(:), bM(:)
+
+    integer(c_int), SAVE :: nT_c, nPa_c
+    real(c_double), ALLOCATABLE, SAVE :: bM_c(:), y_i_c(:), y_h_c(:)
+    real(c_double), ALLOCATABLE, SAVE :: theta_c(:), field_c(:)
+    !$OMP THREADPRIVATE(theta_C,field_C,bM_c,y_i_c,y_h_c,nT_c,nPa_c)
+
+    nT_c = size(theta,1)
+    nPa_c = size(bM,1)
+
+    allocate(theta_c(nT_c),field_c(nT_c))
+    allocate(bM_c(nPa_c),y_i_c(nPa_c),y_h_c(nPa_c))
+
+    bM_c = REAL(bM,c_double)
+    theta_c = REAL(theta,c_double)
+    field_c = REAL(field,c_double)
+
+    call Integrator_c(nT_c,nPa_c,bM_c,theta_c,field_c,y_i_c,y_h_c)
 
     y_i = REAL(y_i_c,DP)
     y_h = REAL(y_h_c,DP)
-    y_hdens = REAL(y_hdens_c,DP)
     bM = REAL(bM_c,DP)
 
-    deallocate(theta_c, field_c, distance_c, bM_c, y_i_c, y_h_c, y_hDens_c)
+    deallocate(theta_c, field_c, bM_c, y_i_c, y_h_c)
 
     return
 
