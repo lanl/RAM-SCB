@@ -742,7 +742,10 @@ module IM_wrapper
   !=============================================================================
   
   subroutine IM_save_restart(TimeSimulation)
-    
+
+    use CON_coupler,   ONLY: NameRestartOutDirComp
+    use ModRamParams,  ONLY: TimedRestarts
+    use ModRamMain,    ONLY: PathRestartOut
     use ModRamRestart, ONLY: write_restart
     
     implicit none
@@ -751,7 +754,11 @@ module IM_wrapper
     real,     intent(in) :: TimeSimulation   ! seconds from start time
     character(len=*), parameter :: NameSub='IM_save_restart'
     !---------------------------------------------------------------------------
-    
+  
+    if (NameRestartOutDirComp /= '') then
+       PathRestartOut = NameRestartOutDirComp
+       TimedRestarts = .false.
+    endif  
     call write_restart
     
   end subroutine IM_save_restart

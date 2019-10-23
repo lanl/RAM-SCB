@@ -47,7 +47,7 @@ module ModRamRestart
                nZetaDim
     integer, parameter :: iDeflate = 2, yDeflate = 1
 
-    character(len=200) :: NameFile
+    character(len=999) :: NameFile
 
     character(len=*), parameter :: NameSub='write_restart'
     logical :: DoTest, DoTestMe
@@ -59,9 +59,9 @@ module ModRamRestart
 
     ! Write ascii portion of restart.
     if (TimedRestarts) then
-       NameFile=RamFileName(PathRestartOut//'/restart_info','txt',TimeRamNow)
+       NameFile=RamFileName(trim(PathRestartOut)//'/restart_info','txt',TimeRamNow)
     else
-       NameFile=PathRestartOut//'/restart_info.txt'
+       NameFile=trim(PathRestartOut)//'/restart_info.txt'
     endif
     open(unit=UnitTMP_, file=trim(NameFile), status='replace')
     write(UnitTMP_, *) 'TIMING:'
@@ -76,9 +76,9 @@ module ModRamRestart
 
     ! OPEN FILE
     if (TimedRestarts) then
-       NameFile = RamFileName(PathRestartOut//'/restart','nc',TimeRamNow)
+       NameFile = RamFileName(trim(PathRestartOut)//'/restart','nc',TimeRamNow)
     else
-       NameFile = PathRestartOut//'/restart.nc'
+       NameFile = trim(PathRestartOut)//'/restart.nc'
     endif
     iStatus = nf90_create(trim(NameFile), nf90_HDF5, iFileID)
     call ncdf_check(iStatus, NameSub)

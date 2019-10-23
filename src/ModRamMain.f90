@@ -21,7 +21,7 @@ module ModRamMain
 !!!!! PATHS
   ! File paths for restarts
   character(len=*), parameter :: PathRestartIn = 'IM/restartIN'
-  character(len=*), parameter :: PathRestartOut= 'IM/restartOUT'
+  character(len=999) :: PathRestartOut= 'IM/restartOUT'
 
   ! File paths to fix hardcoding of path issues.
   character(len=*), parameter :: PathRAMOut  = 'IM/output/ram/'
