@@ -2,7 +2,6 @@
 
 import os, re, copy, bisect, ftplib
 from optparse import OptionParser
-from itertools import izip_longest
 import datetime as dt
 import numpy as np
 import spacepy.time as spt
@@ -15,6 +14,10 @@ try:
     import cStringIO as io
 except:
     import io
+try:
+    from itertools import izip_longest as zip_longest
+except:
+    from itertools import zip_longest
 
 defaults = {'rundir': os.path.abspath('../rtRun')}
 
@@ -50,7 +53,7 @@ def grouper(iterable, n, fillvalue=None):
     # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx
     # recipe from itertools documentation
     args = [iter(iterable)] * n
-    return izip_longest(fillvalue=fillvalue, *args)
+    return zip_longest(fillvalue=fillvalue, *args)
 
 def Ap2Kp(ap):
     '''estimate Kp index from Ap value'''
