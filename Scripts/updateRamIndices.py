@@ -2,7 +2,7 @@
 '''Retrieve definitive F10.7 flux and Kp data, and append to RamIndices input file
 '''
 import datetime as dt
-import re, ftplib, cStringIO
+import re, ftplib, io
 import numpy as np
 
 def floatkp(kpstring):
@@ -35,18 +35,18 @@ j2000jd = 2451544.5
 currdate = dt.datetime.now()
 ndaysreq = (currdate-lastdate).days
 startjd = j2000jd + 1 + (lastdate-j2000date).days
-endjd = j2000jd + (currdate-j2000date).days
+endjd = j2000jd + 1 + (currdate-j2000date).days
 #print(startjd, endjd)
 
-outJDs = [startjd + n + 0.5 for n in xrange(int(endjd-startjd))] #add a half to make noontime flux
-outdates = [lastdate+dt.timedelta(days=n+1) for n in xrange(int(endjd-startjd))]
+outJDs = [startjd + n + 0.5 for n in range(int(endjd-startjd))] #add a half to make noontime flux
+outdates = [lastdate+dt.timedelta(days=n+1) for n in range(int(endjd-startjd))]
 
 #download updated F10.7 from ftp://ftp.geolab.nrcan.gc.ca/data/solar_flux/daily_flux_values/fluxtable.txt
 #only has data from 2004-10-28 (prior data are in different files)
-io_store = cStringIO.StringIO()
-ftp = ftplib.FTP('ftp.geolab.nrcan.gc.ca')
+io_store = io.StringIO()
+ftp = ftplib.FTP('ftp.seismo.nrcan.gc.ca')
 ftp.login()
-ftp.cwd('data/solar_flux/daily_flux_values')
+ftp.cwd('spaceweather/solar_flux/daily_flux_values')
 ftp.retrlines('RETR {0}'.format('fluxtable.txt'), io_store.write)
 io_store.seek(0)
 conts = io_store.read()
@@ -64,33 +64,35 @@ outflux = np.interp(outJDs, jds, AU1flux)
 #now get Kp values...
 #start with first month
 year, month = outdates[0].year, outdates[0].month
-io_store = cStringIO.StringIO()
+io_store = io.StringIO()
 ftp = ftplib.FTP('ftp.gfz-potsdam.de')
 ftp.login()
 ftp.cwd('pub/home/obs/kp-ap/tab')
+
+def appendNL(line):
+    io_store.write(line+'\n')
+
 try:
-    ftp.retrlines('RETR kp{0:02d}{1:02d}.tab'.format(year%100,month), io_store.write)
+    ftp.retrlines('RETR kp{0:02d}{1:02d}.tab'.format(year%100,month), appendNL)
 except (ftplib.error_perm):
     exit()
 io_store.seek(0)
-conts = io_store.read()
-kp_thismonth = map(''.join, zip(*[iter(conts)]*49))
+conts = io_store.read().split('\n')
 
 #get kp and write output
 for od, of in zip(outdates, outflux):
     if (od.year!=year) or (od.month!=month):
         #read new Kp file
         year, month = od.year, od.month
-        io_store = cStringIO.StringIO()
+        io_store = io.StringIO()
         try:
-            ftp.retrlines('RETR kp{0:02d}{1:02d}.tab'.format(year%100,month), io_store.write)
+            ftp.retrlines('RETR kp{0:02d}{1:02d}.tab'.format(year%100,month), appendNL)
         except (ftplib.error_perm):
             break
         io_store.seek(0)
-        conts = io_store.read()
-        kp_thismonth = map(''.join, zip(*[iter(conts)]*49))
+        conts = io_store.read().split('\n')
     #use current Kp file (was updated if not current)
-    useline = [item for item in kp_thismonth if item.startswith('{0:02d}{1:02d}{2:02d}'.format(od.year%100, od.month, od.day))]
+    useline = [item for item in conts if item.startswith('{0:02d}{1:02d}{2:02d}'.format(od.year%100, od.month, od.day))]
     try:
         kpstrs = useline[0].split()[1:9]
     except IndexError:
