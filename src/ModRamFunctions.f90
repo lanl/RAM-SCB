@@ -1,6 +1,6 @@
 !=============================================================================
 module ModRamFunctions
-!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    Copyright (c) 2016, Los Alamos National Laboratory
 !    All rights reserved.
 !=============================================================================
 
@@ -69,79 +69,204 @@ module ModRamFunctions
   end subroutine get_ramdst
 
 !=============================================================================
-!  function erff(x)
-!
-!    use ModRamMain, ONLY: Real8_
-!
+  function erff(x)
 
-!    implicit none
-!
-!    integer :: ier = 0
-!    real(kind=Real8_)            :: erff
-!    real(kind=Real8_), intent(in):: x
-!    real(kind=Real8_), parameter :: cHalf = 0.5
-!    !-----------------------------------------------------------------------
-!    if(x.lt.0.)then
-!       ERFF=-GAMMP(cHalf,X**2,ier)
-!       if (ier.ne.0) return
-!    else
-!       ERFF=GAMMP(cHalf,X**2,ier)
-!       if (ier.ne.0) return
-!    endif
-!    return
-!  end function erff
+    use ModRamMain, ONLY: Real8_
 
-!=============================================================================
-!  function gammp(A,X,IER)
-!    
-!    use ModRamMain, ONLY: Real8_
-!
+    implicit none
 
-!    implicit none
-!
-!    real(kind=Real8_) :: gammp
-!    real(kind=Real8_) :: GLN, GAMMCF
-!    integer, intent(inout) :: ier
-!    real(kind=Real8_), intent(in)       :: A, X
-!    !-----------------------------------------------------------------------
-!    IER = 0
-!    IF(X.LT.0..OR.A.LE.0.) & !PAUSE -- pause is antiquated.
-!         write(*,*)'WARNING! X and/or A arguments to GAMMP < 0!!!'
-!    
-!    ! use series representation
-!    IF(X.LT.A+1.)THEN
-!       CALL GSER(GAMMP,A,X,GLN,IER)
-!       IER = IER * 20
-!       IF (IER.EQ.20) return
-!       
-!    ! continued fraction representation
-!    ELSE
-!       CALL GCF(GAMMCF,A,X,GLN,IER)
-!       GAMMP=1.-GAMMCF
-!       IER = 10 * IER
-!       IF (IER.EQ.10) RETURN
-!    ENDIF
-!
-!    RETURN
-!  end function gammp
+    integer :: ier = 0
+    real(kind=Real8_)            :: erff
+    real(kind=Real8_), intent(in):: x
+    real(kind=Real8_), parameter :: cHalf = 0.5
+  !-----------------------------------------------------------------------
+    if(x.lt.0.)then
+       ERFF=-GAMMP(cHalf,X**2,ier)
+       if (ier.ne.0) return
+    else
+       ERFF=GAMMP(cHalf,X**2,ier)
+       if (ier.ne.0) return
+    endif
+    return
+  end function erff
 
 !=============================================================================
-!  function G(x)
-!    
-!    use ModRamMain, ONLY: Real8_
-!    use ModRamConst, ONLY: PI 
+  function gammp(A,X,IER)
+    
+    use ModRamMain, ONLY: Real8_
 
-!    implicit none
-!
-!    real(kind=Real8_), intent(in) :: x
-!    real(kind=Real8_) :: G1
-!    real(kind=Real8_) :: G
-!    !-----------------------------------------------------------------------
-!
-!    G1=ERFF(X)-2.*X/sqrt(PI)*exp(-X*X)
-!    G=G1/2./X/X
-!    return
-!  end function g
+    implicit none
+
+    real(kind=Real8_) :: gammp
+    real(kind=Real8_) :: GLN, GAMMCF
+    integer, intent(inout) :: ier
+    real(kind=Real8_), intent(in)       :: A, X
+  !-----------------------------------------------------------------------
+    IER = 0
+    IF(X.LT.0..OR.A.LE.0.) & !PAUSE -- pause is antiquated.
+         write(*,*)'WARNING! X and/or A arguments to GAMMP < 0!!!'
+    
+  ! use series representation
+    IF(X.LT.A+1.)THEN
+       CALL GSER(GAMMP,A,X,GLN,IER)
+       IER = IER * 20
+       IF (IER.EQ.20) return
+       
+  ! continued fraction representation
+    ELSE
+       CALL GCF(GAMMCF,A,X,GLN,IER)
+       GAMMP=1.-GAMMCF
+       IER = 10 * IER
+       IF (IER.EQ.10) RETURN
+    ENDIF
+
+    RETURN
+  end function gammp
+
+!=============================================================================
+  subroutine GSER(GAMSER,A,X,GLN,IER)
+
+    use ModRamMain, ONLY: Real8_
+
+    implicit none
+    real(kind=Real8_), intent(in) :: A, X
+    real(kind=Real8_), intent(out) :: GAMSER
+    integer, intent(inout) :: ier
+    integer :: N, ITMAX
+    real(kind=Real8_) :: EPS, AP, SUM, DEL, GLN
+
+      ITMAX = 100            !...max iterations
+      EPS = 3.E-7            !...small number
+      IER = 0
+      GLN=GAMMLN(A,IER)
+      IF(X.LE.0.)THEN
+         IF(X.LT.0.) &      ! PAUSE is obsolete; VJ 2011
+         write(*,*)'WARNING! X should not be negative in GSER!'
+        GAMSER=0.
+        RETURN
+      ENDIF
+      AP=A
+      SUM=1./A
+      DEL=SUM
+      DO 11 N=1,ITMAX
+        AP=AP+1.
+        DEL=DEL*X/AP
+        SUM=SUM+DEL
+        IF(ABS(DEL).LT.ABS(SUM)*EPS)GO TO 1
+11    CONTINUE
+
+!    too many iterations
+      IER = 1
+      RETURN
+1     GAMSER=SUM*EXP(-X+A*LOG(X)-GLN)
+      RETURN
+      
+  end subroutine GSER
+
+!=============================================================================
+ subroutine GCF(GAMMCF,A,X,GLN,IER)
+
+    use ModRamMain, ONLY: Real8_
+
+    implicit none
+    real(kind=Real8_), intent(in) :: A, X
+    real(kind=Real8_), intent(out) :: GAMMCF
+    integer, intent(inout) :: ier
+    integer :: N, ITMAX
+    real(kind=Real8_) :: EPS, GOLD, A0, A1, B0, B1, FAC, AN, ANA, ANF, G, GLN
+
+      ITMAX = 100            !...max iterations
+      EPS = 3.E-7            !...small number
+      IER = 0
+      GLN=GAMMLN(A,IER)
+
+!    previous value to check for convergence
+      GOLD=0.
+!    setting up to evaluate continuous fraction
+      A0=1.
+      A1=X
+      B0=0.
+      B1=1.
+
+!    renormalized factor preventing overflow
+      FAC=1.
+      DO 11 N=1,ITMAX
+        AN=FLOAT(N)
+        ANA=AN-A
+
+!    one step of the recurrence
+        A0=(A1+A0*ANA)*FAC
+        B0=(B1+B0*ANA)*FAC
+
+!    next step
+        ANF=AN*FAC
+        A1=X*A0+ANF*A1
+        B1=X*B0+ANF*B1
+
+!    time to renormalize ?
+        IF(A1.NE.0.)THEN
+          FAC=1./A1
+          G=B1*FAC
+!    converged ?
+          IF(ABS((G-GOLD)/G).LT.EPS)GO TO 1
+          GOLD=G
+        ENDIF
+11    CONTINUE
+
+!    error
+      IER = 1
+      RETURN
+1     GAMMCF=EXP(-X+A*LOG(X)-GLN)*G
+      RETURN
+      
+  end subroutine GCF
+
+!=============================================================================
+  function GAMMLN(XX,IER)
+
+    use ModRamMain, ONLY: Real8_
+
+    implicit none
+    integer, intent(inout) :: IER
+    integer :: J
+    real(kind=Real8_), intent(in) :: XX
+    real(kind=Real8_) ::  COF(6), STP, HALF, ONE, FPF, X, TMP, SER, GAMMLN
+
+      DATA COF/76.18009173D0,-86.50532033D0,24.01409822D0, &
+         -1.231739516D0,.120858003D-2,-.536382D-5/
+      DATA STP/2.50662827465D0/
+      DATA HALF,ONE,FPF/0.5D0,1.0D0,5.5D0/
+
+      IER = 0
+      X=XX-ONE
+      TMP=X+FPF
+      TMP=(X+HALF)*LOG(TMP)-TMP
+      SER=ONE
+      DO 11 J=1,6
+        X=X+ONE
+        SER=SER+COF(J)/X
+11    CONTINUE
+      GAMMLN=TMP+LOG(STP*SER)
+
+      RETURN
+   end function GAMMLN
+
+!=============================================================================
+  function Gcoul(x)
+    
+    use ModRamMain, ONLY: Real8_
+    use ModRamConst, ONLY: PI 
+
+    implicit none
+
+    real(kind=Real8_), intent(in) :: x
+    real(kind=Real8_) :: G1, Gcoul
+  !-----------------------------------------------------------------------
+
+    G1=ERFF(X)-2.*X/sqrt(PI)*exp(-X*X)
+    Gcoul=G1/2./X/X
+    return
+  end function Gcoul
 
 !=============================================================================
   function funt(x)
@@ -152,7 +277,6 @@ module ModRamFunctions
 
     implicit none
     
-
     real(kind=Real8_), intent(in)  :: x
     real(kind=Real8_) :: y, alpha, beta, a1, a2, a3, a4
     real(kind=Real8_) :: funt

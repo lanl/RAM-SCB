@@ -1,5 +1,5 @@
 !============================================================================
-!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    Copyright (c) 2016, Los Alamos National Laboratory
 !    All rights reserved.
 !============================================================================
 
@@ -61,7 +61,9 @@ Module ModRamVariables
               PACHOR_Dxx(NPA_Dxx)
 
 ! ModRamLoss variables
-  real(DP), ALLOCATABLE :: ATLOS(:,:,:), CHARGE(:,:,:,:,:)
+  real(DP), ALLOCATABLE :: ATLOS(:,:,:), CHARGE(:,:,:,:,:), &
+                           COULE(:,:,:), COULI(:,:,:), ATA(:,:,:), GTA(:,:,:), &
+                           GTAE(:,:,:), GTAI(:,:,:), CEDR(:,:,:), CIDR(:,:,:)
 
 ! ModRamIndices variables
   character(len=4)   :: NameIndexSource = 'file'
@@ -97,6 +99,6 @@ Module ModRamVariables
                            LSCSC(:), LSWAE(:), XNN(:,:), XND(:,:), LNCN(:,:), LNCD(:,:), &
                            LECN(:,:), LECD(:,:), ENERN(:,:), ENERD(:,:), ATEW(:,:,:,:), &
                            ATAW(:,:,:,:), ATAC(:,:,:,:), ATEC(:,:,:,:), ATMC(:,:,:,:), &
-                           ATAW_emic(:,:,:,:), NECR(:,:)
+                           ATAW_emic(:,:,:,:), NECR(:,:), ESUM(:), NSUM(:)
 
 End Module ModRamVariables

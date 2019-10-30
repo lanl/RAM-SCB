@@ -1,5 +1,5 @@
 !============================================================================
-!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    Copyright (c) 2016, Los Alamos National Laboratory
 !    All rights reserved.
 !============================================================================
 
@@ -92,8 +92,8 @@ module ModRamIO
     NameFileDst = trim(PathScbOut)//RamFileName('dst_computed_3deq','txt',TimeRamRealStart)
     open(UNITTMP_, FILE=trim(NameFileDst), STATUS='REPLACE')
     write(UNITTMP_,*) 'SCB Dst File'
-    write(UNITTMP_,*) 'time year mo dy hr mn sc msc dstDPS dstDPSGeo ', &
-                      'dstBiot dstBiotGeo'
+    write(UNITTMP_,*) 'time year mo dy hr mn sc msc dstDPS dstDPSGeo dstBiot dstBiotGeo ', &
+                      'VTmax VTmin  ESUM  NSUM  LSDR  LSCHA  LSATM  LSCOE  LSCSC  LSWAE'
     close(UNITTMP_)
 
   end subroutine init_output
@@ -112,7 +112,8 @@ module ModRamIO
                                TimeRamElapsed, DtW_Pressure, DtW_hI, DtW_Efield, &
                                DtW_MAGxyz, DtLogFile, DtW_2DFlux
     use ModRamGrids,     ONLY: NR, NT, nS
-    use ModRamVariables, ONLY: PParT, PPerT, VT
+    use ModRamVariables, ONLY: PParT, PPerT, VT, ESUM,  NSUM,  LSDR,  LSCHA, & 
+                               LSATM, LSCOE,  LSCSC,  LSWAE
     use ModScbVariables, ONLY: DstBiot, DstBiotInsideGeo, DstDPS, DstDPSInsideGeo
     !!!! Module Subroutines/Functions
     use ModRamSats,      ONLY: fly_sats
@@ -150,11 +151,13 @@ module ModRamIO
     ! Write SCB Dst file
     if(abs(mod(TimeIn, DtLogfile))<=1e-9)then
        open(UNITTMP_, FILE=NameFileDst, POSITION='APPEND')
-       write(UNITTMP_, *) TimeIn, TimeRamNow%iYear, TimeRamNow%iMonth, &
+       write(UNITTMP_, '(E13.6,1x,i4,5(1x,i2.2),1x,i3.3,38(1x,E10.3))') &
+                          TimeIn, TimeRamNow%iYear, TimeRamNow%iMonth, &
                           TimeRamNow%iDay, TimeRamNow%iHour, TimeRamNow%iMinute, &
                           TimeRamNow%iSecond, floor(TimeRamNow%FracSecond*1000.0), &
                           dstDPS, dstDPSInsideGeo, DstBiot, DstBiotInsideGeo, &
-                          maxval(VT), minval(VT)
+                          maxval(VT), minval(VT), &
+       (ESUM(iS), NSUM(iS), LSDR(iS), LSCHA(iS), LSATM(iS), LSCOE(iS), LSCSC(iS), LSWAE(iS), iS=1,nS)
        close(UNITTMP_)
     end if
 
@@ -186,7 +189,11 @@ module ModRamIO
 
     ! Write hourly file
     if (abs(mod(TimeIn,DtW_2DFlux)).le.1e-9) then
-       call write2DFlux
+       call write2DFlux            ! ME netcdf output
+!    if (abs(mod(TimeIn,3600.0)).le.1e-9) then
+!       do iS = 1, nS
+!         call ram_hour_write(iS)   ! VJ ascii output
+!       enddo
     endif
 
   end subroutine handle_output
@@ -780,24 +787,26 @@ end subroutine read_geomlt_file
     use ModRamGrids,     ONLY: nR, nE, nPA, nT
     use ModRamVariables, ONLY: F2, FFACTOR, FNHS, WE, WMU, XNN, XND, ENERN,   &
                                ENERD, EkeV, UPA, LNCN, LNCD, Kp, MLT, LZ, &
-                               LECD, LECN, outsideMGNP
-    use ModRamTiming,    ONLY: TimeRamNow
-
+                               LSDR, LSCHA, LSATM, LSCOE, LSCSC, LSWAE, &
+                               LECD, LECN, outsideMGNP, NECR, IAPO, RZ, &
+                               IR1, IP1, PHI, MU, RFACTOR, ESUM, NSUM
+    use ModRamTiming,    ONLY: TimeRamNow,TimeRamElapsed
+    use ModRamParams,    ONLY: DoUseWPI, DoUsePlane_SCB
     use ModRamFunctions
-
+    use ModRamConst
     use ModIOUnit, ONLY: UNITTMP_, io_unit_new
 
     implicit none
-    integer, intent(in) :: S
 
+    integer, intent(in) :: S
     integer :: i, j, k, l, jw, iw
-    real(DP) :: weight
+    real(DP) :: weight, T, PRECFL
     real(DP), ALLOCATABLE :: XNNO(:),XNDO(:)
     real(DP), ALLOCATABLE :: F(:,:,:,:),FZERO(:,:,:),ENO(:),EDO(:),AVEFL(:,:,:),BARFL(:)
     character(len=23) :: StringDate
     character(len=2)  :: ST2
     character(len=214) :: ST4, NameFileOut
-    character(len=2), dimension(4) :: speciesString = (/'_e','_h','he','_o'/)
+    character(len=2), dimension(4) :: speciesString = (/'_h','_o','he','_e'/)
 
     ALLOCATE(F(NR,NT,NE,NPA),FZERO(NR,NT,NE),ENO(NR),EDO(NR),AVEFL(NR,NT,NE),BARFL(NE))
     ALLOCATE(XNNO(NR),XNDO(NR))
@@ -809,6 +818,7 @@ end subroutine read_geomlt_file
 
     ! Print RAM output at every hour
 
+    T=TimeRamElapsed
     DO I=2,NR
       XNNO(I)=XNN(S,I)
       XNDO(I)=XND(S,I)
@@ -848,42 +858,66 @@ end subroutine read_geomlt_file
       LECD(S,I)=EDO(I)-ENERD(S,I)
     END DO
 
-! WPI is not currently working, so these write statements are commented out -ME
-    ! Write the total precipitating flux [1/cm2/s]
-!    IF (DoUseWPI) THEN
-!      OPEN(UNIT=UNITTMP_,FILE=trim(ST4)//ST0//ST1//ST2//'.tip',STATUS='UNKNOWN')
-!      WRITE(UNITTMP_,71) T/3600,KP
-!      DO I=2,NR
-!        DO J=1,NT
-!          PRECFL=0.
-!          DO K=2,NE ! 0.15 - 430 keV
-!            AVEFL(I,J,K)=0.
-!            DO L=UPA(I),NPA
-!              AVEFL(I,J,K)=AVEFL(I,J,K)+F(I,J,K,L)*WMU(L)
-!            ENDDO
-!            AVEFL(I,J,K)=AVEFL(I,J,K)/(MU(NPA)-MU(UPA(I)))
-!            PRECFL=PRECFL+AVEFL(I,J,K)*PI*WE(K)
-!          ENDDO
-!          WRITE(UNITTMP_,70) LZ(I),PHI(J),PRECFL
-!        END DO
-!      END DO
-!      close(UNITTMP_)
-!    ENDIF
+! total energy, total particle #, energy losses
+      ESUM(S)=0.
+      NSUM(S)=0.
+      DO I=2,NR
+        ESUM(S)=ESUM(S)+(ENERN(S,I)+ENERD(S,I))*RFACTOR
+        NSUM(S)=NSUM(S)+(XNN(S,I)+XND(S,I))*RFACTOR
+      END DO
+      LSDR(S)  = LSDR(S)*RFACTOR*100/ESUM(S)
+      LSCHA(S) = LSCHA(S)*RFACTOR*100/ESUM(S)
+      LSATM(S) = LSATM(S)*RFACTOR*100/ESUM(S)
+      LSCOE(S) = LSCOE(S)*RFACTOR*100/ESUM(S)
+      LSCSC(S) = LSCSC(S)*RFACTOR*100/ESUM(S)
+      LSWAE(S) = LSWAE(S)*RFACTOR*100/ESUM(S)
 
-    ! Write the RAM flux [1/s/cm2/sr/keV] at given pitch angle
-!    IF (DoUseWPI) THEN
-!      OPEN(UNIT=UNITTMP_,FILE=trim(PathRamOut)//'outm'//ST0//ST2//ST1//'.dat',STATUS='UNKNOWN')
-!      DO I=1,NR
-!        DO 822 J=1,NT-1
-!          DO 822 K=2,NE
-!            WRITE(UNITTMP_,31) T/3600.,LZ(I),KP,MLT(J),EKEV(K),F(I,J,K,27)
-!822         CONTINUE
-!      ENDDO
-!      CLOSE(UNITTMP_)
-!    ENDIF
+    ! Write the trapped equatorial flux [1/s/cm2/sr/keV]
+!      IF (MOD(INT(T),2*3600).EQ.0.) THEN
+        IF (S.eq.1.or.S.eq.4) THEN
+	  if (NT.EQ.49) JW=2
+	  if (NT.EQ.25) JW=1
+          IW=1
+        ELSE
+	  if (NT.EQ.49) JW=6
+	  if (NT.EQ.25) JW=3
+          IW=4
+        ENDIF
+!      ENDIF
+    NameFileOut=trim(PathRamOut)//RamFileName('ram'//st2,'flx',TimeRamNow)
+    open(unit=UnitTMP_, file=trim(NameFileOut), status='UNKNOWN')
+    DO I=4,NR,IW
+      DO 25 J=1,NT-1,JW
+        WRITE(UNITTMP_,32) StringDate,LZ(I),KP,MLT(J)
+        if (outsideMGNP(I,J) == 1) F(I,J,:,:) = 1e-31
+        DO 27 K=4,NE-1
+27      WRITE(UNITTMP_,30) EKEV(K),(F(I,J,K,L),L=2,NPA-2)
+25    CONTINUE
+    END DO
+    close(UNITTMP_)
 
 30  FORMAT(F7.2,72(1PE11.3))
+31  FORMAT(F6.2,1X,F6.2,2X,F6.2,1X,F7.2,1X,F7.2,1X,1PE11.3)
 32  FORMAT(' EKEV/PA, Date=',a,' L=',F6.2,' Kp=',F6.2,' MLT=',F4.1)
+
+!.......Write the plasmaspheric electron density [cm-3] (.in)
+	  if(DoUsePlane_SCB)then
+	   NameFileOut=trim(PathRamOut)//RamFileName('plasmne','in',TimeRamNow)
+	   OPEN(UNIT=UNITTMP_,FILE=NameFileOut,STATUS='UNKNOWN')
+           WRITE(UNITTMP_,96) T/3600,KP,IAPO(2),RZ(3),StringDate
+	   DO  I=1,NR
+	     K=(I-2)*IR1+3
+	   DO  J=1,NT
+	     L=(J-1)*IP1	  
+!             WRITE(UNITTMP_,70) LZ(I),PHI(J),NECR(K,L)	! CRasm model
+             WRITE(UNITTMP_,70) LZ(I),PHI(J),NECR(I,J)	! Carpenter model
+	   ENDDO
+	   ENDDO
+70	FORMAT(F5.2,F10.6,E13.4) 	
+96	   FORMAT(2HT=,F6.2,4H Kp=,F5.2,4H AP=,F7.2,4H Rs=,F7.2,7H Date= ,A23,&
+           ' Plasmasphere e- density [cm-3]')
+	   CLOSE(UNITTMP_)
+	  endif
 
     DEALLOCATE(F,FZERO,ENO,EDO,AVEFL,BARFL,XNNO,XNDO)
 
@@ -996,8 +1030,8 @@ subroutine write_dsbnd(S)
   integer, intent(in) :: S
 
   integer :: K, j
-  character(len=2), DIMENSION(4) :: ST2 = (/ '_e','_h','he','_o' /)
-
+!  character(len=2), DIMENSION(4) :: ST2 = (/ '_e','_h','he','_o' /)
+  character(len=2), DIMENSION(4) :: ST2 = (/'_h','_o','he','_e'/)
   character(len=214) :: NameFluxFile
 
   NameFluxFile=trim(PathRamOut)//RamFileName('Dsbnd/ds'//St2(S),'dat',TimeRamNow)
