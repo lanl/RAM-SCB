@@ -1,10 +1,10 @@
 !============================================================================
-!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    Copyright (c) 2016, Los Alamos National Laboratory
 !    All rights reserved.
 !============================================================================
 
 MODULE ModRamRun
-! Contains the subroutine for running ram and calculating pressure
+! Contains the subroutine for running RAM and calculating pressure
 ! Calls subroutines from ModRamDrift, ModRamWPI, and ModRamLoss
 ! Calculates new F2 and parallel/perpendicular pressures
 
@@ -21,14 +21,14 @@ MODULE ModRamRun
                                DoUsePlane_SCB, verbose
     use ModRamConst,     ONLY: RE
     use ModRamGrids,     ONLY: nS, NR, NE, NT, NPA
-    use ModRamTiming,    ONLY: UTs, T, DtEfi, DtsMin, DtsNext, TimeRamNow, Dts
+    use ModRamTiming,    ONLY: UTs, T, DtEfi, DtsMin, DtsNext, TimeRamNow, Dts, TimeRamElapsed
     use ModRamVariables, ONLY: Kp, VT, VTOL, VTN, TOLV, LZ, PHI, PHIOFS, &
                                FFACTOR, FLUX, FNHS, DtDriftR, DtDriftP, &
                                DtDriftE, DtDriftMu, NECR, F107, RZ, IG, rsn, &
                                IAPO, LSDR, ELORC, LSCHA, LSWAE, LSATM, PPerT, &
                                PParT, PPerO, PParO, PPerH, PParH, PPerE, PParE, &
                                PPerHe, PParHe, F2, outsideMGNP, Upa, wMu, Mu, &
-                               species, tau
+                               species, tau, LSCOE, LSCSC
     !!!! Module Subroutines/Functions
     use ModRamPlasmasphere, ONLY: CARPENTER
     use ModRamDrift, ONLY: DRIFTPARA, DRIFTR, DRIFTP, DRIFTE, DRIFTMU, DRIFTEND
@@ -36,6 +36,7 @@ MODULE ModRamRun
     use ModRamWPI,   ONLY: WAPARA_KP, WPADIF, WAVELO
     !!!! Share Modules
     use ModTimeConvert, ONLY: TimeType
+    use ModRamCoul,  ONLY: COULPARA, COULEN, COULMU
 
     implicit none
 
@@ -65,6 +66,7 @@ MODULE ModRamRun
        ! effects of a plasmasphere. -ME
        CALL TCON(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay,DAY,RZ,IG,rsn,nmonth)
        CALL CARPENTER(Kp,DAY,RZ(3))
+!       write(*,*) 'after CARPENTER, NECR(5,10) at time: ', NECR(5,10), TimeRamElapsed
 
        !CALL APFMSIS(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay,TimeRamNow%iHour,IAPO)
        !CALL PLANE(TimeRamNow%iYear,DAY,T,KP,IAPO(2),RZ(3),F107,2.*DTs,NECR,VT/1e3)
@@ -75,6 +77,7 @@ MODULE ModRamRun
        !   calls for given species S:
        CALL CEPARA(iS)
        CALL DRIFTPARA(iS)
+       CALL COULPARA(iS)
 
        ! Call routines to calculate the changes of distribution function
        ! considering drifts, charge exchange and atmospheric losses
@@ -82,10 +85,19 @@ MODULE ModRamRun
        CALL DRIFTP(iS)
        CALL DRIFTE(iS)
        CALL DRIFTMU(iS)
-
        CALL SUMRC(iS)
        LSDR(iS)=LSDR(iS)+ELORC(iS)
 
+       ! energy loss via Coulomb collisions
+       CALL COULEN(iS)
+       CALL SUMRC(iS)
+       LSCOE(iS)=LSCOE(iS)+ELORC(iS)
+       ! Coulomb collisions scattering -- unstable?
+!      CALL COULMU(iS)
+!      CALL SUMRC(iS)
+!      LSCSC(iS)=LSCSC(iS)+ELORC(iS)
+!      write(*,*) 'after COULMU at time: ', TimeRamElapsed
+
        if (species(iS)%WPI) then
           IF (DoUseWPI) THEN
              CALL WPADIF(iS) ! pitch angle diffusion
@@ -101,14 +113,21 @@ MODULE ModRamRun
           CALL SUMRC(iS)
           LSCHA(iS)=LSCHA(iS)+ELORC(iS)
        endif
+       ! loss via atmosphere loss cone
+       CALL ATMOL(iS)
+       CALL SUMRC(iS)
+       LSATM(iS)=LSATM(iS)+ELORC(iS)
 
+       ! time splitting, reverse order
        CALL ATMOL(iS)
        CALL SUMRC(iS)
        LSATM(iS)=LSATM(iS)+ELORC(iS)
-       ! time splitting
-       CALL ATMOL(iS)
-       CALL SUMRC(iS)
-       LSATM(iS)=LSATM(iS)+ELORC(iS)
+
+       if (species(iS)%CEX) then	
+          CALL CHAREXCHANGE(iS)
+          CALL SUMRC(iS)
+          LSCHA(iS)=LSCHA(iS)+ELORC(iS)
+       endif
 
        if (species(iS)%WPI) then
           IF (DoUseWPI) THEN
@@ -120,17 +139,17 @@ MODULE ModRamRun
           LSWAE(iS)=LSWAE(iS)+ELORC(iS)
        endif
 
-       if (species(iS)%CEX) then
-          CALL CHAREXCHANGE(iS)
-          CALL SUMRC(iS)
-          LSCHA(iS)=LSCHA(iS)+ELORC(iS)
-       endif
+!      CALL COULMU(iS)
+!      CALL SUMRC(iS)
+!      LSCSC(iS)=LSCSC(iS)+ELORC(iS)
+       CALL COULEN(iS)
+       CALL SUMRC(iS)
+       LSCOE(iS)=LSCOE(iS)+ELORC(iS)		
 
        CALL DRIFTMU(iS)
        CALL DRIFTE(iS)
        CALL DRIFTP(iS)
        CALL DRIFTR(iS)
-
        CALL SUMRC(iS)
        LSDR(iS)=LSDR(iS)+ELORC(iS)
 
@@ -167,7 +186,10 @@ MODULE ModRamRun
              DO L = 2, NPA
                 DO J = 1, NT-1
                    FLUX(iS,I,J,K,L) = F2(iS,I,J,K,L)/FFACTOR(iS,I,K,L)/FNHS(I,J,L)
-                ENDDO
+                if (abs(flux(iS,i,j,k,l)) > huge(flux(iS,i,j,k,l))) then
+                 write(*,*) 'in ModRamRun flux=inf ', iS,i,j,k,l, flux(iS,i,j,k,l)
+                endif
+               ENDDO
              ENDDO
           ENDDO
        ENDDO
@@ -216,18 +238,18 @@ MODULE ModRamRun
 !*************************************************************************
   SUBROUTINE ANISCH(S)
     ! Module Variables
-    use ModRamMain,      ONLY: DP
+    use ModRamMain,      ONLY: DP, PathRamOut
     use ModRamConst,     ONLY: CS, PI, Q
     use ModRamParams,    ONLY: DoUseWPI, DoUsePlane_SCB, DoUseBASdiff
     use ModRamGrids,     ONLY: NR, NT, NPA, ENG, SLEN, NCO, NCF, Ny, NE
-    use ModRamTiming,    ONLY: Dt_bc, T
-    use ModRamVariables, ONLY: IP1, UPA, WMU, FFACTOR, MU, EKEV, LZ, MLT,  &
+    use ModRamTiming,    ONLY: Dt_bc, T, TimeRamNow
+    use ModRamVariables, ONLY: IP1, UPA, WMU, FFACTOR, MU, EKEV, LZ, MLT, PHI,  &
                                PAbn, RMAS, GREL, IR1, EPP, ERNH, CDAAR, BDAAR,  &
                                ENOR, NDAAJ, fpofc, Kp, BOUNHS, FNHS, BNES, XNE, &
                                NECR, PPerT, PParT, F2, ATAW, ATAW_emic, ATAC, species
     ! Module Subroutines/Functions
     use ModRamGSL,       ONLY: GSL_Interpolation_1D, GSL_Interpolation_2D
-    use ModRamFunctions, ONLY: ACOSD
+    use ModRamFunctions, ONLY: ACOSD, RamFileName
 
     implicit none
 
@@ -242,7 +264,11 @@ MODULE ModRamRun
                              DUME(:,:),DVV(:,:,:),AVDVV(:),TAVDVV(:),WCDT(:,:),&
                              XFRT(:,:),PA(:),DAMR(:,:),DAMR1(:),GREL_new(:)
     INTEGER :: KHI(5)
-    DATA khi/6, 10, 25, 30, 35/ ! ELB=0.1 keV -> 0.4,1,39,129,325 keV 
+    character(len=2)  :: ST2
+    character(len=214) :: NameFileOut
+    character(len=2), dimension(4) :: speciesString = (/'_e','_h','he','_o'/)
+!old    DATA khi/6, 10, 25, 30, 35/ ! ELB=0.1 keV -> 0.4,1,39,129,325 keV 
+    DATA khi/2, 19, 28, 32, 35/ ! ELB=0.1 keV -> 0.1,10,100,200,427 keV 
 
     ALLOCATE(DWAVE(NPA),CMRA(SLEN),BWAVE(NR,NT),AVDAA(NPA),TAVDAA(NPA), &
              DAA(NE,NPA,Slen),DUMP(ENG,NCF),XFR(NR,NT),XFRe(NCF),ALENOR(ENG), &
@@ -253,18 +279,25 @@ MODULE ModRamRun
     AVDVV = 0.0; TAVDVV = 0.0; WCDT = 0.0; XFRT = 0.0; PA = 0.0; DAMR = 0.0
     DAMR1 = 0.0; GREL_new = 0.0
 
+    ST2 = speciesString(S)
     cv=CS*100 ! speed of light in [cm/s]
     esu=Q*3E9 ! elementary charge in [esu]
     RFAC=4*pi/cv
     gausgam=1.E-5
     khi(5)=NE
+
     ! calculate ring current parameters
     DO I=2,NR
       I1=int((I-2)*IR1+3,kind=4)
       DO J=1,NT
         J1=int((J-1)*IP1,kind=4)
         IF (DoUsePlane_SCB) THEN
-          XNE(I,J)=NECR(I1,J1)
+!          XNE(I,J)=NECR(I1,J1)          ! CRasm model
+          XNE(I,J)=NECR(I,J)
+            if (T.gt.0.and.XNE(I,J).le.0) then
+              write(*,*) 'in ANISCH T,S,i,j, XNE= ', T/3600,S,i,j, XNE(I,J)
+              stop
+            endif
         ELSE
           !if (S.EQ.1.and.I.eq.2.and.J.eq.1) write (*,*) " Need to specify Ne if using WPI"
         ENDIF
@@ -312,6 +345,11 @@ MODULE ModRamRun
         enddo
         ANIST=PPERT(S,I,J)/PPART(S,I,J)-1.
         EPART=PPART(S,I,J)/RNHTT
+!          if (T.gt.0.and.PPERT(S,I,J).lt.0) then
+          if (abs(PPERT(S,I,J))>huge(PPERT(S,I,J))) then
+              write(*,*) 'in ANISCH: S,i,j, PPERT= ', S,i,j, PPERT(S,I,J)
+              stop
+          endif
       ENDDO
     ENDDO
 

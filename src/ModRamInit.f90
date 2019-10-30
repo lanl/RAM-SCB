@@ -1,5 +1,5 @@
 !============================================================================
-!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    Copyright (c) 2016, Los Alamos National Laboratory
 !    All rights reserved.
 !============================================================================
 
@@ -93,8 +93,11 @@ MODULE ModRamInit
     WALOS1 = 0._dp; WALOS2 = 0._dp; WALOS3 = 0._dp; fpofc = 0._dp; NDVVJ = 0._dp; NDAAJ = 0._dp
     ENOR = 0._dp; ECHOR = 0._dp; BDAAR = 0._dp; CDAAR = 0._dp
   ! ModRamLoss Variables
-    ALLOCATE(ATLOS(nS,NR,NE), CHARGE(nS,NR,NT,NE,NPA))
-    ATLOS = 0._dp; CHARGE = 0._dp
+    ALLOCATE(ATLOS(nS,NR,NE), CHARGE(nS,NR,NT,NE,NPA), COULE(nS,nE,nPa), COULI(nS,nE,nPa), &
+             ATA(nS,nE,nPa), GTA(nS,nE,nPa), GTAE(nS,nE,nPa), GTAI(nS,nE,nPa), &
+             CEDR(nS,nE,nPa), CIDR(nS,nE,nPa))
+    ATLOS = 0._dp; CHARGE = 0._dp; COULE = 0.0; COULI = 0.0; ATA = 0.0; GTA = 0.0
+    GTAE = 0.0; GTAI = 0.0; CEDR = 0.0; CIDR = 0.0
   ! ModRamEField Variables
     ALLOCATE(VT(NR+1,NT), EIR(NR+1,NT), EIP(NR+1,NT), VTOL(NR+1,NT), VTN(NR+1,NT))
     VT = 0._dp; EIR = 0._dp; EIP = 0._dp; VTOL = 0._dp; VTN = 0._dp
@@ -109,11 +112,12 @@ MODULE ModRamInit
              LSCSC(NS), LSWAE(NS), XNN(NS,NR), XND(NS,NR), LNCN(NS,NR), LNCD(NS,NR), &
              LECN(NS,NR), LECD(NS,NR), ENERN(NS,NR), ENERD(NS,NR), ATEW(NR,NT,NE,NPA), &
              ATAW(NR,NT,NE,NPA), ATAC(NR,NT,NE,NPA), ATEC(NR,NT,NE,NPA), XNE(NR,NT), &
-             ATMC(NR,NT,NE,NPA), ATAW_emic(NR,NT,NE,NPA))
+             ATMC(NR,NT,NE,NPA), ATAW_emic(NR,NT,NE,NPA), ESUM(NS), NSUM(NS))
     SETRC = 0._dp; ELORC = 0._dp; LSDR = 0._dp; LSCHA = 0._dp; LSATM = 0._dp; LSCOE = 0._dp
     LSCSC = 0._dp; LSWAE = 0._dp; XNN = 0._dp; XND = 0._dp; LNCN = 0._dp; LNCD = 0._dp
     LECN = 0._dp; LECD = 0._dp; ENERN = 0._dp; ENERD = 0._dp; ATEW = 0._dp; ATAW = 0._dp
     ATAC = 0._dp; ATEC = 0._dp; XNE = 0._dp; ATMC = 0._dp; ATAW_emic = 0._dp; NECR = 0._dp
+    ESUM = 0._dp; NSUM = 0._dp
   !!!!!!!!!
   
   end subroutine ram_allocate
@@ -152,7 +156,7 @@ MODULE ModRamInit
   ! ModRamRun Variables
     DEALLOCATE(SETRC, ELORC, LSDR, LSCHA, LSATM, LSCOE, LSCSC, LSWAE, XNN, XND, &
                LNCN, LNCD, LECN, LECD, ENERN, ENERD, ATEW, ATAW, ATAC, ATEC, &
-               XNE, ATMC, ATAW_emic)
+               XNE, ATMC, ATAW_emic, ESUM, NSUM)
   !!!!!!!!!
  
  
@@ -170,7 +174,7 @@ MODULE ModRamInit
     use ModRamVariables, ONLY: PParH, PPerH, PParHe, PPerHe, PParO, PPerO, PParE, &
                                PPerE, LSDR, LSCHA, LSATM, LSCOE, LSCSC, LSWAE, ELORC, &
                                SETRC, XNN, XND, ENERN, ENERD, LNCN, LNCD, LECN, LECD, &
-                               Lz, GridExtend, Phi, kp, F107, species
+                               Lz, GridExtend, Phi, kp, F107, species, ESUM, NSUM
     use ModScbVariables, ONLY: radRaw, azimRaw
     !!!! Modules Subroutines/Functions
     use ModRamWPI,     ONLY: WAPARA_HISS, WAPARA_BAS, WAPARA_CHORUS, WAVEPARA1, WAVEPARA2
@@ -251,10 +255,10 @@ MODULE ModRamInit
     LSWAE = 0._dp
     ELORC = 0._dp
     SETRC = 0._dp
-  
+    
     ! Initial energy and density
-    XNN   = 0._dp; XND   = 0._dp
-    ENERN = 0._dp; ENERD = 0._dp
+    XNN   = 0._dp; XND   = 0._dp; NSUM = 0._dp
+    ENERN = 0._dp; ENERD = 0._dp; ESUM = 0._dp
   !!!!!!!!!
   
   !!!!!!!!!! Initialize grid.

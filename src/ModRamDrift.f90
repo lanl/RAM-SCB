@@ -1,5 +1,5 @@
 !============================================================================
-!    Copyright (c) 2016, Los Alamos National Security, LLC
+!    Copyright (c) 2016, Los Alamos National Laboratory`
 !    All rights reserved.
 !============================================================================
 
@@ -30,7 +30,7 @@ MODULE ModRamDrift
   END SUBROUTINE DRIFTEND
 
 !**************************************************************************
-!                               OTHERPARA
+!                               DRIFTPARA
 !                       Calculate drift parameters
 !**************************************************************************
   SUBROUTINE DRIFTPARA(S)
@@ -45,7 +45,7 @@ MODULE ModRamDrift
     implicit none
 
     integer, intent(in) :: S
-    real(DP) :: MUBOUN!, RA(NS)
+    real(DP) :: MUBOUN
     integer :: i, j, k, l
 
     ALLOCATE(VR(nR), P1(nR), P2(nR,nE), EDOT(nR,nE), MUDOT(nR,nPA))
@@ -54,10 +54,10 @@ MODULE ModRamDrift
              CDriftE(nR,nT,nE,nPa), CDriftMu(nR,nT,nE,nPa))
     CDriftR = 0.0; CDriftP = 0.0; CDriftE = 0.0; CDriftMu = 0.0
 
-    !DATA RA/1.,.77,.2,.03/    ! Proportions of species in the plasmasph
     ! Electric field offset in radians and particle charge
     PHIOFS=0*PI/12.
     QS = species(S)%s_charge
+
     ! Parameters used in calculating radial and azimuthal drifts at boundaries
     DO I=1,NR
       DO J=1,NT
@@ -179,6 +179,7 @@ MODULE ModRamDrift
              DO I=2,NR
                 F2(S,I,J,K,L)=F2(S,I,J,K,L)-CDriftR(I,J,K,L)*FBND(I)+CDriftR(I-1,J,K,L)*FBND(I-1)
                 if (f2(s,i,j,k,l).lt.0) then
+!                   write(*,*) 'in DRIFTR f2<0 ', S,i,j,k,l, f2(S,i,j,k,l)
                    f2(S,i,j,k,l)=1E-15
                 endif
              END DO
@@ -258,6 +259,7 @@ MODULE ModRamDrift
                 IF (J.EQ.NT) J1=2
                 F2(S,I,J,K,L)=F2(S,I,J,K,L)-CDriftP(I,J,K,L)*FBND(J)+CDriftP(I,J-1,K,L)*FBND(J-1)
                 if (f2(s,i,j,k,l).lt.0) then
+ !                  write(*,*) 'in DRIFTP f2<0 ', S,i,j,k,l, f2(S,i,j,k,l)
                    f2(S,i,j,k,l)=1E-15
                 endif
              END DO
@@ -355,6 +357,7 @@ MODULE ModRamDrift
              DO K=2,NE
                 F2(S,I,J,K,L)=F2(S,I,J,K,L)-CDriftE(I,J,K,L)/WE(K)*FBND(K)+CDriftE(I,J,K-1,L)/WE(K)*FBND(K-1)
                 if (f2(s,i,j,k,l).lt.0) then
+!                   write(*,*) 'in DRIFTE f2<0 ', S,i,j,k,l, f2(S,i,j,k,l)
                    f2(S,i,j,k,l)=1E-15
                 endif
              END DO
@@ -450,6 +453,7 @@ MODULE ModRamDrift
              DO L=2,NPA-1
                 F2(S,I,J,K,L)=F2(S,I,J,K,L)-CDriftMu(I,J,K,L)/WMU(L)*FBND(L)+CDriftMu(I,J,K,L-1)/WMU(L)*FBND(L-1)
                 if (f2(s,i,j,k,l).lt.0) then
+!                   write(*,*) 'in DRIFTMU f2<0 ', S,i,j,k,l, f2(S,i,j,k,l)
                    f2(S,i,j,k,l)=1E-15
                 endif
              END DO

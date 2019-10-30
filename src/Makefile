@@ -45,6 +45,7 @@ RAM_OBJECTS=                  \
 	ModRamSats.o          \
 	ModRamTiming.o        \
         ModRamVariables.o     \
+	ModRamCoul.o          \
 	ModRamWPI.o           \
         ModRamInjection.o     \
 	IM_set_parameters.o
