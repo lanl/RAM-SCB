@@ -39,84 +39,89 @@ debug=False
 remove=False
 files=[]
 
+#TODO: replace with argparse option parser
 for option in sys.argv[1:]:
     # Handle options.
     if option[0]=='-':
         if option == '-nocheck':
-            check=False
+            check = False
         elif option == '-rm':
-            remove='True'
+            remove = 'True'
         elif option == '-debug':
-            debug=True
+            debug = True
         elif option == '-h' or option == '-help':
-            print __doc__
+            print(__doc__)
             exit()
         else:
-            print 'Unrecognized option: ', option
-            print __doc__
+            print('Unrecognized option: ', option)
+            print(__doc__)
             exit()
     else:
-        files=files+glob(option)
+        files = files + glob(option)
 
 # Open output file in append mode:
-out=open(files.pop(0), 'a+')
+out = open(files.pop(0), 'a+')
 
 # Some machines don't do 'a+' correctly.  Rewind file as necessary.
 if out.tell()>0: out.seek(0,0)
 
 # Load and store header:
 out.readline() #garbage
-head=out.readline() # Header.
-nbytes=len(out.readline())
+head = out.readline() # Header.
+nbytes = len(out.readline())
 if debug:
-    print "DEBUG:\tOpened file %s" % (out.name)
-    print "\tEach line is %i characters long." % nbytes
-    print "\tHeader has %i entries." % (len(head.split()))
+    print("DEBUG:\tOpened file %s" % (out.name))
+    print("\tEach line is %i characters long." % nbytes)
+    print("\tHeader has %i entries." % (len(head.split())) )
 
 # Load last line of file.
 out.seek(-1*nbytes, 2) #seek last line.
-lasttime = float( (out.readline().split())[0])
+lasttime = float((out.readline().split())[0])
 
 if debug:
-    print "\tLast time = %f." % lasttime
+    print("\tLast time = %f." % lasttime)
 
 # Open rest of files, append.
 for f in files:
     # No files that end with special characters.
     if f[-1]=='~': continue
     # Open file, slurp lines.
-    if debug: print "Processing %s:" % f
-    nextfile=open(f, 'r')
-    lines=nextfile.readlines()
+    if debug: print("Processing %s:" % f)
+    nextfile = open(f, 'r')
+    lines = nextfile.readlines()
     nextfile.close()
     # Read header; skip this file if header is different.
     lines.pop(0)
-    nowhead=lines.pop(0)
-    if nowhead!=head: 
+    nowhead = lines.pop(0)
+    if nowhead != head: 
         if debug: 
-            print head
-            print nowhead
-            print "\tHeader does not match, discarding."
+            print(head)
+            print(nowhead)
+            print("\tHeader does not match, discarding.")
         continue
     # Jump over overlapping lines:
     if check:
-        nSkip=0; nLines=len(lines)
+        nSkip=0
+        nLines=len(lines)
         while nSkip<nLines:
             if float( (lines[0].split())[0] ) > lasttime:
                 break
             else:
                 lines.pop(0)
-                nSkip+=1
-        if debug: print "\tFound %i overlapping lines." % nSkip
+                nSkip += 1
+        if debug:
+            print("\tFound %i overlapping lines." % nSkip)
     # Append data to first log.
-    if len(lines)<1: continue
+    if len(lines)<1:
+        continue
     for l in lines:
         out.write(l)
     # Save "last time".
     lasttime=float( (lines[-1].split())[0] )
     # Delete file when done.
     if remove: 
-        if debug: print "\tRemoving file."
+        if debug:
+            print("\tRemoving file.")
         unlink(f)
 
 # Finalize:
