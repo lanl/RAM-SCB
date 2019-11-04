@@ -137,9 +137,9 @@ if __name__=='__main__':
     #download updated F10.7 from ftp://ftp.geolab.nrcan.gc.ca/data/solar_flux/daily_flux_values/fluxtable.txt
     #only has data from 2004-10-28 (prior data are in different files)
     io_store = io.StringIO()
-    ftp = ftplib.FTP('ftp.geolab.nrcan.gc.ca')
+    ftp = ftplib.FTP('ftp.seismo.nrcan.gc.ca')
     ftp.login()
-    ftp.cwd('data/solar_flux/daily_flux_values')
+    ftp.cwd('spaceweather/solar_flux/daily_flux_values')
     ftp.retrlines('RETR {0}'.format('fluxtable.txt'), io_store.write)
     io_store.seek(0)
     conts = io_store.read()
