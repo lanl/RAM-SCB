@@ -13,7 +13,7 @@ def read_config():
 
     with open('config.txt', 'r') as to_read:
             lines = to_read.readlines()
-    lines = map(lambda x: x[x.find(':')+1:].strip(), lines)
+    lines = [x[x.find(':')+1:].strip() for x in lines]
     properties = dict()
     for i in range(len(property_labels)):
                 properties[property_labels[i]] = lines[i+1]
