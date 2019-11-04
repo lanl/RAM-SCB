@@ -7,7 +7,26 @@ import os, sys, itertools, glob
 import lxml.etree
 import numpy as np
 import spacepy.datamodel as dm
+import netCDF4
 from makeCustomSource import getPolyVertOrder, getCellVertOrder
+
+#========================================================================================================
+def fromNC4(fname):
+    '''Uses netCDF4 Python library to load .nc restart files into SpaceData/dmarray'''
+    outdata = dm.SpaceData()
+    with netCDF4.Dataset(fname, "r", format="NETCDF4") as ncf:
+        #global attrs
+        for attname in ncf.ncattrs():
+            outdata.attrs[attname] = ncf.getncattr(attname)
+        #get copies of all variables
+        for varname in ncf.variables:
+            outdata[varname] = dm.dmarray(ncf.variables[varname][...].filled())
+            #RAM-SCB variables don't have metadata, so skip
+            #RAM-SCB also doesn't have nested groups, so don't recurse
+        #and add netCDF4 "dimensions" as variables
+        for dimname in ncf.dimensions:
+            outdata[dimname] = dm.dmarray(np.atleast_1d(ncf.dimensions[dimname].size))
+    return outdata
 
 #========================================================================================================
 def read_config():
@@ -20,7 +39,7 @@ def read_config():
     if len(lines) - 1 != len(property_labels):
         raise ValueError('Number of properties in the config file should be ' + len(properties))
         sys.exit(1)
-    lines = map(lambda x: x[x.find(':')+1:].strip(), lines)
+    lines = [x[x.find(':')+1:].strip() for x in lines]
     properties = dict()
     for i in range(len(property_labels)):
         properties[property_labels[i]] = lines[i+1]
@@ -29,15 +48,15 @@ def read_config():
 def gen_vtx(fileName, pressure=True, field=True, verbose=False):
     '''Generates fn_pressure.vtp and fn_field.vtu in the vtk_files directory, given the filename fn'''
 
-    data = dm.fromHDF5(fileName)
+    data = fromNC4(fileName)
     outfn = os.path.split(os.path.splitext(fileName)[0])[1]
     indent3 = '\n\t\t\t'
     indent2 = '\n\t\t'
 
     if pressure:
-        nT = len(data['nT'])-1 #RAM uses a ghost point in local time
-        nR = len(data['nR'])
-        nS = len(data['nS'])
+        nT = data['nT'][0]-1 #RAM uses a ghost point in local time
+        nR = data['nR'][0]
+        nS = data['nS'][0]
         rnT = range(nT)
         rnR = range(nR)
         npts = nT*nR
@@ -143,7 +162,7 @@ def gen_vtx(fileName, pressure=True, field=True, verbose=False):
             part.append(dao)
             piece.append(part)
 
-        out = lxml.etree.tostring(fulltree, xml_declaration=False, pretty_print=True)
+        out = lxml.etree.tostring(fulltree, xml_declaration=False, pretty_print=True).decode()
         outdir = 'vtk_files'
         if not os.path.isdir(outdir):
             os.mkdir(outdir)
@@ -152,10 +171,10 @@ def gen_vtx(fileName, pressure=True, field=True, verbose=False):
 
     if field:
         #-----------------------Generating fn_field.vtu----------------------------------
-        nZeta = len(data['nZeta'])-1 #SCB uses a ghost point in local timea
+        nZeta = data['nZeta'][0]-1 #SCB uses a ghost point in local timea
         #nZeta = nZeta//2 #only use half...
-        nPsi = len(data['nPsi'])
-        nTheta = len(data['nTheta'])
+        nPsi = data['nPsi'][0]
+        nTheta = data['nTheta'][0]
         rnZeta = range(nZeta)
         rnPsi = range(nPsi)
         rnTheta = range(nTheta)
@@ -234,7 +253,7 @@ def gen_vtx(fileName, pressure=True, field=True, verbose=False):
         piece.append(cells)
         piece.set('NumberOfCells', '{}'.format(nconn//8))
 
-        out = lxml.etree.tostring(fulltree, xml_declaration=False, pretty_print=True)
+        out = lxml.etree.tostring(fulltree, xml_declaration=False, pretty_print=True).decode()
         outdir = 'vtk_files'
         if not os.path.isdir(outdir):
             os.mkdir(outdir)
