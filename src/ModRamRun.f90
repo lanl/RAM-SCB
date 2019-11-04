@@ -271,8 +271,8 @@ MODULE ModRamRun
     character(len=2)  :: ST2
     character(len=214) :: NameFileOut
     character(len=2), dimension(4) :: speciesString = (/'_e','_h','he','_o'/)
-    DATA khi/6, 10, 25, 30, 35/ ! ELB=0.1 keV -> 0.4,1,39,129,325 keV 
-!    DATA khi/2, 19, 28, 32, 35/ ! ELB=0.1 keV -> 0.1,10,100,200,427 keV 
+    DATA khi/6, 10, 25, 30, 35/ ! ELB=0.1 keV -> 0.4,1,39,129,325 keV
+!    DATA khi/2, 19, 28, 32, 35/ ! ELB=0.1 keV -> 0.1,10,100,200,427 keV
 
     ALLOCATE(DWAVE(NPA),CMRA(SLEN),BWAVE(NR,NT),AVDAA(NPA),TAVDAA(NPA), &
              DAA(NE,NPA,Slen),DUMP(ENG,NCF),XFR(NR,NT),XFRe(NCF),ALENOR(ENG), &
