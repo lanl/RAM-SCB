@@ -89,14 +89,16 @@ MODULE ModRamRun
        LSDR(iS)=LSDR(iS)+ELORC(iS)
 
        ! energy loss via Coulomb collisions
-       CALL COULEN(iS)
-       CALL SUMRC(iS)
-       LSCOE(iS)=LSCOE(iS)+ELORC(iS)
-       ! Coulomb collisions scattering -- unstable?
-!      CALL COULMU(iS)
-!      CALL SUMRC(iS)
-!      LSCSC(iS)=LSCSC(iS)+ELORC(iS)
-!      write(*,*) 'after COULMU at time: ', TimeRamElapsed
+       if (DoUsePlane_SCB) then
+         CALL COULEN(iS)
+         CALL SUMRC(iS)
+         LSCOE(iS)=LSCOE(iS)+ELORC(iS)
+         ! Coulomb collisions scattering -- unstable?
+  !      CALL COULMU(iS)
+  !      CALL SUMRC(iS)
+  !      LSCSC(iS)=LSCSC(iS)+ELORC(iS)
+  !      write(*,*) 'after COULMU at time: ', TimeRamElapsed
+       endif
 
        if (species(iS)%WPI) then
           IF (DoUseWPI) THEN
@@ -123,7 +125,7 @@ MODULE ModRamRun
        CALL SUMRC(iS)
        LSATM(iS)=LSATM(iS)+ELORC(iS)
 
-       if (species(iS)%CEX) then	
+       if (species(iS)%CEX) then
           CALL CHAREXCHANGE(iS)
           CALL SUMRC(iS)
           LSCHA(iS)=LSCHA(iS)+ELORC(iS)
@@ -139,12 +141,14 @@ MODULE ModRamRun
           LSWAE(iS)=LSWAE(iS)+ELORC(iS)
        endif
 
-!      CALL COULMU(iS)
-!      CALL SUMRC(iS)
-!      LSCSC(iS)=LSCSC(iS)+ELORC(iS)
-       CALL COULEN(iS)
-       CALL SUMRC(iS)
-       LSCOE(iS)=LSCOE(iS)+ELORC(iS)		
+       if (DoUsePlane_SCB) then
+  !      CALL COULMU(iS)
+  !      CALL SUMRC(iS)
+  !      LSCSC(iS)=LSCSC(iS)+ELORC(iS)
+         CALL COULEN(iS)
+         CALL SUMRC(iS)
+         LSCOE(iS)=LSCOE(iS)+ELORC(iS)
+       endif
 
        CALL DRIFTMU(iS)
        CALL DRIFTE(iS)
@@ -267,8 +271,8 @@ MODULE ModRamRun
     character(len=2)  :: ST2
     character(len=214) :: NameFileOut
     character(len=2), dimension(4) :: speciesString = (/'_e','_h','he','_o'/)
-!old    DATA khi/6, 10, 25, 30, 35/ ! ELB=0.1 keV -> 0.4,1,39,129,325 keV 
-    DATA khi/2, 19, 28, 32, 35/ ! ELB=0.1 keV -> 0.1,10,100,200,427 keV 
+    DATA khi/6, 10, 25, 30, 35/ ! ELB=0.1 keV -> 0.4,1,39,129,325 keV 
+!    DATA khi/2, 19, 28, 32, 35/ ! ELB=0.1 keV -> 0.1,10,100,200,427 keV 
 
     ALLOCATE(DWAVE(NPA),CMRA(SLEN),BWAVE(NR,NT),AVDAA(NPA),TAVDAA(NPA), &
              DAA(NE,NPA,Slen),DUMP(ENG,NCF),XFR(NR,NT),XFRe(NCF),ALENOR(ENG), &
