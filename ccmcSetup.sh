@@ -7,6 +7,7 @@
 module purge
 LD_LIBRARY_PATH=
 module load gcc-9.2.0
+module load gsl-2.5/gcc-9.2.0
 module load netcdf-c-4.7.2/gcc-9.2.0
 module load netcdf-fortran-4.5.2/gcc-9.2.0
 module load openmpi-3.1.4/gcc-9.2.0
@@ -20,7 +21,7 @@ GSL=/opt/gnu/gsl-2.5
 ./Config.pl -install -compiler=gfortran -mpi=openmpi -ncdf=${NCDF} -gsl=${GSL} -openmp
 #now fix the GSL include and link stuff in the make system
 GSL_FLAGS=`pkg-config --cflags --libs gsl`
-sed "s|^\(FLAGC.*\)|SEARCH_C = -I$GSL/include\\nFLAGC_EXTRA = $GSL_FLAGS\\n\\1|" Makefile.conf
+sed -i "s|^\(FLAGC.*\)|SEARCH_C = -I$GSL/include\\nFLAGC_EXTRA = $GSL_FLAGS\\n\\1|" Makefile.conf
 
 #Then compile
 make
