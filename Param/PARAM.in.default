@@ -66,12 +66,22 @@ F			UseEfInd		! Whether or not to use an inductive electric field
 F			DoUseWPI		! Whether to use wave particle interactions or not (Note, wave particle interactions are not currently working)
 F			DoUseBASDiff		! Whether to use BAS diffusion coefficients for wave particle interactions
 F			doUseKpDiff		! Whether to use KP based diffusion coefficients for wave particle interactions
+
+#PLASMASPHERE
+F			DoUsePlasmasphere       ! Whether or not to use a plasmasphere model
+Carpenter               PlasmasphereModel       ! If DoUsePlasmasphere then which plasmasphere model to use (Carpenter,Transport)
+Analytic                TauCalculation          ! How to calculate plasmasphere refilling time (Fixed, Analytic, Rasmussen)
+
+#COULOMB
+F			DoUseCoulomb            ! Whether or not to use coulomb collisions
+
 ***********************************************
 
 ***************** RAM BLOCK *******************
-#MULTISPECIESBCS
-F                       DoMultiSpeciesBcs       ! Whether to use boundary flux files that are split into multiple species (H+, He, O)
-T                       DoElectrons             ! Whether to run electrons
+#SPECIES
+4			nS			! Number of species to run
+_H _O He _e		SpeciesCodes		! Set of two letter codes for each species
+F			FixedComposition	! Use a fixed composition ratio for ions or Young et al.
 
 #RAMLIMITER
 1.5                     LimiterBeta             ! When running, RAM will limit beta to this value
@@ -82,8 +92,9 @@ T                       DoElectrons             ! Whether to run electrons
 35                      nE                      ! Number of energy bins used in RAM
 72                      nPa                     ! Number of pitch angle bins used in RAM
 
-#USEPLANE
-F			DoUsePlane_SCB		! Whether to include the plasmasphere
+#FLUX_CAP
+1e10			ElectronFluxCap		! Boundary flux cap for electrons
+1e8			ProtonFluxCap		! Boundary flux cap for ions
 
 ***********************************************
 
@@ -106,6 +117,10 @@ F			DoUsePlane_SCB		! Whether to include the plasmasphere
 71                      nTheta                  ! Number of theta (polar) grid points used in SCB
 45                      nPsi                    ! Number of psi (radial) surfaces used in SCB
 73                      nZeta                   ! Number of zeta (azimuthal) surfaces used in SCB 
+
+#SCB_GHOSTCELLS
+0			RadialGhostCells	! Number of radial ghost cells
+4			ToroidalGhostCells	! Number of field line ghost cells
 
 #SCBFLAGS
 F			Isotropic		! Whether to use isotropic pressure mappings in SCB (does not effect RAM)

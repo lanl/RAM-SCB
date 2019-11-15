@@ -144,7 +144,7 @@ Module ModRamScb
   
     use ModRamVariables, ONLY: FNHS, FNIS, BNES, HDNS, dBdt, dHdt, &
                                dIdt, dIbndt, BOUNHS, BOUNIS, EIR, EIP, flux_volume, &
-                               LZ, MU, MLT, PAbn, PA, DL1, outsideMGNP
+                               LZ, MU, MLT, PAbn, PA, DL1, outsideMGNP, xRAM, yRAM, zRAM
     use ModRamTiming,    ONLY: TimeRamElapsed, TOld, TimeRamNow
     use ModRamConst,     ONLY: b0dip
     use ModRamParams,    ONLY: NameBoundMag, verbose, checkMGNP, integral_smooth, densityMode
@@ -192,7 +192,7 @@ use ModTimeConvert, ONLY: n_day_of_year
     REAL(DP), ALLOCATABLE :: bbx(:), bby(:), bbz(:), xx(:), yy(:), zz(:), cval(:)
     REAL(DP), ALLOCATABLE :: BNESPrev(:,:), FNISPrev(:,:,:), BOUNISPrev(:,:,:), &
                              FNHSPrev(:,:,:), BOUNHSPrev(:,:,:), dHbndt(:,:,:)
-    REAL(DP), ALLOCATABLE :: xRAM(:,:,:), yRAM(:,:,:), zRAM(:,:,:), bRAM(:,:,:)
+    REAL(DP), ALLOCATABLE :: bRAM(:,:,:)
     REAL(DP) :: scalingI, scalingH, scalingD, I_Temp, H_Temp, D_Temp
  
     REAL(DP), ALLOCATABLE :: kernel(:,:), output(:,:)
@@ -223,8 +223,7 @@ call RECALC_08(TimeRamNow%iYear,n_day_of_year(TimeRamNow%iYear,TimeRamNow%iMonth
              r0(nR,nT), bfMirror(nR,nT,nPa), yI(nR,nT,NPA), yH(nR,nT,NPA), yD(nR,nT,NPA), &
              BNESPrev(nR+1,nT), FNHSPrev(nR+1,nT,nPa),FNISPrev(nR+1,nT,nPa), &
              BOUNISPrev(nR+1,nT,nPa), BOUNHSPrev(nR+1,nT,nPa), dHbndt(nR+1,nT,nPa), &
-             xRAM(nthe,nR,nT),yRAM(nthe,nR,nT),zRAM(nthe,nR,nT),bRAM(nthe,nR,nT), &
-             density(nthe,nR,nT))
+             bRAM(nthe,nR,nT), density(nthe,nR,nT))
     !!!
 
     h_Cart = 0._dp; I_Cart = 0._dp
@@ -637,7 +636,7 @@ call RECALC_08(TimeRamNow%iYear,n_day_of_year(TimeRamNow%iYear,TimeRamNow%iMonth
 
     DEALLOCATE(length,r0,distance,yI,yH,yD,bfmirror,bbx,bby,bbz,cVal,xx,yy,zz, &
                BNESPrev,FNISPrev,ScaleAt,BOUNISPrev,FNHSPrev,BOUNHSPrev,dHbndt)
-    DEALLOCATE(xRAM,yRAM,zRAM,bRAM,outsideSCB,density)
+    DEALLOCATE(bRAM,outsideSCB,density)
  
     RETURN
   

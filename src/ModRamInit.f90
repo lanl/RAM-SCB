@@ -19,6 +19,7 @@ MODULE ModRamInit
                                Slen, ENG, NCF, NL, nS, nX, &
                                RadMaxScb, RadiusMin, RadiusMax, &
                                NameVar
+    use ModScbGrids,     ONLY: nthe
  
     implicit none
 
@@ -67,8 +68,8 @@ MODULE ModRamInit
     PParT = 0._dp; FNHS = 0._dp; FNIS = 0._dp; BOUNHS = 0._dp; BOUNIS = 0._dp; dIdt = 0._dp
     dBdt = 0._dp; dIbndt = 0._dp; HDNS = 0._dp; BNES = 0._dp; dHdt = 0._dp
    ! ModRamPlasmasphere Variables
-   ALLOCATE(flux_volume(nR,nT), tau(nR,nT), uL(nR,nT), uT(nT,nR), gdLon(nR,nT), gdLat(nR,nT), &
-            nECR(nR,nT))
+   ALLOCATE(flux_volume(nR,nT), tau(nR,nT), uL(nR,nT), uT(nT,nR), smLon(nR,nT), smLat(nR,nT), &
+            nECR(nR,nT), xRAM(nthe,nR,nT), yRAM(nthe,nR,nT), zRAM(nthe,nR,nT))
    ! ModRamCouple and IM_wrapper Variables
     ALLOCATE(NAllSum(nR,nT), DensO(nR,nT), DensH(nR,nT), DensHe(nR,nT), HPAllSum(nR,nT), &
              OPAllSum(nR,nT), HePAllSum(nR,nT), ePAllSum(nR,nT), HNAllSum(nR,nT), &
@@ -137,7 +138,7 @@ MODULE ModRamInit
                PAllSum, PParSum, PPerT, PParT, FNHS, FNIS, BOUNHS, BOUNIS, dIdt, &
                dBdt, dIbndt, HDNS, BNES, dHdt)
   ! ModRamPlasmasphere Variables
-    DEALLOCATE(flux_volume, tau, uL, uT, gdLon, gdLat, NECR)
+    DEALLOCATE(flux_volume, tau, uL, uT, smLon, smLat, NECR, xRAM, yRAM, zRAM)
   ! ModRamInit Variables
     DEALLOCATE(RMAS, V, VBND, GREL, GRBND, FACGR, EPP, ERNH, UPA, WE, DE, EKEV, &
                EBND, PHI, LT, MLT, MU, DMU, WMU, PAbn, LZ, RLZ, AMLA, BE, GridExtend, &
@@ -326,7 +327,7 @@ MODULE ModRamInit
     use ModRamConst,     ONLY: RE, PI, MP, CS, Q, HMIN
     use ModRamGrids,     ONLY: RadiusMax, RadiusMin, NR, NPA, Slen, NT, NE, &
                                NLT, EnergyMin, dR, dPhi, nS
-    use ModRamParams,    ONLY: DoUsePlane_SCB
+    use ModRamParams,    ONLY: DoUsePlasmasphere
     use ModRamVariables, ONLY: amla, DL1, Lz, RLz, IR1, EKEV, Mu, WMu, DMu, &
                                RMAS, WE, DE, EBND, GRBND, V, Pa, Pabn, UPA, &
                                FFACTOR, GREL, ZrPabn, VBND, PHI, BE, MLT, &
@@ -349,7 +350,7 @@ MODULE ModRamInit
 
     ! Grid size of L shell
     DL1 = (RadiusMax - RadiusMin)/(nR - 1)
-    IF ((MOD(DL1,0.25).NE.0).and.(DoUsePlane_SCB)) THEN
+    IF (MOD(DL1,0.25).NE.0) THEN
       write(*,*) MOD(DL1,0.25_8)
       WRITE(6,*) 'RAM: Error : DL is not a multiple of 0.25 '
       STOP
@@ -556,10 +557,11 @@ MODULE ModRamInit
     !!!! Module Variables
     use ModRamMain,      ONLY: DP, nIter
     use ModRamParams,    ONLY: IsRestart, IsStarttimeSet, NameBoundMag, &
-                               DoUsePlane_SCB, HardRestart, InitializeOnFile
+                               DoUsePlasmasphere, HardRestart, InitializeOnFile, &
+                               PlasmasphereModel
     use ModRamGrids,     ONLY: NL, NLT, nR, nT, nS
     use ModRamTiming,    ONLY: DtEfi, TimeRamNow, TimeRamElapsed
-    use ModRamVariables, ONLY: Kp, F107, TOLV, NECR, IP1, IR1, XNE, F2
+    use ModRamVariables, ONLY: Kp, F107, TOLV, NECR, IP1, IR1, XNE, F2, Rz, rsn, IG
     use ModScbParams,    ONLY: method, constTheta
     !!!! Module Subroutines/Functions
     use ModRamRun,       ONLY: ANISCH
@@ -574,15 +576,18 @@ MODULE ModRamInit
     use ModScbEuler,     ONLY: psiges, alfges
     use ModScbIO,        ONLY: computational_domain
     use ModScbCompute,   ONLY: computeBandJacob, compute_convergence
+    use ModRamPlasmasphere, ONLY: plasmasphere
     !!!! Share Modules
     use ModIOUnit,      ONLY: UNITTMP_
     use ModTimeConvert, ONLY: TimeType
   
     implicit none
   
-    integer :: i, j, j1, i1, iS, methodTemp
+    real(DP) :: DAY, HOUR
+    integer  :: i, j, j1, i1, iS, methodTemp, nmonth
   
     character(len=4)   :: NameBoundMagTemp
+    character(len=100) :: pmt
     character(len=100) :: HEADER
     character(len=*), parameter :: NameSub='init_input'
   
@@ -655,7 +660,19 @@ MODULE ModRamInit
         method = methodTemp
         NameBoundMag = NameBoundMagTemp 
        endif
- 
+
+       ! Plasmasphere Initialization
+       if (DoUsePlasmasphere) then
+          ! Read ig_rz.dat and apf107.dat
+          call read_ig_rz
+          call readapf107
+
+          pmt = PlasmasphereModel
+          PlasmasphereModel = "Carpenter"
+          call plasmasphere(0._dp)
+          PlasmasphereModel = pmt
+       endif
+
     end if
   !!!!!!!!
   
