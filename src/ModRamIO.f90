@@ -672,7 +672,7 @@ end subroutine read_geomlt_file
     use ModRamMain,  ONLY: DP, PathRamOut
     use ModRamTiming, ONLY: TimeRamNow
     use ModRamGrids, ONLY: nS, nR, nT, nE, nPa
-    use ModRamVariables, ONLY: F2, FFactor, FNHS, EkeV, Lz, Pa, MLT, species
+    use ModRamVariables, ONLY: F2, FFactor, FNHS, EkeV, Lz, Pa, MLT, species, nECR
 
     use ModRamNCDF
     use netcdf
@@ -684,7 +684,7 @@ end subroutine read_geomlt_file
 
     character(len=200) :: NameFile
     integer :: i, j, k, l, S
-    integer :: nRDim, nTDim, nEDim, nPaDim, iGridVar, iFluxVar, iFileID, iStatus
+    integer :: nRDim, nTDim, nEDim, nPaDim, iGridVar, iFluxVar, iFileID, iStatus, iNECRVar
     real(DP), allocatable :: F(:,:,:,:)
 
     ! OPEN FILE
@@ -733,6 +733,10 @@ end subroutine read_geomlt_file
        iStatus = nf90_put_var(iFileID, iFluxVar,  F(:,:,:,:))
     enddo
     deallocate(F)
+
+    !! Plasmaspheric Densities
+    iStatus = nf90_def_var(iFileID, 'NECR', nf90_double, (/nRDim,nTDim/), iNECRVar)
+    iStatus = nf90_put_var(iFileID, iNECRVar, NECR(1:nR,1:nT))
 
     iStatus = nf90_close(iFileID)
     call ncdf_check(iStatus, NameSub)
@@ -791,7 +795,7 @@ end subroutine read_geomlt_file
                                LECD, LECN, outsideMGNP, NECR, IAPO, RZ, &
                                IR1, IP1, PHI, MU, RFACTOR, ESUM, NSUM
     use ModRamTiming,    ONLY: TimeRamNow,TimeRamElapsed
-    use ModRamParams,    ONLY: DoUseWPI, DoUsePlane_SCB
+    use ModRamParams,    ONLY: DoUseWPI, DoUsePlasmasphere
     use ModRamFunctions
     use ModRamConst
     use ModIOUnit, ONLY: UNITTMP_, io_unit_new
@@ -901,7 +905,7 @@ end subroutine read_geomlt_file
 32  FORMAT(' EKEV/PA, Date=',a,' L=',F6.2,' Kp=',F6.2,' MLT=',F4.1)
 
 !.......Write the plasmaspheric electron density [cm-3] (.in)
-	  if(DoUsePlane_SCB)then
+	  if(DoUsePlasmasphere)then
 	   NameFileOut=trim(PathRamOut)//RamFileName('plasmne','in',TimeRamNow)
 	   OPEN(UNIT=UNITTMP_,FILE=NameFileOut,STATUS='UNKNOWN')
            WRITE(UNITTMP_,96) T/3600,KP,IAPO(2),RZ(3),StringDate

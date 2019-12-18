@@ -19,7 +19,7 @@ Module ModRamVariables
 
   ! ModRamPlasmasphere Variables
   real(DP), ALLOCATABLE :: flux_volume(:,:), uL(:,:), uT(:,:), tau(:,:), &
-                           gdLon(:,:), gdLat(:,:)
+                           smLon(:,:), smLat(:,:), xRAM(:,:,:), yRAM(:,:,:), zRAM(:,:,:)
 
 ! UNKNOWN VARIABLES
   real(DP), ALLOCATABLE :: XNE(:,:)

@@ -436,7 +436,7 @@ MODULE ModRamWPI
   SUBROUTINE WAVELO(S)
 
     use ModRamMain,      ONLY: DP
-    use ModRamParams,    ONLY: DoUsePlane_SCB
+    use ModRamParams,    ONLY: DoUsePlasmasphere
     use ModRamGrids,     ONLY: NE, NR, NT, NPA
     use ModRamTiming,    ONLY: Dts
     use ModRamVariables, ONLY: F2, KP, LZ, IP1, IR1, EKEV, NECR, WALOS1, &
@@ -456,11 +456,9 @@ MODULE ModRamWPI
     IF (KP.GE.4.0) Bw=100.                                 ! pT
     Kpmax=KP  ! need Kpmax from previous 12 hrs, TO FIX!!!
     DO J=1,NT
-      J1=int((J-1)*IP1,kind=4)
       RLpp(J)=5.39-0.382*KPmax  ! PP from Moldwin et al. [2002]
       DO I=2,NR
-        I1=int((I-2)*IR1+3,kind=4)
-        IF (DoUsePlane_SCB.and.NECR(I1,J1).gt.50.) RLpp(J)=LZ(I)
+        IF (DoUsePlasmasphere.and.NECR(I,J).gt.50.) RLpp(J)=LZ(I)
       ENDDO
     ENDDO
 

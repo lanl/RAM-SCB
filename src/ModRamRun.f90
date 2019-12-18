@@ -18,19 +18,16 @@ MODULE ModRamRun
     !!!! Module Variables
     use ModRamMain,      ONLY: DP
     use ModRamParams,    ONLY: electric, DoUseWPI, DoUseBASdiff, DoUseKpDiff, &
-                               DoUsePlane_SCB, verbose
+                               DoUsePlasmasphere, DoUseCoulomb, verbose
     use ModRamConst,     ONLY: RE
     use ModRamGrids,     ONLY: nS, NR, NE, NT, NPA
     use ModRamTiming,    ONLY: UTs, T, DtEfi, DtsMin, DtsNext, TimeRamNow, Dts, TimeRamElapsed
-    use ModRamVariables, ONLY: Kp, VT, VTOL, VTN, TOLV, LZ, PHI, PHIOFS, &
-                               FFACTOR, FLUX, FNHS, DtDriftR, DtDriftP, &
-                               DtDriftE, DtDriftMu, NECR, F107, RZ, IG, rsn, &
-                               IAPO, LSDR, ELORC, LSCHA, LSWAE, LSATM, PPerT, &
-                               PParT, PPerO, PParO, PPerH, PParH, PPerE, PParE, &
-                               PPerHe, PParHe, F2, outsideMGNP, Upa, wMu, Mu, &
-                               species, tau, LSCOE, LSCSC
+    use ModRamVariables, ONLY: Kp, VT, VTOL, VTN, TOLV, LZ, PHI, PHIOFS, FFACTOR, &
+                               FLUX, FNHS, DtDriftR, DtDriftP, DtDriftE, DtDriftMu, &
+                               NECR, F107, LSDR, ELORC, LSCHA, LSWAE, LSATM, &
+                               F2, outsideMGNP, Upa, wMu, Mu, species, LSCOE, LSCSC
     !!!! Module Subroutines/Functions
-    use ModRamPlasmasphere, ONLY: CARPENTER
+    use ModRamPlasmasphere, ONLY: plasmasphere
     use ModRamDrift, ONLY: DRIFTPARA, DRIFTR, DRIFTP, DRIFTE, DRIFTMU, DRIFTEND
     use ModRamLoss,  ONLY: CEPARA, CHAREXCHANGE, ATMOL
     use ModRamWPI,   ONLY: WAPARA_KP, WPADIF, WAVELO
@@ -40,8 +37,8 @@ MODULE ModRamRun
 
     implicit none
 
-    real(DP) :: AVS, DAY
-    integer  :: i, j, k, l, nmonth
+    real(DP) :: AVS
+    integer  :: i, j, k, l
     integer  :: IS ! Species to advect.
 
     AVS=7.05E-6/(1.-0.159*KP+0.0093*KP**2)**3/RE  ! Voll-Stern parameter
@@ -58,19 +55,7 @@ MODULE ModRamRun
     T = UTs
 
     ! Added capability to couple to plasmaspheric density model
-    IF (DoUsePlane_SCB) THEN
-       ! Need total number of days from TimeRamNow
-       DAY = TimeRamNow%iMonth*30 + TimeRamNow%iDay
-
-       ! For now we will just use the Carpenter model so that we can test the
-       ! effects of a plasmasphere. -ME
-       CALL TCON(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay,DAY,RZ,IG,rsn,nmonth)
-       CALL CARPENTER(Kp,DAY,RZ(3))
-!       write(*,*) 'after CARPENTER, NECR(5,10) at time: ', NECR(5,10), TimeRamElapsed
-
-       !CALL APFMSIS(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay,TimeRamNow%iHour,IAPO)
-       !CALL PLANE(TimeRamNow%iYear,DAY,T,KP,IAPO(2),RZ(3),F107,2.*DTs,NECR,VT/1e3)
-    END IF
+    IF (DoUsePlasmasphere) call plasmasphere(2._dp*dts)
 
   !$OMP PARALLEL DO
     do iS=1,nS
@@ -89,15 +74,14 @@ MODULE ModRamRun
        LSDR(iS)=LSDR(iS)+ELORC(iS)
 
        ! energy loss via Coulomb collisions
-       if (DoUsePlane_SCB) then
+       if (DoUseCoulomb) then
          CALL COULEN(iS)
          CALL SUMRC(iS)
          LSCOE(iS)=LSCOE(iS)+ELORC(iS)
          ! Coulomb collisions scattering -- unstable?
-  !      CALL COULMU(iS)
-  !      CALL SUMRC(iS)
-  !      LSCSC(iS)=LSCSC(iS)+ELORC(iS)
-  !      write(*,*) 'after COULMU at time: ', TimeRamElapsed
+         CALL COULMU(iS)
+         CALL SUMRC(iS)
+         LSCSC(iS)=LSCSC(iS)+ELORC(iS)
        endif
 
        if (species(iS)%WPI) then
@@ -141,10 +125,10 @@ MODULE ModRamRun
           LSWAE(iS)=LSWAE(iS)+ELORC(iS)
        endif
 
-       if (DoUsePlane_SCB) then
-  !      CALL COULMU(iS)
-  !      CALL SUMRC(iS)
-  !      LSCSC(iS)=LSCSC(iS)+ELORC(iS)
+       if (DoUseCoulomb) then
+         CALL COULMU(iS)
+         CALL SUMRC(iS)
+         LSCSC(iS)=LSCSC(iS)+ELORC(iS)
          CALL COULEN(iS)
          CALL SUMRC(iS)
          LSCOE(iS)=LSCOE(iS)+ELORC(iS)
@@ -167,6 +151,11 @@ MODULE ModRamRun
     end do
   !$OMP END PARALLEL DO
     F2(:,:,nT,:,:) = F2(:,:,1,:,:)
+
+    if (verbose) then
+       write(*,'(1x,a,2E10.2)') 'Max, Min FluxQ = ', &
+             maxval(F2(:,:,:,:,:)), minval(F2(:,:,:,:,:), MASK=F2(:,:,:,:,:).GT.0)
+    endif
 
     !!!! For now set the flux to 0 outside magnetopause.
     ! Setting to 0 was causing issues, instead keep the flux but track the
@@ -244,7 +233,7 @@ MODULE ModRamRun
     ! Module Variables
     use ModRamMain,      ONLY: DP, PathRamOut
     use ModRamConst,     ONLY: CS, PI, Q
-    use ModRamParams,    ONLY: DoUseWPI, DoUsePlane_SCB, DoUseBASdiff
+    use ModRamParams,    ONLY: DoUseWPI, DoUsePlasmasphere, DoUseBASdiff
     use ModRamGrids,     ONLY: NR, NT, NPA, ENG, SLEN, NCO, NCF, Ny, NE
     use ModRamTiming,    ONLY: Dt_bc, T, TimeRamNow
     use ModRamVariables, ONLY: IP1, UPA, WMU, FFACTOR, MU, EKEV, LZ, MLT, PHI,  &
@@ -292,10 +281,8 @@ MODULE ModRamRun
 
     ! calculate ring current parameters
     DO I=2,NR
-      I1=int((I-2)*IR1+3,kind=4)
       DO J=1,NT
-        J1=int((J-1)*IP1,kind=4)
-        IF (DoUsePlane_SCB) THEN
+        IF (DoUsePlasmasphere) THEN
 !          XNE(I,J)=NECR(I1,J1)          ! CRasm model
           XNE(I,J)=NECR(I,J)
             if (T.gt.0.and.XNE(I,J).le.0) then

@@ -82,6 +82,16 @@ subroutine IM_set_parameters
      case('#USERAM')
         call read_var('DoUseRAM', DoUseRAM)
 
+     case('#PLASMASPHERE')
+        call read_var('UsePlasmasphere', DoUsePlasmasphere)
+        if (DoUsePlasmasphere) then
+           call read_var('PlasmasphereModel', PlasmasphereModel)
+           call read_var('TauCalculation', TauCalculation)
+        endif
+
+     case('#COULOMB')
+        call read_var('UseCoulomb', DoUseCoulomb)
+
      case('#SPECIES')
         call read_var('nS', nS)
         call read_var('NameVar', NameVar)
@@ -98,10 +108,6 @@ subroutine IM_set_parameters
 
      case('#CHECK_MAGNETOPAUSE')
         checkMGNP = .true.
-
-     case('#USEPLANE')
-        DoUsePlane_SCB = .true.
-        call read_var('DoUsePlane_SCB', DoUsePlane_SCB)
 
      case('#USEWPI')
         call read_var('DoUseWPI',     TempLogical)
