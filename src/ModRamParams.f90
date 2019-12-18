@@ -38,10 +38,6 @@ module ModRamParams
   logical :: IsRestart = .false., DoSaveFinalRestart=.true.
   logical :: HardRestart = .false. ! Whether to recompute SCB outer boundary
  
-  ! Use plasmasphere density from Rasmussen model, coupled to MSIS and IRI
-  ! For plane_scb options, see ModRamPl_Ne.f90
-  logical :: DoUsePlane_SCB = .false.
- 
   ! Include SCB?  Default is yes!
   logical :: DoUseScb = .true.
  
@@ -94,7 +90,15 @@ module ModRamParams
   character(len=200) :: StrRamDescription='None'     ! Descript. of simulation
  
   logical :: IsStarttimeSet=.false.  ! True if #STARTTIME used in standalone.
- 
+
+  ! Plasmasphere Model Parameters 
+  logical :: DoUsePlasmasphere = .false.
+  character(len=100) :: PlasmasphereModel = 'Carpenter' ! Name of plasmasphere model to use
+  character(len=100) :: TauCalculation = 'Analytic'     ! Name of method for calculating plasmasphere refilling time
+
+  ! Coulomb Collision Parameters
+  logical :: DoUseCoulomb = .false.
+
   character(len=4) :: NameBoundMag = 'DIPL'
   character(len=6) :: InnerMag, OuterMag
  
