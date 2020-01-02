@@ -163,14 +163,14 @@ testTravis_check:
                 ${TESTDIR3}/output_scb/hI_output_d20130317_t001500.dat \
                 ${TESTDIR4}/output_scb/hI_output_d20130317_t001500.dat \
                 >> testTravis.diff
-	ncdump -v "FluxH+","B_xyz"                                     \
+	ncdump -v "Flux_H","B_xyz"                                     \
                ${TESTDIR3}/output_ram/sat1_d20130317_t000000.nc        \
                | sed -e '1,/data:/d' >                                 \
                ${TESTDIR3}/output_ram/sat1.test
 	ncrcat ${TESTDIR4}/output_ram/sat1_d20130317_t000000.nc       \
                ${TESTDIR4}/output_ram/sat1_d20130317_t001000.nc       \
                ${TESTDIR4}/output_ram/sat1.nc
-	ncdump -v "FluxH+","B_xyz" ${TESTDIR4}/output_ram/sat1.nc     \
+	ncdump -v "Flux_H","B_xyz" ${TESTDIR4}/output_ram/sat1.nc     \
                | sed -e '1,/data:/d' >                                \
                ${TESTDIR4}/output_ram/sat1.test        
 	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                            \
@@ -212,7 +212,7 @@ test1_check:
 		${TESTDIR1}/output_ram/pressure_d20130317_t001500.dat   \
 		${IMDIR}/output/test1/pressure.ref                      \
 		>> test1.diff			        
-	ncdump -v "FluxH+","B_xyz"                              	\
+	ncdump -v "Flux_H","B_xyz"                              	\
                ${TESTDIR1}/output_ram/sat1_d20130317_t000000.nc 	\
                | sed -e '1,/data:/d' >                          	\
                ${TESTDIR1}/output_ram/sat1.test
@@ -220,7 +220,7 @@ test1_check:
 		${TESTDIR1}/output_ram/sat1.test                	\
 		${IMDIR}/output/test1/sat1.ref                  	\
 		>> test1.diff
-	ncdump -v "FluxH+","B_xyz"                              	\
+	ncdump -v "Flux_H","B_xyz"                              	\
                ${TESTDIR1}/output_ram/sat2_d20130317_t000000.nc 	\
                | sed -e '1,/data:/d' >                          	\
                ${TESTDIR1}/output_ram/sat2.test
@@ -268,7 +268,7 @@ test2_check:
 	ncrcat ${TESTDIR2}/output_ram/sat1_d20130317_t000000.nc       \
 	       ${TESTDIR2}/output_ram/sat1_d20130317_t001000.nc       \
 	       ${TESTDIR2}/output_ram/sat1.nc
-	ncdump -v "FluxH+","B_xyz" ${TESTDIR2}/output_ram/sat1.nc     \
+	ncdump -v "Flux_H","B_xyz" ${TESTDIR2}/output_ram/sat1.nc     \
                | sed -e '1,/data:/d' >                                \
                ${TESTDIR2}/output_ram/sat1.test        
 	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                            \
@@ -278,7 +278,7 @@ test2_check:
 	ncrcat ${TESTDIR2}/output_ram/sat2_d20130317_t000000.nc       \
                ${TESTDIR2}/output_ram/sat2_d20130317_t001000.nc       \
                ${TESTDIR2}/output_ram/sat2.nc
-	ncdump -v "FluxH+","B_xyz" ${TESTDIR2}/output_ram/sat2.nc     \
+	ncdump -v "Flux_H","B_xyz" ${TESTDIR2}/output_ram/sat2.nc     \
                | sed -e '1,/data:/d' > \
                ${TESTDIR2}/output_ram/sat2.test
 	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                            \
