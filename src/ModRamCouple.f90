@@ -622,18 +622,18 @@ contains
 !==================================================================================================
   subroutine generate_field(xpsiin, xpsiout)
     !!!! Module Variables
-    USE ModRamVariables, ONLY: Kp, MLT
-    !use ModRamParams,    ONLY: IsComponent, NameBoundMag, verbose
+    USE ModRamVariables, ONLY: Kp, MLT, outsideMGNP
     use ModRamTiming,    ONLY: TimeRamNow
     use ModRamGrids,     ONLY: nRExtend, nT, nR
-    USE ModScbParams,    ONLY: Symmetric, constZ, constTheta
+    USE ModScbParams,    ONLY: Symmetric, constZ, constTheta, method
     USE ModScbGrids,     ONLY: npsi, nthe, nzeta
-    USE ModScbVariables, ONLY: r0Start, bf, nThetaEquator, &
+    USE ModScbVariables, ONLY: psi, r0Start, bf, nThetaEquator, rhoVal, zetaVal, &
                                x, y, z, thetaVal, zetaVal, left, right, chiVal, &
                                xzero3, psiVal, alphaVal, psiin, psiout, psitot, SORFail
     !!!! Module Subroutines/Functions
     use ModRamGSL,       ONLY: GSL_Interpolation_1D
     use ModRamFunctions, ONLY: RamFileName
+    use ModScbEuler,     ONLY: mappsi, psifunctions, maptheta
     !!!! Share Modules
     USE ModIoUnit, ONLY: UNITTMP_
     !!!! NR Modules
@@ -644,339 +644,318 @@ contains
     REAL(DP), intent(out) :: xpsiin, xpsiout
 
     character(len=200) :: FileName
-    integer  :: i, j, k, ii, ir, nSWMF, GSLerr
-    real(DP) :: r0, rr, b0, rf, xf, yf, zf, tf, xpl, xpsitot, psis, rc(1)
+    integer  :: i, j, k, ii, ir, il(1), nSWMF, GSLerr
+    real(DP) :: r0, rr, b0, rf, xf, yf, zf, t0, tf, xpl, xpsitot, psis, rc(1)
 
     real(DP), dimension(0:1000) :: distance, xTemp, yTemp, zTemp
 
     integer,  allocatable :: iOuter(:)
-    REAL(DP), allocatable :: psiout_j(:), psiin_j(:)
-    REAL(DP), allocatable :: aTemp(:), pTemp(:), cTemp(:), cTemp2(:), psival_i(:)
+    REAL(DP), allocatable :: aTemp(:), pTemp(:), cTemp(:)
     REAL(DP), allocatable, dimension(:,:,:) :: &
         x1(:,:,:), y1(:,:,:), z1(:,:,:), bx1(:,:,:), by1(:,:,:), bz1(:,:,:), &
         x2(:,:,:), y2(:,:,:), z2(:,:,:), bx2(:,:,:), by2(:,:,:), bz2(:,:,:), &
-        xSWMF(:,:,:), ySWMF(:,:,:), zSWMF(:,:,:), bxSWMF(:,:,:), bySWMF(:,:,:), bzSWMF(:,:,:)
+        x3(:,:,:), y3(:,:,:), z3(:,:,:), bx3(:,:,:), by3(:,:,:), bz3(:,:,:)
+
+    ! Test Variables:
+    logical :: DoTest, DoTestMe
+    character(len=*), parameter :: NameSub = 'generate_field'
+    !------------------------------------------------------------------------
+    call CON_set_do_test(NameSub, DoTest, DoTestMe)
 
     nSWMF = 2*nPoints-1
     ALLOCATE(iOuter(nT))
-    ALLOCATE(aTemp(0:nT+1), pTemp(nRExtend), cTemp(nSWMF), cTemp2(nthe))
-    ALLOCATE(psival_i(nRExtend), psiout_j(nzeta), psiin_j(nzeta))
-    ALLOCATE(xSWMF(nRExtend,nT-1,nthe),ySWMF(nRExtend,nT-1,nthe),zSWMF(nRExtend,nT-1,nthe))
-    ALLOCATE(x1(nRExtend,nzeta,nthe), y1(nRExtend,nzeta,nthe), z1(nRExtend,nzeta,nthe))
-    ALLOCATE(x2(npsi,nzeta,nthe), y2(npsi,nzeta,nthe), z2(npsi,nzeta,nthe))
-    ALLOCATE(bxSWMF(nRExtend,nT-1,nthe),bySWMF(nRExtend,nT-1,nthe),bzSWMF(nRExtend,nT-1,nthe))
-    ALLOCATE(bx1(nRExtend,nzeta,nthe), by1(nRExtend,nzeta,nthe), bz1(nRExtend,nzeta,nthe))
-    ALLOCATE(bx2(npsi,nzeta,nthe), by2(npsi,nzeta,nthe), bz2(npsi,nzeta,nthe))
+    ALLOCATE(aTemp(0:nT+1), pTemp(nRExtend), cTemp(nSWMF))
+    ALLOCATE(x1(nRExtend,nT,nthe), y1(nRExtend,nT,nthe), z1(nRExtend,nT,nthe))
+    ALLOCATE(x2(npsi,nT,nthe),     y2(npsi,nT,nthe),     z2(npsi,nT,nthe))
+    ALLOCATE(x3(npsi,nzeta,nthe),  y3(npsi,nzeta,nthe),  z3(npsi,nzeta,nthe))
+    ALLOCATE(bx1(nRExtend,nT,nthe), by1(nRExtend,nT,nthe), bz1(nRExtend,nT,nthe))
+    ALLOCATE(bx2(npsi,nT,nthe),     by2(npsi,nT,nthe),     bz2(npsi,nT,nthe))
+    ALLOCATE(bx3(npsi,nzeta,nthe),  by3(npsi,nzeta,nthe),  bz3(npsi,nzeta,nthe))
+    x1 = 0._dp; x2 = 0._dp; x3 = 0._dp; bx1 = 0._dp; bx2 = 0._dp; bx3 = 0._dp
+    y1 = 0._dp; y2 = 0._dp; y3 = 0._dp; by1 = 0._dp; by2 = 0._dp; by3 = 0._dp
+    z1 = 0._dp; z2 = 0._dp; z3 = 0._dp; bz1 = 0._dp; bz2 = 0._dp; bz3 = 0._dp
+
 
     BLines_DIII(4,:,:,:) = 10**9*BLines_DIII(4,:,:,:)
     BLines_DIII(5,:,:,:) = 10**9*BLines_DIII(5,:,:,:)
     BLines_DIII(6,:,:,:) = 10**9*BLines_DIII(6,:,:,:)
 
-    FileName = RamFileName('SWMFField','dat',TimeRamNow)
-    open(UNITTMP_, File=FileName)
-    write(UNITTMP_,*) nRExtend, nT-1, nSWMF
-    do i = 1,nSWMF
-     do j = 1, nRExtend
-      do k = 1,nT-1
-       write(UNITTMP_,*) BLines_DIII(1,j,k,i),BLines_DIII(2,j,k,i),BLines_DIII(3,j,k,i),IsClosed_II(j,k)
-      enddo
-     enddo
-    enddo
-    close(UNITTMP_)
+    if (DoTestMe) then
+       FileName = RamFileName('SWMFField_0','dat',TimeRamNow)
+       open(UNITTMP_, File=FileName)
+       write(UNITTMP_,*) nRExtend, nT-1, nSWMF
+       do i = 1,nSWMF
+        do j = 1, nRExtend
+         do k = 1,nT-1
+          write(UNITTMP_,*) BLines_DIII(1,j,k,i),BLines_DIII(2,j,k,i),BLines_DIII(3,j,k,i), &
+                            BLines_DIII(4,j,k,i),BLines_DIII(5,j,k,i),BLines_DIII(6,j,k,i)
+         enddo
+        enddo
+       enddo
+       close(UNITTMP_)
+    endif
 
-    convert_field: do
-       ! Fix IsClosed_II
-       iOuter = nRExtend + 1
+    ! Fix IsClosed_II so that we only take "well behaved" field lines
+    iOuter = nRExtend + 1
+    do j = 1, nT-1
+       do i = nRExtend, 2, -1
+          r0 = sqrt(maxval(BLines_DIII(1,i,j,:)**2 &
+                         + BLines_DIII(2,i,j,:)**2 &
+                         + BLines_DIII(3,i,j,:)**2))
+          rr = sqrt(maxval(BLines_DIII(1,i-1,j,:)**2 &
+                         + BLines_DIII(2,i-1,j,:)**2 &
+                         + BLines_DIII(3,i-1,j,:)**2))
+          ctemp = atan2(BLines_DIII(2,i,j,:),BLines_DIII(1,i,j,:))
+          il = maxloc(ctemp)
+          ii = il(1)
+          il = minloc(ctemp)
+          ir = il(1)
+          t0 = atan2(BLines_DIII(1,i,j,ii)*BLines_DIII(2,i,j,ir) - BLines_DIII(1,i,j,ir)*BLines_DIII(2,i,j,ii), &
+                     BLines_DIII(1,i,j,ii)*BLines_DIII(1,i,j,ir) + BLines_DIII(2,i,j,ir)*BLines_DIII(2,i,j,ii))
+          if (maxval(abs(BLines_DIII(3,i,j,:))) > 5.0) then
+             IsClosed_II(i,j) = .false.
+          elseif (r0-rr > 1.0) then
+             IsClosed_II(i,j) = .false.
+          elseif (r0 > 9.0) then
+             IsClosed_II(i,j) = .false.
+          elseif (abs(t0) > 0.35) then
+             IsClosed_II(i,j) = .false.
+          endif
+          if (.not.IsClosed_II(i,j)) then
+             !write(*,*) 'Open Line', i, j, r0, rr, maxval(abs(BLines_DIII(3,i,j,:)))
+             iOuter(j) = i
+          endif
+       enddo
+    enddo
+    iOuter = iOuter - 1
+
+    nSWMF_to_nthe: do
+       if (GSLerr > 0) exit nSWMF_to_nthe
        do j = 1, nT-1
-          do i = nRExtend, 2, -1
-             r0 = sqrt(maxval(BLines_DIII(1,i,j,:)**2 &
-                            + BLines_DIII(2,i,j,:)**2 &
-                            + BLines_DIII(3,i,j,:)**2))
-             rr = sqrt(maxval(BLines_DIII(1,i-1,j,:)**2 &
-                            + BLines_DIII(2,i-1,j,:)**2 &
-                            + BLines_DIII(3,i-1,j,:)**2))
-             if ((maxval(abs(BLines_DIII(3,i,j,:))) > 5.0).and.(IsClosed_II(i,j))) then
-                IsClosed_II(i,j) = .false.
-             elseif ((r0-rr > 1.0).and.(IsClosed_II(i,j))) then
-                IsClosed_II(i,j) = .false.
-             elseif (r0 > 11.0) then
-                IsClosed_II(i,j) = .false.
-             endif
-             if (.not.IsClosed_II(i,j)) then
-                !write(*,*) 'Open Line', i, j, r0, rr, maxval(abs(BLines_DIII(3,i,j,:)))
-                iOuter(j) = i
-             endif
+          do i = 1, iOuter(j)
+             distance(1) = 0._dp ! Distance along field line in Re
+             DO k = 2, nSWMF
+                distance(k) = distance(k-1) + SQRT((BLines_DIII(1,i,j,k)-BLines_DIII(1,i,j,k-1))**2 &
+                                                  +(BLines_DIII(2,i,j,k)-BLines_DIII(2,i,j,k-1))**2 &
+                                                  +(BLines_DIII(3,i,j,k)-BLines_DIII(3,i,j,k-1))**2)
+             END DO
+             distance(1:nSWMF) = distance(1:nSWMF) / distance(nSWMF)
+             cTemp(1:nSWMF) = distance(1:nSWMF) * pi_d ! Distance along field line in radians (0-pi)
+             ! Convert x,y,z points
+             call GSL_Interpolation_1D(ctemp(1:nSWMF), BLines_DIII(1,i,j,1:nSWMF), &
+                                       chiVal(1:nthe), x1(i,j,1:nthe), GSLErr)
+             call GSL_Interpolation_1D(ctemp(1:nSWMF), BLines_DIII(2,i,j,1:nSWMF), &
+                                       chiVal(1:nthe), y1(i,j,1:nthe), GSLErr)
+             call GSL_Interpolation_1D(ctemp(1:nSWMF), BLines_DIII(3,i,j,1:nSWMF), &
+                                       chiVal(1:nthe), z1(i,j,1:nthe), GSLErr)
+             if (GSLerr > 0) exit nSWMF_to_nthe
+             ! Convert bx,by,bz
+             call GSL_Interpolation_1D(ctemp(1:nSWMF), BLines_DIII(4,i,j,1:nSWMF), &
+                                       chiVal(1:nthe), bx1(i,j,1:nthe), GSLErr)
+             call GSL_Interpolation_1D(ctemp(1:nSWMF), BLines_DIII(5,i,j,1:nSWMF), &
+                                       chiVal(1:nthe), by1(i,j,1:nthe), GSLErr)
+             call GSL_Interpolation_1D(ctemp(1:nSWMF), BLines_DIII(6,i,j,1:nSWMF), &
+                                       chiVal(1:nthe), bz1(i,j,1:nthe), GSLErr)
+             if (GSLerr > 0) exit nSWMF_to_nthe
           enddo
        enddo
-       iOuter = iOuter - 3
+       exit nSWMF_to_nthe
+    enddo nSWMF_to_nthe
 
-       ir = nThetaEquator
+    if (DoTestMe) then
+       FileName = RamFileName('SWMFField_1','dat',TimeRamNow)
+       open(UNITTMP_, File=FileName)
+       write(UNITTMP_,*) nRExtend, nT-1, nthe
+       do i = 1, nthe
+        do j = 1, nRExtend
+         do k = 1, nT-1
+          write(UNITTMP_,*) x1(j,k,i), y1(j,k,i), z1(j,k,i), &
+                            bx1(j,k,i),by1(j,k,i),bz1(j,k,i)
+         enddo
+        enddo
+       enddo
+       close(UNITTMP_)
+    endif
+
+    nRExtend_to_npsi: do
+       if (GSLerr > 0) exit nRExtend_to_npsi
        do j = 1, nT-1
           ii = iOuter(j)
-          do i = 1, ii
-             distance(1) = 0._dp
-             xTemp(1:nSWMF) = BLines_DIII(1,i,j,1:nSWMF)
-             yTemp(1:nSWMF) = BLines_DIII(2,i,j,1:nSWMF)
-             zTemp(1:nSWMF) = BLines_DIII(3,i,j,1:nSWMF)
-             DO k = 2, nSWMF
-                distance(k) = distance(k-1) + SQRT((xTemp(k)-xTemp(k-1))**2 &
-                                                  +(yTemp(k)-yTemp(k-1))**2 &
-                                                  +(zTemp(k)-zTemp(k-1))**2)
-             END DO
-             cTemp = distance(1:nSWMF) / distance(nSWMF) * pi_d
-             CALL GSL_Interpolation_1D(cTemp,            xTemp(1:nSWMF), &
-                                       chiVal(2:nthe-1), xSWMF(i,j,2:nthe-1), GSLerr)
-             xSWMF(i,j,1)    = xTemp(1)
-             xSWMF(i,j,nthe) = xTemp(nSWMF)
-             if (GSLerr > 0) exit convert_field
-             CALL GSL_Interpolation_1D(cTemp,            yTemp(1:nSWMF), &
-                                       chiVal(2:nthe-1), ySWMF(i,j,2:nthe-1), GSLerr)
-             ySWMF(i,j,1)    = yTemp(1)
-             ySWMF(i,j,nthe) = yTemp(nSWMF)
-             if (GSLerr > 0) exit convert_field
-             CALL GSL_Interpolation_1D(cTemp,            zTemp(1:nSWMF), &
-                                       chiVal(2:nthe-1), zSWMF(i,j,2:nthe-1), GSLerr)
-             zSWMF(i,j,1)    = zTemp(1)
-             zSWMF(i,j,nthe) = zTemp(nSWMF)
-             if (GSLerr > 0) exit convert_field
-
-             !!!!
-             xTemp(1:nSWMF) = BLines_DIII(4,i,j,1:nSWMF)
-             yTemp(1:nSWMF) = BLines_DIII(5,i,j,1:nSWMF)
-             zTemp(1:nSWMF) = BLines_DIII(6,i,j,1:nSWMF)
-             CALL GSL_Interpolation_1D(cTemp,            xTemp(1:nSWMF), &
-                                       chiVal(2:nthe-1), bxSWMF(i,j,2:nthe-1), GSLerr)
-             bxSWMF(i,j,1)    = xTemp(1)
-             bxSWMF(i,j,nthe) = xTemp(nSWMF)
-             if (GSLerr > 0) exit convert_field
-             CALL GSL_Interpolation_1D(cTemp,            yTemp(1:nSWMF), &
-                                       chiVal(2:nthe-1), bySWMF(i,j,2:nthe-1), GSLerr)
-             bySWMF(i,j,1)    = yTemp(1)
-             bySWMF(i,j,nthe) = yTemp(nSWMF)
-             if (GSLerr > 0) exit convert_field
-             CALL GSL_Interpolation_1D(cTemp,            zTemp(1:nSWMF), &
-                                       chiVal(2:nthe-1), bzSWMF(i,j,2:nthe-1), GSLerr)
-             bzSWMF(i,j,1)    = zTemp(1)
-             bzSWMF(i,j,nthe) = zTemp(nSWMF)
-             if (GSLerr > 0) exit convert_field
-          enddo
-
-          b0 = sqrt(minval(bxSWMF(ii,j,:)**2 + bySWMF(ii,j,:)**2 + bzSWMF(ii,j,:)**2))
-          rc = minloc(bxSWMF(ii,j,:)**2 + bySWMF(ii,j,:)**2 + bzSWMF(ii,j,:)**2)
-          xf = xSWMF(ii,j,rc(1))
-          yf = ySWMF(ii,j,rc(1))
-          zf = zSWMF(ii,j,rc(1))
-          rf = sqrt(xf**2+yf**2+zf**2)
-          tf = 1. - zf**2/rf**2
-          xpsiout = (b0/rf)*tf
-
-          b0 = sqrt(minval(bxSWMF(1,j,:)**2 + bySWMF(1,j,:)**2 + bzSWMF(1,j,:)**2))
-          rc = minloc(bxSWMF(1,j,:)**2 + bySWMF(1,j,:)**2 + bzSWMF(1,j,:)**2)
-          xf = xSWMF(1,j,rc(1))
-          yf = ySWMF(1,j,rc(1))
-          zf = zSWMF(1,j,rc(1))
-          rf = sqrt(xf**2+yf**2+zf**2)
-          tf = 1. - zf**2/rf**2
-          xpsiin = (b0/rf)*tf
-
-          xpsitot = xpsiout - xpsiin
-          do i = 1, nRExtend
-             psis = REAL(i-1,DP)/REAL(nRExtend-1,DP)
-             xpl = xpsiin*(xpsiout/xpsiin)**(psis)
-             psival_i(i) = xzero3/xpl
-          enddo
-          do i = 1, ii
-             b0 = sqrt(minval(bxSWMF(i,j,:)**2 + bySWMF(i,j,:)**2 + bzSWMF(i,j,:)**2))
-             rc = minloc(bxSWMF(i,j,:)**2 + bySWMF(i,j,:)**2 + bzSWMF(i,j,:)**2)
-             xf = xSWMF(i,j,rc(1))
-             yf = ySWMF(i,j,rc(1))
-             zf = zSWMF(i,j,rc(1))
-             rf = sqrt(xf**2+yf**2+zf**2)
-             tf = 1. - zf**2/rf**2
-             pTemp(i) = (b0/rf)*tf
-          enddo
-          pTemp(1:ii) = xzero3/pTemp(1:ii)
-          do i = 2, ii
-             if (pTemp(i) - pTemp(i-1) < 0._dp) then
-                ii = i - 1
-                exit
-             endif
-          enddo
           do k = 1, nthe
-             xTemp(1:ii) = xSWMF(1:ii,j,k)
-             yTemp(1:ii) = ySWMF(1:ii,j,k)
-             zTemp(1:ii) = zSWMF(1:ii,j,k)
-             CALL GSL_Interpolation_1D(pTemp(1:ii), xTemp(1:ii), &
-                                       psival_i(2:nRExtend-1), xSWMF(2:nRExtend-1,j,k), GSLerr)
-             xSWMF(1,j,k) = xTemp(1)
-             xSWMF(nRExtend,j,k) = xTemp(ii)
-             if (GSLerr > 0) exit convert_field
-             CALL GSL_Interpolation_1D(pTemp(1:ii), yTemp(1:ii), &
-                                       psival_i(2:nRExtend-1), ySWMF(2:nRExtend-1,j,k), GSLerr)
-             ySWMF(1,j,k) = yTemp(1)
-             ySWMF(nRExtend,j,k) = yTemp(ii)
-             if (GSLerr > 0) exit convert_field
-             CALL GSL_Interpolation_1D(pTemp(1:ii), zTemp(1:ii), &
-                                       psival_i(2:nRExtend-1), zSWMF(2:nRExtend-1,j,k), GSLerr)
-             zSWMF(1,j,k) = zTemp(1)
-             zSWMF(nRExtend,j,k) = zTemp(ii)
-             if (GSLerr > 0) exit convert_field
+             distance(1) = 0._dp
+             do i = 2, ii
+                distance(i) = distance(i-1) + SQRT((x1(i,j,k)-x1(i-1,j,k))**2 &
+                                                  +(y1(i,j,k)-y1(i-1,j,k))**2 &
+                                                  +(z1(i,j,k)-z1(i-1,j,k))**2)
+             enddo
+             distance(1:ii) = distance(1:ii)/distance(ii)
+             pTemp(1:ii) = distance(1:ii)
+             ! Convert x,y,z points
+             call GSL_Interpolation_1D(pTemp(1:ii),    x1(1:ii,j,k), &
+                                       rhoVal(1:npsi), x2(1:npsi,j,k), GSLErr)
+             call GSL_Interpolation_1D(pTemp(1:ii),    y1(1:ii,j,k), &
+                                       rhoVal(1:npsi), y2(1:npsi,j,k), GSLErr)
+             call GSL_Interpolation_1D(pTemp(1:ii),    z1(1:ii,j,k), &
+                                       rhoVal(1:npsi), z2(1:npsi,j,k), GSLErr)
+             if (GSLerr > 0) exit nRExtend_to_npsi
+             ! Convert bx,by,bz
+             call GSL_Interpolation_1D(pTemp(1:ii),    bx1(1:ii,j,k), &
+                                       rhoVal(1:npsi), bx2(1:npsi,j,k), GSLErr)
+             call GSL_Interpolation_1D(pTemp(1:ii),    by1(1:ii,j,k), &
+                                       rhoVal(1:npsi), by2(1:npsi,j,k), GSLErr)
+             call GSL_Interpolation_1D(pTemp(1:ii),    bz1(1:ii,j,k), &
+                                       rhoVal(1:npsi), bz2(1:npsi,j,k), GSLErr)
+             if (GSLerr > 0) exit nRExtend_to_npsi
           enddo
        enddo
+       exit nRExtend_to_npsi
+    enddo nRExtend_to_npsi
 
-       ! nT -> nzeta
-       DO k = 1, nzeta+1
-          alphaVal(k) = twopi_d*REAL(k-2,DP)/REAL(nzeta-1,DP)
-       END DO
-       do i = 1, nRExtend
-          do j = 1,nT-1
-             aTemp(j) = atan2(ySWMF(i,j,1),xSWMF(i,j,1))
-          enddo
-          where (aTemp(5:nT-3) < 0.0_dp) aTemp(5:nT-3) = aTemp(5:nT-3) + twopi_d
-          aTemp(nT-2) = aTemp(nT-2) + twopi_d
-          aTemp(nT-1) = aTemp(nT-1) + twopi_d
-          aTemp(0) = aTemp(nT-1) - twopi_d
-          aTemp(nT) = aTemp(1)   + twopi_d
-          aTemp(nT+1) = aTemp(2) + twopi_d
+    if (DoTestMe) then
+       FileName = RamFileName('SWMFField_2','dat',TimeRamNow)
+       open(UNITTMP_, File=FileName)
+       write(UNITTMP_,*) npsi, nT-1, nthe
+       do i = 1, nthe
+        do j = 1, npsi
+         do k = 1, nT-1
+          write(UNITTMP_,*) x2(j,k,i), y2(j,k,i), z2(j,k,i), &
+                            bx2(j,k,i),by2(j,k,i),bz2(j,k,i)
+         enddo
+        enddo
+       enddo
+       close(UNITTMP_)
+    endif
+
+    nT_to_nzeta: do
+       if (GSLerr > 0) exit nT_to_nzeta
+       do j = 1,nT-1
+          aTemp(j) = atan2(y2(1,j,nThetaEquator),x2(1,j,nThetaEquator))
+       enddo
+       where (aTemp(5:nT-3) < 0.0_dp) aTemp(5:nT-3) = aTemp(5:nT-3) + twopi_d
+       aTemp(nT-2) = aTemp(nT-2) + twopi_d
+       aTemp(nT-1) = aTemp(nT-1) + twopi_d
+       aTemp(0) = aTemp(nT-1) - twopi_d
+       aTemp(nT) = aTemp(1)   + twopi_d
+       aTemp(nT+1) = aTemp(2) + twopi_d
+       do i = 1, npsi
           do k = 1, nthe
-             xTemp(1:nT-1) = xSWMF(i,1:nT-1,k)
+             ! Convert x,y,z points
+             xTemp(1:nT-1) = x2(i,1:nT-1,k)
              xTemp(0)      = xTemp(nT-1)
              xTemp(nT)     = xTemp(1)
              xTemp(nT+1)   = xTemp(2)
-             yTemp(1:nT-1) = ySWMF(i,1:nT-1,k)
+             yTemp(1:nT-1) = y2(i,1:nT-1,k)
              yTemp(0)      = yTemp(nT-1)
              yTemp(nT)     = yTemp(1)
              yTemp(nT+1)   = yTemp(2)
-             zTemp(1:nT-1) = zSWMF(i,1:nT-1,k)
+             zTemp(1:nT-1) = z2(i,1:nT-1,k)
              zTemp(0)      = zTemp(nT-1)
              zTemp(nT)     = zTemp(1)
              zTemp(nT+1)   = zTemp(2)
-             CALL GSL_Interpolation_1D(aTemp(0:nT+1),     xTemp(0:nT+1), &
-                                       alphaVal(2:nzeta), x1(i,2:nzeta,k), GSLerr)
-             if (GSLerr > 0) exit convert_field
-             CALL GSL_Interpolation_1D(aTemp(0:nT+1),     yTemp(0:nT+1), &
-                                       alphaVal(2:nzeta), y1(i,2:nzeta,k), GSLerr)
-             if (GSLerr > 0) exit convert_field
-             CALL GSL_Interpolation_1D(aTemp(0:nT+1),     zTemp(0:nT+1), &
-                                       alphaVal(2:nzeta), z1(i,2:nzeta,k), GSLerr)
-             if (GSLerr > 0) exit convert_field
+             CALL GSL_Interpolation_1D(aTemp(0:nT+1),    xTemp(0:nT+1), &
+                                       zetaVal(2:nzeta), x3(i,2:nzeta,k), GSLerr)
+             CALL GSL_Interpolation_1D(aTemp(0:nT+1),    yTemp(0:nT+1), &
+                                       zetaVal(2:nzeta), y3(i,2:nzeta,k), GSLerr)
+             CALL GSL_Interpolation_1D(aTemp(0:nT+1),    zTemp(0:nT+1), &
+                                       zetaVal(2:nzeta), z3(i,2:nzeta,k), GSLerr)
+             if (GSLerr > 0) exit nT_to_nzeta
+             ! Convert bx,by,bz
+             xTemp(1:nT-1) = bx2(i,1:nT-1,k)
+             xTemp(0)      = xTemp(nT-1)
+             xTemp(nT)     = xTemp(1)
+             xTemp(nT+1)   = xTemp(2)
+             yTemp(1:nT-1) = by2(i,1:nT-1,k)
+             yTemp(0)      = yTemp(nT-1)
+             yTemp(nT)     = yTemp(1)
+             yTemp(nT+1)   = yTemp(2)
+             zTemp(1:nT-1) = bz2(i,1:nT-1,k)
+             zTemp(0)      = zTemp(nT-1)
+             zTemp(nT)     = zTemp(1)
+             zTemp(nT+1)   = zTemp(2)
+             CALL GSL_Interpolation_1D(aTemp(0:nT+1),    xTemp(0:nT+1), &
+                                       zetaVal(2:nzeta), bx3(i,2:nzeta,k), GSLerr)
+             CALL GSL_Interpolation_1D(aTemp(0:nT+1),    yTemp(0:nT+1), &
+                                       zetaVal(2:nzeta), by3(i,2:nzeta,k), GSLerr)
+             CALL GSL_Interpolation_1D(aTemp(0:nT+1),    zTemp(0:nT+1), &
+                                       zetaVal(2:nzeta), bz3(i,2:nzeta,k), GSLerr)
+             if (GSLerr > 0) exit nT_to_nzeta
           enddo
        enddo
-       x1(:,1,:) = x1(:,nzeta,:)
-       y1(:,1,:) = y1(:,nzeta,:)
-       z1(:,1,:) = z1(:,nzeta,:)
+       exit nT_to_nzeta
+    enddo nT_to_nzeta
+    x3(:,1,:)  = x3(:,nzeta,:)
+    y3(:,1,:)  = y3(:,nzeta,:)
+    z3(:,1,:)  = z3(:,nzeta,:)
+    bx3(:,1,:) = bx3(:,nzeta,:)
+    by3(:,1,:) = by3(:,nzeta,:)
+    bz3(:,1,:) = bz3(:,nzeta,:)
 
-       ! nRExtend -> npsi
-       ir = nThetaEquator
-       ii = nRExtend
-       do j = 2, nzeta
-          xf = x1(nRExtend,j,1)
-          yf = y1(nRExtend,j,1)
-          zf = z1(nRExtend,j,1)
-          psiout_j(j) = 1./(1.-zf**2/(xf**2+yf**2+zf**2))
-
-          xf = x1(1,j,1)
-          yf = y1(1,j,1)
-          zf = z1(1,j,1)
-          psiin_j(j) = 1./(1.-zf**2/(xf**2+yf**2+zf**2))
+    if (DoTestMe) then
+       FileName = RamFileName('SWMFField_3','dat',TimeRamNow)
+       open(UNITTMP_, File=FileName)
+       write(UNITTMP_,*) npsi, nzeta-1, nthe
+       do i = 1, nthe
+        do j = 1, npsi
+         do k = 1, nzeta-1
+          write(UNITTMP_,*) x3(j,k,i), y3(j,k,i), z3(j,k,i), &
+                            bx3(j,k,i),by3(j,k,i),bz3(j,k,i)
+         enddo
+        enddo
        enddo
+       close(UNITTMP_)
+    endif
 
-       xpsiout = minval(psiout_j(2:nzeta))
-       xpsiin  = maxval(psiin_j(2:nzeta))
-       xpsitot = xpsiout - xpsiin
+    !!!!!!
+    do k = 1, nthe
+       x(k,1:npsi,1:nzeta) = x3(1:npsi,1:nzeta,k)
+       y(k,1:npsi,1:nzeta) = y3(1:npsi,1:nzeta,k)
+       z(k,1:npsi,1:nzeta) = z3(1:npsi,1:nzeta,k)
+    enddo
+    x(:,:,nzeta+1) = x(:,:,2)
+    y(:,:,nzeta+1) = y(:,:,2)
+    z(:,:,nzeta+1) = z(:,:,2)
+
+    do j = 1, nzeta+1
        do i = 1, npsi
-          psis = REAL(i-1,DP)/REAL(npsi-1,DP)
-          xpl  = xpsiin + xpsitot*psis
-          psival(i) = -xzero3/xpl
+          psi(:,i,j) = sqrt(x(1,i,j)**2+y(1,i,j)**2+z(1,i,j)**2) &
+                       /(1._dp - z(1,i,j)**2/(x(1,i,j)**2+y(1,i,j)**2+z(1,i,j)**2))
        enddo
+    enddo
+    rc = maxval(psi(1,1,:))
+    xpsiin = rc(1)
+    rc = minval(psi(1,npsi,:))
+    xpsiout = rc(1)
+    xpsitot = xpsiout - xpsiin
+    do i = 1, npsi
+       psis = REAL(i-1,DP)/REAL(npsi-1,DP)
+       xpl = xpsiin*(xpsiout/xpsiin)**(psis)
+       psival(i) = -xzero3/xpl
+    enddo
+    psi = -xzero3/psi
+    CALL mappsi
+    CALL psiFunctions
+    CALL maptheta
+    !!!!!!
 
-       do j = 2, nzeta
-          do i = 1, nRExtend
-             ii = i
-             psival_i(i) = sqrt(x1(i,j,nThetaEquator)**2 &
-                              + y1(i,j,nThetaEquator)**2 &
-                              + z1(i,j,nThetaEquator)**2)
-             pTemp(i) = 1./(1. - z1(i,j,1)**2 &
-                                /(x1(i,j,1)**2 &
-                                 +y1(i,j,1)**2 &
-                                 +z1(i,j,1)**2))
-             if (psival_i(i) > 7.0) exit
-          enddo
-
-          if (psival_i(ii) > 7.0) then
-             call GSL_Interpolation_1D(psival_i(1:ii), pTemp(1:ii), 7.0, psiout, GSLerr)
-          else
-             psiout = pTemp(ii)
-          endif
-          psiin  = pTemp(1)
-          do i = 1, npsi
-             psis = REAL(i-1,DP)/REAL(npsi-1,DP)
-             xpl  = psiin + (psiout-psiin)*psis
-             if ((abs(xpl)<10e-8).or.isnan(xpl)) then
-                SORFail = .true.
-                exit convert_field
-             endif
-             psival(i) = -xzero3/xpl
-          enddo
-
-          pTemp(1:ii) = -xzero3/pTemp(1:ii)
-          do k = 1, nthe
-             xTemp(1:ii) = x1(1:ii,j,k)
-             yTemp(1:ii) = y1(1:ii,j,k)
-             zTemp(1:ii) = z1(1:ii,j,k)
-             CALL GSL_Interpolation_1D(pTemp(1:ii),    xTemp(1:ii), &
-                                       psiVal(1:npsi), x2(1:npsi,j,k), GSLerr)
-             if (GSLerr > 0) exit convert_field
-             CALL GSL_Interpolation_1D(pTemp(1:ii),    yTemp(1:ii), &
-                                       psiVal(1:npsi), y2(1:npsi,j,k), GSLerr)
-             if (GSLerr > 0) exit convert_field
-             CALL GSL_Interpolation_1D(pTemp(1:ii),    zTemp(1:ii), &
-                                       psiVal(1:npsi), z2(1:npsi,j,k), GSLerr)
-             if (GSLerr > 0) exit convert_field
-          enddo
+    if (DoTestMe) then
+       FileName = RamFileName('SWMFField_4','dat',TimeRamNow)
+       open(UNITTMP_, File=FileName)
+       write(UNITTMP_,*) npsi, nzeta-1, nthe
+       do i = 1, nthe
+        do j = 1, npsi
+         do k = 1, nzeta-1
+          write(UNITTMP_,*) x(i,j,k), y(i,j,k), z(i,j,k)
+         enddo
+        enddo
        enddo
-       x2(:,1,:) = x2(:,nzeta,:)
-       y2(:,1,:) = y2(:,nzeta,:)
-       z2(:,1,:) = z2(:,nzeta,:)
-
-       constTheta = 0.2
-       chival = (thetaVal + constTheta*sin(2.*thetaVal))
-       do i = 1, npsi
-          do j = 2, nzeta
-             distance(1) = 0._dp
-             xTemp(1:nthe) = x2(i,j,1:nthe)
-             yTemp(1:nthe) = y2(i,j,1:nthe)
-             zTemp(1:nthe) = z2(i,j,1:nthe)
-             DO k = 2, nthe
-                distance(k) = distance(k-1) + SQRT((xTemp(k)-xTemp(k-1))**2 &
-                                                  +(yTemp(k)-yTemp(k-1))**2 &
-                                                  +(zTemp(k)-zTemp(k-1))**2)
-             END DO
-             cTemp2 = distance(1:nthe) / distance(nthe) * pi_d
-             CALL GSL_Interpolation_1D(cTemp2,         xTemp(1:nthe), &
-                                       chiVal(1:nthe), x(1:nthe,i,j),  GSLerr)
-             if (GSLerr > 0) exit convert_field
-             CALL GSL_Interpolation_1D(cTemp2,         yTemp(1:nthe), &
-                                       chiVal(1:nthe), y(1:nthe,i,j),  GSLerr)
-             if (GSLerr > 0) exit convert_field
-             CALL GSL_Interpolation_1D(cTemp2,         zTemp(1:nthe), &
-                                       chiVal(1:nthe), z(1:nthe,i,j),  GSLerr)
-             if (GSLerr > 0) exit convert_field
-          enddo
-       enddo
-       x(:,:,1) = x(:,:,nzeta)
-       y(:,:,1) = y(:,:,nzeta)
-       z(:,:,1) = z(:,:,nzeta)
-       x(:,:,nzeta+1) = x(:,:,2)
-       y(:,:,nzeta+1) = y(:,:,2)
-       z(:,:,nzeta+1) = z(:,:,2)
-       exit convert_field
-    enddo convert_field
+       close(UNITTMP_)
+    endif
 
     if (GSLerr > 0) SORFail = .true.
-    DEALLOCATE(psival_i, psiout_j, psiin_j, xSWMF, ySWMF, zSWMF, iOuter)
-    DEALLOCATE(aTemp, pTemp, cTemp, cTemp2, x1, y1, z1, x2, y2, z2)
-    DEALLOCATE(bx1, by1, bz1, bx2, by2, bz2, bxSWMF, bySWMF, bzSWMF)
+    DEALLOCATE(iOuter)
+    DEALLOCATE(aTemp, pTemp, cTemp)
+    DEALLOCATE(x1,  y1,  z1,  x2,  y2,  z2,  x3,  y3,  z3)
+    DEALLOCATE(bx1, by1, bz1, bx2, by2, bz2, bx3, by3, bz3)
 
     return
   end subroutine generate_field
