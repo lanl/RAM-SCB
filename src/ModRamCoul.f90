@@ -167,7 +167,7 @@ MODULE ModRamCoul
 	DO 1 L=2,NPA
 	 XNE(I,J)=NECR(I,J)*BANE(L)				! assume n/B=const
 !	 XNE(I,J)=NECR(I1,J1)*BANE(L)				! assume n/B=const, CRasm model
-          if (abs(XNE(I,J)).ne.XNE(I,J)) then
+          if (XNE(I,J) < 0._dp) then
               write(*,*) 'in COULEN XNE<0 ', T/3600, S,i,j,l, &
                    XNE(I,J),NECR(I,J),BANE(L)
           endif
@@ -182,7 +182,7 @@ MODULE ModRamCoul
 	 DO K=1,NE
 	  CccolE(K)=(COULE(S,K,L)+COULI(S,K,L))*XNE(I,J)
 	  ISIGN=1
-	  IF(CccolE(K).NE.ABS(CccolE(K))) ISIGN=-1
+	  IF(CccolE(K) < 0._dp) ISIGN=-1
 !	  if (ABS(CccolE(K)/DE(K)).GT.1) then
 !	    open(20,file='CccolE.dat',status='unknown',position='append')
 !              write(20,*) ' CccolE=', CccolE(K), S,i,j,k,l, COULE(S,K,L), COULI(S,K,L), BANE(L)
@@ -262,7 +262,7 @@ MODULE ModRamCoul
 	  DO L=2,NPA-1
 ! NEED b-aver: BASCNE=<NEs*Bo/Bs*(1-Bs/Bm)>
       	   BASCNE(I,J,L)=XNE(I,J)*BOUNIS(I,J,L)/2./BOUNHS(I,J,L)  	! assuming  n/B=const
-            if (T.gt.0.and.BASCNE(I,J,L).le.0) then
+            if ((T > 0._dp).and.(BASCNE(I,J,L) <= 0._dp)) then
               write(*,*) 'in COULMU BASCNE<0 ', T/3600,S,i,j,l, &
                    BASCNE(I,J,L),XNE(I,J),BOUNIS(I,J,L),BOUNHS(I,J,L)
             endif
@@ -283,7 +283,7 @@ MODULE ModRamCoul
 	  F2(S,I,J,K,NPA)=F2(S,I,J,K,NPA-1)
 	 DO L=1,NPA
 	   F2(S,I,J,K,L)=F2(S,I,J,K,L)*FNHS(I,J,L)*MU(L)
-           if (T.gt.0.and.f2(s,i,j,k,l).lt.0) then
+           if ((T > 0._dp).and.(f2(s,i,j,k,l) < 0._dp)) then
               write(*,*) 'in COULMU f2<0 ', S,i,j,k,l, f2(S,i,j,k,l)
 !              f2(S,i,j,k,l)=1E-15
            endif
