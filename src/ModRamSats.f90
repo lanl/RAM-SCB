@@ -400,7 +400,7 @@ module ModRamSats
          ! OMNIDIRECTIONAL FLUX
     do iS = 1, nS
        iStatus = nf90_def_var(iFileID, 'omni'//species(iS)%s_code, nf90_float, &
-                              (/iEnDim, iPaDim, iTimeDim/), iOFluxVar)
+                              (/iEnDim, iTimeDim/), iOFluxVar)
        iStatus = nf90_put_att(iFileID, iOFluxVar, 'title', &
             'Energy and pitch-angle dependent particle flux at spacecraft: '//species(iS)%s_code)
        iStatus = nf90_put_att(iFileID, iOFluxVar, 'units', '1/cm2/s/keV')
