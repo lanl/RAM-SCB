@@ -182,6 +182,150 @@ MODULE ModRamWPI
   END SUBROUTINE WAVEPARA2
 
 !*************************************************************************
+!                              WAPARA_EMIC 
+!       Routine reading normalized PA diffusion coeff
+!          based on B. Ni's diffusion coefficients.
+!**************************************************************************
+  SUBROUTINE WAPARA_EMIC
+
+    use ModRamVariables, ONLY: Daa_emic_h, Daa_emic_he, EKEV_emic, &
+                               fp2c_emic, PAbn, DP, LZ, Ihs_emic, Ihes_emic
+    use MOdRamGrids,     ONLY: ENG_emic, NCF_emic, NPA_emic, NLZ_emic, NR, NPA
+    use ModIoUnit,       ONLY: UnitTMP_
+    use ModRamMain,      ONLY: PathRamIn
+    use ModRamGSL,       ONLY: GSL_Interpolation_1D
+
+    implicit none
+    integer :: jfpc, iR, L, iE, IER,I, ipa, iu,im,ih
+    character(len=2) :: fpetofce
+    character :: LL
+    character*100 :: filename
+    character :: ind1
+    real(DP) :: Y, YY1, YY2, Lz_emic(NLZ_emic), PA_emic(NPA_emic)
+    real(DP) :: Daahe_emic_tmp(NPA_emic), Daah_emic_tmp(NPA_emic)
+    real(DP), allocatable :: Daahe_emic(:,:,:), Daah_emic(:,:,:)
+
+
+    ! read and store the EMIC related pitch angle diffusion coefficients
+    allocate(Daahe_emic(NLZ_emic, ENG_emic, NPA_emic), &
+             Daah_emic( NLZ_emic, ENG_emic, NPA_emic))
+    
+    ! pitch angle in the Daa file
+    do L=1, NPA_emic
+       PA_emic(L) = L
+    end do
+
+    ! Lz in the Daa file
+    do iR=1, NLZ_emic
+       Lz_emic(iR) = 3+(iR-1)
+    end do
+    
+    ! energies in the Daa file
+    do iE=1, ENG_emic
+       EkeV_emic(iE) = 10.**(-1.+0.1*(iE-1))
+    end do
+    
+26  format(89(1PE16.7))
+    
+    ! fp2c in the Daa file
+    do jfpc = 1, NCF_emic
+       fp2c_emic(jfpc) = jfpc*2
+       
+       write(fpetofce,'(I2.2)')jfpc*2
+       
+       do iR=3, 7
+          write(LL,'(I1.1)')iR
+          filename = trim(PathRamIn)//'/HBand/EMIC_Proton_HBand_L'//LL//&
+               '_fpetofce'//fpetofce//'_Daa.txt'
+          
+          open(unit=unittmp_,file=filename, status='old')
+          do iE=1,ENG_emic
+             read(unittmp_,26)(DaaH_emic_tmp(ipa), ipa=1,NPA_emic)
+             ! daa_emic: interpolate it into ram pitch angle grid
+             where(Daah_emic_tmp < 1.0e-31)Daah_emic_tmp = 1.0e-31
+             Daah_emic(iR,iE,1) = DaaH_emic_tmp(NPA_emic) ! around 89 degree
+             do L=2,NPA-1
+                if(PAbn(L) .GE. 1.0 .and. PAbn(L) .LE. 89)then
+                   call GSL_Interpolation_1D(PA_emic, DaaH_emic_tmp, &
+                        PAbn(L), Daah_emic(iR,iE,L), IER)                  
+                else
+                   Daah_emic(iR,iE,L) = 1.0e-31
+                end if
+             end do
+          end do
+          
+          close(unittmp_)
+          
+          open(unit=unittmp_,file=trim(PathRamIn)//'/HeBand/EMIC_Proton_HeBand_L'//LL//&
+               '_fpetofce'//fpetofce//'_Daa.txt', status='old')
+          do iE=1,ENG_emic
+             read(unittmp_,26)(DaaHe_emic_tmp(ipa), ipa=1,NPA_emic)
+             ! daa_emic: interpolate it into ram pitch angle grid
+             where(Daahe_emic_tmp < 1.0e-31)Daahe_emic_tmp = 1.0e-31
+             Daahe_emic(iR,iE,L) = DaaHe_emic_tmp(NPA_emic)                   
+             do L=2,NPA-1
+                if(PAbn(L) .GE. PA_emic(1) .and. PAbn(L) .LE. PA_emic(NPA_emic))then
+                   call GSL_Interpolation_1D(PA_emic, DaaHe_emic_tmp, &
+                        PAbn(L), Daahe_emic(iR,iE,L), IER)
+                else
+                   Daahe_emic(iR,iE,L) = 1.0e-31
+                end if
+             end do
+          end do
+          close(unittmp_)
+       end do
+       
+       do iE=1,ENG_emic
+          do L=2,NPA-1
+             do I=2,NR
+                if(maxval(Daah_emic(:,IE,L)) > 1.0e-31 .and. Lz(I) .GE.Lz_emic(1) .and. LZ(I) .LE. Lz_emic(NLz_emic))then
+                   call GSL_Interpolation_1D(Lz_emic, daah_emic(:,iE, L),  Lz(I), YY1, IER)
+                   Daa_emic_h(I,iE,L,jfpc) = YY1
+                   
+                else
+                   Daa_emic_h(I,iE,L,jfpc) = 1.0e-31
+                end if
+                
+                if(maxval(Daahe_emic(:,IE,L)) > 1.0e-31 .and. Lz(I) .GE.Lz_emic(1) .and. LZ(I) .LE. Lz_emic(NLz_emic))then
+                   call GSL_Interpolation_1D(Lz_emic, daahe_emic(:,iE, L),  Lz(I), YY1, IER)
+                   Daa_emic_he(I,iE,L,jfpc) = YY1
+                else
+                   Daa_emic_he(I,iE,L,jfpc) = 1.0e-31
+                end if
+                
+             end do
+          end do
+       end do
+       
+    end do
+    
+    where(Daa_emic_h  ==0.0)Daa_emic_h = 1.0e-31
+    where(Daa_emic_he ==0.0)Daa_emic_he= 1.0e-31
+
+    deallocate(Daahe_emic, Daah_emic)
+
+
+    !Read and store EMIC WAVE Intensity from Saikin model
+    do iu=1,4
+       write(ind1,'(I1.1)')iu
+       filename =  trim(PathRamIn)//'/saikin/AE_H_'//ind1//'.txt'
+       open(unit=unittmp_,file=filename, status='old')
+       do im=1,20
+          read(unittmp_,*)(Ihs_emic(iu,im,ih), ih=1,25)
+       enddo
+       close(unittmp_)
+
+       filename = trim(PathRamIn)//'/saikin/AE_He_'//ind1//'.txt'
+       open(unit=unittmp_,file=filename, status='old')
+       do im=1,20
+          read(unittmp_,*)(Ihes_emic(iu,im,ih), ih=1,25)
+       enddo
+       close(unittmp_)       
+    enddo
+    
+  END SUBROUTINE WAPARA_EMIC
+
+!*************************************************************************
 !                              WAPARA_HISS
 !       Routine reading normalized Energy & PA hiss diffusion coeff
 !**************************************************************************
@@ -208,7 +352,7 @@ MODULE ModRamWPI
       write(ST4,'(I3.3)') INT(LZ(I)*100)
       DO IX=1,NCF
         write(ST3,'(I2.2)') INT(fpofc(ix))
-        OPEN(UNIT=UNITTMP_,FILE=trim(HissFilePath)//'/whis_L'//ST4//'_'//ST3//ST2//'.aan',STATUS='old')
+        OPEN(UNIT=UNITTMP_,FILE=trim(PathRamIn)//'/whis_L'//ST4//'_'//ST3//ST2//'.aan',STATUS='old')
         READ(UNITTMP_,20) HEADER
         DO KN=1,ENG
           read(UNITTMP_,17) ENOR(KN)
@@ -264,7 +408,7 @@ MODULE ModRamWPI
     write(ST3,'(I1.1)') ikp
 
     OPEN(UNIT=UNITTMP_,FILE=trim(PathRamIn)//'/wlowcho_Kp'//ST3//ST2//'.aan',STATUS='old')
-    READ(UNITTMP_) HEADER
+    READ(UNITTMP_,20) HEADER
     print*,'in WAPARA_CHORUS: ',trim(HEADER)
 
     DO I=1,NR
@@ -502,7 +646,9 @@ MODULE ModRamWPI
     use ModRamMain,      ONLY: DP, PathRamOut
     use ModRamGrids,     ONLY: NT, NR, NE, NPA
     use ModRamTiming,    ONLY: Dts, T
-    use ModRamVariables, ONLY: F2, FNHS, MU, DMU, WMU, ATAC, ATAW
+    use ModRamParams,    ONLY: DoUseEMIC
+    use ModRamVariables, ONLY: F2, FNHS, MU, DMU, WMU, ATAC, ATAW, species,&
+                               ATAW_emic_h, ATAW_emic_he        
     !!!! Share Modules
     use ModIoUnit, ONLY: UNITTMP_
 
@@ -528,8 +674,15 @@ MODULE ModRamWPI
           RK(1)=0.
           RL(1)=-1.
           DO L=2,NPA-1
-            AN=(ATAW(I,J,K,L)+ATAC(I,J,K,L))/DMU(L)       ! Hiss & chorus
-            GN=(ATAW(I,J,K,L-1)+ATAC(I,J,K,L-1))/DMU(L-1) !  "
+            IF(species(S)%s_name.eq.'Electron')then
+               AN=(ATAW(I,J,K,L)+ATAC(I,J,K,L))/DMU(L)       ! Hiss & chorus
+               GN=(ATAW(I,J,K,L-1)+ATAC(I,J,K,L-1))/DMU(L-1) !  "
+            ELSE
+               IF(DoUseEMIC)then
+                  AN = (ATAW_emic_h(I,J,K,L)+ATAW_emic_he(I,J,K,L))/DMU(L)       ! EMIC waves for ions
+                  GN = (ATAW_emic_h(I,J,K,L-1)+ATAW_emic_he(I,J,K,L-1))/DMU(L-1) !  "   
+               END IF
+            END IF
             AN=AN*DTs/FACMU(L)/WMU(L)
             GN=GN*DTs/FACMU(L)/WMU(L)
             BN=AN+GN
@@ -561,4 +714,41 @@ MODULE ModRamWPI
     RETURN
   END SUBROUTINE WPADIF
 
+!*************************************************************************
+!                               EMIC wave amplitude
+!                           Based on Empirical Model by Saikin et al.
+!*************************************************************************
+  subroutine I_emic(AEind, xl, nmlt, I_H, I_He)
+
+    use ModKind
+    use ModRamVariables, ONLY: Ihs_emic, Ihes_emic
+    implicit none
+
+    integer, intent(in) :: xl, nmlt, AEind
+    real(kind=real8_), intent(out) :: I_H,I_He
+
+    I_H=0.0
+    I_He=0.0
+
+    if(AEind.ge.0.and.AEind.lt.100) then
+       I_H = Ihs_emic(1,xl,nmlt)
+       I_He= Ihes_emic(1,xl,nmlt)
+
+    elseif(AEind.ge.100.and.AEind.lt.300) then
+       I_H = Ihs_emic(2,xl,nmlt)
+       I_He= Ihes_emic(2,xl,nmlt)
+       
+    elseif(AEind.ge.300.and.AEind.lt.400) then
+       I_H = Ihs_emic(3,xl,nmlt)
+       I_He= Ihes_emic(3,xl,nmlt)
+       
+    elseif(AEind.ge.400) then
+       I_H = Ihs_emic(4,xl,nmlt)
+       I_He= Ihes_emic(4,xl,nmlt)
+       
+    endif
+
+  end subroutine I_emic
+  
+!==============================================================================  
 END MODULE ModRamWPI
