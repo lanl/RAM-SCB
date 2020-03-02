@@ -244,15 +244,21 @@ SUBROUTINE ionospheric_potential
 
   CASE('RSCE')
      ! Potential from self-consistent electric field calculated in the ionosphere (Yu. 2016 August)
-     allocate(PhiIonoRaw(IONO_nTheta, IONO_nPsi), colat(IONO_nTheta), lon(IONO_nPsi))
-     colat = 0.0
-     lon   = 0.0
-     do i=2, IONO_nPsi ! Longitude goes from 0 to 360.
-        lon(i) = lon(i-1) + 2.0_dp*pi_d/real(IONO_nPsi-1)
-     end do
-     do i=2, IONO_nTheta ! Colat goes from 0 to 90.
-        colat(i) = colat(i-1) +  0.5*pi_d/real(IONO_nTheta-1)
-     end do
+     if(.not.allocated(PhiIonoRaw))then
+        allocate(PhiIonoRaw(IONO_nTheta, IONO_nPsi))
+        PhiIonoRaw = 0.0
+     end if
+     if(.not.allocated(colat).and..not.allocated(lon))then
+        allocate(colat(IONO_nTheta), lon(IONO_nPsi))
+        colat = 0.0
+        lon   = 0.0
+        do i=2, IONO_nPsi ! Longitude goes from 0 to 360.
+           lon(i) = lon(i-1) + 2.0_dp*pi_d/real(IONO_nPsi-1)
+        end do
+        do i=2, IONO_nTheta ! Colat goes from 0 to 90.
+           colat(i) = colat(i-1) +  0.5*pi_d/real(IONO_nTheta-1)
+        end do
+     end if
      ! Plug self-consisent/IE potential into PhiIonoRaw (only northern)
      CALL sce_run
      PhiIonoRaw = Iono_North_Phi
@@ -330,7 +336,7 @@ SUBROUTINE ionospheric_potential
               radius = SQRT((x(nThetaEquator,j,k))**2 + y(nThetaEquator,j,k)**2)
               angle = ATAN2(y(nThetaEquator,j,k), x(nThetaEquator,j,k))
               VT = AVS*(radius*Re)**2*SIN(angle+pi_d)
-              call EpotVal05(latGrid(j,k), lonGrid(j,k), 0.0, PhiIono(j,k))
+              call EpotVal05(latGrid(j,k), lonGrid(j,k), 0.0_dp, PhiIono(j,k))
               PhiIono(j,k) = PhiIono(j,k) * 1.0e3   ! ram needs it in Volts
               if (abs(PhiIono(j,k)) < 0.001) then
                PhiIono(j,k) = VT
