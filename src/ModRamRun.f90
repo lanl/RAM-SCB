@@ -18,7 +18,8 @@ MODULE ModRamRun
     !!!! Module Variables
     use ModRamMain,      ONLY: DP
     use ModRamParams,    ONLY: electric, DoUseWPI, DoUseBASdiff, DoUseKpDiff, &
-                               DoUsePlasmasphere, DoUseCoulomb, verbose
+                               DoUsePlasmasphere, DoUseCoulomb, verbose, &
+                               DoUseEMIC, DoUseFLC
     use ModRamConst,     ONLY: RE
     use ModRamGrids,     ONLY: nS, NR, NE, NT, NPA
     use ModRamTiming,    ONLY: UTs, T, DtEfi, DtsMin, DtsNext, TimeRamNow, Dts, TimeRamElapsed
@@ -29,7 +30,7 @@ MODULE ModRamRun
     !!!! Module Subroutines/Functions
     use ModRamPlasmasphere, ONLY: plasmasphere
     use ModRamDrift, ONLY: DRIFTPARA, DRIFTR, DRIFTP, DRIFTE, DRIFTMU, DRIFTEND
-    use ModRamLoss,  ONLY: CEPARA, CHAREXCHANGE, ATMOL
+    use ModRamLoss,  ONLY: CEPARA, CHAREXCHANGE, ATMOL, FLC_Radius, PARA_FLC, FLCScatter
     use ModRamWPI,   ONLY: WAPARA_KP, WPADIF, WAVELO
     !!!! Share Modules
     use ModTimeConvert, ONLY: TimeType
@@ -57,6 +58,9 @@ MODULE ModRamRun
     ! Added capability to couple to plasmaspheric density model
     IF (DoUsePlasmasphere) call plasmasphere(2._dp*dts)
 
+    ! Get field line curvature radius
+    IF(DoUseFLC) call FLC_Radius
+    
   !$OMP PARALLEL DO
     do iS=1,nS
        !   calls for given species S:
@@ -94,11 +98,23 @@ MODULE ModRamRun
           LSWAE(iS)=LSWAE(iS)+ELORC(iS)
        endif
 
+       ! loss via EMIC wave scattering
+       if (species(iS)%EMIC .and. DoUseEMIC) then
+          call WPADIF(iS)
+       end if
+
        if (species(iS)%CEX) then
           CALL CHAREXCHANGE(iS)
           CALL SUMRC(iS)
           LSCHA(iS)=LSCHA(iS)+ELORC(iS)
        endif
+       
+       ! ion loss via FLC scattering
+       if (species(iS)%FLC .and. DoUseFLC) then
+             call PARA_FLC(iS)
+             call FLCScatter(iS)
+       end if
+
        ! loss via atmosphere loss cone
        CALL ATMOL(iS)
        CALL SUMRC(iS)
@@ -108,12 +124,23 @@ MODULE ModRamRun
        CALL ATMOL(iS)
        CALL SUMRC(iS)
        LSATM(iS)=LSATM(iS)+ELORC(iS)
-
+       
+       ! ion loss via FLC scattering
+       if (species(iS)%FLC .and. DoUseFLC) then
+          call PARA_FLC(iS)
+          call FLCScatter(iS)
+       end if
+       
        if (species(iS)%CEX) then
           CALL CHAREXCHANGE(iS)
           CALL SUMRC(iS)
           LSCHA(iS)=LSCHA(iS)+ELORC(iS)
        endif
+
+       ! ion loss via EMIC wave scattering
+       if (species(iS)%EMIC .and. DoUseEMIC) then
+          call WPADIF(iS)
+       end if
 
        if (species(iS)%WPI) then
           IF (DoUseWPI) THEN
@@ -233,40 +260,47 @@ MODULE ModRamRun
     ! Module Variables
     use ModRamMain,      ONLY: DP, PathRamOut
     use ModRamConst,     ONLY: CS, PI, Q
-    use ModRamParams,    ONLY: DoUseWPI, DoUsePlasmasphere, DoUseBASdiff
-    use ModRamGrids,     ONLY: NR, NT, NPA, ENG, SLEN, NCO, NCF, Ny, NE
+    use ModRamParams,    ONLY: DoUseWPI, DoUsePlasmasphere, DoUseBASdiff, DoUseEMIC
+    use ModRamGrids,     ONLY: NR, NT, NPA, ENG, SLEN, NCO, NCF, Ny, NE, &
+                               ENG_emic, NCF_emic
     use ModRamTiming,    ONLY: Dt_bc, T, TimeRamNow
     use ModRamVariables, ONLY: IP1, UPA, WMU, FFACTOR, MU, EKEV, LZ, MLT, PHI,  &
                                PAbn, RMAS, GREL, IR1, EPP, ERNH, CDAAR, BDAAR,  &
                                ENOR, NDAAJ, fpofc, Kp, BOUNHS, FNHS, BNES, XNE, &
-                               NECR, PPerT, PParT, F2, ATAW, ATAW_emic, ATAC, species
+                               NECR, PPerT, PParT, F2, ATAW, ATAC, species, AE, &
+                               ATAW_emic_h, ATAW_emic_he, EKEV_emic, fp2c_emic, &
+                               Daa_emic_h, Daa_emic_he
     ! Module Subroutines/Functions
     use ModRamGSL,       ONLY: GSL_Interpolation_1D, GSL_Interpolation_2D
     use ModRamFunctions, ONLY: ACOSD, RamFileName
-
+    use ModRamWPI,       ONLY: I_emic
+    
     implicit none
 
     integer, intent(in) :: S
     integer :: i, iwa, j, k, klo, l, iz, kn, i1, j1, GSLerr, u
     real(DP) :: cv, rfac, rnhtt, edent, pper, ppar, rnht, Y, &
                 eden,sume,suma,sumn,ernm,epma,epme,anis,epar,taudaa, &
-                gausgam,anist,epart,fnorm,xfrl,Bw,esu,omega,er1
-    real(DP) :: MUBOUN
+                gausgam,anist,epart,fnorm,xfrl,Bw,esu,omega,er1,taudaa_h, taudaa_he
+    real(DP) :: MUBOUN, IBw_Hband, IBw_Heband, fnorm_h, fnorm_he
     real(DP), ALLOCATABLE :: DWAVE(:),CMRA(:),BWAVE(:,:),AVDAA(:),TAVDAA(:),&
                              DAA(:,:,:),DUMP(:,:),XFR(:,:),XFRe(:),ALENOR(:),&
                              DUME(:,:),DVV(:,:,:),AVDVV(:),TAVDVV(:),WCDT(:,:),&
-                             XFRT(:,:),PA(:),DAMR(:,:),DAMR1(:),GREL_new(:)
+                             XFRT(:,:),PA(:),DAMR(:,:),DAMR1(:),GREL_new(:), &
+                             DUMP2_h(:,:), DUMP2_he(:,:), logEkeV_emic(:)
     INTEGER :: KHI(5)
     character(len=2)  :: ST2
     character(len=214) :: NameFileOut
-    character(len=2), dimension(4) :: speciesString = (/'_e','_h','he','_o'/)
+    character(len=2), dimension(4) :: speciesString = (/'_h','_o','he','_e'/)
     DATA khi/6, 10, 25, 30, 35/ ! ELB=0.1 keV -> 0.4,1,39,129,325 keV
 !    DATA khi/2, 19, 28, 32, 35/ ! ELB=0.1 keV -> 0.1,10,100,200,427 keV
 
     ALLOCATE(DWAVE(NPA),CMRA(SLEN),BWAVE(NR,NT),AVDAA(NPA),TAVDAA(NPA), &
              DAA(NE,NPA,Slen),DUMP(ENG,NCF),XFR(NR,NT),XFRe(NCF),ALENOR(ENG), &
              DUME(ENG,NCF),DVV(NE,NPA,Slen),AVDVV(NPA),TAVDVV(NPA),WCDT(NR,NT), &
-             XFRT(NR,NT),PA(NPA),DAMR(NPA,NCO),DAMR1(NPA),GREL_new(Ny))
+             XFRT(NR,NT),PA(NPA),DAMR(NPA,NCO),DAMR1(NPA),GREL_new(Ny), &
+             DUMP2_h(ENG_emic, NCF_emic), DUMP2_he(ENG_emic,NCF_emic), &
+             logEkeV_emic(ENG_emic))
     DWAVE = 0.0; CMRA = 0.0; BWAVE = 0.0; AVDAA = 0.0; TAVDAA = 0.0; DAA = 0.0
     DUMP = 0.0; XFR = 0.0; XFRe = 0.0; ALENOR = 0.0; DUME = 0.0; DVV = 0.0
     AVDVV = 0.0; TAVDVV = 0.0; WCDT = 0.0; XFRT = 0.0; PA = 0.0; DAMR = 0.0
@@ -351,7 +385,6 @@ MODULE ModRamRun
              DO K=1,NE
                 DO L=1,NPA
                    ATAW(I,J,K,L)=0.0 ! hiss
-                   ATAW_emic(I,J,K,L)=0.0 ! EMIC
                    ATAC(I,J,K,L)=0.0 ! chorus
                 ENDDO
              ENDDO
@@ -375,7 +408,7 @@ MODULE ModRamRun
                 DO K=2,NE
                    DO L=1,NPA
                       IF (DoUseBASdiff) THEN
-                         DAMR1(L)=CDAAR(I,J,K,nPa-L+1)
+                         DAMR1(L)=LOG10(CDAAR(I,J,K,nPa-L+1))
                       ELSE
                          DAMR1(L)=LOG10(BDAAR(I,J,K,L))
                       ENDIF
@@ -383,7 +416,7 @@ MODULE ModRamRun
                    DO L=1,NPA
                       MUBOUN=MU(L)+0.5*WMU(L)
                       CALL GSL_Interpolation_1D(PA,DAMR1,PAbn(L),Y,GSLerr)
-                      taudaa=Y*fnorm ! <Daa/p2> [1/s]
+                      taudaa=10.**Y*fnorm ! <Daa/p2> [1/s]
                       if (taudaa.gt.1e0) then
                          print*,'taudaa=',taudaa,' L=',LZ(I),' MLT=',MLT(J)
                          taudaa=1e-1
@@ -435,6 +468,94 @@ MODULE ModRamRun
       ENDDO
     ENDIF ! end diff coeff loop 
 
+
+    IF (MOD(INT(T),INT(Dt_bc)).EQ.0.and.DoUseEMIC.and.species(S)%s_name.eq.'Hydrogen')THEN
+       ! only need to calculate once to obtain the ATAW_emic coefficient
+       !.......zero PA diffusion coefficients
+       DO  I=1,NR
+          DO J=1,NT
+             DO K=1,NE
+                DO L=1,NPA
+                   ATAW_emic_h(I,J,K,L)=0.0                        ! EMIC 
+                   ATAW_emic_he(I,J,K,L)=0.0                       ! EMIC 
+                ENDDO
+             ENDDO
+          ENDDO
+       ENDDO
+       
+
+!       write(NameFileOut1,'(a,a,a,i6.6,a)')&
+!            PathRamOut//"ram_",ST2,"_t",nint(TimeRamElapsed/300._Real8_),".wde"
+!       open(unit=24,file=trim(namefileout1),status='unknown')
+!       write(24,555) T/3600, Kp
+!555    Format(2x,3HT =, F8.3, 2X, 4HKp =, F6.2, '  EMIC diff coeff')
+
+       DO KN=1, ENG_emic
+          logEkeV_emic(KN) = log10(EkeV_emic(KN))
+          DO IZ=1,NCF_emic
+             DUMP2_h(KN,IZ)=0.
+             DUMP2_he(KN,IZ)=0.
+          END DO
+       END DO
+
+       DO I=2, NR
+          DO J=1, NT
+             xfrl = CS*sqrt(XNE(I,J)*RMAS(4)*40*PI)/10./BNES(I,J) !fpe/fce electrons,RMAS(4): electron
+             if (xfrl .gt.20)xfrl = 20.
+             if (xfrl .lt.2) xfrl = 2.
+
+             call I_emic(AE, I, J, IBw_Hband, IBw_Heband)              ! Bw intensity (nT^2)
+             
+             fnorm_h = IBw_Hband  ! normalized by wave amplitude
+             fnorm_he= IBw_Heband ! normalized by 1nT 
+
+!             write(24,554)LZ(I), MLT(J), xfrl, XNE(I,J), &
+!                  'IBw Hband=',IBw_Hband, 'IBw Heband', IBw_Heband,' Fpe/Fcyc=',xfrl
+
+             DO L=1,NPA
+                MUBOUN=MU(L)+0.5*WMU(L)
+                
+                DO IZ=1,NCF_emic
+                   DO KN=1,ENG_emic
+                      DUMP2_h(KN,IZ) = log10(Daa_emic_h(I,KN,L,IZ))
+                      DUMP2_he(KN,IZ) = log10(Daa_emic_he(I,KN,L,IZ))
+                   END DO
+                END DO
+                DO K=2,NE
+                   ER1 = log10(EKEV(K))
+                   ! EkeV_emic: 0.1 keV to 1000 keV 
+                   call GSL_Interpolation_2D(logEkeV_emic, fp2c_emic, &
+                        DUMP2_h, ER1, xfrl, Y, GSLerr)
+                   DWAVE(L) = 10.**Y*fnorm_h * (1.-MUBOUN*MUBOUN) &
+                        * MUBOUN*BOUNHS(I,J,L) ! Daa*(1-mu^2)*mu*h = Duu*mu*h = Dwave 
+                   ATAW_emic_h(I,J,K,L) = DWAVE(L)
+                   
+                   call GSL_Interpolation_2D(logEkeV_emic, fp2c_emic, &
+                        DUMP2_he, ER1, xfrl, Y, GSLerr)
+                   DWAVE(L) = 10.**Y*fnorm_he * (1.-MUBOUN*MUBOUN) &
+                        * MUBOUN*BOUNHS(I,J,L) ! Daa*(1-mu^2)*mu*h = Duu*mu*h = Dwave 
+                   ATAW_emic_he(I,J,K,L) = DWAVE(L)
+
+                   if (ATAW_emic_h (I,J,K,L) .le. 1.0e-20)ATAW_emic_h (I,J,K,L) = 1.0e-31
+                   if (ATAW_emic_he(I,J,K,L) .le. 1.0e-20)ATAW_emic_he(I,J,K,L) = 1.0e-31
+
+                   taudaa_h  = ATAW_emic_h(I,J,K,L)/MUBOUN/BOUNHS(I,J,L)/(1.-MUBOUN*MUBOUN)
+                   taudaa_he = ATAW_emic_he(I,J,K,L)/MUBOUN/BOUNHS(I,J,L)/(1.-MUBOUN*MUBOUN)
+                   
+!                   write(24,556)ekev(k), PABn(L), taudaa_h, taudaa_he, &
+!                        1./taudaa_h, 1./taudaa_he
+                END DO
+             END DO
+          END DO
+       END DO
+
+!554    format(3H L=,F5.2,5H MLT=,F5.2,9H fpe/fce=,E10.3, &
+!            4H Ne=,F9.2,A10,E10.3,A11, E10.3, A10, E10.3)
+!556    format(2F9.3,6(1PE12.3))                  
+!       close(24)
+       
+    END IF
+    
     DEALLOCATE(DWAVE,CMRA,BWAVE,AVDAA,TAVDAA, &
                DAA,DUMP,XFR,XFRe,ALENOR, &
                DUME,DVV,AVDVV,TAVDVV,WCDT, &
