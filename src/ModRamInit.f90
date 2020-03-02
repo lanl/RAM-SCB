@@ -18,7 +18,7 @@ MODULE ModRamInit
     use ModRamGrids,     ONLY: nR, nRExtend, nT, nE, nPa, &
                                Slen, ENG, NCF, NL, nS, nX, &
                                RadMaxScb, RadiusMin, RadiusMax, &
-                               NameVar
+                               NameVar, NCF_emic, ENG_emic
     use ModScbGrids,     ONLY: nthe
  
     implicit none
@@ -93,12 +93,18 @@ MODULE ModRamInit
              CDAAR(NR,NT,NE,NPA))
     WALOS1 = 0._dp; WALOS2 = 0._dp; WALOS3 = 0._dp; fpofc = 0._dp; NDVVJ = 0._dp; NDAAJ = 0._dp
     ENOR = 0._dp; ECHOR = 0._dp; BDAAR = 0._dp; CDAAR = 0._dp
+    ALLOCATE(Daa_emic_h(NR,ENG_emic, NPA, NCF_emic), Daa_emic_he(NR,ENG_emic, NPA, NCF_emic), &
+             EKEV_emic(ENG_emic), fp2c_emic(NCF_emic), Ihs_emic(4,20,25), Ihes_emic(4,20,25))
+    Daa_emic_h = 0.0; Daa_emic_he = 0.0; EKEV_emic = 0.0; fp2c_emic = 0.0
+    Ihs_emic = 0.0; Ihes_emic = 0.0
   ! ModRamLoss Variables
     ALLOCATE(ATLOS(nS,NR,NE), CHARGE(nS,NR,NT,NE,NPA), COULE(nS,nE,nPa), COULI(nS,nE,nPa), &
              ATA(nS,nE,nPa), GTA(nS,nE,nPa), GTAE(nS,nE,nPa), GTAI(nS,nE,nPa), &
-             CEDR(nS,nE,nPa), CIDR(nS,nE,nPa))
+             CEDR(nS,nE,nPa), CIDR(nS,nE,nPa), FLC_coef(4,NR,NT,NE,NPA), &
+             r_curvEq(NR,NT), zeta1Eq(NR,NT), zeta2Eq(NR,nT))
     ATLOS = 0._dp; CHARGE = 0._dp; COULE = 0.0; COULI = 0.0; ATA = 0.0; GTA = 0.0
-    GTAE = 0.0; GTAI = 0.0; CEDR = 0.0; CIDR = 0.0
+    GTAE = 0.0; GTAI = 0.0; CEDR = 0.0; CIDR = 0.0; FLC_coef = 0._dp
+    r_curvEq = 0.0; zeta1Eq = 0.0; zeta2Eq = 0.0
   ! ModRamEField Variables
     ALLOCATE(VT(NR+1,NT), EIR(NR+1,NT), EIP(NR+1,NT), VTOL(NR+1,NT), VTN(NR+1,NT))
     VT = 0._dp; EIR = 0._dp; EIP = 0._dp; VTOL = 0._dp; VTN = 0._dp
@@ -113,12 +119,13 @@ MODULE ModRamInit
              LSCSC(NS), LSWAE(NS), XNN(NS,NR), XND(NS,NR), LNCN(NS,NR), LNCD(NS,NR), &
              LECN(NS,NR), LECD(NS,NR), ENERN(NS,NR), ENERD(NS,NR), ATEW(NR,NT,NE,NPA), &
              ATAW(NR,NT,NE,NPA), ATAC(NR,NT,NE,NPA), ATEC(NR,NT,NE,NPA), XNE(NR,NT), &
-             ATMC(NR,NT,NE,NPA), ATAW_emic(NR,NT,NE,NPA), ESUM(NS), NSUM(NS))
+             ATMC(NR,NT,NE,NPA), ATAW_emic_h(NR,NT,NE,NPA), ATAW_emic_he(NR,NT,NE,NPA),&
+             ESUM(NS), NSUM(NS))
     SETRC = 0._dp; ELORC = 0._dp; LSDR = 0._dp; LSCHA = 0._dp; LSATM = 0._dp; LSCOE = 0._dp
     LSCSC = 0._dp; LSWAE = 0._dp; XNN = 0._dp; XND = 0._dp; LNCN = 0._dp; LNCD = 0._dp
     LECN = 0._dp; LECD = 0._dp; ENERN = 0._dp; ENERD = 0._dp; ATEW = 0._dp; ATAW = 0._dp
-    ATAC = 0._dp; ATEC = 0._dp; XNE = 0._dp; ATMC = 0._dp; ATAW_emic = 0._dp; NECR = 0._dp
-    ESUM = 0._dp; NSUM = 0._dp
+    ATAC = 0._dp; ATEC = 0._dp; XNE = 0._dp; ATMC = 0._dp; ATAW_emic_h = 0._dp; ATAW_emic_he = 0._dp;
+    NECR = 0._dp; ESUM = 0._dp; NSUM = 0._dp
   !!!!!!!!!
   
   end subroutine ram_allocate
@@ -146,8 +153,10 @@ MODULE ModRamInit
   ! ModRamWPI Variables
     DEALLOCATE(WALOS1, WALOS2, WALOS3, fpofc, NDVVJ, NDAAJ, ENOR, ECHOR, BDAAR, &
                CDAAR)
+    DEALLOCATE(Daa_emic_h, Daa_emic_he, EKEV_emic, fp2c_emic, Ihs_emic, Ihes_emic)
   ! ModRamLoss Variables
   !  DEALLOCATE(ATLOS, ACHAR)
+    DEALLOCATE(r_curvEq, zeta1Eq, zeta2Eq, FLC_coef)
   ! ModRamEField Variables
     DEALLOCATE(VT, EIR, EIP, VTOL, VTN)
   ! ModRamBoundary Variables
@@ -157,7 +166,7 @@ MODULE ModRamInit
   ! ModRamRun Variables
     DEALLOCATE(SETRC, ELORC, LSDR, LSCHA, LSATM, LSCOE, LSCSC, LSWAE, XNN, XND, &
                LNCN, LNCD, LECN, LECD, ENERN, ENERD, ATEW, ATAW, ATAC, ATEC, &
-               XNE, ATMC, ATAW_emic, ESUM, NSUM)
+               XNE, ATMC, ATAW_emic_h, ATAW_emic_he,ESUM, NSUM)
   !!!!!!!!!
  
  
@@ -166,7 +175,7 @@ MODULE ModRamInit
 !==================================================================================================
   SUBROUTINE ram_init
     !!!! Module Variables
-    use ModRamParams,    ONLY: DoUseWPI, DoUseBASDiff, IsRestart, IsComponent
+    use ModRamParams,    ONLY: DoUseWPI, DoUseBASDiff, IsRestart, IsComponent,DoUseEMIC
     use ModRamMain,      ONLY: DP, PathRestartIn, nIter
     use ModRamTiming,    ONLY: TimeRamStart, TimeMax, TimeRamRealStart, TimeRamNow, &
                                TimeRamElapsed, TimeMax, TimeRestart, TimeRamFinish, &
@@ -175,10 +184,11 @@ MODULE ModRamInit
     use ModRamVariables, ONLY: PParH, PPerH, PParHe, PPerHe, PParO, PPerO, PParE, &
                                PPerE, LSDR, LSCHA, LSATM, LSCOE, LSCSC, LSWAE, ELORC, &
                                SETRC, XNN, XND, ENERN, ENERD, LNCN, LNCD, LECN, LECD, &
-                               Lz, GridExtend, Phi, kp, F107, species, ESUM, NSUM
+                               Lz, GridExtend, Phi, kp, F107, AE, species, ESUM, NSUM
     use ModScbVariables, ONLY: radRaw, azimRaw
     !!!! Modules Subroutines/Functions
-    use ModRamWPI,     ONLY: WAPARA_HISS, WAPARA_BAS, WAPARA_CHORUS, WAVEPARA1, WAVEPARA2
+    use ModRamWPI,     ONLY: WAPARA_HISS, WAPARA_BAS, WAPARA_CHORUS, WAVEPARA1, WAVEPARA2,&
+                             WAPARA_EMIC
     use ModRamIndices, ONLY: init_indices, get_indices
     !!!! Share Modules
     use ModTimeConvert, ONLY: TimeType, time_real_to_int, time_int_to_real
@@ -242,7 +252,7 @@ MODULE ModRamInit
     TimeRamStop%Time = TimeRamStart%Time + TimeMax
     call time_real_to_int(TimeRamStop)
     call init_indices(TimeRamRealStart, TimeRamStop)
-    call get_indices(TimeRamNow%Time, Kp, f107)
+    call get_indices(TimeRamNow%Time, Kp, f107, AE)
   
   !!!!!!!!! Zero Values
     ! Initial loss is zero
@@ -314,7 +324,8 @@ MODULE ModRamInit
           end if
        ENDIF
     end do
-  
+    if(DoUseEMIC) call WAPARA_EMIC ! call only once; the Daa is same for each iS
+
   END SUBROUTINE ram_init
 
 !**************************************************************************
@@ -552,7 +563,7 @@ MODULE ModRamInit
                                PlasmasphereModel
     use ModRamGrids,     ONLY: NL, NLT, nR, nT, nS
     use ModRamTiming,    ONLY: DtEfi, TimeRamNow, TimeRamElapsed
-    use ModRamVariables, ONLY: Kp, F107, TOLV, NECR, IP1, IR1, XNE, F2
+    use ModRamVariables, ONLY: Kp, F107, AE, TOLV, NECR, IP1, IR1, XNE, F2
     use ModScbParams,    ONLY: method, constTheta
     !!!! Module Subroutines/Functions
     use ModRamRun,       ONLY: ANISCH
@@ -594,7 +605,7 @@ MODULE ModRamInit
        call psiges
        call alfges
   
-       call get_indices(TimeRamNow%Time, Kp, f107)
+       call get_indices(TimeRamNow%Time, Kp, f107, AE)
        TOLV = FLOOR(TimeRamElapsed/DtEfi)*DtEfi
   
        ! Compute information not stored in restart files
@@ -623,7 +634,7 @@ MODULE ModRamInit
        endif
 
        ! Initial indices
-       call get_indices(TimeRamNow%Time, Kp, f107)
+       call get_indices(TimeRamNow%Time, Kp, f107, AE)
        TOLV = 0.0
   
        ! Compute the SCB computational domain
