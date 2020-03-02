@@ -12,7 +12,7 @@ MODULE ModRamScbRun
     use ModRamTiming,    ONLY: DtsFramework, DtsMax, DtsMin, DtsNext, Dts, Dt_hI, &
                                TimeRamStart, TimeRamNow, TimeMax, TimeRamElapsed, &
                                UTs, Dt_bc, DtEfi
-    use ModRamVariables, ONLY: Kp, F107, dBdt, dIdt, dIbndt
+    use ModRamVariables, ONLY: Kp, F107, AE, dBdt, dIdt, dIbndt
     use ModScbVariables, ONLY: hICalc, SORFail
     use ModScbParams,    ONLY: method
     
@@ -64,7 +64,7 @@ MODULE ModRamScbRun
 !!!!!!!!
 
 !!!!!!!! UPDATES AS NEEDED
-    call get_indices(TimeRamNow%Time, Kp, f107)
+    call get_indices(TimeRamNow%Time, Kp, f107, AE)
 
     ! Update Boundary Flux if Dt_bc has passed
     if (abs(mod(TimeRamElapsed, Dt_bc)).le.1e-9) then
