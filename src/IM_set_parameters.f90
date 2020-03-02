@@ -116,7 +116,12 @@ subroutine IM_set_parameters
         if (TempLogical) DoUseBASDiff = .true.
         call read_var('DoUseKpDiff',  TempLogical)
         if (TempLogical) DoUseKpDiff = .true.
+        call read_var('DoUseEMIC',  TempLogical)
+        if (TempLogical) DoUseEMIC = .true.
 
+     case('#USEFLC')
+        call read_var('DoUseFLC',DoUseFLC)
+                
      case('#FLUX_CAP')
         call read_var('ElectronFluxCap', ElectronFluxCap)
         call read_var('ProtonFluxCap', ProtonFluxCap)
