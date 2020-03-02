@@ -35,10 +35,6 @@ module ModRamCouple
        Bx_=-1, By_=-1, Bz_=-1,  &
        Ux_=-1, Uy_=-1, Uz_=-1
 
-  logical :: DoMultiFluidGMCoupling = .false.
-  logical :: DoPassJr   = .false.
-  logical :: DoIEPrecip = .false.
-
   ! Coupling P to SWMF:
   ! Container for MHD density and pressure at outer boundary.
   ! Indices are (dens:pres,Local Time,species[all, h, he, O])
