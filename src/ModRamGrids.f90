@@ -47,4 +47,7 @@ Module ModRamGrids
   ! Grid derivs
   real(DP) :: dR, dPhi
 
+  !EMIC diffusion coeff. 
+  integer, parameter :: NCF_emic=10, ENG_emic=41, NPA_emic=89, NLZ_emic=5
+
 end Module ModRamGrids
