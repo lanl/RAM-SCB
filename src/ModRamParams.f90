@@ -53,6 +53,12 @@ module ModRamParams
   ! Do use Kp-dependent diffusion coefficients?  Default is no!
   logical :: DoUseKpDiff = .false.
  
+  ! Do use EMIC wave-particle diffusion?  Default is no!
+  logical :: DoUseEMIC = .false.
+
+  ! Do use FLC scattering diffusion?  Default is no!
+  logical :: DoUseFLC = .false.
+
   ! Flags for initialization of energy grid and initial conditions
   logical, public :: DoInitOnly = .false.
   logical :: DoUseVAPini = .false.
