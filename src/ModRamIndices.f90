@@ -154,7 +154,8 @@ module ModRamIndices
        nRawAE = iLines
        allocate(timeAE(nRawAE), rawAE(nRawAE))
        do ij=1, iLines
-          read(UNITTMP_, '(i4,i2,i2,1x,i2,1x,i2,1x,i4)') & cyy, cmm, cdd, chh, cmin, rawAE(ij)
+          read(UNITTMP_, '(i4,i2,i2,1x,i2,1x,i2,1x,i4)') &
+               cyy, cmm, cdd, chh, cmin, rawAE(ij)
           call time_int_to_real((/cyy,cmm,cdd,chh,cmin,0,0/), timeAE(ij))
        end do
        
