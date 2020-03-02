@@ -18,6 +18,8 @@ MODULE ModRamSpecies
      logical          :: WPI      ! Sets whether the species uses wave particle interactions
      logical          :: CEX      ! Sets whether the species charge exchanges
      character(len=100) :: cross_sections ! File name for cross sections (or na)
+     logical          :: FLC      ! Sets whether the species uses fieldline curvature scattering
+     logical          :: EMIC     ! Sets whether the species uses EMIC waves
   end type SpeciesType
 
   integer, parameter :: nSpecies = 5
@@ -38,7 +40,9 @@ MODULE ModRamSpecies
      RAMSpecies(1)%WPI = .true.
      RAMSpecies(1)%CEX = .false.
      RAMSpecies(1)%cross_sections = 'na'
-   
+     RAMSpecies(1)%FLC = .false.
+     RAMSpecies(1)%EMIC= .false.
+     
      ! Protons
      RAMSpecies(2)%s_name = "Hydrogen"
      RAMSpecies(2)%s_code = "_H"
@@ -49,7 +53,9 @@ MODULE ModRamSpecies
      RAMSpecies(2)%WPI = .false.
      RAMSpecies(2)%CEX = .true.
      RAMSpecies(2)%cross_sections = 'na'
-   
+     RAMSpecies(2)%FLC = .true.
+     RAMSpecies(2)%EMIC= .true.
+     
      ! Helium +1
      RAMSpecies(3)%s_name = "HeliumP1"
      RAMSpecies(3)%s_code = "He"
@@ -60,7 +66,9 @@ MODULE ModRamSpecies
      RAMSpecies(3)%WPI = .false.
      RAMSpecies(3)%CEX = .true.
      RAMSpecies(3)%cross_sections = 'na'
-   
+     RAMSpecies(3)%FLC = .true.
+     RAMSpecies(3)%EMIC= .true.
+    
      ! Oxygen +1
      RAMSpecies(4)%s_name = "OxygenP1"
      RAMSpecies(4)%s_code = "_O"
@@ -71,6 +79,8 @@ MODULE ModRamSpecies
      RAMSpecies(4)%WPI = .false.
      RAMSpecies(4)%CEX = .true.
      RAMSpecies(4)%cross_sections = 'na'
+     RAMSpecies(4)%FLC = .true.
+     RAMSpecies(4)%EMIC= .true.
 
      ! Nitrogen +1
      RAMSpecies(5)%s_name = "Nitrogen"
@@ -82,7 +92,9 @@ MODULE ModRamSpecies
      RAMSpecies(5)%WPI = .false.
      RAMSpecies(5)%CEX = .true.
      RAMSpecies(5)%cross_sections = 'NitrogenCrossSections.dat'
-
+     RAMSpecies(5)%FLC = .false.
+     RAMSpecies(5)%EMIC= .false.
+     
   end subroutine DefineSpecies
 
 END MODULE ModRamSpecies
