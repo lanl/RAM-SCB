@@ -28,7 +28,7 @@ MODULE ModSceRun
 
     use ModScbVariables, ONLY: pjconst
     use ModSceGrids,     ONLY: Iono_nTheta, Iono_nPsi
-    use ModSceVariables!, ONLY: energy_fluxIono, ave_eIono, num_fluxIono, JrIono, &
+    use ModSceVariables, !ONLY: energy_fluxIono, ave_eIono, num_fluxIono, JrIono, &
                          !      dis_energy_fluxIono, dis_ave_eIono, HighLatBoundaryIM, &
                          !      SinThetaTilt, CosThetaTilt
 
