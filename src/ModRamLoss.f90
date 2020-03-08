@@ -118,7 +118,7 @@ MODULE ModRamLoss
     use ModRamGrids,     ONLY: NR, NT, NPA
     use ModRamConst,     ONLY: PI
     use ModRamMain,      ONLY: PathRamOut, DP
-    use ModRamTiming,    ONLY: TimeRamNow, TimeRamElapsed
+    use ModRamTiming,    ONLY: TimeRamNow, TimeRamElapsed, Dt_bc
     use ModRamVariables, ONLY: r_curvEq, zeta1Eq, zeta2Eq, LZ, MLT
     use ModScbMain,      ONLY: REarth
     use ModScbGrids,     ONLY: nthe, npsi, nzeta
@@ -143,8 +143,8 @@ MODULE ModRamLoss
     ! to field line curvature scattering is based on Ebihara 2011, Young 2002, Young 2008. 
     !-------------------------------------------------------------------------------------
 
-    ! calculate the FLC radius every 300 seconds.
-    if (mod(int(TimeRamElapsed), 300) .gt. 1e-6) return
+    ! calculate the FLC radius every Dt_bc seconds.
+    if (mod(int(TimeRamElapsed), Dt_bc) .gt. 1e-6) return
 
     do i=1,nthe
        r2(i,:,1:nzeta)   = x(i,:,1:nzeta)*x(i,:,1:nzeta)+y(i,:,1:nzeta)*y(i,:,1:nzeta)+z(i,:,1:nzeta)*z(i,:,1:nzeta)
@@ -236,15 +236,15 @@ MODULE ModRamLoss
     zeta1 = r_curv*dsqRcdsqS
     zeta2 = r_curv**2/(bnormal*1.0e-9*bb(:,:,1:nzeta)) * dsqBdsqS
   
-    filename = trim(PathRamOut)//RamFileName('r_curv_','dat',TimeRamNow)
-    open(unit=UnitTmp_, file=filename, status='unknown')
-    do i=1,npsi
-       do j = 2, nzeta
-          write(UnitTmp_,'(5e11.3)')x(nThetaEquator, i,j), y(nThetaEquator, i,j), r_curv(nThetaEquator,i,j), &
-               zeta1(nThetaEquator,i,j),zeta2(nThetaEquator,i,j)
-       end do
-    end do
-    close(UnitTmp_)
+    !filename = trim(PathRamOut)//RamFileName('r_curv_','dat',TimeRamNow)
+    !open(unit=UnitTmp_, file=filename, status='unknown')
+    !do i=1,npsi
+    !   do j = 2, nzeta
+    !      write(UnitTmp_,'(5e11.3)')x(nThetaEquator, i,j), y(nThetaEquator, i,j), r_curv(nThetaEquator,i,j), &
+    !           zeta1(nThetaEquator,i,j),zeta2(nThetaEquator,i,j)
+    !   end do
+    !end do
+    !close(UnitTmp_)
     
     do i=2, nR
        do j=1, nT-1
@@ -265,14 +265,14 @@ MODULE ModRamLoss
     Zeta2Eq(:,nT) = Zeta2Eq(:,1) ! at MLT=0 & 24 
     Zeta2Eq(1,:)  = Zeta2Eq(2,:)    ! at the inner-most circle
     
-    filename = trim(PathRamOut)//RamFileName('r_curvEq_','dat',TimeRamNow)
-    open(unit=unittmp_, file=filename, status='unknown')
-    do i=2,nR
-       do j = 1, nT-1
-          write(unittmp_,'(2f16.4, 3e16.4)')Lz(i),MLT(j), r_curvEq(i,j), Zeta1Eq(i,j), Zeta2Eq(i,j)
-       end do
-    end do
-    close(unittmp_)
+    !filename = trim(PathRamOut)//RamFileName('r_curvEq_','dat',TimeRamNow)
+    !open(unit=unittmp_, file=filename, status='unknown')
+    !do i=2,nR
+    !   do j = 1, nT-1
+    !      write(unittmp_,'(2f16.4, 3e16.4)')Lz(i),MLT(j), r_curvEq(i,j), Zeta1Eq(i,j), Zeta2Eq(i,j)
+    !   end do
+    !end do
+    !close(unittmp_)
     
   end subroutine FLC_Radius
 
@@ -286,12 +286,13 @@ MODULE ModRamLoss
     use ModRamGrids,     ONLY: NR, NT, NE, NPA
     use ModRamConst,     ONLY: Q, CS
     use ModRamMain,      ONLY: PathRamOut, DP
-    use ModRamTiming,    ONLY: TimeRamNow, T, TimeRamElapsed
+    use ModRamTiming,    ONLY: TimeRamNow, T, TimeRamElapsed, Dt_bc
 
     use ModScbMain,      ONLY: REarth
     use ModRamIO,        ONLY: RamFileName
     use ModIoUnit,       ONLY: UnitTMP_
-
+    use ModRamParams,    ONLY: DoWriteFLCDiffCoeff
+    
     implicit none
 
     integer, intent(in) :: S
@@ -308,18 +309,21 @@ MODULE ModRamLoss
     ! to field line curvature scattering is based on Ebihara 2011, Young 2002, Young 2008.
     !-------------------------------------------------------------------------------------
 
-    ! calculate the FLC Daa every 300 seconds.
-    if (mod(int(TimeRamElapsed), 300) .gt. 1e-6) return
+    ! calculate the FLC Daa every Dt_bc seconds.
+    if (mod(int(TimeRamElapsed), Dt_bc) .gt. 1e-6) return
 
-    st2 = speciesString(S)
-    filename = trim(PathRamOut)//RamFileName('FLC_coeff_'//st2,'dat',TimeRamNow)
-    open(unit=unittmp_, file=filename, status='unknown')
-    write(unittmp_,'(a, f8.3, a)')'T= ', T/3600., ' field line curvature Daa (E, pitch_angle, Rg, Rc, Epsil, tau_bounce,Daa)'
-    
+    if(DoWriteFLCDiffCoeff)then
+       st2 = speciesString(S)
+       filename = trim(PathRamOut)//RamFileName('FLC_coeff_'//st2,'dat',TimeRamNow)
+       open(unit=unittmp_, file=filename, status='unknown')
+       write(unittmp_,'(a, f8.3, a)')'T= ', T/3600., ' field line curvature Daa (E, pitch_angle, Rg, Rc, Epsil, tau_bounce, Daa)'
+    end if
+
     FLC_coef(S,:,:,:,:) = 0.0
     do i=1, NR
        do j=1, NT
-          write(unittmp_, '(a, 2x, f8.3, a, f8.3, 2(2x,f8.3))')'L=',LZ(i),'MLT=', MLT(j), zeta1Eq(i,j), zeta2Eq(i,j)
+          if(DoWriteFLCDiffCoeff)&
+               write(unittmp_, '(a, 2x, f8.3, a, f8.3, 2(2x,f8.3))')'L=',LZ(i),'MLT=', MLT(j), zeta1Eq(i,j), zeta2Eq(i,j)
           do k=1,nE
              
              Nmin = 1.0e20
@@ -330,9 +334,7 @@ MODULE ModRamLoss
              Daa = 0.0
              
              ! BNES in T unit                        
-             !r_gyro(i,j,k,l) = RMAS(S)*V(S,k)*sqrt(1-MUBOUN*MUBOUN)/abs(BNES(i,j)*Q) ! m*Vper/Bq 
              r_gyro(i,j,k) = RMAS(S)*V(S,k)/abs(BNES(i,j)*Q) ! m*V/Bq 
-             !r_gyro(i,j,k) = sqrt(2*RMAS(S)*EkeV(S,k)*1.6e-16)/abs(BNES(i,j)*Q)   ! p/Bq=sqrt(2mE)/Bq
              epsil(i,j,k) = r_gyro(i,j,k)/r_curvEq(i,j)
              
              if (epsil(i,j,k) .gt. 0.584) epsil(i,j,k) = 0.584 ! upper bound of epsil 
@@ -364,26 +366,24 @@ MODULE ModRamLoss
                    end if
                 end do
                 alpha0 = acos(MU(lmin)+0.5*WMU(lmin))
-                !if(k.eq.27.and.i.eq.NR-10.and.j.eq.1)write(*,*)'alpha0:',alpha0, 'Nmin:',Nmin,'lmin:',lmin
+
                 do l=1, nPA-1
                    MUBOUN=MU(L)+0.5*WMU(L)
                    alph = acos(MUBOUN)
                    ! pitch angle diffusion coefficients from FLC 
                    Daa(l) = D(l) * Nfactor(lmin)**2 * sin(omegaa * alph)**2 * MUBOUN**(2*ba)/( (1-MUBOUN**2) * MUBOUN**2 )
                    
-                   ! normalized Daa, to compare with Young 2008 Figure 1   
-                   ! Daa(l) = Daa(l) * maxval(tau_bounce) 
                    FLC_coef(S,i,j,k,l) =  Daa(l)*(1-MUBOUN**2) * MUBOUN * BOUNHS(i,j,l)
                 end do
              end if
              
-             do l=1, nPA-1
-                !if(FLC_coef(S,i,j,k,l).lt.1e-30) FLC_coef(S,i,j,k,l) = 1.0e-30 
-                write(unittmp_, '(2(2x, f11.3),5(2x,e11.3))') EkeV(k), acos(MU(l)+0.5*WMU(l)), r_gyro(i,j,k), &
-                     r_curvEq(i,j)/REarth, epsil(i,j,k),tau_bounce(l),FLC_coef(S,i,j,k,l)
-                !Daa(l),D(l),ca(l),Zeta1Eq(i,j),Zeta2Eq(i,j),da(l),a1(l),a2(l) 
-             end do
-             
+             if(DoWriteFLCDiffCoeff)then
+                do l=1, nPA-1
+                   write(unittmp_, '(2(2x, f11.3),5(2x,e11.3))') EkeV(k), acos(MU(l)+0.5*WMU(l)), r_gyro(i,j,k), &
+                        r_curvEq(i,j)/REarth, epsil(i,j,k),tau_bounce(l),FLC_coef(S,i,j,k,l)
+                end do
+             end if
+
           end do
        end do
     end do
