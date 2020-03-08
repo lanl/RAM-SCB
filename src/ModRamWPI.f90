@@ -308,14 +308,14 @@ MODULE ModRamWPI
     !Read and store EMIC WAVE Intensity from Saikin model
     do iu=1,4
        write(ind1,'(I1.1)')iu
-       filename =  trim(PathRamIn)//'/saikin/AE_H_'//ind1//'.txt'
+       filename =  trim(PathRamIn)//'/EMIC_model/EMIC_H_intensity_AE_'//ind1//'.txt'
        open(unit=unittmp_,file=filename, status='old')
        do im=1,20
           read(unittmp_,*)(Ihs_emic(iu,im,ih), ih=1,25)
        enddo
        close(unittmp_)
 
-       filename = trim(PathRamIn)//'/saikin/AE_He_'//ind1//'.txt'
+       filename = trim(PathRamIn)//'/EMIC_model/EMIC_He_intensity_AE_'//ind1//'.txt'
        open(unit=unittmp_,file=filename, status='old')
        do im=1,20
           read(unittmp_,*)(Ihes_emic(iu,im,ih), ih=1,25)
