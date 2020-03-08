@@ -144,7 +144,7 @@ MODULE ModRamLoss
     !-------------------------------------------------------------------------------------
 
     ! calculate the FLC radius every Dt_bc seconds.
-    if (mod(int(TimeRamElapsed), Dt_bc) .gt. 1e-6) return
+    if (mod(int(TimeRamElapsed), int(Dt_bc)) .gt. 1e-6) return
 
     do i=1,nthe
        r2(i,:,1:nzeta)   = x(i,:,1:nzeta)*x(i,:,1:nzeta)+y(i,:,1:nzeta)*y(i,:,1:nzeta)+z(i,:,1:nzeta)*z(i,:,1:nzeta)
@@ -310,7 +310,7 @@ MODULE ModRamLoss
     !-------------------------------------------------------------------------------------
 
     ! calculate the FLC Daa every Dt_bc seconds.
-    if (mod(int(TimeRamElapsed), Dt_bc) .gt. 1e-6) return
+    if (mod(int(TimeRamElapsed), int(Dt_bc)) .gt. 1e-6) return
 
     if(DoWriteFLCDiffCoeff)then
        st2 = speciesString(S)
