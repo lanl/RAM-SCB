@@ -121,7 +121,8 @@ subroutine IM_set_parameters
 
      case('#USEFLC')
         call read_var('DoUseFLC',DoUseFLC)
-                
+        call read_var('DoWriteFLCDiffCoeff', DoWriteFLCDiffCoeff)
+        
      case('#FLUX_CAP')
         call read_var('ElectronFluxCap', ElectronFluxCap)
         call read_var('ProtonFluxCap', ProtonFluxCap)
