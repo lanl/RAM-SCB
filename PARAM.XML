@@ -126,12 +126,23 @@ Defines the species to run in RAM. See the RAMSpecies_README for more informatio
 	<parameter name="DoUseWPI" type="logical" default="F"/>
 	<parameter name="DoUseBASdiff" type="logical" default="F"/>
 	<parameter name="DoUseKpdiff" type="logical" default="F"/>
+	<parameter name="DoUseEMIC" type="logical" default="F"/>
 #USEWPI
 F	DoUseWPI
 F	DoUseBASdiff
 F	DoUseKpdiff
+F	DoUseEMIC
 
-Flag to turn on pitch angle diffusion. The default setting for the Kp-based version uses Kp=0 coefficients. Turning this flag on interpolates Kp-dependent diffusion coefficents for Kp in the range (0-4). Different options are available if selecting DoUseBASDiff.
+Flag to turn on pitch angle diffusion. The default setting for the Kp-based version uses Kp=0 coefficients. Turning this flag on interpolates Kp-dependent diffusion coefficents for Kp in the range (0-4). Different options are available if selecting DoUseBASDiff. EMIC wave pitch angle diffusion is used for ions wave-particle interaction.
+</command>
+
+<command name="USEFLC">
+          <parameter name="DoUseFLC" type="logical" default="F"/>
+          <parameter name="DoWriteFLCDiffCoeff" type="logical" default="F"/>
+#USEFLC
+F       DoUseFLC
+F       DoWriteFLCDiffCoeff
+Flag to turn on the field line curvature scattering of ions and write out the pitch angle diffusion coefficinets. By default no FLC is used. 
 </command>
 
 <command name="COULOMB">
