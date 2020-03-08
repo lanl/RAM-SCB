@@ -58,6 +58,7 @@ module ModRamParams
 
   ! Do use FLC scattering diffusion?  Default is no!
   logical :: DoUseFLC = .false.
+  logical :: DoWriteFLCDiffCoeff = .false.
 
   ! Flags for initialization of energy grid and initial conditions
   logical, public :: DoInitOnly = .false.
