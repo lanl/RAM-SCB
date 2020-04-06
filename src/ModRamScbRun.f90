@@ -18,7 +18,6 @@ MODULE ModRamScbRun
     
     !!!! Module Subroutines and Functions
     use ModRamGSL,       ONLY: GSL_Initialize
-    use ModRamInjection, ONLY: injection
     use ModRamFunctions, ONLY: ram_sum_pressure, RamFileName
     use ModRamIndices,   ONLY: get_indices
     use ModRamTiming,    ONLY: max_output_timestep, init_timing, finalize_timing, do_timing
