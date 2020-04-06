@@ -20,6 +20,8 @@ MODULE ModRamInit
                                RadMaxScb, RadiusMin, RadiusMax, &
                                NameVar, NCF_emic, ENG_emic
     use ModScbGrids,     ONLY: nthe
+
+    use ModRamIO,        ONLY: read_CHEX_file
  
     implicit none
 
@@ -47,6 +49,9 @@ MODULE ModRamInit
        do iS = 1, nSpecies
           if (tempSpc == RAMSpecies(iS)%s_code) then
              species(i) = RAMSpecies(iS)
+             if (trim(RAMSpecies(iS)%CEX_file).ne.'na') then
+                call read_CHEX_file(trim(RAMSpecies(iS)%CEX_file), species(i))
+             endif
              if (FixedComposition) species(i)%s_comp = composition(i)
           endif
        enddo
@@ -62,11 +67,13 @@ MODULE ModRamInit
              PParHe(NR,NT), PAllSum(NR,NT), PParSum(NR,NT), PPerT(NS,NR,NT), &
              PParT(NS,NR,NT), FNHS(NR+1,NT,NPA), FNIS(NR+1,NT,NPA), BOUNHS(NR+1,NT,NPA), &
              BOUNIS(NR+1,NT,NPA), dIdt(NR+1,NT,NPA), dBdt(NR+1,NT), dIbndt(NR+1,NT,NPA), &
-             HDNS(NR+1,NT,NPA), BNES(NR+1,NT), dHdt(nR+1,nT,nPa))
+             HDNS(NR+1,NT,NPA), BNES(NR+1,NT), dHdt(nR+1,nT,nPa), ODNS(NR+1,NT,NPA), NDNS(NR+1,NT,NPA))
     F2 = 0._dp; FLUX = 0._dp; PPerH = 0._dp; PParH = 0._dp; PPerE = 0._dp; PParE = 0._dp; PPerO = 0._dp
     PParO = 0._dp; PPerHe = 0._dp; PParHe = 0._dp; PAllSum = 0._dp; PParSum = 0._dp; PPerT = 0._dp
     PParT = 0._dp; FNHS = 0._dp; FNIS = 0._dp; BOUNHS = 0._dp; BOUNIS = 0._dp; dIdt = 0._dp
     dBdt = 0._dp; dIbndt = 0._dp; HDNS = 0._dp; BNES = 0._dp; dHdt = 0._dp
+    ODNS = 0._dp; NDNS = 0._dp
+
    ! ModRamPlasmasphere Variables
    ALLOCATE(flux_volume(nR,nT), tau(nR,nT), uL(nR,nT), uT(nT,nR), smLon(nR,nT), smLat(nR,nT), &
             nECR(nR,nT), xRAM(nthe,nR,nT), yRAM(nthe,nR,nT), zRAM(nthe,nR,nT))
@@ -563,7 +570,7 @@ MODULE ModRamInit
                                PlasmasphereModel
     use ModRamGrids,     ONLY: NL, NLT, nR, nT, nS
     use ModRamTiming,    ONLY: DtEfi, TimeRamNow, TimeRamElapsed
-    use ModRamVariables, ONLY: Kp, F107, AE, TOLV, NECR, IP1, IR1, XNE, F2
+    use ModRamVariables, ONLY: Kp, F107, AE, TOLV, NECR, IP1, IR1, XNE, F2, species
     use ModScbParams,    ONLY: method, constTheta
     !!!! Module Subroutines/Functions
     use ModRamRun,       ONLY: ANISCH
@@ -571,7 +578,7 @@ MODULE ModRamInit
     use ModRamBoundary,  ONLY: get_boundary_flux
     use ModRamRestart,   ONLY: read_restart
     use ModRamIndices,   ONLY: get_indices
-    use ModRamIO,        ONLY: read_initial
+    use ModRamIO,        ONLY: read_initial, write2DFlux, writeLosses
     use ModRamFunctions, ONLY: ram_sum_pressure
     use ModRamScb,       ONLY: computehI, compute3DFlux
     use ModScbRun,       ONLY: scb_run, pressure
@@ -623,40 +630,38 @@ MODULE ModRamInit
        call get_boundary_flux ! FGEOS
     else
        nIter = 1
-       !!!!!! INITIALIZE DATA !!!!!
-       if (InitializeOnFile) then
-          call read_initial
-       else
-          F2 = 1e4
-          do iS = 1, nS
-             call ANISCH(iS)
-          enddo
-       endif
 
+       !!!!!! INITIALIZE DATA !!!!!
        ! Initial indices
        call get_indices(TimeRamNow%Time, Kp, f107, AE)
        TOLV = 0.0
   
+       ! Initialize flux and pressure for default species
+       ! Electron, Hydrogen, HeliumP1, OxygenP1 (sets to
+       ! 0._dp for other species)
+       call read_initial
+
+       ! Initialize Magnetic Field (needed for injection files)
+       ! ! If running with SWMF initialize on a dipole field
+       if (NameBoundMag == 'SWMF') then
+          NameBoundMagTemp = NameBoundMag
+          methodTemp = method
+          NameBoundMag = 'DIPL'
+          method = 3
+       endif 
+       call computational_domain
+
        ! Compute the SCB computational domain
        write(*,*) ''
        call write_prefix
-       write(*,'(a)') 'Running SCB model to initialize B-field...'
-
-       if (NameBoundMag == 'SWMF') then
-        NameBoundMagTemp = NameBoundMag
-        methodTemp = method
-        NameBoundMag = 'DIPL'
-        method = 3
-       endif
-       call computational_domain
-  
+       write(*,'(a)') 'Running SCB model to initialize B-field...' 
        call ram_sum_pressure
        call scb_run(0)
   
        ! Couple SCB -> RAM
        call computehI(0)
 
-       call compute3DFlux
+       ! Reset dipole initialization for SWMF runs
        if (NameBoundMagTemp == 'SWMF') then
         method = methodTemp
         NameBoundMag = NameBoundMagTemp 
@@ -674,6 +679,10 @@ MODULE ModRamInit
           PlasmasphereModel = pmt
        endif
 
+       ! Call initial outputs
+       call compute3DFlux
+       call write2DFlux
+       call writeLosses
     end if
   !!!!!!!!
   
