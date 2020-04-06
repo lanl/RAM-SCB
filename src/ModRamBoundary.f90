@@ -262,14 +262,15 @@ end subroutine get_geomlt_flux
     ! Read LANL flux (1/cm2/s/sr/keV) assumed isotropic
     IF (boundary.EQ.'LANL') THEN
       ! LANL interpolated flux files.
-      if (species(S)%s_name=="Electron") then
+      select case(species(S)%s_name)
+      case ("Electron")
         call get_geomlt_flux('elec', FluxLanl)
-      else
+      case ("Hydrogen", "OxygenP1", "HeliumP1")
         call get_geomlt_flux('prot', FluxLanl)
-      end if
-      do ik=1,nE
-        FluxLanl(1,iK)=FluxLanl(nT,iK)
-      end do
+      case default
+        FluxLanl = 0._dp
+      end select
+      FluxLanl(1,:) = FluxLanl(nT,:)
       ! Adjust flux for composition
       FluxLanl=FluxLanl*species(S)%s_comp
       do ik=1,NE
@@ -295,7 +296,7 @@ end subroutine get_geomlt_flux
 
     if (verbose) then
        write(*,'(1x,a,2E10.2)') 'Max, Min '//species(S)%s_code//' boundary flux = ', &
-             maxval(FGEOS(s,:,:,:)), minval(FGEOS(s,:,:,:), MASK=FGEOS(s,:,:,:).GT.0)
+             maxval(FGEOS(s,:,:,:)), minval(FGEOS(s,:,:,:), MASK=FGEOS(s,:,:,:).GE.0)
     endif
 
     ! Write interpolated dfluxes to file.
