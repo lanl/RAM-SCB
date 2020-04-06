@@ -579,6 +579,7 @@ MODULE ModRamInit
     use ModRamRestart,   ONLY: read_restart
     use ModRamIndices,   ONLY: get_indices
     use ModRamIO,        ONLY: read_initial, write2DFlux, writeLosses
+    use ModRamInjection, ONLY: load_injection_file
     use ModRamFunctions, ONLY: ram_sum_pressure
     use ModRamScb,       ONLY: computehI, compute3DFlux
     use ModScbRun,       ONLY: scb_run, pressure
@@ -660,6 +661,14 @@ MODULE ModRamInit
   
        ! Couple SCB -> RAM
        call computehI(0)
+
+       ! Initialize flux for species with injection files
+       do i = 1, nS
+          if ((trim(species(i)%Initialization).ne.'InitializationFile') &
+              .and.(trim(species(i)%Initialization).ne.'na')) then
+             call load_injection_file(i, trim(species(i)%Initialization), F2(i,:,:,:,:))
+          endif
+       enddo
 
        ! Reset dipole initialization for SWMF runs
        if (NameBoundMagTemp == 'SWMF') then
