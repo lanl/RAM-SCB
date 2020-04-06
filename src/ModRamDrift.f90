@@ -48,11 +48,13 @@ MODULE ModRamDrift
     real(DP) :: MUBOUN
     integer :: i, j, k, l
 
-    ALLOCATE(VR(nR), P1(nR), P2(nR,nE), EDOT(nR,nE), MUDOT(nR,nPA))
-    VR = 0.0; P1 = 0.0; P2 = 0.0; EDOT = 0.0; MUDOT = 0.0
-    ALLOCATE(CDriftR(nR,nT,nE,nPa), CDriftP(nR,nT,nE,nPa), &
-             CDriftE(nR,nT,nE,nPa), CDriftMu(nR,nT,nE,nPa))
-    CDriftR = 0.0; CDriftP = 0.0; CDriftE = 0.0; CDriftMu = 0.0
+    if (.not.ALLOCATED(VR)) then
+       ALLOCATE(VR(nR), P1(nR), P2(nR,nE), EDOT(nR,nE), MUDOT(nR,nPA))
+       VR = 0.0; P1 = 0.0; P2 = 0.0; EDOT = 0.0; MUDOT = 0.0
+       ALLOCATE(CDriftR(nR,nT,nE,nPa), CDriftP(nR,nT,nE,nPa), &
+                CDriftE(nR,nT,nE,nPa), CDriftMu(nR,nT,nE,nPa))
+       CDriftR = 0.0; CDriftP = 0.0; CDriftE = 0.0; CDriftMu = 0.0
+    endif
 
     ! Electric field offset in radians and particle charge
     PHIOFS=0*PI/12.
@@ -122,9 +124,9 @@ MODULE ModRamDrift
        ENDDO
     ENDDO
 
-    DO K=2,NE
+    DO K=1,NE
        P4=DTs*EKEV(K)*1000.0*(GREL(S,K)+1)/GREL(S,K)/DPHI/MDR/QS
-       DO L=2,NPA
+       DO L=1,NPA
           DO J=1,NT
              F(1:NR) = F2(S,:,J,K,L)
              J0=J-1
@@ -216,8 +218,8 @@ MODULE ModRamDrift
 
     DtDriftP(S) = 100000.0
     OME=7.3E-5 ! Earth's angular velocity [rad/s]
-    DO L=2,NPA
-       DO K=2,NE
+    DO L=1,NPA
+       DO K=1,NE
           DO I=2,NR
              F(:)=F2(S,I,:,K,L)
              DO J=2,NT
@@ -313,7 +315,7 @@ MODULE ModRamDrift
        DO I=2,NR
           DRD1=(EIP(I,J)*RLZ(I)-(VT(I,J2)-VT(I,J0))/2./DPHI)/BNES(I,J)
           DPD1=OME*RLZ(I)+((VT(I+1,J)-VT(I-1,J))/2/MDR-EIR(I,J))/BNES(I,J)
-          DO L=2,NPA
+          DO L=1,NPA
              GPA  = (1.-FNIS(I,J,L)/2./FNHS(I,J,L))/BNES(I,J)
              GPR1 = GPA*(BNES(I+1,J)-BNES(I-1,J))/2./MDR
              GPR2 = -FNIS(I,J,L)/FNHS(I,J,L)/RLZ(I)
@@ -397,7 +399,7 @@ MODULE ModRamDrift
 
     DtDriftMu(S) = 10000.0
     OME=7.3E-5
-    DO K=2,NE
+    DO K=1,NE
        DO J=1,NT
           J0=J-1
           IF (J.EQ.1) J0=NT-1
