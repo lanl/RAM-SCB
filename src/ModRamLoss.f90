@@ -20,7 +20,7 @@ MODULE ModRamLoss
     use ModRamMain,      ONLY: DP
     use ModRamGrids,     ONLY: NE, NR, NT, NPA
     use ModRamTiming,    ONLY: DTs
-    use ModRamVariables, ONLY: EKEV, V, RLZ, HDNS, CHARGE, ATLOS, species
+    use ModRamVariables, ONLY: EKEV, V, RLZ, HDNS, CHARGE, ATLOS, species, ODNS, NDNS
     use ModRamIO,        ONLY: read_CHEX_file
     use ModRamGSL,       ONLY: GSL_Interpolation_1D
     implicit none
@@ -28,7 +28,9 @@ MODULE ModRamLoss
     integer, intent(in) :: S
     integer :: l, k, i, j, GSLErr
     real(DP) :: x, y, alpha, taub
-    real(DP), allocatable :: velocity(:), sig_H(:)
+    real(DP), allocatable :: CEXsig(:,:,:,:)
+
+    CHARGE(S,:,:,:,:) = 1._dp
 
     ! Calculate charge exchange crosss-section of ring species S with H
     ! and then the charge exchange decay rate ACHAR
@@ -79,23 +81,78 @@ MODULE ModRamLoss
           ENDDO
        ENDDO
     case default
-    !!! ADD FILE DEPENDENT CHARGE EXCHANGE CROSSS SECTIONS HERE -ME
-       if (trim(species(S)%cross_sections) == 'na') then
-          CHARGE(S,:,:,:,:) = 0._dp
+       if (trim(species(S)%CEX_file) == 'na') then
+          ! No charge exchange loss
        else
-          call read_CHEX_file(trim(species(S)%cross_sections),Velocity,Sig_H)
-          DO K = 1, nE
-             call GSL_Interpolation_1D(Velocity,Sig_H,V(S,K),Y,GSLerr)
-             DO L = 1, nPa
-                DO I = 1, nR
-                   DO J = 1, nT
-                      ALPHA = Y*V(S,K)*HDNS(I,J,L)*DTs
-                      CHARGE(S,I,J,K,L) = EXP(-ALPHA)
+          allocate(CEXsig(nR,nT,nE,nPa))
+
+          ! Hydrogen Charge Exchange
+          if (allocated(species(S)%CEX_nH)) then
+             CEXsig = 1._dp
+             DO K = 1, nE
+                if (V(S,K) > species(S)%CEX_velocities(1)) then
+                   call GSL_Interpolation_1D(species(S)%CEX_velocities, species(S)%CEX_nH, &
+                                             V(S,K), Y, GSLerr)
+                else
+                   Y = species(S)%CEX_nH(1)
+                endif
+                DO L = 1, nPa
+                   DO I = 1, nR
+                      DO J = 1, nT
+                         ALPHA = Y*V(S,K)*HDNS(I,J,L)*DTs
+                         CEXsig(I,J,K,L) = EXP(-ALPHA)
+                      ENDDO
                    ENDDO
                 ENDDO
              ENDDO
-          ENDDO
-          deallocate(Velocity,Sig_H)
+             CHARGE(S,:,:,:,:) = CHARGE(S,:,:,:,:)*CEXsig(:,:,:,:)
+          endif
+
+          ! Oxygen Charge Exchange
+          if (allocated(species(S)%CEX_nO)) then
+             CEXsig = 1._dp
+                if (V(S,K) > species(S)%CEX_velocities(1)) then
+                   call GSL_Interpolation_1D(species(S)%CEX_velocities, species(S)%CEX_nO, &
+                                             V(S,K), Y, GSLerr)
+                else
+                   Y = species(S)%CEX_nH(1)
+                endif
+             DO K = 1, nE
+                DO L = 1, nPa
+                   DO I = 1, nR
+                      DO J = 1, nT
+                         ALPHA = Y*V(S,K)*ODNS(I,J,L)*DTs
+                         CEXsig(I,J,K,L) = EXP(-ALPHA)
+                      ENDDO
+                   ENDDO
+                ENDDO
+             ENDDO
+             CHARGE(S,:,:,:,:) = CHARGE(S,:,:,:,:)*CEXsig(:,:,:,:)
+          endif
+
+          ! Nitrogen Charge Exchange
+          if (allocated(species(S)%CEX_nN)) then
+             CEXsig = 1._dp
+                if (V(S,K) > species(S)%CEX_velocities(1)) then
+                   call GSL_Interpolation_1D(species(S)%CEX_velocities, species(S)%CEX_nN, &
+                                             V(S,K), Y, GSLerr)
+                else
+                   Y = species(S)%CEX_nH(1)
+                endif
+             DO K = 1, nE
+                DO L = 1, nPa
+                   DO I = 1, nR
+                      DO J = 1, nT
+                         ALPHA = Y*V(S,K)*NDNS(I,J,L)*DTs
+                         CEXsig(I,J,K,L) = EXP(-ALPHA)
+                      ENDDO
+                   ENDDO
+                ENDDO
+             ENDDO
+             CHARGE(S,:,:,:,:) = CHARGE(S,:,:,:,:)*CEXsig(:,:,:,:)
+          endif
+
+          deallocate(CEXsig)
        end if
     end select
 

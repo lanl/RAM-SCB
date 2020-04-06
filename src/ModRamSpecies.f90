@@ -17,12 +17,19 @@ MODULE ModRamSpecies
      logical          :: SCB      ! Sets whether the species is used in the pressure balance
      logical          :: WPI      ! Sets whether the species uses wave particle interactions
      logical          :: CEX      ! Sets whether the species charge exchanges
-     character(len=100) :: cross_sections ! File name for cross sections (or na)
      logical          :: FLC      ! Sets whether the species uses fieldline curvature scattering
      logical          :: EMIC     ! Sets whether the species uses EMIC waves
+     character(len=100) :: Initialization
+     character(len=100) :: CEX_file ! File name for cross sections (or na)
+     character(len=100) :: CEX_species ! Species to charge exchange against (nH nO nN) (or na)
+     real(DP), allocatable :: CEX_velocities(:)
+     real(DP), allocatable :: CEX_nH(:)
+     real(DP), allocatable :: CEX_nO(:)
+     real(DP), allocatable :: CEX_nN(:)
+     real(DP) :: plasmasphereRatio
   end type SpeciesType
 
-  integer, parameter :: nSpecies = 5
+  integer, parameter :: nSpecies = 6
   type(SpeciesType), dimension(nSpecies) :: RAMSpecies
 
   contains
@@ -39,10 +46,13 @@ MODULE ModRamSpecies
      RAMSpecies(1)%SCB = .true.
      RAMSpecies(1)%WPI = .true.
      RAMSpecies(1)%CEX = .false.
-     RAMSpecies(1)%cross_sections = 'na'
      RAMSpecies(1)%FLC = .false.
-     RAMSpecies(1)%EMIC= .false.
-     
+     RAMSpecies(1)%EMIC = .false.
+     RAMSpecies(1)%CEX_file = 'na'
+     RAMSpecies(1)%CEX_species = 'na'
+     RAMSpecies(1)%Initialization = 'InitializationFile'
+     RAMSpecies(1)%plasmasphereRatio = 1.0
+
      ! Protons
      RAMSpecies(2)%s_name = "Hydrogen"
      RAMSpecies(2)%s_code = "_H"
@@ -52,10 +62,13 @@ MODULE ModRamSpecies
      RAMSpecies(2)%SCB = .true.
      RAMSpecies(2)%WPI = .false.
      RAMSpecies(2)%CEX = .true.
-     RAMSpecies(2)%cross_sections = 'na'
      RAMSpecies(2)%FLC = .true.
-     RAMSpecies(2)%EMIC= .true.
-     
+     RAMSpecies(2)%EMIC = .true.
+     RAMSpecies(2)%CEX_file = 'na'
+     RAMSpecies(2)%CEX_species = 'na'
+     RAMSpecies(2)%Initialization = 'InitializationFile'
+     RAMSpecies(2)%plasmasphereRatio = 0.77
+
      ! Helium +1
      RAMSpecies(3)%s_name = "HeliumP1"
      RAMSpecies(3)%s_code = "He"
@@ -65,10 +78,13 @@ MODULE ModRamSpecies
      RAMSpecies(3)%SCB = .true.
      RAMSpecies(3)%WPI = .false.
      RAMSpecies(3)%CEX = .true.
-     RAMSpecies(3)%cross_sections = 'na'
      RAMSpecies(3)%FLC = .true.
-     RAMSpecies(3)%EMIC= .true.
-    
+     RAMSpecies(3)%EMIC = .true.
+     RAMSpecies(3)%CEX_file = 'na'
+     RAMSpecies(3)%CEX_species = 'na'
+     RAMSpecies(3)%Initialization = 'InitializationFile'
+     RAMSpecies(3)%plasmasphereRatio = 0.2
+
      ! Oxygen +1
      RAMSpecies(4)%s_name = "OxygenP1"
      RAMSpecies(4)%s_code = "_O"
@@ -78,9 +94,12 @@ MODULE ModRamSpecies
      RAMSpecies(4)%SCB = .true.
      RAMSpecies(4)%WPI = .false.
      RAMSpecies(4)%CEX = .true.
-     RAMSpecies(4)%cross_sections = 'na'
      RAMSpecies(4)%FLC = .true.
-     RAMSpecies(4)%EMIC= .true.
+     RAMSpecies(4)%EMIC = .true.
+     RAMSpecies(4)%CEX_file = 'na'
+     RAMSpecies(4)%CEX_species = 'na'
+     RAMSpecies(4)%Initialization = 'InitializationFile'
+     RAMSpecies(4)%plasmasphereRatio = 0.03
 
      ! Nitrogen +1
      RAMSpecies(5)%s_name = "Nitrogen"
@@ -91,10 +110,29 @@ MODULE ModRamSpecies
      RAMSpecies(5)%SCB = .false.
      RAMSpecies(5)%WPI = .false.
      RAMSpecies(5)%CEX = .true.
-     RAMSpecies(5)%cross_sections = 'NitrogenCrossSections.dat'
      RAMSpecies(5)%FLC = .false.
-     RAMSpecies(5)%EMIC= .false.
-     
+     RAMSpecies(5)%EMIC = .false.
+     RAMSpecies(5)%CEX_file = 'NitrogenCrossSections.dat'
+     RAMSpecies(5)%CEX_species = 'nH'
+     RAMSpecies(5)%Initialization = 'na'
+     RAMSpecies(5)%plasmasphereRatio = 0.0
+
+     ! Strontium +1
+     RAMSpecies(6)%s_name = "Strontium"
+     RAMSpecies(6)%s_code = "Sr"
+     RAMSpecies(6)%s_mass = 87.62
+     RAMSpecies(6)%s_comp = 0.0
+     RAMSpecies(6)%s_charge = 1
+     RAMSpecies(6)%SCB = .false.
+     RAMSpecies(6)%WPI = .false.
+     RAMSpecies(6)%CEX = .true.
+     RAMSpecies(6)%FLC = .false.
+     RAMSpecies(6)%EMIC = .false.
+     RAMSpecies(6)%CEX_file = 'StrontiumCrossSections.dat'
+     RAMSpecies(6)%CEX_species = 'nH nO nN'
+     RAMSpecies(6)%Initialization = 'StrontiumPlusOneIons.dat'
+     RAMSpecies(6)%plasmasphereRatio = 0.0
+
   end subroutine DefineSpecies
 
 END MODULE ModRamSpecies
