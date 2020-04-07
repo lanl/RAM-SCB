@@ -642,4 +642,455 @@ call RECALC_08(TimeRamNow%iYear,n_day_of_year(TimeRamNow%iYear,TimeRamNow%iMonth
   
   END SUBROUTINE computehI
 
+!==================================================================================================
+  SUBROUTINE computehI_test(iter)
+  
+    use ModRamVariables, ONLY: FNHS, FNIS, BNES, HDNS, ODNS, NDNS, dBdt, dHdt, &
+                               dIdt, dIbndt, BOUNHS, BOUNIS, EIR, EIP, flux_volume, Phi, &
+                               LZ, MU, MLT, PAbn, PA, DL1, outsideMGNP, xRAM, yRAM, zRAM
+    use ModRamTiming,    ONLY: TimeRamElapsed, TOld, TimeRamNow
+    use ModRamConst,     ONLY: b0dip, RE
+    use ModRamParams,    ONLY: NameBoundMag, verbose, checkMGNP, integral_smooth, densityMode
+    use ModRamGrids,     ONLY: nR, nT, nPa, radiusMax, radiusMin
+  
+    use ModScbGrids,     ONLY: nthe, npsi, nzeta
+    use ModScbParams,    ONLY: method, constTheta
+    use ModScbVariables, ONLY: bf, chiVal, x, y, z, bnormal, bZ, &
+                               radRaw, azimRaw, nThetaEquator, fluxVolume, &
+                               thetaVal, psi, alfa
+ 
+    use ModRamCouple,    ONLY: BLines_DIII, nPoints, IsClosed_II
+
+    use ModRamGSL,       ONLY: GSL_Interpolation_2D, GSL_Interpolation_1D, &
+                               GSL_Integration_hI, GSL_Smooth_1D, GSL_BounceAverage
+    use ModRamFunctions, ONLY: RamFileName, FUNT, FUNI
+    use ModScbFunctions, ONLY: extap, locate, get_dipole_lines
+    use ModScbIO,        ONLY: trace, PARMOD, IOPT
+    use gaussian_filter, only: gaussian_kernel, convolve
+  
+    use nrtype,    ONLY: DP, pi_d, twopi_d, pio2_d
+  
+    use ModTimeConvert, ONLY: n_day_of_year
+
+    implicit none
+  
+    INTEGER, INTENT(IN) :: iter
+    INTEGER :: j, L, ii, GSLerr
+    
+    ! Variables for timing
+    integer :: time1, clock_rate, clock_max
+    real(dp) :: starttime,stoptime
+  
+    ! Variables for SCB
+    REAL(DP) :: DthI
+    REAL(DP), ALLOCATABLE :: BeqDip(:,:)
+    REAL(DP), ALLOCATABLE :: distance(:,:,:)
+  
+    ! Variables for RAM
+    integer  :: nEquator
+    integer, ALLOCATABLE :: ScaleAt(:), outsideSCB(:,:)
+    REAL(DP) :: t0, t1, rt, tt, zt, radius, alt, lat, lon, D(9), T(2)
+    REAL(DP), ALLOCATABLE :: bbx(:), bby(:), bbz(:), xx(:), yy(:), zz(:), cval(:)
+    REAL(DP), ALLOCATABLE :: BNESPrev(:,:), FNISPrev(:,:,:), BOUNISPrev(:,:,:), &
+                             FNHSPrev(:,:,:), BOUNHSPrev(:,:,:), dHbndt(:,:,:)
+    REAL(DP), ALLOCATABLE :: bRAM(:,:,:), HDen(:,:,:), ODen(:,:,:), NDen(:,:,:), &
+                             I_cart(:,:,:), h_cart(:,:,:), HDens_cart(:,:,:), &
+                             ODens_cart(:,:,:), NDens_cart(:,:,:), bZEq_cart(:,:)
+    REAL(DP) :: scalingI, scalingH, scalingD, I_Temp, H_Temp, D_Temp
+ 
+    REAL(DP), ALLOCATABLE :: kernel(:,:), output(:,:)
+ 
+    ! Variables for Tracing
+    INTEGER :: LMAX, LOUT, nSWMF
+    INTEGER :: ID
+    REAL(DP) :: x0, y0, z0, xe, ye, ze, xf, yf, zf
+    REAL(DP) :: ER, DSMAX, RLIM, DIR
+    REAL(DP) :: PDyn, BzIMF, DIST, XMGNP, YMGNP, ZMGNP
+    REAL(DP), DIMENSION(1000) :: xtemp, ytemp, ztemp, bxtemp, bytemp, bztemp, dtemp
+  
+    integer, save :: i, k, wn
+    REAL(DP), save :: xo, xn, xp, yo, yn, yp, psiRAM, alphaRAM, length, r0
+    REAL(DP), allocatable :: bfMirror(:,:,:), yI(:,:,:), yH(:,:,:), yD(:,:,:)
+    !$OMP THREADPRIVATE(k, i, wn, xo, xn, xp, yo, yn, yp, psiRAM, alphaRAM)
+    !$OMP THREADPRIVATE(length, r0)
+
+    ! Don't need to run if using Dipole magnetic field boundary unless it is run from the initialization step
+    if ((NameBoundMag.eq.'DIPL').and.(iter.ne.0)) return
+    call RECALC_08(TimeRamNow%iYear,n_day_of_year(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay), &
+                   TimeRamNow%iHour,TimeRamNow%iMinute,TimeRamNow%iSecond,-400._dp,0._dp,0._dp)
+    clock_rate = 1000
+    clock_max = 100000
+    LMAX = 1000
+  
+    !!! Initialize Allocatable Arrays
+    ALLOCATE(I_cart(npsi,nzeta,nPa), h_cart(npsi,nzeta,nPa), bZEq_Cart(npsi,nzeta), &
+             HDens_Cart(npsi,nzeta,nPa), ODens_Cart(npsi,nzeta,nPa), NDens_cart(npsi,nzeta,nPa))
+    ALLOCATE(outsideSCB(nR,nT), BNESPrev(nR+1,nT), FNHSPrev(nR+1,nT,nPa),FNISPrev(nR+1,nT,nPa), &
+             BOUNISPrev(nR+1,nT,nPa), BOUNHSPrev(nR+1,nT,nPa))
+    !!!
+
+    BNESPrev   = BNES
+    FNISPrev   = FNIS
+    FNHSPrev   = FNHS
+    BOUNISPrev = BOUNIS
+    BOUNHSPrev = BOUNHS
+
+    ! Start timing
+    call system_clock(time1,clock_rate,clock_max)
+    starttime=time1/real(clock_rate,dp)
+
+    SELECT CASE (NameBoundMag)
+    CASE('DIPL') ! Dipole without SCB calculation (only run on initialization step)i
+       ALLOCATE(HDen(nthe,nR,nT), ODen(nthe,nR,nT), NDen(nthe,nR,nT), distance(nthe,nR,nT))
+       ALLOCATE(bfMirror(nR,nT,nPa), yI(nR,nT,nPa), yH(nR,nT,nPa), yD(nR,nT,nPa))
+       ALLOCATE(bRAM(nthe,nR,nT))
+       call get_dipole_lines(radiusMin,radiusMax,constTheta,nthe,nR,nT,xRAM,yRAM,zRAM,bRAM,.true.)
+       bRAM = bRAM*(b0dip/bnormal)
+
+       ! Density to use for bounce averaging
+       distance = SQRT(xRAM(:,:,:)**2+yRAM(:,:,:)**2+zRAM(:,:,:)**2)
+       select case(trim(densityMode))
+       case ("RAIRDEN")
+           HDen = 10**(13.326 - 3.6908*distance     &
+                              + 1.1362*distance**2  &
+                              - 0.16984*distance**3 &
+                              + 0.009553*distance**4)
+        case("MSIS")
+           call METERC(.true.)
+           do i = 1, nR
+              do j = 2, nT
+                 do k = 1, nthe
+                    radius = distance(k,i,j)
+                    alt = (radius*RE - RE)/1000._dp
+                    if (alt < 80._dp) alt = 80._dp
+                    lat = (ACOS(zRAM(k,i,j)/radius)-pio2_d)*180._dp/pi_d
+                    lon = (ATAN2(yRAM(k,i,j),xRAM(k,i,j)))*180._dp/pi_d
+                    CALL GTD7(62190,12*3600,alt,lat,lon,23.,150.,150.,4.,48,D,T)
+                    ODen(k,i,j) = D(2)
+                    HDen(k,i,j) = D(7)
+                    NDen(k,i,j) = D(8)
+                 enddo
+              enddo
+           enddo
+           HDen(:,:,1) = HDen(:,:,nT)
+           ODen(:,:,1) = ODen(:,:,nT)
+           NDen(:,:,1) = NDen(:,:,nT)
+        case default
+           call CON_STOP("Unrecognized density mode")
+        end select
+
+  !$OMP PARALLEL DO
+        do j = 2, nT
+           do i = 1, nR
+              length = 0._dp
+              do k = 2,nthe
+                 length = length + SQRT((xRAM(k,i,j)-xRAM(k-1,i,j))**2 &
+                                      + (yRAM(k,i,j)-yRAM(k-1,i,j))**2 &
+                                      + (zRAM(k,i,j)-zRAM(k-1,i,j))**2)
+              enddo
+              r0 = SQRT(xRAM(nThetaEquator,i,j)**2+yRAM(nThetaEquator,i,j)**2)
+    
+              bfmirror(i,j,1:NPA-1) = bRAM(nThetaEquator,i,j)/(1._dp-mu(1:NPA-1)**2)
+              bfmirror(i,j,NPA)     = bRAM(nthe,i,j)
+    
+              CALL GSL_Integration_hI(bfMirror(i,j,:), chiVal(:), bRAM(:,i,j), yI(i,j,:), yH(i,j,:))
+              CALL GSL_BounceAverage(HDen(:,i,j), bfMirror(i,j,:), chiVal(:), bRAM(:,i,j), yD(i,j,:))
+    
+              FNIS(i+1,j,:) = (length/(pi_d*r0))*yI(i,j,:)/SQRT(Bfmirror(i,j,:))
+              FNHS(i+1,j,:) = (length/(pi_d*2*r0))*yH(i,j,:)*SQRT(Bfmirror(i,j,:))
+              HDNS(i+1,j,:) = yD(i,j,:)/yH(i,j,:)
+              BNES(i+1,j) = bRAM(nThetaEquator,i,j)*bnormal
+    
+              if (trim(densityMode) == "MSIS") then
+                 CALL GSL_BounceAverage(ODen(:,i,j), bfMirror(i,j,:), chiVal(:), bRAM(:,i,j), yD(i,j,:))
+                 ODNS(i+1,j,:) = yD(i,j,:)/yH(i,j,:)
+                 CALL GSL_BounceAverage(NDen(:,i,j), bfMirror(i,j,:), chiVal(:), bRAM(:,i,j), yD(i,j,:))
+                 NDNS(i+1,j,:) = yD(i,j,:)/yH(i,j,:)
+              endif
+           enddo
+        enddo
+  !$OMP END PARALLEL DO
+
+    CASE default  ! Convert SCB field lines to RAM field lines
+       ALLOCATE(HDen(nthe,npsi,nzeta), ODen(nthe,npsi,nzeta), NDen(nthe,npsi,nzeta), &
+                distance(nthe,npsi,nzeta))
+       ALLOCATE(bfMirror(npsi,nzeta,nPa), yI(npsi,nzeta,nPa), yH(npsi,nzeta,nPa), yD(npsi,nzeta,nPa))
+
+       ! Start timing
+       write(*,'(1x,a)',ADVANCE='NO') 'Calculating h and I integrals'
+       call system_clock(time1,clock_rate,clock_max)
+       starttime=time1/real(clock_rate,dp)
+
+       ! Density to use for bounce averaging
+       distance = SQRT(x(:,:,:)**2+y(:,:,:)**2+z(:,:,:)**2)
+       select case(trim(densityMode))
+       case ("RAIRDEN")
+           HDen = 10**(13.326 - 3.6908*distance     &
+                              + 1.1362*distance**2  &
+                              - 0.16984*distance**3 &
+                              + 0.009553*distance**4)
+        case("MSIS")
+           call METERC(.true.)
+           do i = 1, npsi
+              do j = 2, nzeta
+                 do k = 1, nthe
+                    radius = distance(k,i,j)
+                    alt = (radius*RE - RE)/1000._dp
+                    if (alt < 80._dp) alt = 80._dp
+                    lat = (ACOS(z(k,i,j)/radius)-pio2_d)*180._dp/pi_d
+                    lon = (ATAN2(y(k,i,j),x(k,i,j)))*180._dp/pi_d
+                    CALL GTD7(62190,12*3600,alt,lat,lon,23.,150.,150.,4.,48,D,T)
+                    ODen(k,i,j) = D(2)
+                    HDen(k,i,j) = D(7)
+                    NDen(k,i,j) = D(8)
+                 enddo
+              enddo
+           enddo
+           HDen(:,:,1) = HDen(:,:,nzeta)
+           ODen(:,:,1) = ODen(:,:,nzeta)
+           NDen(:,:,1) = NDen(:,:,nzeta)
+        case default
+           call CON_STOP("Unrecognized density mode")
+        end select
+
+  !$OMP PARALLEL DO
+       do j = 2,nzeta
+          do i = 1,npsi
+             bfmirror(i,j,1:NPA-1) = minval(bf(:,i,j))/(1._dp -mu(1:NPA-1)**2)
+             bfmirror(i,j,NPA)     = bf(nthe,i,j)
+
+             CALL GSL_Integration_hI(bfMirror(i,j,:), chiVal(:), bf(:,i,j), yI(i,j,:), yH(i,j,:))
+             CALL GSL_BounceAverage(HDen(:,i,j), bfMirror(i,j,:), chiVal(:), bf(:,i,j), yD(i,j,:))
+
+             length = 0._dp
+             do k = 2,nthe
+                length = length + SQRT((x(k,i,j)-x(k-1,i,j))**2 &
+                                     + (y(k,i,j)-y(k-1,i,j))**2 &
+                                     + (z(k,i,j)-z(k-1,i,j))**2)
+             enddo
+             r0 = SQRT(x(nThetaEquator,i,j)**2+y(nThetaEquator,i,j)**2)
+
+             I_cart(i,j,:) = (length/(pi_d*r0))*yI(i,j,:)/SQRT(Bfmirror(i,j,:))
+             H_cart(i,j,:) = (length/(pi_d*2*r0))*yH(i,j,:)*SQRT(Bfmirror(i,j,:))
+             HDens_cart(i,j,:) = yD(i,j,:)/yH(i,j,:)
+             bZEq_Cart(i,j) = bf(nThetaEquator,i,j)*bnormal
+
+             if (trim(densityMode) == "MSIS") then
+                CALL GSL_BounceAverage(ODen(:,i,j), bfMirror(i,j,:), chiVal(:), bf(:,i,j), yD(i,j,:))
+                ODens_cart(i,j,:) = yD(i,j,:)/yH(i,j,:)
+                CALL GSL_BounceAverage(NDen(:,i,j), bfMirror(i,j,:), chiVal(:), bf(:,i,j), yD(i,j,:))
+                NDens_cart(i,j,:) = yD(i,j,:)/yH(i,j,:)
+             endif
+          enddo
+       enddo
+  !$OMP END PARALLEL DO
+       ! Continuity across MLT of 0
+       I_Cart(:,1,:) = I_Cart(:,nzeta,:)
+       H_Cart(:,1,:) = H_Cart(:,nzeta,:)
+       HDens_Cart(:,1,:) = HDens_Cart(:,nzeta,:)
+       ODens_Cart(:,1,:) = ODens_Cart(:,nzeta,:)
+       NDens_Cart(:,1,:) = NDens_Cart(:,nzeta,:)
+       bZEq_Cart(:,1) = bZEq_Cart(:,nzeta)
+
+       ! Near 90 degree pitch angle corrections
+       I_cart(:,:,3) = 0.50*I_cart(:,:,4)
+       I_cart(:,:,2) = 0.20*I_cart(:,:,3)
+       I_cart(:,:,1) = 0._dp
+       H_cart(:,:,3) = 0.99*H_cart(:,:,4)
+       H_cart(:,:,2) = 0.99*H_cart(:,:,3)
+       H_cart(:,:,1) = 0.99*H_cart(:,:,2)
+       HDens_cart(:,:,3) = 0.999*HDens_cart(:,:,4)
+       HDens_cart(:,:,2) = 0.999*HDens_cart(:,:,3)
+       HDens_cart(:,:,1) = 0.999*HDens_cart(:,:,2)
+       ODens_cart(:,:,3) = 0.999*ODens_cart(:,:,4)
+       ODens_cart(:,:,2) = 0.999*ODens_cart(:,:,3)
+       ODens_cart(:,:,1) = 0.999*ODens_cart(:,:,2)
+       NDens_cart(:,:,3) = 0.999*NDens_cart(:,:,4)
+       NDens_cart(:,:,2) = 0.999*NDens_cart(:,:,3)
+       NDens_cart(:,:,1) = 0.999*NDens_cart(:,:,2)
+
+       ! End Timing
+       call system_clock(time1,clock_rate,clock_max)
+       stoptime=time1/real(clock_rate,dp)
+       write(*,'(a,1x,F6.2,1x,a)') ': Completed in', stoptime-starttime, 'seconds'
+
+  !$OMP PARALLEL DO
+       do j = 2, nT
+          do i = 1, nR
+             xo = LZ(i+1) * COS(MLT(j)*2._dp*pi_d/24._dp - pi_d)
+             yo = LZ(i+1) * SIN(MLT(j)*2._dp*pi_d/24._dp - pi_d)
+             wn = 0 ! wn =/= 0 means the point is inside the SCB domain
+             DO k = 1,nzeta
+                yn = y(nThetaEquator,npsi-1,k)
+                yp = y(nThetaEquator,npsi-1,k+1)
+                xn = x(nThetaEquator,npsi-1,k)
+                xp = x(nThetaEquator,npsi-1,k+1)
+                if (yn.le.yo) then
+                   if (yp.gt.yo) then
+                      if (((xp-xn)*(yo-yn)-(yp-yn)*(xo-xn)).gt.0) wn = wn + 1
+                   endif
+                else
+                   if (yp.le.yo) then
+                      if (((xp-xn)*(yo-yn)-(yp-yn)*(xo-xn)).lt.0) wn = wn - 1
+                   endif
+                endif
+             ENDDO
+             if (abs(wn) > 0) then ! Boundary Overlap
+                do k = 1, nPa
+                   CALL GSL_Interpolation_2D(x(nThetaEquator,:,2:nzeta), y(nThetaEquator,:,2:nzeta), &
+                                             I_Cart(:,2:nzeta,k), xo, yo, FNIS(i+1,j,k), GSLerr)
+                   CALL GSL_Interpolation_2D(x(nThetaEquator,:,2:nzeta), y(nThetaEquator,:,2:nzeta), &
+                                             h_Cart(:,2:nzeta,k), xo, yo, FNHS(i+1,j,k), GSLerr)
+                   CALL GSL_Interpolation_2D(x(nThetaEquator,:,2:nzeta), y(nThetaEquator,:,2:nzeta), &
+                                             HDens_Cart(:,2:nzeta,k), xo, yo, HDNS(i+1,j,k), GSLerr)
+                   if (trim(densityMode) == "MSIS") then
+                      CALL GSL_Interpolation_2D(x(nThetaEquator,:,2:nzeta), y(nThetaEquator,:,2:nzeta), &
+                                                ODens_Cart(:,2:nzeta,k), xo, yo, ODNS(i+1,j,k), GSLerr)
+                      CALL GSL_Interpolation_2D(x(nThetaEquator,:,2:nzeta), y(nThetaEquator,:,2:nzeta), &
+                                                NDens_Cart(:,2:nzeta,k), xo, yo, NDNS(i+1,j,k), GSLerr)
+                   endif
+                enddo
+                CALL GSL_Interpolation_2D(x(nThetaEquator,:,2:nzeta), y(nThetaEquator,:,2:nzeta), &
+                                          bZeq_Cart(:,2:nzeta), xo, yo, BNES(i+1,j), GSLerr)
+             else
+                outsideSCB(i,j) = 1
+             endif
+          enddo
+       enddo
+  !$OMP END PARALLEL DO
+    END SELECT
+    FNIS(:,1,:) = FNIS(:,nT,:)
+    FNHS(:,1,:) = FNHS(:,nT,:)
+    HDNS(:,1,:) = HDNS(:,nT,:)
+    ODNS(:,1,:) = ODNS(:,nT,:)
+    NDNS(:,1,:) = NDNS(:,nT,:)
+    BNES(:,1) = BNES(:,nT)
+
+
+    ! Make sure all H and I integrals have been filled in correctly
+    !! First Check for Negatives
+    IF (MINVAL(FNHS) < 0._dp .OR. MINVAL(FNIS)<0._dp .OR. MINVAL(HDNS)<0._dp) THEN
+       if (verbose) PRINT*, 'computehI: minval(h) = ', MINVAL(FNHS), minloc(FNHS)
+       if (verbose) PRINT*, 'computehI: minval(I) = ', MINVAL(FNIS), minloc(FNIS)
+       if (verbose) print*, 'computehI: minval(D) = ', MINVAL(HDNS), minloc(HDNS)
+       do j = 1, nT
+          do i = 2, nR+1
+             do L = 1, nPa
+                if (FNHS(i,j,L).lt.0) FNHS(i,j,L) = FNHS(i-1,j,L)
+                if (FNIS(i,j,L).lt.0) FNIS(i,j,L) = FNIS(i-1,j,L)
+                if (HDNS(i,j,L).lt.0) HDNS(i,j,L) = HDNS(i-1,j,L)
+             enddo
+          enddo
+       enddo
+    END IF
+  
+    ! Cubic GSL interpolation with natural boundaries to get h and I at muboun 
+    DO j = 2, nT
+       DO i = 2, nR+1
+          CALL GSL_Interpolation_1D(PA(NPA:1:-1), FNHS(i,j,NPA:1:-1),&
+                                    PAbn(NPA-1:2:-1), BOUNHS(i,j,NPA-1:2:-1), GSLerr)
+          CALL GSL_Interpolation_1D(PA(NPA:1:-1), FNIS(i,j,NPA:1:-1),&
+                                    PAbn(NPA-1:2:-1), BOUNIS(i,j,NPA-1:2:-1), GSLerr)
+          ! Do not do the NPA inclusive in the not-a-knot interpolation above -> can lead to negative h,I(NPA)
+          BOUNHS(i,j,NPA) = BOUNHS(i,j,NPA-1)
+          BOUNIS(i,j,NPA) = BOUNIS(i,j,NPA-1)
+          BOUNHS(i,j,1)   = BOUNHS(i,j,2)
+          BOUNIS(i,j,1)   = BOUNIS(i,j,2)
+       END DO
+    END DO
+    BOUNHS(:,1,:) = BOUNHS(:,nT,:)
+    BOUNIS(:,1,:) = BOUNIS(:,nT,:)
+ 
+    ! Update h and I values for RAM (note that the output of the hI files
+    ! now uses RAM variables so the numbers will be different
+    DthI = TimeRamElapsed-TOld
+
+    if (integral_smooth) then
+       allocate(output(nR,nT))
+       do L = 2,NPA
+          call gaussian_kernel(1.0, kernel)
+          call convolve(FNHS(2:nR+1,:,L), kernel, output)
+          FNHS(2:nR+1,:,L) = output
+          FNHS(2:nR+1,1,L) = FNHS(2:nR+1,nT,L)
+
+          call gaussian_kernel(1.0, kernel)
+          call convolve(FNIS(2:nR+1,:,L), kernel, output)
+          FNIS(2:nR+1,:,L) = output
+          FNIS(2:nR+1,1,L) = FNIS(2:nR+1,nT,L)
+
+          call gaussian_kernel(1.0, kernel)
+          call convolve(BOUNHS(2:nR+1,:,L), kernel, output)
+          BOUNHS(2:nR+1,:,L) = output
+          BOUNHS(2:nR+1,1,L) = BOUNHS(2:nR+1,nT,L)
+
+          call gaussian_kernel(1.0, kernel)
+          call convolve(BOUNIS(2:nR+1,:,L), kernel, output)
+          BOUNIS(2:nR+1,:,L) = output
+          BOUNIS(2:nR+1,1,L) = BOUNIS(2:nR+1,nT,L)
+       ENDDO
+       deallocate(output)
+    endif
+
+    DO I=2,NR+1
+       DO J=1,NT
+          DO L=1,NPA
+             if (abs(DthI).le.1e-9) then
+                dIdt(I,J,L)   = 0._dp
+                dIbndt(I,J,L) = 0._dp
+             else
+                dIdt(I,J,L)   = (FNIS(I,J,L) - FNISPrev(I,J,L))/DThI
+                dIbndt(I,J,L) = (BOUNIS(I,J,L) - BOUNISPrev(I,J,L))/DThI
+             endif
+          ENDDO
+          BNES(I,J)=BNES(I,J)/1e9 ! to convert in [T]
+          if (abs(DthI).le.1e-9) then
+             dBdt(I,J) = 0._dp
+          else
+             dBdt(I,J) = (BNES(I,J) - BNESPrev(I,J))/DThI
+          endif
+       ENDDO
+    ENDDO
+    DO J=1,NT ! use dipole B at I=1
+       BNES(1,J) = 0.32/LZ(1)**3/1.e4
+       dBdt(1,J) = 0._dp
+       EIR(1,J)  = 0._dp
+       EIP(1,J)  = 0._dp
+       DO L=1,NPA
+          FNHS(1,J,L)   = FNHS(2,J,L)
+          FNIS(1,J,L)   = FNIS(2,J,L)
+          BOUNHS(1,J,L) = BOUNHS(2,J,L)
+          BOUNIS(1,J,L) = BOUNIS(2,J,L)
+          HDNS(1,J,L)   = HDNS(2,J,L)
+          ODNS(1,J,L)   = ODNS(2,J,L)
+          NDNS(1,J,L)   = NDNS(2,J,L)
+          dIdt(1,J,L)   = 0._dp
+          dIbndt(1,J,L) = 0._dp
+       ENDDO
+    ENDDO
+    TOld = TimeRamElapsed
+
+    ! Check for NaN's
+    do i = 2, nR+1
+       do j = 1, nT
+          do L = 1, nPa
+             if (isnan(FNIS(I,J,L))) FNIS(I,J,L) = FNIS(I-1,J,L)
+             if (isnan(FNHS(I,J,L))) FNHS(I,J,L) = FNHS(I-1,J,L)
+             if (isnan(BOUNIS(I,J,L))) BOUNIS(I,J,L) = BOUNIS(I-1,J,L)
+             if (isnan(BOUNHS(I,J,L))) BOUNHS(I,J,L) = BOUNHS(I-1,J,L)
+             if (isnan(HDNS(I,J,L))) HDNS(I,J,L) = HDNS(I-1,J,L)
+             if (isnan(dIdt(I,J,L))) dIdt(I,J,L) = 0._dp
+             if (isnan(dIbndt(I,J,L))) dIbndt(I,J,L) = 0._dp
+          enddo
+       enddo
+    enddo
+
+    DEALLOCATE(HDen, ODen, NDen, distance)
+    DEALLOCATE(bfMirror, yI, yH, yD)
+    DEALLOCATE(I_cart, h_cart, bZEq_Cart, HDens_Cart, ODens_Cart, NDens_cart)
+    DEALLOCATE(outsideSCB, BNESPrev, FNHSPrev, FNISPrev, BOUNISPrev, BOUNHSPrev)
+
+    RETURN
+  
+  END SUBROUTINE computehI_test
+
 END MODULE ModRamScb
