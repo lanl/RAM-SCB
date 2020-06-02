@@ -1,0 +1,84 @@
+Param file for RAM_SCB testEMIC. 
+Simple test using VOLS/DIPL/LANL and no SCB calculation with FLC and EMIC WPI turned on.
+
+#DESCRIPTION
+Test EMIC: Test EMIC and FLC components
+
+*************** TIMING BLOCK ********************
+#STARTTIME
+2013			iYear
+3			iMonth
+17			iDay
+00			iHour
+00			iMinute
+0			iSecond
+0.0			FracSecond
+
+#MAXTIMESTEP
+100.0			MaxHalfStep
+
+#VARIABLEDT
+T			DoVarDt
+
+#STOP
+-1			MaxIteration
+900			tSimulationMax
+*************************************************
+
+
+*************************************************
+#USEFLC
+T
+T
+
+#USEWPI
+F
+F
+F
+T
+
+*************************************************
+
+*************** COMPONENT BLOCK *****************
+#OUTERBOUNDARY
+LANL			NameBoundPlasma
+DIPL 			NameBoundMag
+MAXW			NameDistribution
+
+#EFIELD
+VOLS			NameEfield
+F			UseEfInd
+
+#PRESS_MODE
+FLT
+
+#SCBSMOOTHING
+0
+3
+
+#SCBFLAGS
+F                       Isotropic               ! Whether to use isotropic pressure mappings in SCB (does not effect RAM)
+F                       ReduceAnisotropy        ! Whether to change the anisotropy to a marginally mirror-stable
+T                       BetaExtrapolation       ! Whether to extrapolate Beta Euler potential values to the outside boundary or use the previous point (Currently unused)
+F                       AzimuthalOffset         ! Whether to set equidistance at most problematic time (if T) or keep it at midnight (if F)
+F                       EmptyLossCone           ! Whether to use a filled loss cone (if F) or a more realistic empty loss cone using M. Liemohn's 2004
+T                       AdaptiveMesh            ! Whether to use Mesh refinement in magnetic flux, so that one has equidistant magnetic flux surfaces
+
+*************************************************
+
+***************** INPUT BLOCK *******************
+#OMNIFILE
+omni.txt		NameOmniFile
+
+#INDICES_FILE
+RamIndices.txt		NameIndicesFile
+*************************************************
+
+***************** OUTPUT BLOCK ******************
+#SATELLITE
+60.0			DtOutput
+2			nSatellite
+sat1.dat		NameTrajectoryFile
+sat2.dat		NameTrajectoryFile
+F			DoUseVAPini
+*************************************************

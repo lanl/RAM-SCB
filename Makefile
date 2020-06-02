@@ -69,6 +69,7 @@ rundir:
 	cp input/ne_full.dat ${RUNDIR}/
 	cp input/initialization.nc ${RUNDIR}/IM/
 	cp input/QinDenton_20130317_1min.txt ${RUNDIR}/IM/
+	cp input/AEindex.txt ${RUNDIR}/
 	cd ${RUNDIR}; \
 	ln -s ../input/bav_diffcoef_chorus_rpa_Kp*.PAonly.dat .
 	cd ${RUNDIR}/IM/output; \
@@ -77,6 +78,9 @@ rundir:
 		mkdir input_ram input_scb output_swmf;    \
 		mkdir restartIN restartOUT;               \
 		tar xzf ${IMDIR}/input/ramscb_inputs.tgz; \
+		mv Input_git/EMIC_model input_ram/; \
+		mv Input_git/HBand input_ram/;  \
+		mv Input_git/HeBand input_ram/; \
 		mv Input_git/w2k.dat ../;		  \
 		mv Input_git/W05_coeff.dat ../;		    \
 		mv Input_git/omni.txt ../;		    \
@@ -101,6 +105,7 @@ TESTDIR1 = run_test1
 TESTDIR2 = run_test2
 TESTDIR3 = run_test3
 TESTDIR4 = run_test4
+TESTDIRC = run_test
 
 test:
 	@(make test1)
@@ -381,4 +386,39 @@ test4_check:
                 ${TESTDIR4}/output_ram/sat2.test                      \
                 ${IMDIR}/output/test3/sat2.ref                        \
                 >> test4.diff
+	@echo "Test Successful!"
+
+#TEST EMIC----------------------------------
+testEMIC:
+	@echo "starting..." > testEMIC.diff
+	@echo "testEMIC_compile..." >> testEMIC.diff
+	make testEMIC_compile
+	@echo "testEMIC_rundir..." >> testEMIC.diff
+	make testEMIC_rundir PARAMFILE=PARAM.in.testEMIC
+	@echo "testEMIC_run..." >> testEMIC.diff
+	make testEMIC_run MPIRUN=
+	@echo "testEMIC_check..." >> testEMIC.diff
+	make testEMIC_check
+
+testEMIC_compile:
+	make
+
+testEMIC_rundir:
+	rm -rf ${TESTDIRC}
+	make rundir RUNDIR=${TESTDIRC} STANDALONE="YES"
+	cp Param/${PARAMFILE} ${TESTDIRC}/PARAM.in
+	cp input/sat*.dat ${TESTDIRC}/
+
+testEMIC_run:
+	cd ${TESTDIRC}; ${MPIRUN} ./ram_scb.exe | tee runlog;
+
+testEMIC_check:
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                              \
+	        ${TESTDIRC}/output_ram/log_d20130317_t000000.log        \
+	        ${IMDIR}/output/testEMIC/log.ref                           \
+	        > testEMIC.diff
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                              \
+	        ${TESTDIRC}/output_ram/pressure_d20130317_t001500.dat   \
+	        ${IMDIR}/output/testEMIC/pressure.ref                      \
+	        >> testEMIC.diff
 	@echo "Test Successful!"
