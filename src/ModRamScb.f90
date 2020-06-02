@@ -242,7 +242,7 @@ call RECALC_08(TimeRamNow%iYear,n_day_of_year(TimeRamNow%iYear,TimeRamNow%iMonth
 
     CASE default  ! Convert SCB field lines to RAM field lines
        ! Start timing
-       write(*,'(1x,a)',ADVANCE='NO') 'Converting SCB field lines to RAM field lines'
+       if (verbose) write(*,'(1x,a)',ADVANCE='NO') 'Converting SCB field lines to RAM field lines'
        call system_clock(time1,clock_rate,clock_max)
        starttime=time1/real(clock_rate,dp)
 
@@ -306,7 +306,7 @@ call RECALC_08(TimeRamNow%iYear,n_day_of_year(TimeRamNow%iYear,TimeRamNow%iMonth
        ! End Timing
        call system_clock(time1,clock_rate,clock_max)
        stoptime=time1/real(clock_rate,dp)
-       write(*,'(a,1x,F6.2,1x,a)') ': Completed in', stoptime-starttime, 'seconds'
+       if (verbose) write(*,'(a,1x,F6.2,1x,a)') ': Completed in', stoptime-starttime, 'seconds'
 
        ! If a point on the RAM grid lies outside the SCB grid then we need to
        ! calculate the scaling parameters (if still inside the magnetopause) or
@@ -372,7 +372,7 @@ call RECALC_08(TimeRamNow%iYear,n_day_of_year(TimeRamNow%iYear,TimeRamNow%iMonth
     endif
 
     !!!!! BEGIN INTEGRAl CALCULATION
-    write(*,'(1x,a)',ADVANCE='NO') 'Calculating h and I integrals'
+    if (verbose) write(*,'(1x,a)',ADVANCE='NO') 'Calculating h and I integrals'
     ! Start timing
     call system_clock(time1,clock_rate,clock_max)
     starttime=time1/real(clock_rate,dp)
@@ -415,7 +415,7 @@ call RECALC_08(TimeRamNow%iYear,n_day_of_year(TimeRamNow%iYear,TimeRamNow%iMonth
     ! End Timing
     call system_clock(time1,clock_rate,clock_max)
     stoptime=time1/real(clock_rate,dp)
-    write(*,'(a,1x,F6.2,1x,a)') ': Completed in', stoptime-starttime, 'seconds'
+    if (verbose) write(*,'(a,1x,F6.2,1x,a)') ': Completed in', stoptime-starttime, 'seconds'
     !!!!! END SCB INTEGRAl CALCULATION
 
     ! Scale based on outer SCB boundary. This is needed if the RAM grid has
@@ -817,7 +817,7 @@ call RECALC_08(TimeRamNow%iYear,n_day_of_year(TimeRamNow%iYear,TimeRamNow%iMonth
        ALLOCATE(bfMirror(npsi,nzeta,nPa), yI(npsi,nzeta,nPa), yH(npsi,nzeta,nPa), yD(npsi,nzeta,nPa))
 
        ! Start timing
-       write(*,'(1x,a)',ADVANCE='NO') 'Calculating h and I integrals'
+       if (verbose) write(*,'(1x,a)',ADVANCE='NO') 'Calculating h and I integrals'
        call system_clock(time1,clock_rate,clock_max)
        starttime=time1/real(clock_rate,dp)
 
@@ -912,7 +912,7 @@ call RECALC_08(TimeRamNow%iYear,n_day_of_year(TimeRamNow%iYear,TimeRamNow%iMonth
        ! End Timing
        call system_clock(time1,clock_rate,clock_max)
        stoptime=time1/real(clock_rate,dp)
-       write(*,'(a,1x,F6.2,1x,a)') ': Completed in', stoptime-starttime, 'seconds'
+       if (verbose) write(*,'(a,1x,F6.2,1x,a)') ': Completed in', stoptime-starttime, 'seconds'
 
   !$OMP PARALLEL DO
        do j = 2, nT
