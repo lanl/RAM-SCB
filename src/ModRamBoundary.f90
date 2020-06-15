@@ -265,7 +265,7 @@ end subroutine get_geomlt_flux
       select case(species(S)%s_name)
       case ("Electron")
         call get_geomlt_flux('elec', FluxLanl)
-      case ("Hydrogen", "OxygenP1", "HeliumP1")
+      case ("Hydrogen", "OxygenP1", "HeliumP1", "Nitrogen")
         call get_geomlt_flux('prot', FluxLanl)
       case default
         FluxLanl = 0._dp

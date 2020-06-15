@@ -5,7 +5,7 @@
 subroutine IM_set_parameters
 
 !!!!! Module Variables
-  use ModRamMain,    ONLY: PathRestartIn, nIter
+  use ModRamMain,    ONLY: PathRestartIn, nIter, DP
   use ModRamGrids,   ONLY: nS, NEL, NTL, NR, NT, NE, NPA, NameVar
   use ModRamVariables, ONLY: composition
   use ModRamTiming,  ONLY: TimeRamElapsed, TimeRamStart, TimeRamRealStart, &
@@ -32,6 +32,7 @@ subroutine IM_set_parameters
   integer :: i, nChar, nrIn, ntIn, neIn, npaIn
   logical :: TempLogical
   logical :: StopCommand, IsStopTimeSet
+  real(DP) :: TempReal
   character(len=100) :: StringLine, NameCommand, RestartFile
   character(len=*), parameter  :: NameSub = 'IM_set_parameters'
   StopCommand = .false.
@@ -99,9 +100,14 @@ subroutine IM_set_parameters
         if (FixedComposition) then
            allocate(composition(nS))
            do i=1,nS
-              call read_var('Composition',composition(i))
+              call read_var('Composition',TempReal)
+              composition(i) = TempReal/100
            enddo
         endif
+
+     case('#NITROGEN_PERCENT')
+        call read_var('NitrogenPercent', TempReal)
+        OpercentN = TempReal/100
 
      case('#FLAT_INITIALIZATION')
         InitializeOnFile = .false.

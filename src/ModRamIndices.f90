@@ -194,7 +194,7 @@ module ModRamIndices
     ! Use f10.7 according to current day.
     ! Input time format should be floating point used in ModTimeConvert.
     use ModRamGrids,     ONLY: nS
-    use ModRamParams,    ONLY: FixedComposition
+    use ModRamParams,    ONLY: FixedComposition, OpercentN
     use ModRamVariables, ONLY: nRawKp, nRawF107, nRawAE, Kp, F107, AE, timeKp, &
                                timeF107, timeAE, rawKp, rawF107, rawAE, species
     use ModRamParams,    ONLY: DoUseEMIC
@@ -207,7 +207,7 @@ module ModRamIndices
     integer,           intent(out):: AENow
     
     integer :: iTime, i
-    real(kind=Real8_) :: dTime, dateNow, BEXP, AHE0, AHE1, GEXP
+    real(kind=Real8_) :: dTime, dateNow, BEXP, AHE0, AHE1, GEXP, Operc
 
     !------------------------------------------------------------------------
     ! NOTE: AS MORE SOURCES ARE ADDED, USE CASE STATEMENTS TO 
@@ -264,9 +264,13 @@ module ModRamIndices
             case("HeliumP1")
               species(i)%s_comp = 2.*GEXP/(4.+BEXP+2.*GEXP)
             case("OxygenP1")
-              species(i)%s_comp = BEXP/(4.+BEXP+2.*GEXP)
-            !case default
-            !  s_comp(i) = 1.0
+              Operc = BEXP/(4.+BEXP+2.*GEXP)
+              species(i)%s_comp = (1-OpercentN)*Operc
+            case("Nitrogen")
+              Operc = BEXP/(4.+BEXP+2.*GEXP)
+              species(i)%s_comp = OpercentN*Operc
+            case default
+              species(i)%s_comp = 1.0
           end select
        enddo
     endif

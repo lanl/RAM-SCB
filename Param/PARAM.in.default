@@ -69,6 +69,18 @@ F			doUseKpDiff		! Whether to use KP based diffusion coefficients for wave parti
 ***********************************************
 
 ***************** RAM BLOCK *******************
+#SPECIES
+4			nSpecies		! Number of species to use in run
+_H _O He _e		NameVar			! List of the species to use, species codes are found in ModRamSpecies.f90
+F			FixedComposition	! If false, will use the Young et al. composition to split ions in boundary file
+40			PercentComp		! If FixedComposition is true, apply this percentage to the first species (_H)
+40			PercentComp		! If FixedComposition is true, apply this percentage to the second species (_O)
+20			PercentComp		! If FixedComposition is true, apply this percentage to the third species (He)
+100			PercentComp		! If FixedComposition is true, apply this percentage to the fourth species (_e)
+
+#NITROGEN_PERCENT
+00			OpercentN		! Percentage of oxygen converted to nitrogen if using nitrogen
+
 #MULTISPECIESBCS
 F                       DoMultiSpeciesBcs       ! Whether to use boundary flux files that are split into multiple species (H+, He, O)
 T                       DoElectrons             ! Whether to run electrons
