@@ -69,6 +69,7 @@ rundir:
 	cp input/ne_full.dat ${RUNDIR}/
 	cp input/initialization.nc ${RUNDIR}/IM/
 	cp input/QinDenton_20130317_1min.txt ${RUNDIR}/IM/
+	cp input/NitrogenCrossSections.dat ${RUNDIR}/IM/
 	cp input/AEindex.txt ${RUNDIR}/
 	cd ${RUNDIR}; \
 	ln -s ../input/bav_diffcoef_chorus_rpa_Kp*.PAonly.dat .
@@ -86,7 +87,8 @@ rundir:
 		mv Input_git/omni.txt ../;		    \
 		mv Input_git/*geomlt*.txt input_ram/; \
                 mv initialization.nc input_ram/;            \
-		mv QinDenton_20130317_1min.txt input_scb/;
+		mv QinDenton_20130317_1min.txt input_scb/;  \
+		mv NitrogenCrossSections.dat input_ram/;
 	@(if [ "$(STANDALONE)" != "NO" ]; then \
 		cd ${RUNDIR} ; \
 		cp ${IMDIR}/Param/PARAM.in.default ./PARAM.in; \
