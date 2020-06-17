@@ -615,6 +615,8 @@ end subroutine read_geomlt_file
           iStatus = nf90_get_var(iFileID, iFluxOVar,  iF2(i,:,:,:,:))
           iF2(i,:,:,:,:) = (1. - OpercentN)*iF2(i,:,:,:,:)
        case('Nitrogen')
+          ! If we want to initialize some nitrogen, we assume that a percentage
+          ! of the oxygen in the initialization file is actually nitrogen
           iStatus = nf90_get_var(iFileID, iFluxOVar,  iF2(i,:,:,:,:))
           iF2(i,:,:,:,:) = OpercentN*iF2(i,:,:,:,:)
        case default
