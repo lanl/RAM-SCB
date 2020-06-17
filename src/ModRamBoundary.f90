@@ -266,6 +266,8 @@ end subroutine get_geomlt_flux
       case ("Electron")
         call get_geomlt_flux('elec', FluxLanl)
       case ("Hydrogen", "OxygenP1", "HeliumP1", "Nitrogen")
+        ! We assume a fraction of the oxygen is actually nitrogen
+        ! The specific percentage is configurable in the PARAM file
         call get_geomlt_flux('prot', FluxLanl)
       case default
         FluxLanl = 0._dp

@@ -265,9 +265,11 @@ module ModRamIndices
               species(i)%s_comp = 2.*GEXP/(4.+BEXP+2.*GEXP)
             case("OxygenP1")
               Operc = BEXP/(4.+BEXP+2.*GEXP)
+              ! Subtract nitrogen percent from oxygen percent
               species(i)%s_comp = (1-OpercentN)*Operc
             case("Nitrogen")
               Operc = BEXP/(4.+BEXP+2.*GEXP)
+              ! Take a percent of the oxygen composition for nitrogen
               species(i)%s_comp = OpercentN*Operc
             case default
               species(i)%s_comp = 1.0
