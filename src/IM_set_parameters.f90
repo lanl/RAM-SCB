@@ -107,7 +107,7 @@ subroutine IM_set_parameters
 
      case('#NITROGEN_PERCENT')
         call read_var('NitrogenPercent', TempReal)
-        OpercentN = TempReal/100
+        OfracN = TempReal/100
 
      case('#FLAT_INITIALIZATION')
         InitializeOnFile = .false.

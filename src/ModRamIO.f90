@@ -536,7 +536,7 @@ end subroutine read_geomlt_file
     use ModRamMain,      ONLY: DP
     use ModRamGrids,     ONLY: nR, nT, nE, nPA, RadiusMax, RadiusMin, nS
     use ModRamVariables, ONLY: F2, EkeV, Lz, MLT, Pa, PParT, PPerT, species
-    use ModRamParams,    ONLY: InitializationPath, OpercentN
+    use ModRamParams,    ONLY: InitializationPath, OfracN
 
     use ModRamGSL, ONLY: GSL_Interpolation_2D
     use ModRamNCDF, ONLY: ncdf_check
@@ -613,12 +613,12 @@ end subroutine read_geomlt_file
           iStatus = nf90_get_var(iFileID, iFluxHeVar, iF2(i,:,:,:,:))
        case('OxygenP1')
           iStatus = nf90_get_var(iFileID, iFluxOVar,  iF2(i,:,:,:,:))
-          iF2(i,:,:,:,:) = (1. - OpercentN)*iF2(i,:,:,:,:)
+          iF2(i,:,:,:,:) = (1. - OfracN)*iF2(i,:,:,:,:)
        case('Nitrogen')
           ! If we want to initialize some nitrogen, we assume that a percentage
           ! of the oxygen in the initialization file is actually nitrogen
           iStatus = nf90_get_var(iFileID, iFluxOVar,  iF2(i,:,:,:,:))
-          iF2(i,:,:,:,:) = OpercentN*iF2(i,:,:,:,:)
+          iF2(i,:,:,:,:) = OfracN*iF2(i,:,:,:,:)
        case default
           iF2(i,:,:,:,:) = 0._dp
        end select
