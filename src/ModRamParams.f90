@@ -90,8 +90,8 @@ module ModRamParams
   real(DP) :: ElectronFluxCap = 1e10
   real(DP) :: ProtonFluxCap = 1e8
 
-  ! Sets a percentage of oxygen to turn into nitrogen
-  real(DP) :: OpercentN = 0.
+  ! Sets a fraction of oxygen to turn into nitrogen
+  real(DP) :: OfracN = 0.
  
   logical :: DoVarDt = .true.                        ! Use variable timestep.
  

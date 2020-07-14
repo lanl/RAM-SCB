@@ -194,7 +194,7 @@ module ModRamIndices
     ! Use f10.7 according to current day.
     ! Input time format should be floating point used in ModTimeConvert.
     use ModRamGrids,     ONLY: nS
-    use ModRamParams,    ONLY: FixedComposition, OpercentN
+    use ModRamParams,    ONLY: FixedComposition, OfracN
     use ModRamVariables, ONLY: nRawKp, nRawF107, nRawAE, Kp, F107, AE, timeKp, &
                                timeF107, timeAE, rawKp, rawF107, rawAE, species
     use ModRamParams,    ONLY: DoUseEMIC
@@ -266,11 +266,11 @@ module ModRamIndices
             case("OxygenP1")
               Operc = BEXP/(4.+BEXP+2.*GEXP)
               ! Subtract nitrogen percent from oxygen percent
-              species(i)%s_comp = (1-OpercentN)*Operc
+              species(i)%s_comp = (1-OfracN)*Operc
             case("Nitrogen")
               Operc = BEXP/(4.+BEXP+2.*GEXP)
               ! Take a percent of the oxygen composition for nitrogen
-              species(i)%s_comp = OpercentN*Operc
+              species(i)%s_comp = OfracN*Operc
             case default
               species(i)%s_comp = 1.0
           end select
