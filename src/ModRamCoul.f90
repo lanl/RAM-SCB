@@ -4,8 +4,7 @@
 !============================================================================
 
 MODULE ModRamCoul
-! Contains subroutines for calculating energy and PA losses
-! due to Coulomb collisions
+! Contains subroutines for calculating energy and PA losses due to Coulomb collisions
 
   implicit none
 
@@ -22,7 +21,7 @@ MODULE ModRamCoul
     use ModRamGrids,     ONLY: NE, NR, NT, NPA, NS
     use ModRamTiming,    ONLY: DTs
     use ModRamVariables, ONLY: RMAS, species, VBND, V, GREL, COULE, COULI, ATA, &
-                           GTA, GTAE, GTAI, CEDR, CIDR, MU, WMU, DMU, EKEV, GRBND
+                               GTA, GTAE, GTAI, CEDR, CIDR, MU, WMU, DMU, EKEV, GRBND
     use ModRamSpecies,   ONLY: RAMSpecies, nSpecies
     use ModRamFunctions, ONLY: FUNT, FUNI, Gcoul, ERFF
 
@@ -169,8 +168,7 @@ MODULE ModRamCoul
            BANE(L)=BANE(L-1)
          END DO
         DO 1 L=2,NPA
-         XNE(I,J)=NECR(I,J)*BANE(L)                                ! assume n/B=const
-!         XNE(I,J)=NECR(I1,J1)*BANE(L)                                ! assume n/B=const, CRasm model
+         XNE(I,J)=NECR(I,J)*BANE(L)   ! assume n/B=const
           if (XNE(I,J) < 0._dp) then
               write(*,*) 'in COULEN XNE<0 ', T/3600, S,i,j,l, &
                    XNE(I,J),NECR(I,J),BANE(L)

@@ -5,7 +5,8 @@
 
 MODULE ModRamLoss
 ! Contains subroutines for calculating particle loss and loss rates
-! currently contains charge exchange and atmospheric loss
+! currently contains charge exchange, atmospheric loss, and field line curvature
+! scattering.
 
   implicit none
 
@@ -84,6 +85,7 @@ MODULE ModRamLoss
        if (trim(species(S)%CEX_file) == 'na') then
           ! No charge exchange loss
        else
+          ! Charge exchange loss from cross sections in a file
           allocate(CEXsig(nR,nT,nE,nPa))
 
           ! Hydrogen Charge Exchange

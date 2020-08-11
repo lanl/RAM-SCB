@@ -36,7 +36,7 @@ use CON_axes,        ONLY: init_axes, test_axes
 use ModPlanetConst,  ONLY: init_planet_const
 use ModTimeConvert,  ONLY: time_real_to_int
 
-!!!! MPI Modules
+!!!! MPI Modules (needed for coupling with SWMF)
 use ModMpi
 use ModRamMpi
 
@@ -71,10 +71,12 @@ call scb_allocate
 call ramscb_allocate
 call sce_allocate
 
-! Initialize RAM_SCB
+! Initialize RAM_SCBE
 call ram_init
 call scb_init
 call sce_init
+
+! Initialize GSL
 call GSL_Initialize
 
 ! Initialize planet and axes if in stand-alone mode.

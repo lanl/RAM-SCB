@@ -39,7 +39,9 @@ MODULE ModRamInit
     nX = NPA
 
     if(DoTest)write(*,*)'IM/',NameSub,': nRextend = ', nRextend
- 
+
+    ! Initialize species being run
+    ! If needed, read the charge exchange cross sections file 
     allocate(species(nS))
     tempStr = trim(NameVar)
     do i = 1, nS
@@ -219,7 +221,7 @@ MODULE ModRamInit
     !------------------------------------------------------------------------------
     call CON_set_do_test(NameSub, DoTest, DoTestMe)
 
-
+    ! Set up time information for the simulation
     if (IsRestart) then
        RestartFile=PathRestartIn//'/restart_info.txt'
        open(unit=UnitTMP_, file=trim(RestartFile), status='old')
@@ -314,9 +316,10 @@ MODULE ModRamInit
        azimRaw(k) = 24.0 * REAL(k-1,DP)/REAL(nT-1,DP)
     END DO
 
-    ! Intialize arrays
+    ! Intialize arrays needed for RAM
     do iS=1,nS
        call Arrays(iS)
+       ! If needed, initialize wave particle interaction arrays for the given species
        if (species(iS)%WPI) then
           IF (DoUseWPI) THEN
              CALL WAPARA_HISS(iS)
@@ -384,8 +387,8 @@ MODULE ModRamInit
     IR1=DL1/0.25
     MDR=DL1*RE               ! Grid size for Z=RO
     DO I=1,NR+1
-      LZ(I)=RadiusMin+(I-1)*DL1
-      RLZ(I)=RE*LZ(I)
+      LZ(I)=RadiusMin+(I-1)*DL1 ! Grid L-Shells
+      RLZ(I)=RE*LZ(I)           ! Grid radial distance
       DO IML=1,Slen
         camlra=amla(iml)*degrad
         BE(I,IML)=0.32/LZ(I)**3*SQRT(1.+3.*SIN(camlra)**2)/COS(camlra)**6
@@ -395,7 +398,7 @@ MODULE ModRamInit
     DPHI=2.*PI/(NT-1)      ! Grid size for local time [rad]
 
     DO J=1,NT
-      PHI(J)=(J-1)*DPHI ! Magnetic local time in radian
+      PHI(J)=(J-1)*DPHI    ! Magnetic local time in radian
       MLT(J)=PHI(J)*12./PI ! Magnetic local time in hour
     END DO
     IP1=(MLT(2)-MLT(1))/0.5
