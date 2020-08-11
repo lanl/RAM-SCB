@@ -109,7 +109,10 @@ subroutine ram_get_electric(EOut_II)
      azimRaw(k) = 24.0 * REAL(k-1,DP)/REAL(nT-1,DP)
   END DO
 
+  ! Get potential on ionospheric grid
   CALL ionospheric_potential
+
+  ! Interpolate from equatorially mapped ionospheric grid to radial grid
   DO i = 1,nR+1
      DO j = 1,nT
         xo(i,j) = radRaw(i-1) * COS(azimRaw(j)*2._dp*pi_d/24._dp - pi_d)
@@ -119,14 +122,16 @@ subroutine ram_get_electric(EOut_II)
   CALL GSL_Interpolation_2D(x(nThetaEquator,:,2:nzeta),y(nThetaEquator,:,2:nzeta), &
                             PhiIono(:,2:nzeta), xo(:,:), yo(:,:), Epot_Cart(:,:), GSLerr)
 
+
+  ! Make sure the potential values are reasonable
   if ((maxval(abs(Epot_Cart)).gt.150000.0).or.(isnan(sum(Epot_Cart)))) then
      if (verbose) write(*,*) 'Bad Electric Field data, using previous time step'
      EOut_II = VT
   else
      EOut_II = Epot_Cart
   endif
-  write(*,'(1x,a,2F10.2)') 'EOut_II max and min', maxval(EOut_II), minval(EOut_II)
-  write(*,*) ''
+  if (verbose) write(*,'(1x,a,2F10.2)') 'EOut_II max and min', maxval(EOut_II), minval(EOut_II)
+  if (verbose) write(*,*) ''
 
   if (WritePotential) then
      open(UNITTMP_,FILE=trim(PathRamOut)//RamFileName('potential','dat',TimeRamNow))
@@ -193,6 +198,7 @@ SUBROUTINE ionospheric_potential
            colatGrid(npsi,nzeta+1), lonGrid(npsi,nzeta+1), latGrid(npsi,nzeta+1))
   dPhiIonodRho = 0.0; dPhiIonodZeta = 0.0; colatGrid=0.0; lonGrid = 0.0; latGrid = 0.0
 
+  ! Set latitude/colatitude and longitude grids
   DO k = 2, nzeta
      DO j = 1, npsi
         radius = SQRT((x(1,j,k))**2 + y(1,j,k)**2)
@@ -270,6 +276,7 @@ SUBROUTINE ionospheric_potential
 
   CASE('WESC', 'W5SC') ! Potential by calling Weimer function
      OPEN(UNITTMP_, FILE=NameOmniFile, status = 'UNKNOWN', action = 'READ')
+     ! Omni files used for the SWMF have a different format from those used in older RAM simulations
      if (UseSWMFFile) then
         UseAL = .false.
         Read_SWMF_file: DO
@@ -312,6 +319,7 @@ SUBROUTINE ionospheric_potential
         END DO
      END DO
 
+     ! Choose which Weimer model to use 
      if (electric == 'WESC') then
         write(*,*) 'Year ', ' DOY ', ' Hour ', ' Min ', ' angle ', '  bT  ', ' tilt ', '    vT    ', '  Nd  '
         WRITE(*,'(1x,I4,2x,I3,2x,I2,4x,I2,3x,3F6.2,F10.2,F6.2)') &
@@ -338,6 +346,9 @@ SUBROUTINE ionospheric_potential
               VT = AVS*(radius*Re)**2*SIN(angle+pi_d)
               call EpotVal05(latGrid(j,k), lonGrid(j,k), 0.0_dp, PhiIono(j,k))
               PhiIono(j,k) = PhiIono(j,k) * 1.0e3   ! ram needs it in Volts
+              ! If the weimer model gives us 0 (because we are outside of its
+              ! valid domain) we set the the potential to the Voll-Stern
+              ! potential
               if (abs(PhiIono(j,k)) < 0.001) then
                PhiIono(j,k) = VT
               elseif (abs(VT) > abs(PhiIono(j,k))) then

@@ -14,6 +14,7 @@ MODULE ModRamBoundary
 
 !==============================================================================
 subroutine get_boundary_flux
+! Called by ModRamScbRun.f90
 
 !!!! Module Variables
   use ModRamGrids,  ONLY: nS
@@ -39,6 +40,7 @@ end subroutine get_boundary_flux
 
 !==============================================================================
 subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
+! Converts a LANL geomlt file into RAM boundary flux
 
 !!!! Module Variables
   use ModRamMain,      ONLY: DP
@@ -78,7 +80,6 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
 
   ! Initialize both species on first call.
   if(.not.IsInitialized)then
-    !if (S.eq.1) then
      if(DoTest)write(*,*)NameSub//': Initializing fluxes...'
      call read_geomlt_file('prot')
      if(electrons) call read_geomlt_file('elec')
@@ -90,12 +91,14 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   ! Check date of file against current date.
   write(StringDate, '(i4.4,i2.2,i2.2)') TimeRamNow%iYear, TimeRamNow%iMonth, TimeRamNow%iDay
   if(DoTest)write(*,*)'Nowdate, Filedate = ', Stringdate, '  ', StringFileDate
+  ! If the day has changed, read in the new geomlt file
   if(StringDate.ne.StringFileDate)then
      call read_geomlt_file('prot')
      if(electrons) call read_geomlt_file('elec')
   end if
 
   ! Possible different sizes for two boundary input files
+  ! These sizes are configurable in the PARAM file
   if (NameParticleIn .eq. 'prot') then
      NEL_  = NEL_prot
      iSpec = 1
@@ -109,6 +112,8 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   endif
 
   ! May need to add energy points on either end of the boundary files
+  ! depending on if our desired energy range for the simulation lies
+  ! outside of the files energy range.
   rE = 0
   lE = 0
   if (eGrid_SI(iSpec,1).gt.EkeV(1))     lE = 1
@@ -117,7 +122,7 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   allocate(flux_II(0:NTL,NEL_+pE), logFlux_II(nT,NEL_+pE), logELan(NEL_+pE), logERam(nE))
   flux_II = 0.0; logFlux_II = 0.0; logELan = 0.0; logERam = 0.0
 
-  ! Get closest times and interpolate
+  ! Get closest times from geomlt file
   iTime1 = 0
   iTime2 = 0
   do i=1,NBD
@@ -144,6 +149,7 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   ! If at end of full day of flux, set fluxLast.
   if (iTime1==NBD) fluxLast_SII(iSpec,:,:)=flux_SIII(iSpec,NBD,:,:)
 
+  ! If needed, interpolate between file time steps
   if (iTime1.eq.iTime2) then
     flux_II(1:24,1+lE:NEL_+le) = flux_SIII(iSpec,iTime1,:,1:NEL_)
   else

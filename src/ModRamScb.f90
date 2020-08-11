@@ -59,7 +59,8 @@ Module ModRamScb
   
     integer :: i, j, k, L, iS, GSLErr
     real(DP) :: MuEq, radius, angle
-  
+ 
+    ! Convert RAM normalized distribution function to Flux
     DO iS = 1,nS
        DO I = 2, NR
           DO K = 2, NE
@@ -168,7 +169,8 @@ Module ModRamScb
   
     use nrtype,    ONLY: DP, pi_d, twopi_d
   
-use ModTimeConvert, ONLY: n_day_of_year
+    use ModTimeConvert, ONLY: n_day_of_year
+
     implicit none
   
     INTEGER, INTENT(IN) :: iter
@@ -211,8 +213,10 @@ use ModTimeConvert, ONLY: n_day_of_year
 
     ! Don't need to run if using Dipole magnetic field boundary unless it is run from the initialization step
     if ((NameBoundMag.eq.'DIPL').and.(iter.ne.0)) return
-call RECALC_08(TimeRamNow%iYear,n_day_of_year(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay), &
-               TimeRamNow%iHour,TimeRamNow%iMinute,TimeRamNow%iSecond,-400._dp,0._dp,0._dp)
+
+    ! If we need to do any Geopack tracing, we need to make sure RECALC has been called
+    call RECALC_08(TimeRamNow%iYear,n_day_of_year(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay), &
+                   TimeRamNow%iHour,TimeRamNow%iMinute,TimeRamNow%iSecond,-400._dp,0._dp,0._dp)
     clock_rate = 1000
     clock_max = 100000
     LMAX = 1000
