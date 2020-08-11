@@ -1,22 +1,13 @@
-RAM-SCB may be used as a component to the Space Weather Modeling Framework.
-Under this mode, RAM-SCB receives initial and boundary conditions from the
-Framework's other components and returns plasma properties to create a two-way
-coupled system.
+RAM-SCB may be used as a component to the Space Weather Modeling Framework. Under this mode, RAM-SCB receives initial and boundary conditions from the Framework's other components and returns plasma properties to create a two-way coupled system.
 
 %INSERT TABLE OF COUPLING DESCRIPTIONS.
 
 \section{Installing RAM-SCB as a SWMF Component}
+% QUESTION: Should this entire section just be rewritten? SWMF no longer uses CVS, we have changed the coupling on our end a bit. And SWMF has changed the coupling on their end a lot. Honestly, it may be of more use to have an entirely seperate document for the SWMF coupling as it has its own set of installation instructions and its own set of difficulties.
+ 
+Obtain a copy of the SWMF and, if necessary, unpack the tarball.  Descend into the Inner Magnetosphere (IM) directory of the Framework.  This is where all inner magnetosphere-type codes used by the Framework are located.  Copy the entire RAM-SCB directory here as {\tt RAM\_SCB}.  It is important to name the directory correctly. CVS users should note that checking out RAM-SCB directly into the SWMF directories will be tricky because of conflicting CVS files located in each Framework directory. Use CVS carefully! 
 
-Obtain a copy of the SWMF and, if necessary, unpack the tarball.  Descend into
-the Inner Magnetosphere (IM) directory of the Framework.  This is where all
-inner magnetosphere-type codes used by the Framework are located.  Copy the
-entire RAM-SCB directory here as {\tt RAM\_SCB}.  It is important to name the
-directory correctly. CVS users should note that checking out RAM-SCB directly into the SWMF directories will be
-tricky because of conflicting CVS files located in each Framework directory. Use CVS carefully! 
+Next, move or remove the share directory. RAM-SCB will be using the version obtained through the SWMF. Additionally, making RAM-SCB's share directory unavailable signals RAM-SCB to go into component mode.
 
-Next, move or remove the share directory. RAM-SCB will be using the version obtained through the
-SWMF. Additionally, making RAM-SCB's share directory unavailable signals RAM-SCB to go into component mode.
-
-Installing the SWMF and RAM-SCB happens concurrently using the Config.pl
-script from the top-level directory of the SWMF.  
+Installing the SWMF and RAM-SCB happens concurrently using the Config.pl script from the top-level directory of the SWMF.  
 

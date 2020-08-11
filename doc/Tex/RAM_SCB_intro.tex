@@ -1,56 +1,17 @@
-The \textbf{R}ing current \textbf{A}tmosphere interactions \textbf{M}odel with 
-\textbf{S}elf \textbf{C}onsistent magnetic field (\textbf{B}) is a unique code 
-that combines a kinetic model of ring current plasma with a three dimensional 
-force-balanced model of the terrestrial magnetic field.  The kinetic portion, 
-RAM, solves the kinetic equation to yield the bounce-averaged distribution 
-function as a function of azimuth, radial distance, energy and pitch angle 
-for three ion species ($H^{+}$, $He^{+}$, and $O^{+}$) and, optionally, 
-electrons.  The domain is a circle in the Solar-Magnetic (SM) equatorial plane 
-with a radial span of 2 to 6.5 $R_{E}$.  It has an energy range of 
-approximately 100\,$eV$ to 500\,$KeV$.  The 3-D force balanced magnetic field 
-model, SCB, balances the $\textbf{J} \times \textbf{B}$ force with the 
-divergence of the general pressure tensor to calculate the magnetic field 
-configuration within its domain.  The domain ranges from near the Earth's 
-surface, where the field is assumed dipolar, to the shell created by field 
-lines passing through the SM equatorial plane at a radial distance of 6.5 
-$R_{E}$.  The two codes work in tandem, with RAM providing anisotropic pressure
-to SCB and SCB returning the self-consistent magnetic field through which RAM 
-plasma is advected.
+The \textbf{R}ing current \textbf{A}tmosphere interactions \textbf{M}odel with \textbf{S}elf \textbf{C}onsistent magnetic field (\textbf{B}) is a unique code that combines a kinetic model of ring current plasma with a three dimensional force-balanced model of the terrestrial magnetic field.  The kinetic portion, RAM, solves the kinetic equation to yield the bounce-averaged distribution function as a function of azimuth, radial distance, energy and pitch angle for four ion species ($H^{+}$, $He^{+}$, $N^{+}$, and $O^{+}$) and, optionally, electrons. The code is also set up to easily accept new ion species. The domain is a circle in the Solar-Magnetic (SM) equatorial plane with a configurable radial span (2 to 6.5 $R_{E}$ by default).  It has an energy range of approximately 100\,$eV$ to 500\,$KeV$.  The 3-D force balanced magnetic field model, SCB, balances the $\textbf{J} \times \textbf{B}$ force with the divergence of the general pressure tensor to calculate the magnetic field configuration within its domain.  The domain ranges from near the Earth's surface, where the field is assumed dipolar, to the shell created by field lines passing through the SM equatorial plane at radial distances which overlap the RAM domain.  The two codes work in tandem, with RAM providing anisotropic pressure to SCB and SCB returning the self-consistent magnetic field through which RAM plasma is advected.
 
-RAM-SCB has grown from a research-grade code with limited options and static 
-magnetic field (RAM) to a rich, highly configurable research and operations 
-tool with a multitude of new physics and output products.  This manual provides
-a guide to users who want to learn how to install, configure, and execute 
-RAM-SCB simulations.  While the code is designed to make these steps as
-straight-forward as possible, it is strongly recommended that users review
-the publications listed in the Bibliography to ensure a thorough understanding 
-of the physics included in the model.  Additionally, all users are asked to 
-review the terms of use.
+RAM-SCB has grown from a research-grade code with limited options and static magnetic field (RAM) to a rich, highly configurable research and operations tool with a multitude of new physics and output products.  This manual providesa guide to users who want to learn how to install, configure, and execute RAM-SCB simulations.  While the code is designed to make these steps asstraight-forward as possible, it is strongly recommended that users review the publications listed in the Bibliography to ensure a thorough understanding of the physics included in the model.  Additionally, all users are asked to review the terms of use.
 
 \section{About This Manual}
-Users who want to install and begin quickly should start at Chapter 
-\ref{chp:quick}, which quickly outlines the path from installation to 
-simulation with little detail.  The installation process is discussed fully 
-in Chapter \ref{chp:install}.  Instructions on performing simulations, 
-as well as several example simulations, are given in Chapter \ref{chp:run}. 
- An outline of using this code in the Space Weather Modeling Framework is 
-found in Chapter \ref{chp:swmf}. Useful scripts included in the distribution
-are described, in brief, in Chapter \ref{chp:scripts}.
-Finally, a complete list of all param file commands is found in Chapter \ref{chp:param}.
+Users who want to install and begin quickly should start at Chapter \ref{chp:quick}, which quickly outlines the path from installation to simulation with little detail.  The installation process is discussed fully in Chapter \ref{chp:install}.  Instructions on performing simulations, as well as several example simulations, are given in Chapter \ref{chp:run}. An outline of using this code in the Space Weather Modeling Framework is found in Chapter \ref{chp:swmf}. Useful scripts included in the distribution are described, in brief, in Chapter \ref{chp:scripts}. Finally, a complete list of all param file commands is found in Chapter \ref{chp:param}.
 
 \section{TERMS OF USE \& DISTRIBUTION POLICY}
 
-Use of the RAM-SCB software implies agreement with the terms herein.
-RAM-SCB is open source software that has been developed at Los Alamos National Laboratory (LANL). The code is based on physics and
-numerical methods detailed in the following publications and references therein:
+Use of the RAM-SCB software implies agreement with the terms herein. RAM-SCB is open source software that has been developed at Los Alamos National Laboratory (LANL). The code is based on physics and numerical methods detailed in the following publications and references therein:
 
-1. Jordanova, V. K. et al. (2006), Kinetic simulations of ring current 
-evolution during the Geospace Environment Modeling challenge events, 
-J. Geophys, Res., 111, A11S10, doi:10.1029/2006JA011644. \\
+1. Jordanova, V. K. et al. (2006), Kinetic simulations of ring current evolution during the Geospace Environment Modeling challenge events, J. Geophys, Res., 111, A11S10, doi:10.1029/2006JA011644. \\
 
-2. Zaharia, S. et al. (2006), Self-consistent modeling of magnetic fields 
-and plasmas in the inner magnetosphere: Application to the geomagnetic storm,
-J. Geophys. Res., 111, A11S14, doi:10.1029/2006JA011619. \\
+2. Zaharia, S. et al. (2006), Self-consistent modeling of magnetic fields and plasmas in the inner magnetosphere: Application to the geomagnetic storm, J. Geophys. Res., 111, A11S14, doi:10.1029/2006JA011619. \\
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met: \\
 
@@ -60,18 +21,10 @@ Redistribution and use in source and binary forms, with or without modification,
 
 3. Neither the name of Los Alamos National Security, LLC, Los Alamos National Laboratory, LANL, the U.S. Government, nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission. \\
 
-This software has been authored by an employee or employees of Los Alamos National Security, LLC,
-operator of the Los Alamos National Laboratory (LANL) under Contract No. DE-AC52-06NA25396 with the
-U.S. Department of Energy. This software is provided by the copyright holders and contributors "as is" and
-any express or implied warranties, including, but not limited to, the implied warranties of merchantability
-and fitness for a particular purpose are disclaimed. In no event shall the copyright holder or contributors be
-liable for any direct, indirect, incidental, special, exemplary, or consequential damages (including, but not
-limited to, procurement of substitute goods or services; loss of use, data, or profits; or business interruption)
-however caused and on any theory of liability, whether in contract, strict liability, or tort (including negligence
-or otherwise) arising in any way out of the use of this software, even if advised of the possibility of such damage. \\
+This software has been authored by an employee or employees of Los Alamos National Security, LLC, operator of the Los Alamos National Laboratory (LANL) under Contract No. DE-AC52-06NA25396 with the U.S. Department of Energy. This software is provided by the copyright holders and contributors "as is" and any express or implied warranties, including, but not limited to, the implied warranties of merchantability and fitness for a particular purpose are disclaimed. In no event shall the copyright holder or contributors be liable for any direct, indirect, incidental, special, exemplary, or consequential damages (including, but not limited to, procurement of substitute goods or services; loss of use, data, or profits; or business interruption) however caused and on any theory of liability, whether in contract, strict liability, or tort (including negligence or otherwise) arising in any way out of the use of this software, even if advised of the possibility of such damage. \\
+% QUESTION: Do we need to update this to get rid of the LANS reference and add the TRIAD reference?
 
-The references below represent critical development milestones for RAM-SCB. Please consider citing
-these works to give the developers proper credit.
+The references below represent critical development milestones for RAM-SCB. Please consider citing these works to give the developers proper credit.
 
 
 \begin{table}[ht]
@@ -90,9 +43,9 @@ these works to give the developers proper credit.
     \hline
     Welling et al. [2011] & First full description of one-way coupling with SWMF \\
     \hline
-    Welling et al. [2015] & Description of two-way coupling of RAM-SCB
-  with SWMF \\
+    Welling et al. [2015] & Description of two-way coupling of RAM-SCB with SWMF \\
     \hline
+    Engel et al. [2019] & Improved simulations of the inner magnetosphere during high geomagnetic activity with the RAM‐SCB model \\
   \end{tabular}
 \end{table}
 
