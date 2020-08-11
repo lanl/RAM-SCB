@@ -1,101 +1,22 @@
-Installation and compilation of RAM-SCB requires a Fortran compiler, MPI 
-compiled against the chosen Fortran compiler, a Perl interpreter, and several 
-external libraries which have additional requirements (most notably a C 
-compiler, typically standard on Unix-like systems.)  The configuration is 
-done with the Config.pl script; compilation with GNU Make.  The Config/Make 
-system follows the tiered makefile standards of the Space Weather Modeling 
-Framework (SWMF) project; users of the SWMF should feel right at home using
-RAM-SCB.
+Installation and compilation of RAM-SCB requires a Fortran compiler, MPI compiled against the chosen Fortran compiler, a Perl interpreter, and several external libraries which have additional requirements (most notably a C compiler, typically standard on Unix-like systems.)  The configuration is done with the Config.pl script; compilation with GNU Make.  The Config/Make system follows the tiered makefile standards of the Space Weather Modeling Framework (SWMF) project; users of the SWMF should feel right at home using RAM-SCB.
 
 \section{Installation of Required Libraries}
 
-There are three required libraries that must be installed to use RAM-SCB: 
-\href{http://ngwww.ucar.edu/}{NCAR Graphics}, 
-\href{http://www.unidata.ucar.edu/software/netcdf/}{Unidata's NetCDF library} 
-and \href{http://w3.pppl.gov/ntcc/PSPLINE/}{NTCC's Princeton Spline (Pspline) 
-library}. It is possible to find pre-compiled binaries for each library, 
-allowing the user to skip the configure, make, and install steps.  However, 
-if a binary cannot be found that matches your system and compilers, you will 
-be forced to install from source.  Some systems may already have these 
-libraries installed; be sure to check before going through unneccessary 
-installation work.
+There are two required libraries that must be installed to use RAM-SCB: \href{https://www.gnu.org/software/gsl}{GNU Scientific Library} and \href{http://www.unidata.ucar.edu/software/netcdf/}{Unidata's NetCDF library}. It is possible to find pre-compiled binaries for each library, allowing the user to skip the configure, make, and install steps. However, if a binary cannot be found that matches your system and compilers, you will be forced to install from source. Some systems may already have these libraries installed; be sure to check before going through unneccessary installation work.
 
 \subsection{Installation From Source}
  
 Tarballs of the source code can be obtained through these URLs:
-\begin{enumerate}
-\item{\href{http://www.ncl.ucar.edu/Download/}{http://www.ncl.ucar.edu/Download/} (login required)}
-
-\item{\href{http://w3.pppl.gov/rib/repositories/NTCC/files/pspline.tar.gz}{http://w3.pppl.gov/rib/repositories/NTCC/files/pspline.tar.gz}}
-
-\item{\href{http://www.unidata.ucar.edu/downloads/netcdf/ftp/netcdf-4.0.1.tar.gz}{http://www.unidata.ucar.edu/downloads/netcdf/ftp/netcdf-4.0.1.tar.gz}}
-\end{enumerate}
-
-
-Unpack the tarballs in the usual fashion:
-\begin{verbatim}
-tar -xzvf netcdf-4.0.1.tar.gz
-\end{verbatim}
-
-Because these libraries are not owned or maintained by the authors of RAM-SCB, 
-only minimal installation instructions are provided here.  The reader is 
-encouraged to explore the websites and help files associated with each package.
-
-
-\subsubsection{Ncarg Quick Install}
-Installation of the NCAR Graphics library from source is an involved process.  
-It is strongly suggested that the user first check their system to see if the 
-library is already installed or install via binary.
-
-\subsubsection{NetCDF Quick Install}
-Unpack the NetCDF tarball, {\tt cd} into the unzipped directory, and use the 
-following commands:
-\begin{verbatim}
-./configure --prefix=/Users/ram_user/netcdf_lib
-make install
-\end{verbatim}
-This will install the NetCDF library in {\tt /Users/ram\_user/netcdf\_lib} 
-(the home directory for user \textit{ram\_user}); change the value of 
-{\tt --prefix} to select the installation destination.  For installation, 
-NetCDF requires only a C compiler.  {\tt gcc} is strongly suggested.
-
-\subsubsection{Pspline Quick Install}
-Pspline requires NetCDF, so be sure that NetCDF is correctly installed before 
-continuing.  After unpacking the tarball, compile the library using
-\begin{verbatim}
-make FORTRAN_VARIANT=Portland NETCDF_DIR=~/netcdf_lib
-\end{verbatim}
-It is important to specify the Fortran compiler that coincides with the 
-compiler you will use to make the RAM-SCB executable.  Other options accepted 
-by the {\tt FORTRAN\_VARIANT} variable are {\tt PathScale},  {\tt GCC}(gfortran
-and g95), {\tt NagWare},  {\tt Fujitsu}, {\tt Intel}, and {\tt Absoft}.  
-Ensure that the value of {\tt NETCDF\_DIR} coincides with the installation 
-directory of NetCDF.
-
-{\tt make} may fail during the creation of the Pspline test utilities.  If 
-this happens, check for the creation of a {\tt lib} directory and several 
-\verb*l*.al files contained within.  If they exist, disregard the error 
-message and continue to the next step.
-
-Install Pspline as follows (changing the value of {\tt PREFIX} to select 
-installation directory):
-\begin{verbatim}
-make install PREFIX=~/psline_portland
-\end{verbatim}
-On machines where you will use different compilers, it is helpful to add the 
-compiler name to the name of the installation directory.
+% QUESTION: All of the information in this section is out of date. Even the NETCDF installation instructions are incorrect given that they have split it into a C version and a Fortran version. This is still easy enough to describe and walk through, but the installation of GSL from source isn't as easy. Do we really want to have this section?
 
 \subsection{Libraries From Modules}
-Well maintained clusters often use the {\tt module} interface for loading
-and unloading software packages.  Be sure to explore the available packages
-on a new system before going through the arduous task of installing from source!
+Well maintained clusters often use the {\tt module} interface for loading and unloading software packages.  Be sure to explore the available packages on a new system before going through the arduous task of installing from source!
 
 \begin{verbatim}
 module avail
 \end{verbatim}
 \noindent
-will list all available software libraries on the system.  You can load a 
-library, unload a library, and list loaded software using the module commands:
+will list all available software libraries on the system.  You can load a library, unload a library, and list loaded software using the module commands:
 
 \begin{verbatim}
 module load package_name
@@ -103,56 +24,33 @@ module unload package_name
 module list
 \end{verbatim}
 
-As an example, here is what you would type on NASA's Pleiades cluster to get
-started with RAM-SCB:
+As an example, here is what you would type on NASA's Pleiades cluster to get started with RAM-SCB:
+% QUESTION: ^Is this even still true? Seems silly to have to keep up with changes on Pleiades in our documentation
 
 \begin{verbatim}
 module load comp/intel/10.1.021_64
 module load mpi/mpt.1.25
 module load netcdf/4.0-i10.1
-module load ncarg/4.4.2/intel
+module load gsl/2.4
 module load python/2.6.1
 \end{verbatim}
 
-Intel Fortran, MPI, NetCDF and NCAR Graphics are now loaded and ready to use.
-Place such commands your shell configuration 
-script ({\tt \verb*l~l/.cshrc} or {\tt \verb*l~l/.bashrc} depending on your 
-shell) to load modules upon login.  Do not forget to point RAM-SCB to these
-libraries as listed below.
+Intel Fortran, MPI, NetCDF and GSL are now loaded and ready to use. Place such commands your shell configuration script ({\tt \verb*l~l/.cshrc} or {\tt \verb*l~l/.bashrc} depending on your shell) to load modules upon login. Do not forget to point RAM-SCB to these libraries as listed below.
 
 \section{Pointing RAM-SCB to External Libraries}
-RAM-SCB must be explicitly pointed to libraries installed in non-standard 
-places.
-There are several ways for RAM-SCB to find the required external libaries, 
-summarized in Table \ref{tab:libs}.  The most permanant and convenient method 
-is to set an environment variable that RAM-SCB will search for upon 
-installation.  They can be set with the following commands:
+RAM-SCB must be explicitly pointed to libraries installed in non-standard places. There are several ways for RAM-SCB to find the required external libaries, summarized in Table \ref{tab:libs}. The most permanant and convenient method is to set an environment variable that RAM-SCB will search for upon installation. They can be set with the following commands:
 
 Bash Shell: {\tt export NETCDFDIR=}\textit{installation path}
 
 C Shell: {\tt setenv NETCDFDIR ``}\textit{installation path}\verb*l''l
 
-Placing these commands into configuration files (e.g. {\tt \verb*l~l/.bashrc} 
-or {\tt \verb*l~l/.cshrc}) will load the environment variables at login.  This 
-is preferable to typing the commands every session.  Note that the installation
-path listed should point to the top level directory for the installation.  
-For example, {\tt /Users/ram\_user/ncarg} is sufficient but 
-{\tt /Users/ram\_user/ncarg/lib} will cause an error.
+Placing these commands into configuration files (e.g. {\tt \verb*l~l/.bashrc} or {\tt \verb*l~l/.cshrc}) will load the environment variables at login. This is preferable to typing the commands every session. Note that the installation path listed should point to the top level directory for the installation. For example, {\tt /Users/ram\_user/netcdf} is sufficient but {\tt /Users/ram\_user/netcdf/lib} will cause an error.
 
-Alternatively, it is possible to set the install paths for the external 
-libraries using Config.pl during installation.  The use of this method is 
-detailed in the next section.  Even if you have set the environment variables, 
-using the Config.pl switches will override them.  These switches are 
-\emph{only} recognized in conjunction with the {\tt -install} switch 
-of Config.pl.
+Alternatively, it is possible to set the install paths for the external libraries using Config.pl during installation. The use of this method is detailed in the next section. Even if you have set the environment variables, using the Config.pl switches will override them. These switches are \emph{only} recognized in conjunction with the {\tt -install} switch of Config.pl.
 
-Finally, if you set neither the environment variables or the Config.pl 
-switches, the Fortran compiler will look for the libaries in the default 
-directories.  This may be useful to test if the libraries are already 
-properly installed by the system administrator.  
+Finally, if you set neither the environment variables or the Config.pl switches, the Fortran compiler will look for the libaries in the default directories. This may be useful to test if the libraries are already properly installed by the system administrator.  
 
-\emph{If you change the library locations by any method, 
-you must reinstall the code.} 
+\emph{If you change the library locations by any method, you must reinstall the code.} 
 
 \begin{table}[ht]
   \centering
@@ -160,21 +58,15 @@ you must reinstall the code.}
   \hline\hline
   Library & Environment Variable & Config.pl Switch\\
   \hline
-  NCAR Graphics & {\tt NCARGDIR=[...]} & {\tt -ncarg=[...]}\\
+  GNU Scientific Library & {\tt GSLDIR=[...]} & {\tt -gsl=[...]}\\
   NetCDF & {\tt NETCDFDIR=[...]} & {\tt -netcdf=[...]}\\
-  Pspline & {\tt PSPLINEDIR=[...]} & {\tt -psline=[...]}\\
   \end{tabular}
-\caption{List of required libraries and methods for expressing their location 
-  to RAM-SCB.  Note that the Config.pl switches override environment variables.
-  If none are given, the Fortran compiler will search in the default library 
-  location.}
+\caption{List of required libraries and methods for expressing their location to RAM-SCB. Note that the Config.pl switches override environment variables. If none are given, the Fortran compiler will search in the default library location.}
 \label{tab:libs}
 \end{table}
 
 \section{Installation, Configuration, and Compiling \label{subchap:install}}
-{\tt Config.pl} handles the installation and configuration of RAM-SCB.  
-To view the installation and configuration status, or to view help, use 
-the following commands:
+{\tt Config.pl} handles the installation and configuration of RAM-SCB. To view the installation and configuration status, or to view help, use the following commands:
 \begin{verbatim}
 Config.pl
 Config.pl -h
@@ -187,41 +79,27 @@ Config.pl -install
 \end{verbatim}
 
 
-Although RAM-SCB will try to use reasonable defaults based on your system, 
-there are a number of flags that allow you to customize your installation:
+Although RAM-SCB will try to use reasonable defaults based on your system, there are a number of flags that allow you to customize your installation:
 \begin{itemize}
-\item{Use {\tt -compiler} to select the Fortran 90 compiler.  
-  Common choices include pgf90, ifort, gfortran, and f95(for NAG).}
-\item{The {\tt -mpi} flag allows the user to pick which version of MPI to use.
-  Choose from mpich, mpich2, Altix, and openmpi.  Alternatively, the 
-  {\tt -nompi} flag may be set with no value.  This option is fragile.}
-\item{Set {\tt -ncdf} to the path of the NetCDF library installation.  
-  If used, this flag overrides the environment variable NETCDFDIR.}
-\item{Set {\tt -pspline} to the path of the Pspline library installation.  
-  If used, this flag overrides the environment variable PSPLINEDIR.}
+\item{Use {\tt -compiler} to select the Fortran 90 compiler. Common choices include pgf90, ifort, gfortran, and f95(for NAG).}
+\item{The {\tt -mpi} flag allows the user to pick which version of MPI to use. Choose from mpich, mpich2, Altix, and openmpi. Alternatively, the {\tt -nompi} flag may be set with no value. This option is fragile.}
+\item{Set {\tt -ncdf} to the path of the NetCDF library installation. If used, this flag overrides the environment variable NETCDFDIR.}
+\item{Set {\tt -gsl} to the path of the GSL library installation. If used, this flag overrides the environment variable GSLDIR.}
 \end{itemize}
 
-To exemplify a typical installation, imagine a machine with several different 
-Fortran compilers available.  For each compiler available, the user has a 
-corresponding installation of Pspline.  The user will use this command to 
-properly install RAM-SCB:
+To exemplify a typical installation, imagine a machine with several different Fortran compilers available. For each compiler available, the user has a corresponding installation of GSL. The user will use this command to properly install RAM-SCB:
 \begin{verbatim}
-Config.pl -install -compiler=pgf90 -mpi=mpich2 -pspline=~/libs/pspline_portland/
+Config.pl -install -compiler=pgf90 -mpi=mpich2 -gsl=~/libs/gsl_portland/
 \end{verbatim}
 
-There are other Config.pl options that set up real precision, debug flags, 
-and optimization level.  Use {\tt Config.pl -h} to learn about the available 
-options.
+There are other Config.pl options that set up real precision, debug flags, and optimization level.  Use {\tt Config.pl -h} to learn about the available options.
 
-After the code has been properly configured, compiliation is simple:
+After the code has been properly configured, compilation is simple:
 \begin{verbatim}
 make
 \end{verbatim}
 
-Compilation is most likely to fail for two reasons.  The first is RAM-SCB
-not finding MPI or another key library.  The second is MPI or an external
-library that is installed using a mix of different Fortran compilers.  Be
-vigilant when installing each library!
+Compilation is most likely to fail for two reasons. The first is RAM-SCB not finding MPI or another key library.  The second is MPI or an external library that is installed using a mix of different Fortran compilers. Be vigilant when installing each library!
 
 To remove object files before a fresh compilation, use
 \begin{verbatim}
@@ -234,16 +112,11 @@ Config.pl -uninstall
 \end{verbatim}
 
 \section{Testing the Installation}
-Running the RAM-SCB tests is an excellent way to evaluate the success and 
-stability of your installation.  To run the tests, simply type
+Running the RAM-SCB tests is an excellent way to evaluate the success and stability of your installation. To run the tests, simply type
 \begin{verbatim}
 make test
 \end{verbatim}
-This will compile RAM-SCB, create a run directory, perform a short simulation 
-and compare the results to a reference solution.  If there is a significant 
-difference between the test and reference solution, the test will fail.  
-Details can be found in \verb*Q*.testQ files in the RAM-SCB directory.  
-For a full description of running and interpreting test results, see Chapter 
+This will compile RAM-SCB, create a run directory, perform a short simulation and compare the results to a reference solution. If there is a significant difference between the test and reference solution, the test will fail. Details can be found in \verb*Q*.testQ files in the RAM-SCB directory. For a full description of running and interpreting test results, see Chapter 
 \ref{chp:test}.
 
 \section{Building Documentation}
