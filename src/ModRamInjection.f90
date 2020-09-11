@@ -43,6 +43,8 @@ module ModRamInjection
      OPEN(UNITTMP_,FILE=trim(filename),STATUS='OLD')
      READ(UNITTMP_,'(A)') HEADER
      read_file: do
+        ! Current file format assumes x, y, and z are in Re
+        ! energy is in eV, and pitch angle is in degrees
         read(UNITTMP_,*,IOSTAT=IError) xGEO, yGEO, zGEO, e_i, a_i, d_i
         if (iError.ne.0) exit read_file
 

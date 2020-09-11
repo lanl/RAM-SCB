@@ -519,6 +519,7 @@ MODULE ModScbIO
   end subroutine update_domain
 !=============================================================================!
   subroutine trace(x0,y0,z0,RIN,xf,yf,zf,xx,yy,zz,LOUT,LMD,bx,by,bz)
+    ! Use Geopack to trace magnetic field lines
     use ModRamParams, ONLY: NameBoundMag
 
     use nrtype, ONLY: DP

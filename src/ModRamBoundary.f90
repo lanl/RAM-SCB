@@ -146,7 +146,7 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
      endif
   endif
 
-  ! If at end of full day of flux, set fluxLast.
+  ! If at end of full day of flux, set fluxLast for interpolation.
   if (iTime1==NBD) fluxLast_SII(iSpec,:,:)=flux_SIII(iSpec,NBD,:,:)
 
   ! If needed, interpolate between file time steps
@@ -161,7 +161,8 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
      enddo
   endif
 
-  ! If needed, extrapolate (for now just set to 10^8 and 0.1 for testing)
+  ! If needed, extrapolate to lower and higher energies 
+  ! (for now just set to 10^8 and 0.1 for testing)
   if (lE.eq.1) then
      do j=1,NTL-1
         flux_II(j,1) = 10.**8
@@ -274,12 +275,15 @@ end subroutine get_geomlt_flux
       case ("Hydrogen", "OxygenP1", "HeliumP1", "Nitrogen")
         ! We assume a fraction of the oxygen is actually nitrogen
         ! The specific percentage is configurable in the PARAM file
+        ! By default the nitrogen fraction is assumed to be zero
         call get_geomlt_flux('prot', FluxLanl)
       case default
         FluxLanl = 0._dp
       end select
       FluxLanl(1,:) = FluxLanl(nT,:)
       ! Adjust flux for composition
+      ! composition is either fixed at the beginning of a run or calculated in
+      ! ModRamIndices based on the Young et al. composition model
       FluxLanl=FluxLanl*species(S)%s_comp
       do ik=1,NE
         do ij=1,nT
@@ -307,7 +311,7 @@ end subroutine get_geomlt_flux
              maxval(FGEOS(s,:,:,:)), minval(FGEOS(s,:,:,:), MASK=FGEOS(s,:,:,:).GE.0)
     endif
 
-    ! Write interpolated dfluxes to file.
+    ! Write interpolated fluxes to file.
     if (WriteBoundary) call write_dsbnd(S)
 
     DEALLOCATE(RELAN,FLAN,FluxLanl)

@@ -47,7 +47,8 @@ MODULE ModRamCoul
 
 ! Proportions of species in plasmasphere
 !old    DATA RA/1.0,0.77,0.2,0.03/    ! e-, H+, He+, O+
-!        DATA RA/0.77,0.03,0.2,1.0/    ! H+, O+, He+, e- ! Moved to RAMSpecies
+!        DATA RA/0.77,0.03,0.2,1.0/    ! H+, O+, He+, e- 
+! These proportions were moved to RAMSpecies and can be edited there
 
 
 !...Parameters used in calculating Coulomb collisions
@@ -70,11 +71,11 @@ MODULE ModRamCoul
           Zb = RAMSpecies(iS)%s_charge                 ! |charge| of plasmasphere species
           X=VBND(S,K)/VF
           XD=V(S,K)/VF
-          if (Zb < 0._dp) then  ! electrions
+          if (Zb < 0._dp) then  ! Negative charge (electrons)
              CCE = CCE + RA*Gcoul(X)
              CDE = CDE + RA*(ERFF(XD)-Gcoul(XD))
              EDRE = EDRE + RA*Gcoul(XD)
-          else                  ! ions
+          else                  ! Non-negative charge (ions)
              CCI = CCI + RA*Zb**2*Gcoul(X)
              CDI = CDI + RA*Zb**2*(ERFF(XD)-Gcoul(XD))
              EDRI = EDRI + RA*Gcoul(XD)
