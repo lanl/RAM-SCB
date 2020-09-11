@@ -13,6 +13,7 @@ module ModRamIndices
   contains
   !===========================================================================
   subroutine read_index_file(StartTime, EndTime, NameFile)
+    ! Read RAMIndices file
 
     use ModRamMain, ONLY: Real8_
     use ModRamVariables, ONLY: nRawKp, nRawF107, nRawAE, kptime, &
@@ -250,7 +251,9 @@ module ModRamIndices
     KP   = kpNow
     F107 = f10Now
     AE   = AENow
-       
+
+    ! If using the Young et al. composition model, recalculate the composition
+    ! fractions based on new Kp and F10.7
     if (.not.FixedComposition) then
        BEXP=(4.5E-2)*EXP(0.17*KP+0.01*F107)
        AHE0=6.8E-3

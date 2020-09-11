@@ -11,6 +11,7 @@ MODULE ModScbFunctions
   contains
 !==============================================================================
   subroutine get_dipole_lines(radMin,radMax,constTheta,nthe,nR,nT,x,y,z,B,RAM)
+    ! Calculate the x,y,z variables of dipole magnetic field lines
 
     use nrtype, ONLY: DP, pi_d, twopi_d
 

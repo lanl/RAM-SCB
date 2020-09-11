@@ -35,6 +35,8 @@ MODULE ModRamSpecies
   contains
 
   subroutine DefineSpecies
+     ! Define the available species for use in RAM-SCB
+
      implicit none
 
      ! Electrons

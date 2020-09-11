@@ -24,6 +24,7 @@ module ModRamIO
 !===== BASE SUBROUTINES =====!
 !============================!
   subroutine write_prefix
+    ! Needed for SWMF coupling
 
     use ModRamParams, ONLY: IsComponent
 
@@ -207,6 +208,7 @@ module ModRamIO
 !===========================!
 !==============================================================================
 subroutine read_geomlt_file(NameParticle)
+  ! Read a LANL geomlt file
 
   !!!! Module Variables
   use ModRamMain,      ONLY: DP
@@ -259,6 +261,7 @@ subroutine read_geomlt_file(NameParticle)
      call CON_stop(NameSub//': Invalid particle type '//'"'//NameParticle)
   endif
 
+  ! Handles geomlt files from LANL-GEO, PTM, Qin-Denton Kp Model, and Qin-Denton V*Bz model
   select case (boundary)
      case('LANL')
         write(NameFileIn, '(a,i4.4,i2.2,i2.2,3a)') trim(BoundaryPath)//'/', &
@@ -285,6 +288,7 @@ subroutine read_geomlt_file(NameParticle)
   FileIndexStart = 0
   FileIndexEnd   = 0
   FileIndex      = 0
+  ! Read file and get correct lines for desired dates
   Read_BoundaryFile_Dates: DO
      read(UNITTMP_,*,IOSTAT=iError) TimeBuffer(1)
      if ((trim(TimeBuffer(1)).ne.'#').and.(FileIndexStart.eq.0)) FileIndexStart = FileIndex
@@ -469,6 +473,10 @@ end subroutine read_geomlt_file
 
 !==============================================================================
   subroutine read_CHEX_file(CHEXFile,species)
+    ! Read a charge exchange file to get the desired cross sections
+    ! Currently only gets cross sections for the charged species on Hydrogen,
+    ! Oxygen, and/or Nitrogen
+
     use ModRamMain, ONLY: DP, PathRAMIn
     use ModRamSpecies, ONLY: SpeciesType
     use ModIoUnit,  ONLY: UNITTMP_
@@ -523,8 +531,9 @@ end subroutine read_geomlt_file
        if (allocated(species%CEX_nO)) species%CEX_nO(i) = Sig(nO)/10000._dp
        if (allocated(species%CEX_nN)) species%CEX_nN(i) = Sig(nN)/10000._dp
     enddo
-    species%CEX_velocities = species%CEX_velocities/100._dp 
+    species%CEX_velocities = species%CEX_velocities/100._dp
     ! Need to remove the division but for now this is needed for the MFR data files -ME
+
     CLOSE(UNITTMP_)
     deallocate(Sig)
 
@@ -532,6 +541,7 @@ end subroutine read_geomlt_file
 
 !==============================================================================
   subroutine read_initial
+    ! Read the initialization file to get the starting flux
 
     use ModRamMain,      ONLY: DP
     use ModRamGrids,     ONLY: nR, nT, nE, nPA, RadiusMax, RadiusMin, nS
@@ -714,6 +724,8 @@ end subroutine read_geomlt_file
 !============================!
 !==========================================================================
   subroutine write2DFlux
+    ! Write the 2D flux (F2/FFACTOR/FNHS)
+
     use ModRamMain,  ONLY: DP, PathRamOut
     use ModRamTiming, ONLY: TimeRamNow
     use ModRamGrids, ONLY: nS, nR, nT, nE, nPa
@@ -790,6 +802,8 @@ end subroutine read_geomlt_file
 
 !==================================================================================================
   subroutine writeLosses
+    ! Write losses from RAM
+
     use ModRamMain,      ONLY: DP, PathRamOut
     use ModRamTiming,    ONLY: TimeRamNow, TimeRamElapsed
     use ModRamGrids,     ONLY: nS, nR, nT, nE, nPa
@@ -832,7 +846,6 @@ end subroutine read_geomlt_file
             DO J=1,NT-1
               IF (L.LT.UPA(I)) THEN
                 WEIGHT=F2(S,I,J,K,L)*WE(K)*WMU(L)/FFACTOR(S,I,K,L)/FNHS(I,J,L)
-if (isnan(weight)) write(*,*) S,I,J,K,L, F2(S,I,J,K,L)
                 IF (MLT(J).LE.6.OR.MLT(J).GE.18.) THEN
                   XNN(S,I)=XNN(S,I)+WEIGHT
                   ENERN(S,I)=ENERN(S,I)+EKEV(K)*WEIGHT
@@ -844,10 +857,10 @@ if (isnan(weight)) write(*,*) S,I,J,K,L, F2(S,I,J,K,L)
             END DO
           END DO
         END DO
-        LNCN(S,I)=XNNO-XNN(S,I)
-        LECN(S,I)=ENO-ENERN(S,I)
-        LNCD(S,I)=XNDO-XND(S,I)
-        LECD(S,I)=EDO-ENERD(S,I)
+        LNCN(S,I)=XNNO-XNN(S,I)  ! Nightside particle loss
+        LECN(S,I)=ENO-ENERN(S,I) ! Nightside energy loss
+        LNCD(S,I)=XNDO-XND(S,I)  ! Dayside particle loss
+        LECD(S,I)=EDO-ENERD(S,I) ! Dayside energy loss
       END DO
 
       ESUM(S)=0.
@@ -951,6 +964,7 @@ if (isnan(weight)) write(*,*) S,I,J,K,L, F2(S,I,J,K,L)
   end subroutine writeLosses
 !==========================================================================
   subroutine ram_epot_write
+    ! Write the 2D RAM potential used in the RAM Drift calculations
 
     use ModRamMain, ONLY: DP, PathRamOut
     use ModRamTiming, ONLY: TimeRamNow, TimeRamElapsed
@@ -1137,7 +1151,8 @@ if (isnan(weight)) write(*,*) S,I,J,K,L, F2(S,I,J,K,L)
 
 !===========================================================================
   subroutine ram_write_pressure
-! Creates RAM pressure files (output_ram/pressure_d{Date and Time}.dat)
+    ! Creates RAM pressure files (output_ram/pressure_d{Date and Time}.dat)
+
     !!!! Module Variables
     use ModRamMain,      ONLY: PathRamOut
     use ModRamTiming,    ONLY: TimeRamNow, TimeRamStart, TimeRamElapsed
@@ -1190,6 +1205,7 @@ if (isnan(weight)) write(*,*) S,I,J,K,L, F2(S,I,J,K,L)
 
 !==============================================================================
 subroutine ram_write_hI
+  ! Write the h and I integral results used in the RAM Drift calculations
 
   use ModRamMain,      ONLY: PathScbOut
   use ModRamGrids,     ONLY: nR, nT, nPA
@@ -1227,7 +1243,8 @@ end subroutine ram_write_hI
 
 !==============================================================================
 subroutine write_dsbnd(S)
-! Creates boundary flux files (output_ram/Dsbnd/ds_{Species}_d{Date and Time}.dat)
+  ! Creates boundary flux files (output_ram/Dsbnd/ds_{Species}_d{Date and Time}.dat)
+
   !!!! Module Variables
   use ModRamMain,      ONLY: PathRamOut
   use ModRamTiming,    ONLY: TimeRamNow, TimeRamElapsed

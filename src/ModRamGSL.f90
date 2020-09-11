@@ -71,9 +71,11 @@ MODULE ModRamGSL
   end interface
 
   ! Spline Interpolation interfaces
+  !! 1D Interpolations
   interface GSL_Interpolation_1D
      module procedure Interpolation_1D_array, Interpolation_1D_point
   end interface
+  !! 2D Interpolations
   interface GSL_Interpolation_2D
      module procedure Interpolation_2D_array, Interpolation_2D_cloud, &
                       Interpolation_2D_NN_point, Interpolation_2D_point, &
@@ -104,7 +106,7 @@ MODULE ModRamGSL
 !  endsubroutine GSL_error
 !==================================================================================================
   subroutine GSL_Initialize
-
+    ! Initialized GSL error checking and other c constructs
     use, intrinsic :: iso_c_binding
 
 
@@ -121,6 +123,7 @@ MODULE ModRamGSL
 
 !==================================================================================================
   subroutine GSL_BounceAverage(variable,bM,theta,field,y_v)
+    ! Bounce average a variable
 
     use, intrinsic :: iso_c_binding
     use nrtype, ONLY: DP
@@ -159,6 +162,7 @@ MODULE ModRamGSL
 
 !==================================================================================================
   subroutine GSL_Integration_hI(bM, theta, field, y_i, y_h)
+    ! Compute h and I integrals
 
     use, intrinsic :: iso_c_binding
     use nrtype, ONLY: DP
@@ -197,6 +201,7 @@ MODULE ModRamGSL
 
 !==================================================================================================
   subroutine GSL_Smooth_1D(x1,f1,x2,f2,err)
+    ! 1D interpolation using B-Splines
 
     use, intrinsic :: iso_c_binding
     use nrtype, ONLY: DP

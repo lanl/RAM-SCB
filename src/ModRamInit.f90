@@ -11,6 +11,7 @@ MODULE ModRamInit
   contains
 !==============================================================================
   subroutine ram_allocate
+    ! Allocate arrays for variables used in RAM calculations
   
     use ModRamVariables ! Need to allocate and initialize all the variables
     use ModRamParams,    ONLY: IsComponent, FixedComposition
@@ -41,7 +42,8 @@ MODULE ModRamInit
     if(DoTest)write(*,*)'IM/',NameSub,': nRextend = ', nRextend
 
     ! Initialize species being run
-    ! If needed, read the charge exchange cross sections file 
+    ! If needed, read the charge exchange cross sections file
+    ! If using a fixed composition model, set the compositions as well
     allocate(species(nS))
     tempStr = trim(NameVar)
     do i = 1, nS
@@ -61,8 +63,11 @@ MODULE ModRamInit
     enddo
    
   !!!!!!!! Allocate Arrays
+  ! Initialization of variables is not strictly needed for modern compilers,
+  ! but it removes any potential ambiguity
     ALLOCATE(outsideMGNP(nR,nT))
     outsideMGNP = 0
+
   ! Main RAM Variables
     ALLOCATE(F2(NS,NR,NT,NE,NPA), FLUX(NS,NR,NT,NE,NPA),PPerH(NR,NT), PParH(NR,NT), &
              PPerE(NR,NT), PParE(NR,NT), PPerO(NR,NT),PParO(NR,NT), PPerHe(NR,NT), &
@@ -76,16 +81,18 @@ MODULE ModRamInit
     dBdt = 0._dp; dIbndt = 0._dp; HDNS = 0._dp; BNES = 0._dp; dHdt = 0._dp
     ODNS = 0._dp; NDNS = 0._dp
 
-   ! ModRamPlasmasphere Variables
-   ALLOCATE(flux_volume(nR,nT), tau(nR,nT), uL(nR,nT), uT(nT,nR), smLon(nR,nT), smLat(nR,nT), &
-            nECR(nR,nT), xRAM(nthe,nR,nT), yRAM(nthe,nR,nT), zRAM(nthe,nR,nT))
-   ! ModRamCouple and IM_wrapper Variables
+  ! ModRamPlasmasphere Variables
+    ALLOCATE(flux_volume(nR,nT), tau(nR,nT), uL(nR,nT), uT(nT,nR), smLon(nR,nT), smLat(nR,nT), &
+             nECR(nR,nT), xRAM(nthe,nR,nT), yRAM(nthe,nR,nT), zRAM(nthe,nR,nT))
+
+  ! ModRamCouple and IM_wrapper Variables
     ALLOCATE(NAllSum(nR,nT), DensO(nR,nT), DensH(nR,nT), DensHe(nR,nT), HPAllSum(nR,nT), &
              OPAllSum(nR,nT), HePAllSum(nR,nT), ePAllSum(nR,nT), HNAllSum(nR,nT), &
              ONAllSum(nR,nT), HeNAllSum(nR,nT))
     NAllSum = -1._dp; DensO = -1._dp; DensH = -1._dp; DensHe = -1._dp; HPAllSum = -1._dp
     OPAllSum = -1._dp; HePAllSum = -1._dp; ePAllSum = -1._dp; HNAllSum = -1._dp
     ONAllSum = -1._dp; HeNAllSum = -1._dp
+
   ! ModRamInit Variables
     ALLOCATE(RMAS(NS), V(NS,NE), VBND(NS,NE), GREL(NS,NE), GRBND(NS,NE), FACGR(NS,NE), &
              EPP(NS,NE), ERNH(NS,NE), UPA(NR), WE(NE), DE(NE), EKEV(NE), EBND(NE), &
@@ -96,16 +103,19 @@ MODULE ModRamInit
     ERNH = 0._dp; UPA = 0._dp; WE = 0._dp; DE = 0._dp; EKEV = 0._dp; EBND = 0._dp; PHI = 0._dp
     LT = 0._dp; MLT = 0._dp; MU = 0._dp; DMU = 0._dp; WMU = 0._dp; PAbn = 0._dp; LZ = 0._dp; PA = 0._dp
     RLZ = 0._dp; AMLA = 0._dp; BE = 0._dp; GridExtend = 0._dp; ZrPabn = 0._dp; FFACTOR = 0._dp
+
   ! ModRamWPI Variables
     ALLOCATE(WALOS1(NR,NE), WALOS2(NR,NE), WALOS3(NR,NE), fpofc(NCF), NDVVJ(NR,ENG,NPA,NCF), &
              NDAAJ(NR,ENG,NPA,NCF), ENOR(ENG), ECHOR(ENG), BDAAR(NR,NT,ENG,NPA), &
              CDAAR(NR,NT,NE,NPA))
     WALOS1 = 0._dp; WALOS2 = 0._dp; WALOS3 = 0._dp; fpofc = 0._dp; NDVVJ = 0._dp; NDAAJ = 0._dp
     ENOR = 0._dp; ECHOR = 0._dp; BDAAR = 0._dp; CDAAR = 0._dp
+
     ALLOCATE(Daa_emic_h(NR,ENG_emic, NPA, NCF_emic), Daa_emic_he(NR,ENG_emic, NPA, NCF_emic), &
              EKEV_emic(ENG_emic), fp2c_emic(NCF_emic), Ihs_emic(4,20,25), Ihes_emic(4,20,25))
     Daa_emic_h = 0.0; Daa_emic_he = 0.0; EKEV_emic = 0.0; fp2c_emic = 0.0
     Ihs_emic = 0.0; Ihes_emic = 0.0
+
   ! ModRamLoss Variables
     ALLOCATE(ATLOS(nS,NR,NE), CHARGE(nS,NR,NT,NE,NPA), COULE(nS,nE,nPa), COULI(nS,nE,nPa), &
              ATA(nS,nE,nPa), GTA(nS,nE,nPa), GTAE(nS,nE,nPa), GTAI(nS,nE,nPa), &
@@ -114,15 +124,19 @@ MODULE ModRamInit
     ATLOS = 0._dp; CHARGE = 0._dp; COULE = 0.0; COULI = 0.0; ATA = 0.0; GTA = 0.0
     GTAE = 0.0; GTAI = 0.0; CEDR = 0.0; CIDR = 0.0; FLC_coef = 0._dp
     r_curvEq = 0.0; zeta1Eq = 0.0; zeta2Eq = 0.0
+
   ! ModRamEField Variables
     ALLOCATE(VT(NR+1,NT), EIR(NR+1,NT), EIP(NR+1,NT), VTOL(NR+1,NT), VTN(NR+1,NT))
     VT = 0._dp; EIR = 0._dp; EIP = 0._dp; VTOL = 0._dp; VTN = 0._dp
+
   ! ModRamBoundary Variables
     ALLOCATE(FGEOS(NS,NT,NE,NPA))
     FGEOS = 0._dp
+
   ! ModRamDrift Variables
     ALLOCATE(DtDriftR(nS), DtDriftP(nS), DtDriftE(nS), DtDriftMu(nS))
     DtDriftR = 0._dp; DtDriftP = 0._dp; DtDriftE = 0._dp; DtDriftMu = 0._dp
+
   ! ModRamRun Variables
     ALLOCATE(SETRC(NS), ELORC(NS), LSDR(NS), LSCHA(NS), LSATM(NS), LSCOE(NS), &
              LSCSC(NS), LSWAE(NS), XNN(NS,NR), XND(NS,NR), LNCN(NS,NR), LNCD(NS,NR), &
@@ -141,7 +155,8 @@ MODULE ModRamInit
 
 !==================================================================================================
   subroutine ram_deallocate
-  
+    ! Deallocate all allocated arrays for cleanup
+ 
     use ModRamVariables ! Need to deallocate all variables
  
     implicit none
@@ -183,6 +198,8 @@ MODULE ModRamInit
 
 !==================================================================================================
   SUBROUTINE ram_init
+    ! Initialize RAM
+
     !!!! Module Variables
     use ModRamParams,    ONLY: DoUseWPI, DoUseBASDiff, IsRestart, IsComponent,DoUseEMIC
     use ModRamMain,      ONLY: DP, PathRestartIn, nIter
@@ -334,7 +351,7 @@ MODULE ModRamInit
           end if
        ENDIF
     end do
-    if(DoUseEMIC) call WAPARA_EMIC ! call only once; the Daa is same for each iS
+    if(DoUseEMIC) call WAPARA_EMIC ! call only once; the Daa is same for each species
 
   END SUBROUTINE ram_init
 
@@ -385,7 +402,7 @@ MODULE ModRamInit
     ENDDO
 
     IR1=DL1/0.25
-    MDR=DL1*RE               ! Grid size for Z=RO
+    MDR=DL1*RE                  ! Grid size for Z=RO
     DO I=1,NR+1
       LZ(I)=RadiusMin+(I-1)*DL1 ! Grid L-Shells
       RLZ(I)=RE*LZ(I)           ! Grid radial distance
@@ -396,7 +413,6 @@ MODULE ModRamInit
     END DO
 
     DPHI=2.*PI/(NT-1)      ! Grid size for local time [rad]
-
     DO J=1,NT
       PHI(J)=(J-1)*DPHI    ! Magnetic local time in radian
       MLT(J)=PHI(J)*12./PI ! Magnetic local time in hour
@@ -429,18 +445,20 @@ MODULE ModRamInit
     GRBND(S,1)=1.+EBND(1)*1000.*Q/RMAS(S)/CS/CS
     VBND(S,1)=CS*SQRT(GRBND(S,1)**2-1.)/GRBND(S,1)
     DO K=1,NE-1
-      WE(K+1)=WE(K)*RW                   ! WE(K) [keV] is a power series
-      EBND(K+1)=EBND(K)+WE(K+1)          ! E[keV] at bound of grid
+      WE(K+1)=WE(K)*RW            ! WE(K) [keV] is a power series
+      EBND(K+1)=EBND(K)+WE(K+1)   ! E[keV] at bound of grid
       DE(K)=0.5*(WE(K)+WE(K+1))
       EKEV(K+1)=EKEV(K)+DE(K)     ! E[keV] at cent of grid
       GREL(S,K+1)=1.+EKEV(K+1)*1000.*Q/RMAS(S)/CS/CS
-      V(S,K+1)=CS*SQRT(GREL(S,K+1)**2-1.)/GREL(S,K+1)   ! Veloc [m/s] at cent
+      V(S,K+1)=CS*SQRT(GREL(S,K+1)**2-1.)/GREL(S,K+1)      ! Veloc [m/s] at cent
       GRBND(S,K+1)=1.+EBND(K+1)*1000.*Q/RMAS(S)/CS/CS
       VBND(S,K+1)=CS*SQRT(GRBND(S,K+1)**2-1.)/GRBND(S,K+1) ! Veloc [m/s] at bound
     END DO
     DE(NE)=0.5*WE(NE)*(1.+RW)
 
     ! CONE - pitch angle loss cone in degree
+    ! Dipole loss cone. This needs to be changed in future version to support a
+    ! non-dipole loss cone -ME
     DO I=1,NR
       CLC=(RE+HMIN)/RLZ(I)
       CONE(I)=ASIND(SQRT(CLC**3/SQRT(4.-3.*CLC)))
@@ -515,6 +533,7 @@ MODULE ModRamInit
 
     ! Determine the range of NPA such that PA is outside the loss cone:
     ! UPA is upper boundary for pitch angle for given Z
+    ! When updated, UPA will need to be a function of radius and MLT -ME
      DO I=1,NR
        UPA(I) = NPA ! SZ, otherwise UPA = 0 for small enough loss cones
        DO L=NPA,1,-1
@@ -548,6 +567,7 @@ MODULE ModRamInit
       END DO
     END DO
 
+    ! Energy factors used in RAM equations
     DO K=1,NE
       ERNH(S,K)=WE(K)*GREL(S,K)/SQRT((GREL(S,K)-1.)*(GREL(S,K)+1.)) ! [1/cm3]
       EPP(S,K)=ERNH(S,K)*EKEV(K)

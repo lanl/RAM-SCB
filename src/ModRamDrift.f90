@@ -65,7 +65,6 @@ MODULE ModRamDrift
     DO I=1,NR
       DO J=1,NT
         VR(I)=DTs/MDR/(RLZ(I)+0.5*MDR)/2/DPHI
-        ! Kp dependent part of azimuthal drift 
         P1(I)=DTs/DPHI/2/MDR/RLZ(I)
       END DO
       DO K=1,NE
@@ -143,6 +142,7 @@ MODULE ModRamDrift
                 CGR3=CGR1+(FNIS(I+1,J,L)+FNIS(I,J,L)-2*FNHS(I+1,J,L) &
                      -2*FNHS(I,J,L))*CGR2/2./(BNES(I+1,J)+BNES(I,J))
                 CGR=CGR3/(FNHS(I,J,L)+FNHS(I+1,J,L))*P4/2./(BNES(I,J)+BNES(I+1,J))/(RLZ(I)+0.5*MDR)
+                ! ExB Radial Drift + Gradient Curvature Radial Drift
                 CDriftR(I,J,K,L)=CR(I,J)+CGR
                 if (outsideMGNP(i,j) == 0) then
                    ctemp = max(abs(CDriftR(I,J,K,L)),1E-10)
