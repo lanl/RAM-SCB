@@ -17,7 +17,10 @@ our $MakefileDefOrig = 'src/Makefile.def';
 our @Arguments       = @ARGV;
 my  $IsStandalone = 'True';
 my  $DoSetLibs;
+my  $DoAutoGSL;
+my  $DoAutoNCF;
 my  $SchemeUser = 'False';
+sub check_exists;
 
 foreach(@Arguments){
     if(/^-scheme/) {$SchemeUser = 'True';
@@ -58,8 +61,29 @@ foreach(@Arguments){
                     $DoSetLibs = 1;
                     next;
     };
-    if(/^-ncdf=(.*)/)    {$libs{'netcdf'} =$1; $DoSetLibs = 1; next;};
-    if(/^-gsl=(.*)/)     {$libs{'gsl'}    =$1; $DoSetLibs = 1; next;};
+    if(/^-ncdf/) {
+        if(/^-ncdf=(.+)/) {
+            # Value supplied
+            $libs{'netcdf'} =$1;
+        } else {
+            # No value supplied. try to autodetect
+            # Requires nf-config
+            check_exists 'nf-config' or die "$0 requires nf-config";
+            $DoAutoNCF = 1;
+        }
+        $DoSetLibs = 1;
+        next;};
+    if(/^-gsl/) {
+        if(/^-gsl=(.+)/) {
+            $libs{'gsl'} = $1;
+        } else {
+            # No value supplied. try to autodetect
+            # Requires gsl-config
+            check_exists 'gsl-config' or die "$0 requires gsl-config";
+            $DoAutoGSL = 1;
+        }
+        $DoSetLibs = 1;
+        next;};
     if(/^-setlibs/)      {$DoSetLibs = 1;  next;};
 }
 
@@ -73,8 +97,22 @@ $DoSetLibs = 1 if($Install);
 # Set up library locations.
 if($DoSetLibs){
     # Set default library locations unless set by flags.
-    $libs{'netcdf'}=$ENV{NETCDFDIR} unless exists $libs{'netcdf'};
-    $libs{'gsl'}=$ENV{GSLDIR} unless exists $libs{'gsl'};
+    if ($DoAutoNCF) {
+        print "Auto-detecting NetCDF-Fortran location\n";
+        my $npre = `nf-config --prefix`;
+        chomp($npre);
+        $libs{'netcdf'}=$npre;
+    } else {
+        $libs{'netcdf'}=$ENV{NETCDFDIR} unless exists $libs{'netcdf'};
+    }
+    if ($DoAutoGSL) {
+        print "Auto-detecting GSL location\n";
+        my $gpre = `gsl-config --prefix`;
+        chomp($gpre);
+        $libs{'gsl'}=$gpre;
+    } else {
+        $libs{'gsl'}=$ENV{GSLDIR} unless exists $libs{'gsl'};
+    }
     &set_libs;
 }
 
@@ -98,17 +136,30 @@ sub set_libs
     }else{
 	open(FILE, '>', '../../LibLocations.txt');
     }
-    if($SchemeUser eq 'True'){
+    if ($SchemeUser eq 'True') {
         $lib_cmd=$lib_cmd . "\\\n\t-L$libs{'netcdf'}/lib -lnetcdff";
         $lib_cmd=$lib_cmd . "\\\n\t-L$libs{'gsl'}/lib -lgsl -lgslcblas -lm";
-    }else{
-        foreach(keys(%libs)){
-	    if($libs{$_}){
-	        $lib_cmd=$lib_cmd . "\\\n\t-L$libs{$_}/lib -l$_ ";
-    	        $lib_cmd=$lib_cmd . '-lnetcdff ' if($_ eq 'netcdf');
-                $lib_cmd=$lib_cmd . '-lgslcblas -lm ' if($_ eq 'gsl');
+    } else {
+        foreach (keys(%libs)) {
+	        if($libs{$_}){
+                if (($_ eq 'netcdf') and $DoAutoNCF) {
+                    my $nclibs = `nf-config --flibs`;
+                    chomp($nclibs);
+    	            $lib_cmd = $lib_cmd . $nclibs . " ";
+                } elsif ($_ eq 'netcdf') {
+                    $lib_cmd=$lib_cmd . "\\\n\t-L$libs{$_}/lib -l$_ ";
+    	            $lib_cmd=$lib_cmd . '-lnetcdff ';
+                }
+                if (($_ eq 'gsl') and $DoAutoGSL) {
+                    my $gsllibs = `gsl-config --libs`;
+                    chomp($gsllibs);
+                    $lib_cmd = $lib_cmd . $gsllibs. " ";
+                } elsif ($_ eq 'gsl') {
+                    $lib_cmd=$lib_cmd . "\\\n\t-L$libs{$_}/lib -l$_ ";
+                    $lib_cmd=$lib_cmd . '-lgslcblas -lm ';
+                }
     	        print FILE "$_  $libs{$_}\n";
-    	    }else{
+    	    } else {
     	        $lib_cmd=$lib_cmd . "\\\n\t-l$_ ";
                 $lib_cmd=$lib_cmd . '-lnetcdff ' if($_ eq 'netcdf');
     	        print FILE "$_  (default lib path)\n";
@@ -124,7 +175,7 @@ sub set_libs
     $MakefileConfEdit = '../../Makefile.conf' if($IsStandalone eq 'False');
     $MakefileDefEdit  = '../../Makefile.def'  if($IsStandalone eq 'False');
 
-    print "Editing $MakefileConfEdit\n";
+    print "\nEditing $MakefileConfEdit\n";
 
     # Open Makefile.conf, insert libflags before Lflag1.
     @ARGV = ($MakefileConfEdit);
@@ -141,25 +192,41 @@ sub set_libs
     my $modpath = '';
     `echo  >> $MakefileDefEdit`;   # Add some spaces
     `echo  >> $MakefileDefEdit`;   # to end of file...
-    if($SchemeUser eq 'True') {
+    if ($SchemeUser eq 'True') {
         $modpath = "$libs{'netcdf'}/include";
        `echo NETCDF_PATH = $modpath >> $MakefileDefEdit`;
         $modpath = "$libs{'gsl'}/include";
        `echo GSL_PATH = $modpath >> $MakefileDefEdit`;
-    }else{
-        foreach(keys(%libs)){
-	    if(/netcdf/){
-	        $modpath = $libs{$_} ? "$libs{$_}/include" : "/usr/lib/netcdf/include";
-           `    echo NETCDF_PATH = $modpath >> $MakefileDefEdit`;
-	    }
+    } else {
+        foreach (keys(%libs)) {
+	        if (/netcdf/) {
+                if ($DoAutoNCF) {
+	                $modpath = `nf-config --includedir`;
+                    chomp($modpath);
+                } else {
+	                $modpath = $libs{$_} ? "$libs{$_}/include" : `nc-config --includedir`;
+                }
+                `echo NETCDF_PATH = $modpath >> $MakefileDefEdit`;
+	        }
             if(/gsl/){
-                $modpath = $libs{$_} ? "$libs{$_}/include" : "/usr/lib/gsl/include";
-           `    echo GSL_PATH = $modpath >> $MakefileDefEdit`;
+                if ($DoAutoGSL) {
+                    my $gsl_include = `gsl-config --prefix`;
+                    chomp($gsl_include);
+                    $modpath = ${gsl_include}."/include";
+                } else {
+                    $modpath = $libs{$_} ? "$libs{$_}/include" : "/usr/lib/gsl/include";
+                }
+                `echo GSL_PATH = $modpath >> $MakefileDefEdit`;
             }
         }
     }
-
 }
+
+sub check_exists { 
+    my $check = `sh -c 'command -v $_[0]'`; 
+    return $check;
+}
+
 #=============================================================================
 sub print_help
     # Print RAM-SCB help.
