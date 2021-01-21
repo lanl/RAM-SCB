@@ -240,7 +240,9 @@ Additional options for RAM-SCB/Config.pl:
 These MUST be set if environment variables GSLDIR and
 NETCDFDIR are not set.  If both flag and env variable are
 set, Config.pl will use the flag value.  This allows for
-multiple installations of the libraries.
+multiple installations of the libraries. If the flags are set
+no path is given (e.g., '-ncdf') then Config.pl will use the
+libraries own utility to look up required information.
     
 Example installation for RAM-SCB standalone:
 
