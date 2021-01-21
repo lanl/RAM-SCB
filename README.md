@@ -36,7 +36,7 @@ To install on Linux (or similar), three main steps are required:
 2. Configure the build
   - Setup is done using the `Config.pl` Perl script. This sets up the make system and tells RAM-SCB where to find its dependencies.
   - An example setup: `./Config.pl -install -compiler=gfortran -mpi=openmpi -openmp -ncdf -gsl`
-  - If `Config.pl` shows the warning "Can't locate share/Scripts/Config.pl in @INC" then add the RAM-SCB directory to the Perl path. In `bash` this is done with ``export PER5LIB=`pwd` ``
+  - If `Config.pl` shows the warning "Can't locate share/Scripts/Config.pl in @INC" then add the RAM-SCB directory to the Perl path. In `bash` this is done with ``export PERL5LIB=`pwd` ``
   - Most installations of NetCDF4 and GSL should come with command line utilities to help determine library locations and flags. To auto-detect these use the `-ncdf` and `-gsl` flags without specifying a library location.
 3. Compile the code
   - Simply run `make`. If you have multiple cores available for compilation then you can speed things up by running `make -j`
