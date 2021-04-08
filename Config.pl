@@ -249,10 +249,8 @@ sub check_exists {
 
 sub gfort_ge_10 {
     # Test gfortran version. Return 1 if version GE 10
-    my $verout = `gfortran --version | head -1`;
-    my @parts = split / /, $verout;
-    my $version = @parts[$#parts];
-    return CPAN::Version->vge("$version","10") ? 1 : 0;
+    my $verout = `$compiler -dumpversion`;
+    return CPAN::Version->vge("$verout","10") ? 1 : 0;
 }
 
 #=============================================================================
