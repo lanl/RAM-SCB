@@ -68,6 +68,8 @@ foreach(@Arguments){
                 # If compiler name starts with gfortran.
                 if (gfort_ge_10()) {
                     $extra_flags = $extra_flags . " -fallow-argument-mismatch";
+                    # Remove following line when share library is updated to remove octal mask setting
+                    $extra_flags = $extra_flags . " -fallow-invalid-boz";
                 }
             }
         }
