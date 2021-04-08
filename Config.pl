@@ -9,6 +9,7 @@
 #standalone libraries used by RAM-SCB.
 
 use strict;
+use CPAN::Version;
 
 # Set identifier information; collect arguments.
 our $Component       = "IM";
@@ -21,6 +22,7 @@ my  $DoAutoGSL;
 my  $DoAutoNCF;
 my  $SchemeUser = 'False';
 sub check_exists;
+sub gfort_ge_10;
 
 foreach(@Arguments){
     if(/^-scheme/) {$SchemeUser = 'True';
@@ -50,12 +52,27 @@ our $Show;
 
 # Declare local variables.
 my %libs;
+my $compiler;
+my $extra_flags = "";
 
 # Jump right to help if called:
 &print_help if $Help;
 
 # Handle RAM-SCB installation arguments.
 foreach(@Arguments){
+    if(/^-compiler/) {
+        if(/^-compiler=(.+)/) {
+            $compiler = $1;
+            my $prefix = "gfortran";
+            if (substr($compiler, 0, length $prefix) eq $prefix) {
+                # If compiler name starts with gfortran.
+                if (gfort_ge_10()) {
+                    $extra_flags = $extra_flags . " -fallow-argument-mismatch";
+                }
+            }
+        }
+        next;
+    }
     if(/^-scheme/) {$libs{'gsl'} = "/packages2/.packages2/x86_64-pc-linux-gnu-rhel6/gsl/2.3";
                     $libs{'netcdf'} = "/projects/lanl/Carrington/netcdf";
                     $DoSetLibs = 1;
@@ -182,6 +199,7 @@ sub set_libs
     while(<>){
 	die "ERROR: Library locations are already set.  Reinstall code first\n"
 	    if(/^\s*LibFlags/);
+	s/^(\s*CFLAG\s*=.*)\n/$1$extra_flags\n/;
 	s/^(\s*Lflag1\s*=.*)\n/$lib_cmd\n$1$add_flg\n/;
 	s/^(\s*Lflag2\s*=.*)\n/$1$add_flg\n/;
 	print;
@@ -225,6 +243,14 @@ sub set_libs
 sub check_exists { 
     my $check = `sh -c 'command -v $_[0]'`; 
     return $check;
+}
+
+sub gfort_ge_10 {
+    # Test gfortran version. Return 1 if version GE 10
+    my $verout = `gfortran --version | head -1`;
+    my @parts = split / /, $verout;
+    my $version = @parts[$#parts];
+    return CPAN::Version->vge("$version","10") ? 1 : 0;
 }
 
 #=============================================================================
