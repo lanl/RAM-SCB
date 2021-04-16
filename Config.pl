@@ -210,12 +210,14 @@ sub set_libs
     # Some libraries have modules that need to be included during compile.
     # Add the locations of these modules to the local Makefile.def
     my $modpath = '';
+    my $gsl_include = '';
     `echo  >> $MakefileDefEdit`;   # Add some spaces
     `echo  >> $MakefileDefEdit`;   # to end of file...
     if ($SchemeUser eq 'True') {
         $modpath = "$libs{'netcdf'}/include";
        `echo NETCDF_PATH = $modpath >> $MakefileDefEdit`;
         $modpath = "$libs{'gsl'}/include";
+        $gsl_include = $modpath;
        `echo GSL_PATH = $modpath >> $MakefileDefEdit`;
     } else {
         foreach (keys(%libs)) {
@@ -230,15 +232,24 @@ sub set_libs
 	        }
             if(/gsl/){
                 if ($DoAutoGSL) {
-                    my $gsl_include = `gsl-config --prefix`;
+                    $gsl_include = `gsl-config --prefix`;
                     chomp($gsl_include);
-                    $modpath = ${gsl_include}."/include";
+                    $gsl_include = ${gsl_include}."/include";
+                    $modpath = $gsl_include;
                 } else {
                     $modpath = $libs{$_} ? "$libs{$_}/include" : "/usr/lib/gsl/include";
+                    $gsl_include = $modpath;
                 }
                 `echo GSL_PATH = $modpath >> $MakefileDefEdit`;
             }
         }
+    }
+    # The C code using GSL needs the include location too. The path is seemingly not
+    # always provided, so we add it explicitly here in Makefile.conf.
+    @ARGV = ($MakefileConfEdit);
+    while(<>){
+	    s/^(\s*FLAGC\s*=.*)\n/FLAGC_EXTRA = -I$gsl_include\n$1$\\n/;
+	    print;
     }
 }
 
