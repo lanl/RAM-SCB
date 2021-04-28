@@ -1,7 +1,9 @@
 #!/bin/bash
 
-module2 load gsl/2.3
-module2 load openmpi
-module2 load gcc/8.1.0
-export LD_LIBRARY_PATH=/projects/lanl/Carrington/netcdf/lib:${LD_LIBRARY_PATH}
-./Config.pl -install -scheme
+module load perl/5.24.1
+module load gcc/9.3.0
+module load gsl/2.6
+module load openmpi/4.0.5
+module load netcdf
+
+perl Config.pl -install -ncdf -gsl -compiler=gfortran -openmp -mpi=openmpi
