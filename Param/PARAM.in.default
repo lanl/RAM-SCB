@@ -66,6 +66,11 @@ F			UseEfInd		! Whether or not to use an inductive electric field
 F			DoUseWPI		! Whether to use wave particle interactions or not (Note, wave particle interactions are not currently working)
 F			DoUseBASDiff		! Whether to use BAS diffusion coefficients for wave particle interactions
 F			doUseKpDiff		! Whether to use KP based diffusion coefficients for wave particle interactions
+F           DoUseEMIC       !  Whether to turn on AE based EMIC wave pitch angle diffusion
+
+#USEFLC
+F           DoUseFLC                 ! Enable loss due to field line curvature scattering of ions
+F           DoWriteFLCDiffCoeff      ! Write diffusion coefficients for FLC scattering of ions to file
 ***********************************************
 
 ***************** RAM BLOCK *******************
@@ -90,18 +95,25 @@ T                       DoElectrons             ! Whether to run electrons
 
 #RAMGRID
 20                      nR                      ! Number of radial grid points used in RAM
-49                      nT                      ! Number of toroidal grid points used in RAM
-35                      nE                      ! Number of energy bins used in RAM
-72                      nPa                     ! Number of pitch angle bins used in RAM
+49                      nT                      ! Number of toroidal/local time grid points (25 default; 49 preferred)
+35                      nE                      ! Number of energy bins used
+72                      nPa                     ! Number of pitch angle bins used
 
-#USEPLANE
-F			DoUsePlane_SCB		! Whether to include the plasmasphere
+#PLASMASPHERE
+F			    UsePlasmasphere        ! Whether to include the plasmasphere
+Carpenter       PlasmasphereModel      ! Transport model name: Carpenter, Transport
+Analytic        RefillingTau           ! Refilling model name: Fixed, Analytic, Rasmussen
 
+#COULOMB
+F               UseCoulomb             ! If True, use Coulomb collisions
 ***********************************************
 
 ***************** SCB BLOCK *******************
 #SCB_CONVERGENCE
 0.9			ConvergenceDistance	! Minimum accuracy that needs to be reached regardless of other factors (between 0 and 1)
+
+#PRESS_MODE
+SKD         PressureMode    ! Options are SKD, ROE, EXT, FLT, and BAT. BAT is for use with the SWMF.
 
 #SCB_FIELD
 0.0			ConstZ			! Groups points along the midnight axis using the equation [zetaVal+constZ*SIN(zetaVal)]
@@ -135,7 +147,7 @@ F			PressureDetail          ! Whether to compute the full 3D pressure profile be
 
 #SCBSMOOTHING
 1			PressureSmoothing	! What type of smoothing to perform on the RAM pressure when SCB reads it in (0 = None, 1 = Savitzky-Golay, 2 = B-Spline, 3 = Gaussian Filter, 4 = 1 + 3)
-3			SavitzyGolayIterations  ! Number of passes of the Savitzy-Golay filter to use if option 1 or 4 is used above
+11			SavitzyGolayIterations  ! Number of passes of the Savitzy-Golay filter to use if option 1 or 4 is used above
 
 #SCBBOUNDARY
 F                       FixedRadialBoundary     ! Whether to use a fixed radial boundary (outer and inner shell)
@@ -182,7 +194,7 @@ F			TimedRestartFiles	! Whether to time stamp the restart files. If F only one r
 300.0			DtMAGxyzFileWrite	! How often x, y, and z from SCB should be written
 
 #SAVEFLUX
-F			DoSaveFlux		! Whether RAM flux files should be written or not (currently outputs flux every hour)
+3600.0			DoSaveFlux		! Output frequency [s] for writing RAM flux files (-1 turns output off)
 
 #DUMP3DFLUX
 F			DoDump3DFlux		! Whether SCB 3D flux files should be written or not (currently outputs 3D flux every hour)

@@ -28,14 +28,14 @@ T			DoVarDt
 
 *************************************************
 #USEFLC
-T
-T
+T           DoUseFLC                 ! Enable loss due to field line curvature scattering of ions
+T           DoWriteFLCDiffCoeff      ! Write diffusion coefficients for FLC scattering of ions to file
 
 #USEWPI
-F
-F
-F
-T
+F			DoUseWPI		! Whether to use wave particle interactions or not (Note, wave particle interactions are not currently working)
+F			DoUseBASDiff		! Whether to use BAS diffusion coefficients for wave particle interactions
+F			doUseKpDiff		! Whether to use KP based diffusion coefficients for wave particle interactions
+T           DoUseEMIC       !  Whether to turn on AE based EMIC wave pitch angle diffusion
 
 *************************************************
 
@@ -53,8 +53,8 @@ F			UseEfInd
 FLT
 
 #SCBSMOOTHING
-0
-3
+0			PressureSmoothing	! What type of smoothing to perform on the RAM pressure when SCB reads it in (0 = None, 1 = Savitzky-Golay, 2 = B-Spline, 3 = Gaussian Filter, 4 = 1 + 3)
+3			SavitzyGolayIterations  ! Number of passes of the Savitzy-Golay filter to use if option 1 or 4 is used above
 
 #SCBFLAGS
 F                       Isotropic               ! Whether to use isotropic pressure mappings in SCB (does not effect RAM)
