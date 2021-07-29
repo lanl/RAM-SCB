@@ -1,0 +1,37 @@
+name: ramscb-ci
+on:
+  # Trigger the workflow on push or pull request,
+  # but only for the main branch
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  basic-suite:
+    runs-on: ubuntu-16.04
+    steps:
+    - name: Install dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y make gcc g++ gfortran
+        sudo apt-get install -y make libopenmpi-dev openmpi-bin
+        sudo apt-get install -y libgsl-dev libgsl2 gsl-bin libgsl-dbg
+        sudo apt-get install -y libnetcdf-dev libnetcdff-dev nco netcdf-bin
+        sudo apt-get install -y python3-pip python3-setuptools python3-wheel
+        pip3 install numpy scipy matplotlib
+        pip3 install spacepy
+        pip3 freeze
+        gfortran --version
+        gsl-config --version
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: ram_test_tr
+      run: |
+        export PERL5LIB=$PERL5LIB:`pwd`
+        ./Config.pl -install -compiler=gfortran -mpi=openmpi -openmp -ncdf -gsl -O3
+        make
+        make testTravis
