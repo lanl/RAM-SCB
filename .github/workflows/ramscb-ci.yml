@@ -21,10 +21,6 @@ jobs:
         sudo apt-get install -y make libopenmpi-dev openmpi-bin
         sudo apt-get install -y libgsl-dev libgsl2 gsl-bin libgsl-dbg
         sudo apt-get install -y libnetcdf-dev libnetcdff-dev nco netcdf-bin
-        sudo apt-get install -y python3-pip python3-setuptools python3-wheel
-        pip3 install numpy scipy matplotlib
-        pip3 install spacepy
-        pip3 freeze
         gfortran --version
         gsl-config --version
     - name: Checkout
