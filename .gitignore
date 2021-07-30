@@ -1,3 +1,25 @@
+# ignore this file
 .gitignore
+
+# ignore compiler stuff
 *.o
 *.mod
+*.a
+*.exe
+
+# ignore RAM test output
+*.diff
+run_test*
+LibLocations.txt
+Makefile.conf
+Makefile.def
+src*/Makefile.DEPEND
+src/Makefile.RULES
+
+# ignore LaTeX intermediate files
+doc/Tex/*.aux
+doc/Tex/*.dvi
+doc/Tex/*.log
+doc/Tex/*.out
+doc/Tex/*.toc
+doc/Tex/RAM_SCBXML.tex
