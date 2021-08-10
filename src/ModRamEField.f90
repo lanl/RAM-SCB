@@ -185,12 +185,14 @@ SUBROUTINE ionospheric_potential
   integer :: doy, GSLerr, i, j, k, ierr, iYear_l, &
              iDoy_l, iHour_l, iMin_l, iLines, isec_l, imsec_l, imonth_l, iday_l, &
              AL_l, SymH_l, sgn
+  integer :: iError
   REAL(DP) :: radius, angle, bzimf_l, bndylat, byimf_l, pdyn_l, Nk_l, &
               Vk_l, bTot_l, bximf_l, vx_l, vy_l, vz_l, t_l, AVS, VT
   REAL(DP), ALLOCATABLE :: colat(:), lon(:), phiIonoRaw(:,:), dPhiIonodRho(:,:), &
                            dPhiIonodZeta(:,:), colatGrid(:,:), lonGrid(:,:), latGrid(:,:)
   REAL(DP), EXTERNAL :: EpotVal, BoundaryLat
   CHARACTER(LEN = 100) :: header
+  CHARACTER(LEN = 100) :: line
   LOGICAL :: UseAL
 
   !================================================================================================
@@ -280,15 +282,24 @@ SUBROUTINE ionospheric_potential
      if (UseSWMFFile) then
         UseAL = .false.
         Read_SWMF_file: DO
-           read(UNITTMP_,*) iyear_l, imonth_l, iday_l, ihour_l, imin_l, isec_l, imsec_l, &
-                            bximf_l, byimf_l, bzimf_l, vx_l, vy_l, vz_l, nk_l, t_l
-           if ((TimeRamNow%iYear.eq.iyear_l).and.(TimeRamNow%iMonth.eq.imonth_l).and. &
-               (TimeRamNow%iDay.eq.iday_l).and. &
-               (TimeRamNow%iHour.eq.ihour_l).and.(TimeRamNow%iMinute.eq.imin_l)) then
-              bTot_l = SQRT(bximf_l**2 + byimf_l**2 + bzimf_l**2)
-              vk_l   = SQRT(vx_l**2 + vy_l**2 + vz_l**2)
-              EXIT Read_SWMF_file
-           END IF
+           read(UNITTMP_, '(a)', iostat = iError) line
+           if (iError /= 0) EXIT Read_SWMF_file
+           if (index(line,'#START')>0) then
+              READPOINTS1: do
+                  read(UNITTMP_,*) iyear_l, imonth_l, iday_l, ihour_l, imin_l, & 
+                                   isec_l, imsec_l, bximf_l, byimf_l, bzimf_l, &
+                                   vx_l, vy_l, vz_l, nk_l, t_l
+                  if ((TimeRamNow%iYear.eq.iyear_l)   .and. &
+                      (TimeRamNow%iMonth.eq.imonth_l) .and. &
+                      (TimeRamNow%iDay.eq.iday_l)     .and. &
+                      (TimeRamNow%iHour.eq.ihour_l)   .and. &
+                      (TimeRamNow%iMinute.eq.imin_l))  then
+                      bTot_l = SQRT(bximf_l**2 + byimf_l**2 + bzimf_l**2)
+                      vk_l   = SQRT(vx_l**2 + vy_l**2 + vz_l**2)
+                      EXIT READPOINTS1
+                  end if
+              end do READPOINTS1
+           endif
         END DO Read_SWMF_file
      else
         UseAL = .true.
