@@ -1,4 +1,6 @@
 %\section{Run Directories \label{subchap:rundir}}
+
+\section{Making a Run Directory}
 Running RAM-SCB occurs not in the installation directory, but through \textit{run directories} -- special directories that keep your simulations separate from the installation and other simulations. To create a run directory, simply use the {\tt make} interface:
 \begin{verbatim}
 make rundir
@@ -6,20 +8,22 @@ make rundir
 \noindent
 {\tt make} will unpack some default inputs and organize a new directory aptly named {\tt run}. Note that if a run directory exists that is called ``run'', RAM-SCB will not over write it and {\tt make} will complain. 
 
-The first thing you should do is rename your run directory and move it to a place that makes sense given the constraints of your system. For example, let's pretend we're using NASA's Pleiades system and doing a set of validation simulations. On this system, you typically install code on your home directory, but must run from designated directories called ``nobackupXX'' (where XX is the number of the directory and nobackup tells you why you didn't install your code there.) From the install directory, make and move your first run directory:
+Run directories soft link to the installation directory, so as long as you don't move, uninstall, or otherwise break your installation, you can put the run directory where ever you want. Furthermore, you are not limited to a single run directory. Adding more allows you to run more simulations simultaneously from a single installation. Using the {\tt PARAM} interface, described below, you can perform many very different simulations at once without re-compiling the code. The name and location of the run directory can be set using the RUNDIR variable as follows:
+\begin{verbatim}
+make rundir RUNDIR=/location/to/new/rundir
+\end{verbatim}
+\noindent
+
+If running on a HPC cluster (or some other system with designated run spaces) it is important to place the run directories in the correct location. This can be done using the RUNDIR variable as above, or by moving the directory after to has been created:
 \begin{verbatim}
 make rundir
-mv run /nobackup10/username/run_valid
+mv run /location/to/new/rundir
 \end{verbatim}
 \noindent
 
-Run directories soft link to the installation directory, so as long as you don't move, uninstall, or otherwise molest your installion, you can put the run directory where ever you want. Furthermore, you are not limited to a single run directory. Adding more allows you to run more simulations simultaneously from a single installation. Using the {\tt PARAM} interface, described below, you can perform many very different simulations at once without re-compiling the code. Let's add another run directory, but using {\tt make} variable syntax to make, name, and move the directory in one line:
-\begin{verbatim}
-make rundir RUNDIR=/nobackup10/username/run_valid2
-\end{verbatim}
-\noindent
-The variable {\tt RUNDIR} sets the location without any extra hassle. Each of the two run directories created in this example use the same installation of RAM-SCB but have different inputs and outputs. They can be run simultaneously without interfering with each other.
+Both of the above methods produce the same result.
 
+\section{Inside a Run Directory}
 Let's look inside a typical run directory:
 
 \begin{figure}[h]
@@ -67,7 +71,7 @@ T    DoVariableDt
 
 First, take note that the parameter values can take many forms: rational numbers, integers, logical values, or strings of text. Remember that the trailing descriptions are not read by RAM-SCB; they are there to help you remember what each value does. In order, this list of {\tt PARAM} commands sets the start date and time of the simulation, sets the plasma and magnetic field outer boundary conditions, turns on variable timestepping, and tells the code to run for unlimited iterations but only 300 seconds. All commands are described in detail in Chapter \ref{chp:param}.
 
-Once your {\tt PARAM} file is customize, execute RAM-SCB.
+Once your {\tt PARAM} file is customized, execute RAM-SCB.
 
 \begin{verbatim}
 ./ram_scb.exe
@@ -112,17 +116,15 @@ RAM-SCB, by default, has a rich output set. This can be expanded by activating o
   Type & Extension & Format & Default? & Contents\\
  \hline
  Log file & \verb*q*.logq & ASCII & Yes & Dst, integrated values\\
- Pressure files & \verb*l*.inl & ASCII & Yes & $\perp$ and $\parallel$ partial pressures\\
- Trapped files & \verb*l*.tl & ASCII & No & Averaged trapped fluxes\\
+ Pressure files & \verb*l*.datl & ASCII & Yes & $\perp$ and $\parallel$ partial pressures\\
  E-Field files & \verb*l*.inl & ASCII & No & Equatorial electric potential\\
  Boundary files & \verb*l*.datl & ASCII & No & Fluxes at the outer boundary\\
- Full flux files & \verb*l*.ncl & NetCDF & Yes & Full equatorial flux information\\
- 3D flux files & \verb*l*.ncl & NetCDF & No & Fluxes in the full 3D domain\\
+ RAM flux files & \verb*l*.ncl & NetCDF & Yes & Full equatorial flux information\\
  Virtual Satellites &\verb*l*.ncl & NetCDF & No & Satellite specific values\\
  Field integral files &\verb*l*.datl & ASCII & Yes & $h$, $I$ geometric integrals\\
- Magnetic field file &\verb*l*.ncl & NetCDF & No & Full 3D SCB field\\
- Potential file &\verb*l*.ncl & NetCDF & No & Ionospheric and equatorial electric potential\\
- 3D pressure file&\verb*l*.ncl & NetCDF & No & Full 3D anisotropic pressure\\ 
+ Magnetic field file &\verb*l*.datl & ASCII & No & Full 3D SCB field\\
+ Potential file &\verb*l*.datl & ASCII & No & Ionospheric electric potential\\
+ 3D pressure file&\verb*l*.datl & ASCII & No & Full 3D anisotropic pressure\\ 
  \end{tabular}
 \caption{List of available output files.}
 \label{tab:out}
