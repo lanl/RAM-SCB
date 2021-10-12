@@ -18,13 +18,13 @@ List of IM commands used in the PARAM.in file
 	<parameter name="iSecond" type="integer" min="0" default="0"/>
 	<parameter name="fracSecond" type="real" min="0" default="0"/>
 #STARTTIME
-2006			iYear
+2006		iYear
 7			iMonth
 19			iDay
 0			iHour
 0			iMinute
 0			iSecond
-0.0                     fracSecond
+0.0			fracSecond
 
 The STARTTIME command sets the integer year, month, day, hour, minute and second at which the simulation begins. This command is only used in standalone mode and only for the first session.
 </command>
@@ -38,13 +38,13 @@ The STARTTIME command sets the integer year, month, day, hour, minute and second
 	<parameter name="iSecond" type="integer" min="0" default="0"/>
 	<parameter name="fracSecond" type="real" min="0" default="0"/>
 #STOPTIME
-2006			iYear
+2006		iYear
 7			iMonth
 19			iDay
 6			iHour
 0			iMinute
 0			iSecond
-0.0                     fracSecond
+0.0			fracSecond
 
 The STOPTIME command sets the integer year, month, day, hour, minute and second at which the simulation stops. This command is only used in standalone mode.
 </command>
@@ -53,6 +53,8 @@ The STOPTIME command sets the integer year, month, day, hour, minute and second 
 	<parameter name="Event" type="string" length="6"/>
 #EVENT
 110105	Event
+
+Sets the short name description of the run
 </command>
 
 <command name="VERBOSE">
@@ -120,6 +122,14 @@ _H _O He _e		NameVar
 F				FixedComposition
 
 Defines the species to run in RAM. See the RAMSpecies_README for more information.
+</command>
+
+<command name="NITROGEN_PERCENT">
+	<parameter name="NitrogenPercent" type="float" default="0"/>
+#NITROGEN_PERCENT
+0	NitrogenPercent
+
+If using nitrogen in the species this command will convert a percent of the oxygen in the simulation into nitrogen.
 </command>
 
 <command name="USEWPI">
@@ -498,12 +508,32 @@ IM/input_ram/           InitializationPath
 Location where the RAM Initialization.nc file can be found (included in default installation)
 </command>
 
+<command name="TSO7_DIRECTORY">
+	<parameter name="TS07Directory" type="string" default="IM/input_scb/"/>
+#TS07_DIRECTORY
+IM/input_scb/		TS07Directory
+
+If using the TS07 magnetic field model, the code will look for the TS07 inputs in this directory
+</command>
+
 </commandgroup>
 
 <commandgroup name="OUTPUT">
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!Output group!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+<command name="WRITE_BOUNDARY"/>
+#WRITE_BOUNDARY
+
+If present, the RAM boundary flux will be written to file each time it is updated
+</command>
+
+<command name="WRITE_POTENTIAL"/>
+#WRITE_POTENTIAL
+
+If present, the RAM electric potential will be written to file each time it is updated
+</command>
 
 <command name="SAVERESTART">
 	 <parameter name="DtSaveRestart" type="float" default="3600.0"/>
