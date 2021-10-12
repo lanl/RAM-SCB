@@ -1,13 +1,8 @@
-Installation and compilation of RAM-SCB requires a Fortran compiler, MPI compiled against the chosen Fortran compiler, a Perl interpreter, and several external libraries which have additional requirements (most notably a C compiler, typically standard on Unix-like systems.)  The configuration is done with the Config.pl script; compilation with GNU Make.  The Config/Make system follows the tiered makefile standards of the Space Weather Modeling Framework (SWMF) project; users of the SWMF should feel right at home using RAM-SCB.
+Installation and compilation of RAM-SCB requires a Fortran compiler (with OpenMP support), MPI compiled against the chosen Fortran compiler, a Perl interpreter, and several external libraries which have additional requirements (most notably a C compiler, typically standard on Unix-like systems.)  The configuration is done with the Config.pl script; compilation with GNU Make.  The Config/Make system follows the tiered makefile standards of the Space Weather Modeling Framework (SWMF) project; users of the SWMF should feel right at home using RAM-SCB.
 
 \section{Installation of Required Libraries}
 
 There are two required libraries that must be installed to use RAM-SCB: \href{https://www.gnu.org/software/gsl}{GNU Scientific Library} and \href{http://www.unidata.ucar.edu/software/netcdf/}{Unidata's NetCDF library}. It is possible to find pre-compiled binaries for each library, allowing the user to skip the configure, make, and install steps. However, if a binary cannot be found that matches your system and compilers, you will be forced to install from source. Some systems may already have these libraries installed; be sure to check before going through unneccessary installation work.
-
-\subsection{Installation From Source}
- 
-Tarballs of the source code can be obtained through these URLs:
-% QUESTION: All of the information in this section is out of date. Even the NETCDF installation instructions are incorrect given that they have split it into a C version and a Fortran version. This is still easy enough to describe and walk through, but the installation of GSL from source isn't as easy. Do we really want to have this section?
 
 \subsection{Libraries From Modules}
 Well maintained clusters often use the {\tt module} interface for loading and unloading software packages.  Be sure to explore the available packages on a new system before going through the arduous task of installing from source!
@@ -16,7 +11,7 @@ Well maintained clusters often use the {\tt module} interface for loading and un
 module avail
 \end{verbatim}
 \noindent
-will list all available software libraries on the system.  You can load a library, unload a library, and list loaded software using the module commands:
+will list all available software libraries on the system.  If a needed software is not available it is a good idea to contact your computing support to see if they can build the module for you before installing from source. You can load a library, unload a library, and list loaded software using the module commands:
 
 \begin{verbatim}
 module load package_name
@@ -24,21 +19,21 @@ module unload package_name
 module list
 \end{verbatim}
 
-As an example, here is what you would type on NASA's Pleiades cluster to get started with RAM-SCB:
-% QUESTION: ^Is this even still true? Seems silly to have to keep up with changes on Pleiades in our documentation
+As an example, here is what you would type on LANL's Grizzly HPC cluster to get started with RAM-SCB:
 
 \begin{verbatim}
-module load comp/intel/10.1.021_64
-module load mpi/mpt.1.25
-module load netcdf/4.0-i10.1
-module load gsl/2.4
-module load python/2.6.1
+module purge
+...
 \end{verbatim}
 
-Intel Fortran, MPI, NetCDF and GSL are now loaded and ready to use. Place such commands your shell configuration script ({\tt \verb*l~l/.cshrc} or {\tt \verb*l~l/.bashrc} depending on your shell) to load modules upon login. Do not forget to point RAM-SCB to these libraries as listed below.
+The first command purges all currently loaded modules to make sure there is no interference from previously loaded modules. GFortran, MPI, NetCDF and GSL are now loaded and ready to use. Place such commands your shell configuration script ({\tt \verb*l~l/.cshrc} or {\tt \verb*l~l/.bashrc} depending on your shell) to load modules upon login. Note that if you are running using a job scheduler (e.g. slurm, moab, etc...), placing the module commands in your shell configuration script may not be adequate and you they may need to be loaded in your job script.
+
+\subsection{Installation From Source}
+
+If installing from source, follow the instructions provided with the software, making sure to use the same compiler that you are using with RAM-SCB to install the dependencies.
 
 \section{Pointing RAM-SCB to External Libraries}
-RAM-SCB must be explicitly pointed to libraries installed in non-standard places. There are several ways for RAM-SCB to find the required external libaries, summarized in Table \ref{tab:libs}. The most permanant and convenient method is to set an environment variable that RAM-SCB will search for upon installation. They can be set with the following commands:
+RAM-SCB must be explicitly pointed to libraries installed in non-standard places. There are several ways for RAM-SCB to find the required external libaries, summarized in Table \ref{tab:libs}. The most permanent and convenient method is to set an environment variable that RAM-SCB will search for upon installation. They can be set with the following commands:
 
 Bash Shell: {\tt export NETCDFDIR=}\textit{installation path}
 
@@ -50,7 +45,7 @@ Alternatively, it is possible to set the install paths for the external librarie
 
 Finally, if you set neither the environment variables or the Config.pl switches, the Fortran compiler will look for the libaries in the default directories. This may be useful to test if the libraries are already properly installed by the system administrator.  
 
-\emph{If you change the library locations by any method, you must reinstall the code.} 
+\emph{If you change the library locations by any method, you must reinstall the code. These libraries are looked for at runtime, and must be in the same place as at compilation.} 
 
 \begin{table}[ht]
   \centering
@@ -81,8 +76,8 @@ Config.pl -install
 
 Although RAM-SCB will try to use reasonable defaults based on your system, there are a number of flags that allow you to customize your installation:
 \begin{itemize}
-\item{Use {\tt -compiler} to select the Fortran 90 compiler. Common choices include pgf90, ifort, gfortran, and f95(for NAG).}
-\item{The {\tt -mpi} flag allows the user to pick which version of MPI to use. Choose from mpich, mpich2, Altix, and openmpi. Alternatively, the {\tt -nompi} flag may be set with no value. This option is fragile.}
+\item{Use {\tt -compiler} to select the Fortran 90 compiler. Common choices include gfortran, ifort, and pgf90.}
+\item{The {\tt -mpi} flag allows the user to pick which version of MPI to use. Choose from openmpi, mpich, mpich2, and Altix. Alternatively, the {\tt -nompi} flag may be set with no value. This option is fragile.}
 \item{Set {\tt -ncdf} to the path of the NetCDF library installation. If used, this flag overrides the environment variable NETCDFDIR.}
 \item{Set {\tt -gsl} to the path of the GSL library installation. If used, this flag overrides the environment variable GSLDIR.}
 \end{itemize}

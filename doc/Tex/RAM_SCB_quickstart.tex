@@ -2,7 +2,7 @@ This section provides a bare-bones approach for getting started with RAM-SCB. Th
 
 \section{Installation}
 
-Installation and compilation of RAM-SCB requires a Fortran compiler, Perl interpreter, an MPI library compiled with the preferred Fortran compiler, and several external libraries which have additional requirements (most notably a C compiler, typically standard on Unix-like systems.)  The required libraries are:
+Installation and compilation of RAM-SCB requires a Fortran compiler (with OpenMP support), Perl interpreter, an MPI library compiled with the preferred Fortran compiler, and two external libraries which have additional requirements (most notably a C compiler, typically standard on Unix-like systems.)  The required libraries are:
 
 \begin{enumerate}
 \item{\href{https://www.gnu.org/software/gsl}{GNU Scientific Library}}
@@ -42,4 +42,4 @@ Run directories are soft-linked to the installation.  This means you can move th
 
 To customize the simulation, edit the PARAM.in file.  Chapter \ref{chp:param} has a complete description of all parameters.  Additional input files required must be placed in either the {\tt input\_ram} or {\tt input\_scb} subdirectories; output is located in similarly named locations.
 
-Output data come in two formats: simple ASCII and NetCDF files.  While there are a plethora of tools available, we recommend users try the Python-based tools discussed in Chapter \ref{chp:viz}.
+Output data comes in two formats: simple ASCII and NetCDF files.  While there are a plethora of tools available, we recommend users try the Python-based tools discussed in Chapter \ref{chp:viz}.
