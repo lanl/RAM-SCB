@@ -190,22 +190,21 @@ module ModRamIndices
   end subroutine init_indices
 
   !===========================================================================
-  subroutine get_indices(timeNow, kpNow, f10Now, AENow)
+  subroutine update_indices(timeNow)
     ! Interpolate Kp to current time.
     ! Use f10.7 according to current day.
     ! Input time format should be floating point used in ModTimeConvert.
     use ModRamGrids,     ONLY: nS
     use ModRamParams,    ONLY: FixedComposition, OfracN
-    use ModRamVariables, ONLY: nRawKp, nRawF107, nRawAE, Kp, F107, AE, timeKp, &
-                               timeF107, timeAE, rawKp, rawF107, rawAE, species
+    use ModRamVariables, ONLY: nRawKp, nRawF107, nRawAE, Kp, Kpmax12, Kpmax24, &
+                               F107, AE, timeKp, timeF107, timeAE, rawKp, &
+                               rawF107, rawAE, species
     use ModRamParams,    ONLY: DoUseEMIC
     use ModRamMain, ONLY: Real8_
     
     implicit none
 
     real(kind=Real8_), intent(in) :: timeNow
-    real(kind=Real8_), intent(out):: kpNow, f10Now
-    integer,           intent(out):: AENow
     
     integer :: iTime, i
     real(kind=Real8_) :: dTime, dateNow, BEXP, AHE0, AHE1, GEXP, Operc
@@ -223,14 +222,19 @@ module ModRamIndices
 
     ! Interpolate Kp to current time.
     dTime = (timeNow - timeKp(iTime-1))/(timeKp(iTime) - timeKp(iTime-1))
-    kpNow = dTime*(rawKp(iTime) - rawKp(iTime-1)) + rawKp(iTime-1)
+    Kp = dTime*(rawKp(iTime) - rawKp(iTime-1)) + rawKp(iTime-1)
+    kpmax12 = max(Kp, rawKp(iTime-1), rawKp(iTime-2), rawKp(iTime-3), &
+                rawKp(iTime-4))
+    kpmax24 = max(Kpmax12, rawKp(iTime-5), rawKp(iTime-6), &
+                  rawKp(iTime-7), rawKp(iTime-8))
+
 
     ! F10.7 index is not interpolated; merely use the value at the
     ! current day.
     dateNow=timeNow - mod(timeNow, 86400.0)
     do iTime=1, nRawF107
        if (abs(timeF107(iTime)-dateNow) .le. 1e-9) then
-          f10Now = rawF107(iTime)
+          f107 = rawF107(iTime)
           exit
        end if
     end do
@@ -243,14 +247,11 @@ module ModRamIndices
        end do
        ! Interpolate AE index to current time 
        dTime = (timeNow - timeAE(iTime-1))/(timeAE(iTime)-timeAE(iTime-1))
-       AENow = int(dTime*(rawAE(iTIme)-rawAE(iTime-1))+rawAE(iTime-1))
+       AE = int(dTime*(rawAE(iTIme)-rawAE(iTime-1))+rawAE(iTime-1))
     else
-       AENow = 0
+       AE = 0
     end if
 
-    KP   = kpNow
-    F107 = f10Now
-    AE   = AENow
 
     ! If using the Young et al. composition model, recalculate the composition
     ! fractions based on new Kp and F10.7
@@ -279,6 +280,6 @@ module ModRamIndices
           end select
        enddo
     endif
-  end subroutine get_indices
+  end subroutine update_indices
   !===========================================================================
 end module ModRamIndices

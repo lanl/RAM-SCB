@@ -583,24 +583,23 @@ MODULE ModRamWPI
     use ModRamParams,    ONLY: DoUsePlasmasphere
     use ModRamGrids,     ONLY: NE, NR, NT, NPA
     use ModRamTiming,    ONLY: Dts
-    use ModRamVariables, ONLY: F2, KP, LZ, IP1, IR1, EKEV, NECR, WALOS1, &
-                               WALOS2, WALOS3
+    use ModRamVariables, ONLY: F2, KP, Kpmax12, LZ, IP1, IR1, EKEV, NECR, &
+                                WALOS1, WALOS2, WALOS3
 
     implicit none
 
     integer, intent(in) :: S
     integer :: i, j, k, l, j1, i1
-    real(DP) :: TAU_LIF,Bw,Kpmax
+    real(DP) :: TAU_LIF,Bw
     real(DP), ALLOCATABLE :: RLpp(:)
 
     ALLOCATE(RLpp(nT))
     RLpp = 0.0
 
     Bw=30.
-    IF (KP.GE.4.0) Bw=100.                                 ! pT
-    Kpmax=KP  ! need Kpmax from previous 12 hrs, TO FIX!!!
+    IF (KP.GE.4.0) Bw=100.
     DO J=1,NT
-      RLpp(J)=5.39-0.382*KPmax  ! PP from Moldwin et al. [2002]
+      RLpp(J)=5.39-0.382*KPmax12  ! PP from Moldwin et al. [2002]
       DO I=2,NR
         IF (DoUsePlasmasphere.and.NECR(I,J).gt.50.) RLpp(J)=LZ(I)
       ENDDO

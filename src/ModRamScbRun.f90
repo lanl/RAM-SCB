@@ -12,14 +12,14 @@ MODULE ModRamScbRun
     use ModRamTiming,    ONLY: DtsFramework, DtsMax, DtsMin, DtsNext, Dts, Dt_hI, &
                                TimeRamStart, TimeRamNow, TimeMax, TimeRamElapsed, &
                                UTs, Dt_bc, DtEfi
-    use ModRamVariables, ONLY: Kp, F107, AE, dBdt, dIdt, dIbndt
+    use ModRamVariables, ONLY: Kp, dBdt, dIdt, dIbndt
     use ModScbVariables, ONLY: hICalc, SORFail
     use ModScbParams,    ONLY: method
     
     !!!! Module Subroutines and Functions
     use ModRamGSL,       ONLY: GSL_Initialize
     use ModRamFunctions, ONLY: ram_sum_pressure, RamFileName
-    use ModRamIndices,   ONLY: get_indices
+    use ModRamIndices,   ONLY: update_indices
     use ModRamTiming,    ONLY: max_output_timestep, init_timing, finalize_timing, do_timing
     use ModRamIO,        ONLY: init_output, handle_output, ram_write_pressure, write_prefix
     use ModRamRestart,   ONLY: write_restart
@@ -63,7 +63,7 @@ MODULE ModRamScbRun
 !!!!!!!!
 
 !!!!!!!! UPDATES AS NEEDED
-    call get_indices(TimeRamNow%Time, Kp, f107, AE)
+    call update_indices(TimeRamNow%Time)
 
     ! Update Boundary Flux if Dt_bc has passed
     if (abs(mod(TimeRamElapsed, Dt_bc)).le.1e-9) then

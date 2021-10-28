@@ -10,7 +10,7 @@ MODULE ModRamPlasmasphere
   subroutine plasmasphere(dt)
      use ModRamParams,    ONLY: PlasmasphereModel
      use ModRamTiming,    ONLY: TimeRamNow
-     use ModRamVariables, ONLY: Kp, uL, uT
+     use ModRamVariables, ONLY: Kp, Kpmax24, uL, uT
      use ModRamGrids, ONLY: nR, nT
 
      real(DP), intent(in) :: dt
@@ -29,8 +29,7 @@ MODULE ModRamPlasmasphere
 
      select case(trim(PlasmasphereModel))
         case('Carpenter')
-           call CARPENTER(Kp) ! Need to calculate last X hour Kp max
-
+           call CARPENTER(Kpmax24) ! Need to calculate last X hour Kp max
         case('Transport')
            ! Get AP and F10.7 information for IRI and MSIS models
            CALL APF_ONLY(TimeRamNow%iYear,TimeRamNow%iMonth,TimeRamNow%iDay,f107_1au,f107_pd,f107_81,f107_365,iapda,isdate)
@@ -190,7 +189,7 @@ MODULE ModRamPlasmasphere
      real(DP), dimension(2) :: LPP, F
  
      ! Set input dependent variables
-     LPPI = 5.6-0.46*KPMAX
+     LPPI = 5.6-0.46*KpMax
 
      ! Set initial values
      LPP(1) = LPPI
