@@ -72,7 +72,7 @@ Module ModRamVariables
   character(len=4)   :: NameIndexSource = 'file'
   integer :: nRawKp, nRawF107, nRawAE
   integer, parameter :: kptime(8) = (/1, 4, 7, 10, 13, 16, 19, 22/)
-  real(DP) :: KP, F107
+  real(DP) :: Kp, Kpmax12, Kpmax24, F107
   integer  :: AE
   real(DP), allocatable :: timeKp(:),timeF107(:),timeAE(:), rawKp(:),rawF107(:)
   integer,  allocatable :: rawAE(:)

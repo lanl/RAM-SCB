@@ -210,12 +210,12 @@ MODULE ModRamInit
     use ModRamVariables, ONLY: PParH, PPerH, PParHe, PPerHe, PParO, PPerO, PParE, &
                                PPerE, LSDR, LSCHA, LSATM, LSCOE, LSCSC, LSWAE, ELORC, &
                                SETRC, XNN, XND, ENERN, ENERD, LNCN, LNCD, LECN, LECD, &
-                               Lz, GridExtend, Phi, kp, F107, AE, species, ESUM, NSUM
+                               Lz, GridExtend, Phi, species, ESUM, NSUM
     use ModScbVariables, ONLY: radRaw, azimRaw
     !!!! Modules Subroutines/Functions
     use ModRamWPI,     ONLY: WAPARA_HISS, WAPARA_BAS, WAPARA_CHORUS, WAVEPARA1, WAVEPARA2,&
                              WAPARA_EMIC
-    use ModRamIndices, ONLY: init_indices, get_indices
+    use ModRamIndices, ONLY: init_indices, update_indices
     !!!! Share Modules
     use ModTimeConvert, ONLY: TimeType, time_real_to_int, time_int_to_real
     use ModNumConst,    ONLY: cTwoPi
@@ -223,7 +223,7 @@ MODULE ModRamInit
 
     implicit none
   
-    type(timetype) :: TimeRamStop
+    type(timetype) :: TimeRamStop, TimeRamIndStart
   
     real(DP) :: dPh
   
@@ -275,10 +275,12 @@ MODULE ModRamInit
        endif
     endif
 
+    TimeRamIndStart%Time = TimeRamRealStart%Time - 86400
     TimeRamStop%Time = TimeRamStart%Time + TimeMax
+    call time_real_to_int(TimeRamIndStart)
     call time_real_to_int(TimeRamStop)
-    call init_indices(TimeRamRealStart, TimeRamStop)
-    call get_indices(TimeRamNow%Time, Kp, f107, AE)
+    call init_indices(TimeRamIndStart, TimeRamStop)
+    call update_indices(TimeRamNow%Time)
   
   !!!!!!!!! Zero Values
     ! Initial loss is zero
@@ -593,14 +595,14 @@ MODULE ModRamInit
                                PlasmasphereModel
     use ModRamGrids,     ONLY: NL, NLT, nR, nT, nS
     use ModRamTiming,    ONLY: DtEfi, TimeRamNow, TimeRamElapsed
-    use ModRamVariables, ONLY: Kp, F107, AE, TOLV, NECR, IP1, IR1, XNE, F2, species
+    use ModRamVariables, ONLY: TOLV, NECR, IP1, IR1, XNE, F2, species
     use ModScbParams,    ONLY: method, constTheta
     !!!! Module Subroutines/Functions
     use ModRamRun,       ONLY: ANISCH
     use ModRamIO,        ONLY: write_prefix
     use ModRamBoundary,  ONLY: get_boundary_flux
     use ModRamRestart,   ONLY: read_restart
-    use ModRamIndices,   ONLY: get_indices
+    use ModRamIndices,   ONLY: update_indices
     use ModRamIO,        ONLY: read_initial, write2DFlux, writeLosses
     use ModRamInjection, ONLY: load_injection_file
     use ModRamFunctions, ONLY: ram_sum_pressure
@@ -636,7 +638,7 @@ MODULE ModRamInit
        call psiges
        call alfges
   
-       call get_indices(TimeRamNow%Time, Kp, f107, AE)
+       call update_indices(TimeRamNow%Time)
        TOLV = FLOOR(TimeRamElapsed/DtEfi)*DtEfi
   
        ! Compute information not stored in restart files
@@ -657,7 +659,7 @@ MODULE ModRamInit
 
        !!!!!! INITIALIZE DATA !!!!!
        ! Initial indices
-       call get_indices(TimeRamNow%Time, Kp, f107, AE)
+       call update_indices(TimeRamNow%Time)
        TOLV = 0.0
   
        ! Initialize flux and pressure for default species
