@@ -218,16 +218,12 @@ module ModRamIndices
     do while( (iTime < nRawKp) .and. (timeKp(iTime) < timeNow))
        iTime=iTime+1
     end do
-    if (iTime.eq.1) iTime=2
 
     ! Interpolate Kp to current time.
     dTime = (timeNow - timeKp(iTime-1))/(timeKp(iTime) - timeKp(iTime-1))
     Kp = dTime*(rawKp(iTime) - rawKp(iTime-1)) + rawKp(iTime-1)
-    kpmax12 = max(Kp, rawKp(iTime-1), rawKp(iTime-2), rawKp(iTime-3), &
-                rawKp(iTime-4))
-    kpmax24 = max(Kpmax12, rawKp(iTime-5), rawKp(iTime-6), &
-                  rawKp(iTime-7), rawKp(iTime-8))
-
+    Kpmax12 = max(Kp, maxval(rawKp(iTime-1:iTime-4)))
+    Kpmax24 = max(Kpmax12, maxval(rawKp(iTime-5:iTime-8)))
 
     ! F10.7 index is not interpolated; merely use the value at the
     ! current day.

@@ -599,7 +599,7 @@ MODULE ModRamWPI
     Bw=30.
     IF (KP.GE.4.0) Bw=100.
     DO J=1,NT
-      RLpp(J)=5.39-0.382*KPmax12  ! PP from Moldwin et al. [2002]
+      RLpp(J)=5.39-0.382*Kpmax12  ! PP from Moldwin et al. [2002]
       DO I=2,NR
         IF (DoUsePlasmasphere.and.NECR(I,J).gt.50.) RLpp(J)=LZ(I)
       ENDDO
