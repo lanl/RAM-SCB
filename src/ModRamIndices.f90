@@ -280,4 +280,49 @@ module ModRamIndices
     endif
   end subroutine update_indices
   !===========================================================================
+
+  subroutine test_update_indices(verbose)
+    ! Tests:
+    ! 1. Load of RamIndices.txt
+    ! 2. Interpolation of Kp to specific times by update_indices
+    use ModRamMain,      ONLY: make_time, Real8_, test_neq_abs, nTestPassed, nTestRun
+    use ModTimeConvert,  ONLY: TimeType
+    use ModRamVariables, ONLY: Kp, NameIndexSource
+    use ModRamParams,    ONLY: DoUseEMIC, FixedComposition
+
+    implicit none
+    logical, intent(in) :: verbose
+    real(Real8_) :: test_err
+    logical :: failure
+    type(TimeType) :: StartTime, EndTime, TestTime
+
+    call make_time(2013, 3, 16, 0, 0, 0, 0.0, StartTime)
+    call make_time(2013, 3, 17, 0, 0, 0, 0.0, TestTime)
+    call make_time(2013, 3, 17, 5, 0, 0, 0.0, EndTime)
+
+    NameIndexSource = 'file'
+    DoUseEMIC = .FALSE.
+    FixedComposition = .TRUE.
+    ! Implicit test of index file intialization
+    call init_indices(StartTime, EndTime)
+    ! Explicit test of index interpolation
+    call update_indices(TestTime%Time)
+    call test_neq_abs(Kp, 1.65, 0.001, failure)
+    nTestRun = nTestRun + 1
+    if (.not.failure) then
+      if (verbose) write(*,*) "test_update_indices(1): Kp = ", Kp, " (expected 1.65)"
+      nTestPassed = nTestPassed + 1
+    end if
+    ! Explicit test of index interpolation (#2)
+    call make_time(2013, 3, 17, 4, 30, 0, 0.0, TestTime)
+    call update_indices(TestTime%Time)
+    call test_neq_abs(Kp, 2.3, 0.001, failure)
+    nTestRun = nTestRun + 1
+    if (.not.failure) then
+      if (verbose) write(*,*) "test_update_indices(2): Kp = ", Kp, " (expected 2.3)"
+      nTestPassed = nTestPassed + 1
+    end if
+
+  end subroutine test_update_indices
+  !===========================================================================
 end module ModRamIndices
