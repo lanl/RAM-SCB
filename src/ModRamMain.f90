@@ -5,7 +5,7 @@
 
 module ModRamMain
 
-  use ModTimeConvert, ONLY: TimeType
+  use ModTimeConvert, ONLY: TimeType, time_int_to_real
   use nrtype,         ONLY: DP, SP
   use ModRamGrids,    ONLY: NS, NR, NT, NE, NPA
 
@@ -38,7 +38,33 @@ module ModRamMain
   integer :: nIter ! Tracks iteration, including restart.
 !!!!!
 
+!!!!! TESTING
+  integer :: nTestPassed
+  integer :: nTestRun
 !  integer :: S
+
+  contains
+
+  subroutine make_time(yr, mon, day, hr, min, sec, frs, timeObj)
+    integer, intent(in) :: yr, mon, day, hr, min, sec
+    real(Real8_), intent(in) :: frs
+    type(TimeType), intent(inout) :: timeObj
+
+    timeObj%iYear = yr
+    timeObj%iMonth = mon
+    timeObj%iDay = day
+    timeObj%iHour = hr
+    timeObj%iMinute = min
+    timeObj%iSecond = sec
+    timeObj%FracSecond = frs
+    call time_int_to_real(timeObj)
+  end subroutine make_time
+
+  subroutine test_neq_abs(val1, val2, atol, result)
+    real(Real8_), intent(in) :: val1, val2, atol
+    logical, intent(inout) :: result
+    result = merge(.TRUE., .FALSE., abs(val1 - val2).gt.atol)
+  end subroutine test_neq_abs
 
 end Module ModRamMain
 !==============================================================================

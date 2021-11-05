@@ -9,6 +9,7 @@ include Makefile.RULES
 
 # Name the executable and library target.
 EXE = ${BINDIR}/ram_scb.exe
+TEST = ${BINDIR}/unittest.exe
 MY_LIB = libRAM_SCB.a
 
 # Other required libraries.
@@ -92,6 +93,7 @@ OBJECTS = ${RAM_OBJECTS} ${SCB_OBJECTS} ${SCE_OBJECTS} ${EXT_OBJECTS} ${GSL_OBJE
 
 # List of objects required for executable:
 OBJECTS_EXE = Main.o
+TEST_EXE = test_suite.o
 
 DEPEND:
 	${SCRIPTDIR}/depend.pl ${SEARCH} ${OBJECTS}
@@ -125,12 +127,25 @@ RAM_SCB: DEPEND
 	@echo "Program ${EXE} has been brought up to date."
 	@echo ' '
 
+tests: DEPEND
+	@make ${TEST}
+
+combine:
+	echo 'create libAll.a\n' > mergelibs.mri
+	echo 'addlib ${MY_LIB}\n' >> mergelibs.mri
+	echo 'addlib ${LIBSHARE}\n' >> mergelibs.mri
+	echo 'addlib ${LIBEXT}\n' >> mergelibs.mri
+	echo 'save\n' >> mergelibs.mri
+	echo 'end\n' >> mergelibs.mri
+	ar -M < mergelibs.mri
+
 # Libraries should be compiled first, because modules are used in main
 ${EXE}: ${OBJECTS_EXE} ${MY_LIB} ${LIBSHARE} ${LIBEXT}
-	rm -rf Tmp_; mkdir Tmp_
-	cd Tmp_; \
-		ar -x ../${MY_LIB}; \
-		ar -x ${LIBSHARE}; \
-		ar -x ${LIBEXT};
-	${LINK.f90} -o ${EXE} ${OBJECTS_EXE} Tmp_/*.o ${LBLAS} ${Lflag1}
-	rm -rf Tmp_
+	make combine
+	rm mergelibs.mri
+	${LINK.f90} -o ${EXE} ${OBJECTS_EXE} libAll.a ${LBLAS} ${Lflag1}
+
+${TEST}: ${TEST_EXE} ${MYLIB} ${LIBSHARE} ${LIBEXT}
+	make combine
+	rm mergelibs.mri
+	${LINK.f90} -I${INCLDIR} -o ${TEST} ${TEST_EXE} libAll.a ${LBLAS} ${Lflag1}

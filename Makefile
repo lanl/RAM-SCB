@@ -103,11 +103,26 @@ rundir:
 #---------
 # TESTS
 #---------
+
+unittest:
+	@cd ${SHAREDIR}; make LIB
+	@cd srcExternal; make LIB
+	@cd ${srcDir};   make LIB
+	@cd ${srcDir};   make tests
+	@(make unittest_run)
+
 TESTDIR1 = run_test1
 TESTDIR2 = run_test2
 TESTDIR3 = run_test3
 TESTDIR4 = run_test4
 TESTDIRC = run_test
+TESTDIRU = run_unittest
+
+unittest_run:
+	@rm -rf ${TESTDIRU}
+	@make rundir RUNDIR=${TESTDIRU} STANDALONE="YES"
+	@mv ${srcDir}/unittest.exe ${TESTDIRU}
+	@cd ${TESTDIRU}; ./unittest.exe
 
 test:
 	@(make test1)
