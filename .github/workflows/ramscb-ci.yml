@@ -31,3 +31,6 @@ jobs:
         ./Config.pl -install -compiler=gfortran -mpi=openmpi -openmp -ncdf -gsl -O3
         make
         make testTravis
+    - name: unit_tests
+      run: |
+        make unittest
