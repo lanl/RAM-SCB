@@ -21,6 +21,7 @@ module ModRamIndices
     use ModRamParams,   ONLY: DoUseEMIC
     use ModTimeConvert, ONLY: TimeType, time_int_to_real
     use ModIoUnit,      ONLY: UNITTMP_
+    use ModUtilities,   ONLY: CON_stop, CON_set_do_test 
 
 
     implicit none
@@ -172,6 +173,7 @@ module ModRamIndices
     use ModRamVariables, ONLY: NameIndexSource
 
     use ModTimeConvert, ONLY: TimeType
+    use ModUtilities,   ONLY: CON_stop, CON_set_do_test 
 
     implicit none
 
