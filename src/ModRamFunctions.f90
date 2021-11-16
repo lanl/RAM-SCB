@@ -262,7 +262,8 @@ module ModRamFunctions
     real(kind=Real8_), intent(in) :: x
     real(kind=Real8_) :: G1, Gcoul
   !-----------------------------------------------------------------------
-
+    ! G1 is erf(x) - x erf'(x)
+    ! The derivative of erf(x) is (2/sqrt(pi))*exp(-x^2)
     G1=ERFF(X)-2.*X/sqrt(PI)*exp(-X*X)
     Gcoul=G1/2./X/X
     return
@@ -648,4 +649,77 @@ module ModRamFunctions
   END FUNCTION WeightFit
   
 !=============================================================================
+  subroutine test_erf(verbose)
+    ! Tests:
+    ! 1. ERFF and dependent functions
+    use ModRamMain,      ONLY: Real8_, test_neq_abs, nTestPassed, nTestRun
+
+    implicit none
+    logical, intent(in) :: verbose
+    integer :: ii
+    real(Real8_) :: test_err
+    real(Real8_), dimension(3) :: expect = (/0.0,0.520499876d0,0.842700790038d0/)
+    real(Real8_), dimension(3) :: answer
+    logical :: failure, all_pass
+
+    ! First test goes here
+    all_pass = .TRUE.
+    do ii=0,2
+      answer(ii+1) = erff(-1.d0*REAL(ii)/2.d0)
+      call test_neq_abs(answer(ii+1), -1.d0*expect(ii+1), 0.0001, failure)
+      if (failure) all_pass = .FALSE.
+    end do
+    if (verbose) then
+      write(*,"(A23,3F12.8))") "test_erf: got = ", answer
+      write(*,"(A23,3F12.8))") "     expected = ", expect
+    end if
+    nTestRun = nTestRun + 1
+    if (all_pass) then
+      nTestPassed = nTestPassed + 1
+    end if
+
+  end subroutine test_erf
+
+  subroutine test_Gcoul(verbose)
+    ! Tests:
+    ! 1. ERFF and dependent functions
+    use, intrinsic :: IEEE_arithmetic
+    use ModRamMain,      ONLY: Real8_, test_neq_abs, nTestPassed, nTestRun
+
+    implicit none
+    logical, intent(in) :: verbose
+    integer :: ii
+    real(Real8_) :: test_err, test_val
+    real(Real8_), dimension(3) :: expect = (/0.16221717321315, 0.213796646309081, &
+                                             0.17504660173915945/)
+    real(Real8_), dimension(3) :: answer
+    logical :: failure, all_pass
+
+    ! First test - zero input returns NaN
+    test_val = Gcoul(0.0d0)
+    nTestRun = nTestRun + 1
+    if (verbose) write(*,*) "test_gcoul (1): Gcoul(0) should equal NaN. Actual: ", test_val
+    if (IEEE_IS_NAN(test_val)) then
+      nTestPassed = nTestPassed + 1
+    end if
+
+    ! Second test - finite values return expected answers
+    all_pass = .TRUE.
+    do ii=1,3
+      ! Gcoul of [0.5, 1, 1.5]
+      answer(ii) = Gcoul(REAL(ii)/2.d0)
+      call test_neq_abs(answer(ii), expect(ii), 0.0001, failure)
+      if (failure) all_pass = .FALSE.
+    end do
+    if (verbose) then
+      write(*,"(A23,3F12.8))") "test_gcoul (2): got = ", answer
+      write(*,"(A23,3F12.8))") "           expected = ", expect
+    end if
+    nTestRun = nTestRun + 1
+    if (all_pass) then
+      nTestPassed = nTestPassed + 1
+    end if
+
+  end subroutine test_Gcoul
+
 end module ModRamFunctions

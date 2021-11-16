@@ -292,7 +292,6 @@ module ModRamIndices
 
     implicit none
     logical, intent(in) :: verbose
-    real(Real8_) :: test_err
     logical :: failure
     type(TimeType) :: StartTime, EndTime, TestTime
 

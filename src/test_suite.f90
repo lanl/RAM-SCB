@@ -1,6 +1,7 @@
-program run_test_update_indices
-    use ModRamMain,    ONLY: nTestPassed, nTestRun
-    use ModRamIndices, ONLY: test_update_indices
+program run_test_suite
+    use ModRamMain,      ONLY: nTestPassed, nTestRun
+    use ModRamIndices,   ONLY: test_update_indices
+    use ModRamFunctions, ONLY: test_erf, test_Gcoul
     
     implicit none
     character(25) :: arg1
@@ -19,6 +20,8 @@ program run_test_update_indices
 
     ! Tests go here...
     call test_update_indices(verbose)
+    call test_erf(verbose)
+    call test_Gcoul(verbose)
 
     ! And after all the tests print the test status
     write(*,*) nTestPassed, "out of ", nTestRun, " tests passed"
@@ -27,4 +30,4 @@ program run_test_update_indices
       STOP -1
     end if
   
-end program run_test_update_indices
+end program run_test_suite
