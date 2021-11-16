@@ -666,7 +666,7 @@ module ModRamFunctions
     all_pass = .TRUE.
     do ii=0,2
       answer(ii+1) = erff(-1.d0*REAL(ii)/2.d0)
-      call test_neq_abs(answer(ii+1), -1.d0*expect(ii+1), 0.0001, failure)
+      call test_neq_abs(answer(ii+1), -1.d0*expect(ii+1), 1.0d-8, failure)
       if (failure) all_pass = .FALSE.
     end do
     if (verbose) then
@@ -682,7 +682,8 @@ module ModRamFunctions
 
   subroutine test_Gcoul(verbose)
     ! Tests:
-    ! 1. ERFF and dependent functions
+    ! 1. G function for coulomb collisions with zero input
+    ! 2. As above for valid input
     use, intrinsic :: IEEE_arithmetic
     use ModRamMain,      ONLY: Real8_, test_neq_abs, nTestPassed, nTestRun
 
@@ -708,7 +709,7 @@ module ModRamFunctions
     do ii=1,3
       ! Gcoul of [0.5, 1, 1.5]
       answer(ii) = Gcoul(REAL(ii)/2.d0)
-      call test_neq_abs(answer(ii), expect(ii), 0.0001, failure)
+      call test_neq_abs(answer(ii), expect(ii), 1.0d-8, failure)
       if (failure) all_pass = .FALSE.
     end do
     if (verbose) then

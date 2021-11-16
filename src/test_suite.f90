@@ -14,7 +14,7 @@ program run_test_suite
     end if
     
     ! check for -v, -verbose, etc. as command line argument
-    verbose = .FALSE.
+    verbose = .FALSE.  ! default is not verbose
     call get_command_argument(1, arg1)   ! read variable
     if ((index(arg1, '-v') == 1) .or. (index(arg1, '-V') == 1)) verbose = .TRUE.
 
@@ -27,7 +27,7 @@ program run_test_suite
     write(*,*) nTestPassed, "out of ", nTestRun, " tests passed"
 
     if (nTestPassed .NE. nTestRun) then
-      STOP -1
+      STOP -1  ! if any tests fail, return a negative code so CI will report an error
     end if
   
 end program run_test_suite
