@@ -5,6 +5,7 @@ include ../Makefile.conf
 include Makefile.DEPEND
 
 OBJECTS = \
+	planeweim.o       \
 	gaussian_filter.o \
         Geopack-2008_dp.o \
         T89.o             \
