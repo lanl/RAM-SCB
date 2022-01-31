@@ -10,7 +10,7 @@ MODULE ModRamPlasmasphere
   subroutine plasmasphere(dt)
      use ModRamParams,    ONLY: PlasmasphereModel
      use ModRamTiming,    ONLY: TimeRamNow
-     use ModRamVariables, ONLY: Kp, Kpmax24, uL, uT
+     use ModRamVariables, ONLY: Kp, Kpmax24, uL, uT, VT, NECR
      use ModRamGrids, ONLY: nR, nT
 
      real(DP), intent(in) :: dt
@@ -18,6 +18,10 @@ MODULE ModRamPlasmasphere
      integer  :: i, j, nmonth, iapda, isdate
      real(DP) :: f107_1au, f107_pd, f107_81, f107_365, RZ(3), IG(3), rsn, IAPO(7), &
                  dtL, dtT, dtmin, dts
+     integer :: ni, nj
+     character(len=100) :: HEADER
+     real, save :: n(35,0:48)
+     logical, save :: first=.true.
 
      ! Need total number of days from TimeRamNow
      DAY = TimeRamNow%iMonth*30 + TimeRamNow%iDay
@@ -60,6 +64,32 @@ MODULE ModRamPlasmasphere
               if (dts >= dt) exit
            enddo
 
+        case('Vania')
+            ! Only works if NR=20, NT=49
+            ! To make it work more extensively we need to do the following
+            ! 1. Replace the include statements in the planeweim.f code with reading in 
+            !    of the dimensions through the function
+            ! 2. Replace the newtau.dat read-in in planeweim.f with an updated tau call,
+            !    either one of the ones we have below, or one that interpolates from the
+            !    current grid onto a customizable one
+            ! 3. Replace the do loops below with a gsl 2D interpolation (we do these
+            !    interpolations already, so it will be easy, we just need to create the
+            !    array of positions that the plasmasphere is defined on)
+            if (first) then
+               open(unit=9, file='ne_full.dat', status='old')
+               read(9, '(A100)') HEADER
+               read(9,*) ((n(ni,nj), ni=1,35), nj=0,48)
+               close(9)
+               first = .false.
+            endif
+            call plane(TimeRamNow%iYear, DAY, HOUR*3600, Kp, IAPO, 0.0, dt, n, VT/1e3, nT)
+            do i = 1, nR
+               ni = i+1
+               do j = 1, nT
+                  nj = j-1
+                  NECR(i,j) = n(ni,nj)
+               enddo
+            enddo
         case default
            call CON_STOP('Unrecognized plasmasphere model - '//trim(PlasmasphereModel))
 
@@ -161,7 +191,7 @@ MODULE ModRamPlasmasphere
            elseif (necr(i,j) > spp) then
              ! For now we will have a fixed loss rate of 1.5 days
              loss = (spp - necr(i,j))/(1.5*24.0*3600.0)
-             necr(i,j) = necr(i,j) - loss*dt
+             necr(i,j) = necr(i,j) + loss*dt
            endif
         enddo
      enddo
@@ -425,6 +455,7 @@ MODULE ModRamPlasmasphere
                     tau(i,j) = saturation(Lz(i))*flux_volume(i,j)*RE_cm/flux
                  end do
               end do
+
 
            case default
               call CON_STOP('Unrecognized filling parameter method - '//trim(TauCalculation))
