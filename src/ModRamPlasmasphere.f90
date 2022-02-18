@@ -100,7 +100,7 @@ MODULE ModRamPlasmasphere
 !==================================================================================================
   subroutine transport(dt)
      use ModRamGrids, ONLY: nR, nT
-     use ModRamVariables, ONLY: uL, uT, necr, tau, Lz
+     use ModRamVariables, ONLY: uL, uT, necr, tau, Lz, BNES
      real(DP), intent(in) :: dt
 
      integer  :: i, j, N, sgn, nX
@@ -110,6 +110,9 @@ MODULE ModRamPlasmasphere
 
      nX = max(nR,nT)
      allocate(CFL(0:nX), xBND(0:nX), xNE(0:nX+2))
+     CFL = 0._dp
+     xBND = 0._dp
+     xNE = 0._dp
 
      !select case(TransportModel)
      !  case('superbee')
@@ -131,13 +134,9 @@ MODULE ModRamPlasmasphere
           else
              N = i + 1 - sgn
              R = (xNE(N) - xNE(N-1))/X
-             if (R < 0._dp) then
-                xBND(i) = FUP
-             else
-                LIMITER = max(min(2._dp*R,1._dp),min(R,2._dp))
-                CORR = 0.5*(CFL(i) - sgn)*X
-                xBND(i) = FUP - LIMITER*CORR
-             endif
+             LIMITER = max(0._dp,min(2._dp*R,1._dp),min(R,2._dp))
+             CORR = 0.5*(CFL(i) - sgn)*X
+             xBND(i) = FUP - LIMITER*CORR
           endif
        enddo
        xBND(0) = xBND(1)
@@ -165,13 +164,9 @@ MODULE ModRamPlasmasphere
            else
               N = j + 1 - sgn
               R = (xNE(N) - xNE(N-1))/X
-              if (R < 0._dp) then
-                 xBND(j) = FUP
-              else
-                 LIMITER = max(min(2._dp*R,1._dp),min(R,2._dp))
-                 CORR = 0.5*(CFL(j) - sgn)*X
-                 xBND(j) = FUP - LIMITER*CORR
-              endif
+              LIMITER = max(0._dp,min(2._dp*R,1._dp),min(R,2._dp))
+              CORR = 0.5*(CFL(j) - sgn)*X
+              xBND(j) = FUP - LIMITER*CORR
            endif
         enddo
         xBND(0) = xBND(nT-1)
@@ -185,14 +180,18 @@ MODULE ModRamPlasmasphere
      do i = 1, nR
         spp = saturation(Lz(i))
         do j = 1, nT
-           if (necr(i,j) < spp) then
-              source = (spp - necr(i,j))/tau(i,j)
-              necr(i,j) = necr(i,j) + source*dt
-           elseif (necr(i,j) > spp) then
-             ! For now we will have a fixed loss rate of 1.5 days
-             loss = (spp - necr(i,j))/(1.5*24.0*3600.0)
-             necr(i,j) = necr(i,j) + loss*dt
-           endif
+           !if (necr(i,j) < spp) then
+           !   source = (spp - necr(i,j))/tau(i,j)
+           !   necr(i,j) = necr(i,j) + source*dt
+           !elseif (necr(i,j) > spp) then
+           !  ! For now we will have a fixed loss rate of 1.5 days
+           !  loss = (spp - necr(i,j))/(1.5*24.0*3600.0)
+           !  necr(i,j) = necr(i,j) + loss*dt
+           !endif
+           ! Try Vania's version where loss rate = source rate
+           source = (spp - necr(i,j))/tau(i,j) ! So this can be positive or negative
+           necr(i,j) = necr(i,j) + source*dt ! So this can go up or go down
+           if (necr(i,j) < 1e-15) necr(i,j) = 1E-15
         enddo
      enddo
 
@@ -612,10 +611,10 @@ MODULE ModRamPlasmasphere
         uL(:,1) = uL(:,nT)
 
         do j = 1, NT
-           ut(j,1) = (VT(2,j)-VT(1,j))/Lz(1)/BNES(1,j)/MDR/RE*facT
+           ut(j,1) = (VT(2,j)-VT(1,j))/Lz(1)/BNES(1,j)/DPHI/RE*facT
            !ut(j,1) = 2._dp*facV*(VT(2,j) - VT(1,j))/BNES(1,j)/RLz(i)
            do i = 2, NR
-             ut(j,i) = (VT(i+1,j)-VT(i-1,j))/2/Lz(i)/BNES(i,j)/MDR/RE*facT
+             ut(j,i) = (VT(i+1,j)-VT(i-1,j))/2/Lz(i)/BNES(i,j)/DPHI/RE*facT
              !ut(j,i) = facV*(VT(i+1,j) - VT(i-1,j))/BNES(i,j)/RLz(i)
            end do
         end do

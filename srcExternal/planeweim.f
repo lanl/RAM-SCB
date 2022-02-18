@@ -556,7 +556,6 @@ cv		ut(j,i) = vp*sin(phi)		         ! d(mlt)/dt
              ut(j,NL+1) = (CWE(NL+1,j)-CWE(NL,j))/L(NL)/B/DL1/RE*facT
              if (corotation) ut(j,NL+1) = ut(j,NL+1) + 1.
 	end do
-
 	return
       end
 C
