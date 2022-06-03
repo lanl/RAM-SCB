@@ -131,12 +131,12 @@ tests: DEPEND
 	@make ${TEST}
 
 combine:
-	echo 'create libAll.a\n' > mergelibs.mri
-	echo 'addlib ${MY_LIB}\n' >> mergelibs.mri
-	echo 'addlib ${LIBSHARE}\n' >> mergelibs.mri
-	echo 'addlib ${LIBEXT}\n' >> mergelibs.mri
-	echo 'save\n' >> mergelibs.mri
-	echo 'end\n' >> mergelibs.mri
+	echo 'create libAll.a' > mergelibs.mri
+	echo 'addlib ${MY_LIB}' >> mergelibs.mri
+	echo 'addlib ${LIBSHARE}' >> mergelibs.mri
+	echo 'addlib ${LIBEXT}' >> mergelibs.mri
+	echo 'save' >> mergelibs.mri
+	echo 'end' >> mergelibs.mri
 	ar -M < mergelibs.mri
 
 # Libraries should be compiled first, because modules are used in main
