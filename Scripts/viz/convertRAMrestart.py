@@ -140,7 +140,7 @@ def gen_vtx(fileName, pressure=True, field=True, verbose=False):
         for partname in ['Lines', 'Strips', 'Polys']:
             dac = lxml.etree.Element('DataArray', type='Int64', Name='connectivity', RangeMax='{}'.format(npts), RangeMin='0')
             dao = lxml.etree.Element('DataArray', type='Int64', Name='offsets', RangeMin='{}'.format(0), RangeMax='{}'.format(npts))
-            if partname is 'Polys':
+            if partname == 'Polys':
                 #write the polygons that connect the points together, defining the grid
                 polyconn = getPolyVertOrder(npts, nT, nR)
                 nconn = len(polyconn)

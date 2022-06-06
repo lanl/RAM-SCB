@@ -115,7 +115,7 @@ def xmlPolyGen(xyz, dim1, dim2):
     for partname in ['Lines', 'Strips', 'Polys']:
         dac = lxml.etree.Element('DataArray', type='Int64', Name='connectivity', RangeMax='{}'.format(npts), RangeMin='0')
         dao = lxml.etree.Element('DataArray', type='Int64', Name='offsets', RangeMin='{}'.format(0), RangeMax='{}'.format(npts))
-        if partname is 'Polys':
+        if partname == 'Polys':
             #write the polygons that connect the points together, defining the grid
             polyconn = getPolyVertOrder(len(xyz), dim1, dim2)
             nconn = len(polyconn)
