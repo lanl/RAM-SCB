@@ -21,6 +21,7 @@ help:
 	@echo '    HTML         (Make HTML version of the documentation)'
 	@echo '    test         (run all tests for RAM-SCB)'
 	@echo '    test_help    (show all options for running the tests)'
+	@echo '    unittest     (run unit test suite for RAM-SCB)'
 	@echo '    LIB		(Component library libIM for SWMF)'
 
 PDF:

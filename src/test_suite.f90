@@ -1,7 +1,7 @@
 program run_test_suite
     use ModRamMain,      ONLY: nTestPassed, nTestRun
     use ModRamIndices,   ONLY: test_update_indices
-    use ModRamFunctions, ONLY: test_erf, test_Gcoul
+    use ModRamFunctions, ONLY: test_Gcoul, test_NewtFit
     
     implicit none
     character(25) :: arg1
@@ -20,8 +20,8 @@ program run_test_suite
 
     ! Tests go here...
     call test_update_indices(verbose)
-    call test_erf(verbose)
     call test_Gcoul(verbose)
+    call test_NewtFit(verbose)
 
     ! And after all the tests print the test status
     write(*,*) nTestPassed, "out of ", nTestRun, " tests passed"

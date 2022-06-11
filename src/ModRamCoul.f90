@@ -23,7 +23,7 @@ MODULE ModRamCoul
     use ModRamVariables, ONLY: RMAS, species, VBND, V, GREL, COULE, COULI, ATA, &
                                GTA, GTAE, GTAI, CEDR, CIDR, MU, WMU, DMU, EKEV, GRBND
     use ModRamSpecies,   ONLY: RAMSpecies, nSpecies
-    use ModRamFunctions, ONLY: FUNT, FUNI, Gcoul, ERFF
+    use ModRamFunctions, ONLY: FUNT, FUNI, Gcoul
 
     implicit none
 
@@ -73,11 +73,11 @@ MODULE ModRamCoul
           XD=V(S,K)/VF
           if (Zb < 0._dp) then  ! Negative charge (electrons)
              CCE = CCE + RA*Gcoul(X)
-             CDE = CDE + RA*(ERFF(XD)-Gcoul(XD))
+             CDE = CDE + RA*(erf(XD)-Gcoul(XD))
              EDRE = EDRE + RA*Gcoul(XD)
           else                  ! Non-negative charge (ions)
              CCI = CCI + RA*Zb**2*Gcoul(X)
-             CDI = CDI + RA*Zb**2*(ERFF(XD)-Gcoul(XD))
+             CDI = CDI + RA*Zb**2*(erf(XD)-Gcoul(XD))
              EDRI = EDRI + RA*Gcoul(XD)
           endif
        enddo

@@ -287,7 +287,7 @@ module ModRamIndices
     ! 2. Interpolation of Kp to specific times by update_indices
     use ModRamMain,      ONLY: make_time, Real8_, test_neq_abs, nTestPassed, nTestRun
     use ModTimeConvert,  ONLY: TimeType
-    use ModRamVariables, ONLY: Kp, NameIndexSource
+    use ModRamVariables, ONLY: F107, Kp, Kpmax24, NameIndexSource
     use ModRamParams,    ONLY: DoUseEMIC, FixedComposition
 
     implicit none
@@ -308,19 +308,27 @@ module ModRamIndices
     call update_indices(TestTime%Time)
     call test_neq_abs(Kp, 1.65, 0.001, failure)
     nTestRun = nTestRun + 1
-    if (.not.failure) then
-      if (verbose) write(*,*) "test_update_indices(1): Kp = ", Kp, " (expected 1.65)"
-      nTestPassed = nTestPassed + 1
-    end if
+    if (verbose) write(*,*) "test_update_indices(1): Interp. Kp. Expected: 1.65; Got: ", Kp
+    if (.not.failure) nTestPassed = nTestPassed + 1
     ! Explicit test of index interpolation (#2)
     call make_time(2013, 3, 17, 4, 30, 0, 0.0, TestTime)
     call update_indices(TestTime%Time)
     call test_neq_abs(Kp, 2.3, 0.001, failure)
     nTestRun = nTestRun + 1
-    if (.not.failure) then
-      if (verbose) write(*,*) "test_update_indices(2): Kp = ", Kp, " (expected 2.3)"
-      nTestPassed = nTestPassed + 1
-    end if
+    if (verbose) write(*,*) "test_update_indices(2): Interp. Kp. Expected: 2.3; Got: ", Kp
+    if (.not.failure) nTestPassed = nTestPassed + 1
+    ! Test max Kp in previous 24 (#3)
+    call make_time(2013, 3, 17, 12, 00, 0, 0.0, TestTime)
+    call update_indices(TestTime%Time)
+    call test_neq_abs(Kpmax24, 6.7, 0.001, failure)
+    nTestRun = nTestRun + 1
+    if (verbose) write(*,*) "test_update_indices(3): Test Kpmax24. Expected: 6.7; Got: ", Kpmax24
+    if (.not.failure) nTestPassed = nTestPassed + 1
+    ! Test of F10.7 retrieval (#4)
+    call test_neq_abs(F107, 123.9, 0.001, failure)
+    nTestRun = nTestRun + 1
+    if (verbose) write(*,*) "test_update_indices(4): Get F10.7 at noon. Expected: 123.9; Got: ", F107
+    if (.not.failure) nTestPassed = nTestPassed + 1
 
   end subroutine test_update_indices
   !===========================================================================
