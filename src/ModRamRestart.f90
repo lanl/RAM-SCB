@@ -19,7 +19,7 @@ module ModRamRestart
     use ModRamGrids,     ONLY: NR, NT, NE, NPA
     use ModRamVariables, ONLY: F2, PParT, PPerT, FNHS, FNIS, BOUNHS, BOUNIS, &
                                BNES, HDNS, EIR, EIP, dBdt, dIdt, dIbndt, VTN, &
-                               VTOL, VT, EIR, EIP, EKEV, PA
+                               VTOL, VT, EIR, EIP, EKEV, PA, NECR, TAU
     use ModScbGrids,     ONLY: nthe, npsi, nzeta
     use ModScbParams,    ONLY: constZ, constTheta
     use ModScbVariables, ONLY: x, y, z, alphaVal, psiVal, chiVal, xpsiout, &
@@ -41,7 +41,8 @@ module ModRamRestart
                iVTNVar, iAValVar, iBValVar, iVTOLVar, &
                iVTVar, iDBDTVar, iDIDTVar, iDIBNVar, iFileID, iStatus, &
                iTOldVar, iCValVar, icTVar, icZVar, ipsiInVar, ipsiOutVar, &
-               ikMaxVar, idAdRVar, idBdPVar, iThetaVar, iRhoVar, iZetaVar
+               ikMaxVar, idAdRVar, idBdPVar, iThetaVar, iRhoVar, iZetaVar, &
+               iNECRVar, itauVar
 
     integer :: nRDim, nTDim, nEDim, nPaDim, nSDim, nThetaDim, nPsiDim, &
                nZetaDim
@@ -295,6 +296,12 @@ module ModRamRestart
     iStatus = nf90_def_var(iFileID, 'xpsiout',    nf90_double, ipsiOutVar)
     iStatus = nf90_def_var(iFileID, 'kmax',       nf90_int,    ikMaxVar)
 
+    !! Plasmasphere Variables
+    iStatus = nf90_def_var(iFileID, 'necr', nf90_double,  &
+                           (/nRDim,nTDim/), iNECRVar)
+    iStatus = nf90_def_var(iFileID, 'tau', nf90_double,  &
+                           (/nRDim,nTDim/), itauVar)
+ 
     ! END DEFINE MODE
     iStatus = nf90_enddef(iFileID)
     call ncdf_check(iStatus, NameSub)
@@ -362,6 +369,10 @@ module ModRamRestart
     iStatus = nf90_put_var(iFileID, ipsiOutVar, xpsiout)
     iStatus = nf90_put_var(iFileID, ikmaxVar, kmax)
 
+    !! Plasmasphere
+    iStatus = nf90_put_var(iFileID, iNECRVar, NECR)
+    iStatus = nf90_put_var(iFileID, itauVar, tau)
+
     ! END WRITE MODE
     call ncdf_check(iStatus, NameSub)
     
@@ -381,7 +392,8 @@ module ModRamRestart
     use ModRamVariables, ONLY: F2, PParT, PPerT, FNHS, FNIS, BOUNHS, BOUNIS, &
                                BNES, HDNS, EIR, EIP, dBdt, dIdt, dIbndt, VTN, &
                                VTOL, VT, EIR, EIP, PParH, PPerH, PParO, PAbn, &
-                               PPerO, PParHe, PPerHe, PParE, PPerE, LZ, MU
+                               PPerO, PParHe, PPerHe, PParE, PPerE, LZ, MU, &
+                               NECR, tau
     use ModScbGrids,     ONLY: npsi, nzeta
     use ModScbParams,    ONLY: constTheta, constZ
     use ModScbVariables, ONLY: x, y, z, alphaVal, psiVal, chiVal, xpsiout, &
@@ -404,7 +416,8 @@ module ModRamRestart
                iVTNVar, iAValVar, iBValVar, iVTOLVar, &
                iVTVar, iDBDTVar, iDIDTVar, iDIBNVar, iFileID, iStatus, &
                iTOldVar, iCValVar, icTVar, icZVar, ipsiInVar, ipsiOutVar, &
-               ikMaxVar, idAdRVar, idBdPVar, iThetaVar, iRhoVar, iZetaVar
+               ikMaxVar, idAdRVar, idBdPVar, iThetaVar, iRhoVar, iZetaVar, &
+               iNECRVar, itauVar
 
     character(len=*), parameter :: NameSub='read_restart'
     logical :: DoTest, DoTestMe
@@ -476,6 +489,10 @@ module ModRamRestart
     iStatus = nf90_inq_varid(iFileID, 'xpsiin',     ipsiInVar)
     iStatus = nf90_inq_varid(iFileID, 'xpsiout',    ipsiOutVar)
     iStatus = nf90_inq_varid(iFileID, 'kmax',       ikmaxVar)
+
+    !! Plasmasphere
+    iStatus = nf90_inq_varid(iFileID, 'necr', iNECRVar)
+    iStatus = nf90_inq_varid(iFileID, 'tau', itauVar)
 
     ! READ DATA
     !! FLUXES
@@ -562,12 +579,16 @@ module ModRamRestart
 
     !! MISC
     iStatus = nf90_get_var(iFileID, iDtVar, DTsNext)
-    iStatus = nf90_get_Var(iFileID, iTOldVar, TOld)
-    iStatus = nf90_get_Var(iFileID, icTVar, constTheta)
-    iStatus = nf90_get_Var(iFileID, icZVar, constZ)
-    iStatus = nf90_get_Var(iFileID, ipsiInVar, xpsiin)
-    iStatus = nf90_get_Var(iFileID, ipsiOutVar, xpsiout)
-    iStatus = nf90_get_Var(iFileID, ikMaxVar, kMax)
+    iStatus = nf90_get_var(iFileID, iTOldVar, TOld)
+    iStatus = nf90_get_var(iFileID, icTVar, constTheta)
+    iStatus = nf90_get_var(iFileID, icZVar, constZ)
+    iStatus = nf90_get_var(iFileID, ipsiInVar, xpsiin)
+    iStatus = nf90_get_var(iFileID, ipsiOutVar, xpsiout)
+    iStatus = nf90_get_var(iFileID, ikMaxVar, kMax)
+
+    !! Plasmasphere
+    iStatus = nf90_get_var(iFileID, iNECRVar, NECR)
+    iStatus = nf90_get_var(iFileID, itauVar, tau)
 
     ! CLOSE RESTART FILE
     iStatus = nf90_close(iFileID)

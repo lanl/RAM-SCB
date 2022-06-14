@@ -203,10 +203,10 @@ SUBROUTINE ionospheric_potential
   ! Set latitude/colatitude and longitude grids
   DO k = 2, nzeta
      DO j = 1, npsi
-        radius = SQRT((x(1,j,k))**2 + y(1,j,k)**2)
+        radius = SQRT((x(1,j,k))**2 + y(1,j,k)**2 + z(1,j,k)**2)
         angle = ATAN2(y(1,j,k), x(1,j,k)) ! Angle from noon
         IF (angle < 0.) angle = angle + 2.*pi_d
-        colatGrid(j,k) = 0.5_dp*pi_d - ASIN(-z(1,j,k)/r0Start)
+        colatGrid(j,k) = 0.5_dp*pi_d - ASIN(-z(1,j,k)/radius)
         latGrid(j,k) = 0.5 * pi_d - colatGrid(j,k) ! In radians
         lonGrid(j,k) = angle
      END DO
@@ -375,10 +375,6 @@ SUBROUTINE ionospheric_potential
      call con_stop('Unrecognized electric field parameter')
 
   END SELECT
-
-  ! Add corotation potential - only if RAM takes all E-field info from SCB
-  PhiIono(:,:) = PhiIono(:,:) - 2._dp*pi_d*0.31_dp*6.4**2 * 1.E3_dp &
-                               /(24._dp*36._dp*SQRT(x(nThetaEquator,:,:)**2+y(nThetaEquator,:,:)**2))
 
   ! Azimuthal periodicity
   PhiIono(:,nzetap) = PhiIono(:,2)
