@@ -224,8 +224,8 @@ module ModRamIndices
     ! Interpolate Kp to current time.
     dTime = (timeNow - timeKp(iTime-1))/(timeKp(iTime) - timeKp(iTime-1))
     Kp = dTime*(rawKp(iTime) - rawKp(iTime-1)) + rawKp(iTime-1)
-    Kpmax12 = max(Kp, maxval(rawKp(iTime-1:iTime-4)))
-    Kpmax24 = max(Kpmax12, maxval(rawKp(iTime-5:iTime-8)))
+    Kpmax12 = max(Kp, maxval(rawKp(iTime-4:iTime-1)))
+    Kpmax24 = max(Kpmax12, maxval(rawKp(iTime-8:iTime-5)))
 
     ! F10.7 index is not interpolated; merely use the value at the
     ! current day.
