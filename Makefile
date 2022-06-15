@@ -131,7 +131,8 @@ test:
 	@(make test3)
 	@(make test4)
 
-testTravis:
+testCI:
+	@(make test2)
 	@(make test3)
 
 test_help:
