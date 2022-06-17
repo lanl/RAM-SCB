@@ -69,189 +69,6 @@ module ModRamFunctions
   end subroutine get_ramdst
 
 !=============================================================================
-  function erff(x)
-
-    use ModRamMain, ONLY: Real8_
-
-    implicit none
-
-    integer :: ier = 0
-    real(kind=Real8_)            :: erff
-    real(kind=Real8_), intent(in):: x
-    real(kind=Real8_), parameter :: cHalf = 0.5
-  !-----------------------------------------------------------------------
-    if(x.lt.0.)then
-       ERFF=-GAMMP(cHalf,X**2,ier)
-       if (ier.ne.0) return
-    else
-       ERFF=GAMMP(cHalf,X**2,ier)
-       if (ier.ne.0) return
-    endif
-    return
-  end function erff
-
-!=============================================================================
-  function gammp(A,X,IER)
-    
-    use ModRamMain, ONLY: Real8_
-
-    implicit none
-
-    real(kind=Real8_) :: gammp
-    real(kind=Real8_) :: GLN, GAMMCF
-    integer, intent(inout) :: ier
-    real(kind=Real8_), intent(in)       :: A, X
-  !-----------------------------------------------------------------------
-    IER = 0
-    IF(X.LT.0..OR.A.LE.0.) & !PAUSE -- pause is antiquated.
-         write(*,*)'WARNING! X and/or A arguments to GAMMP < 0!!!'
-    
-  ! use series representation
-    IF(X.LT.A+1.)THEN
-       CALL GSER(GAMMP,A,X,GLN,IER)
-       IER = IER * 20
-       IF (IER.EQ.20) return
-       
-  ! continued fraction representation
-    ELSE
-       CALL GCF(GAMMCF,A,X,GLN,IER)
-       GAMMP=1.-GAMMCF
-       IER = 10 * IER
-       IF (IER.EQ.10) RETURN
-    ENDIF
-
-    RETURN
-  end function gammp
-
-!=============================================================================
-  subroutine GSER(GAMSER,A,X,GLN,IER)
-
-    use ModRamMain, ONLY: Real8_
-
-    implicit none
-    real(kind=Real8_), intent(in) :: A, X
-    real(kind=Real8_), intent(out) :: GAMSER
-    integer, intent(inout) :: ier
-    integer :: N, ITMAX
-    real(kind=Real8_) :: EPS, AP, SUM, DEL, GLN
-
-      ITMAX = 100            !...max iterations
-      EPS = 3.E-7            !...small number
-      IER = 0
-      GLN=GAMMLN(A,IER)
-      IF(X.LE.0.)THEN
-         IF(X.LT.0.) &      ! PAUSE is obsolete; VJ 2011
-         write(*,*)'WARNING! X should not be negative in GSER!'
-        GAMSER=0.
-        RETURN
-      ENDIF
-      AP=A
-      SUM=1./A
-      DEL=SUM
-      DO 11 N=1,ITMAX
-        AP=AP+1.
-        DEL=DEL*X/AP
-        SUM=SUM+DEL
-        IF(ABS(DEL).LT.ABS(SUM)*EPS)GO TO 1
-11    CONTINUE
-
-!    too many iterations
-      IER = 1
-      RETURN
-1     GAMSER=SUM*EXP(-X+A*LOG(X)-GLN)
-      RETURN
-      
-  end subroutine GSER
-
-!=============================================================================
- subroutine GCF(GAMMCF,A,X,GLN,IER)
-
-    use ModRamMain, ONLY: Real8_
-
-    implicit none
-    real(kind=Real8_), intent(in) :: A, X
-    real(kind=Real8_), intent(out) :: GAMMCF
-    integer, intent(inout) :: ier
-    integer :: N, ITMAX
-    real(kind=Real8_) :: EPS, GOLD, A0, A1, B0, B1, FAC, AN, ANA, ANF, G, GLN
-
-      ITMAX = 100            !...max iterations
-      EPS = 3.E-7            !...small number
-      IER = 0
-      GLN=GAMMLN(A,IER)
-
-!    previous value to check for convergence
-      GOLD=0.
-!    setting up to evaluate continuous fraction
-      A0=1.
-      A1=X
-      B0=0.
-      B1=1.
-
-!    renormalized factor preventing overflow
-      FAC=1.
-      DO 11 N=1,ITMAX
-        AN=FLOAT(N)
-        ANA=AN-A
-
-!    one step of the recurrence
-        A0=(A1+A0*ANA)*FAC
-        B0=(B1+B0*ANA)*FAC
-
-!    next step
-        ANF=AN*FAC
-        A1=X*A0+ANF*A1
-        B1=X*B0+ANF*B1
-
-!    time to renormalize ?
-        IF(A1.NE.0.)THEN
-          FAC=1./A1
-          G=B1*FAC
-!    converged ?
-          IF(ABS((G-GOLD)/G).LT.EPS)GO TO 1
-          GOLD=G
-        ENDIF
-11    CONTINUE
-
-!    error
-      IER = 1
-      RETURN
-1     GAMMCF=EXP(-X+A*LOG(X)-GLN)*G
-      RETURN
-      
-  end subroutine GCF
-
-!=============================================================================
-  function GAMMLN(XX,IER)
-
-    use ModRamMain, ONLY: Real8_
-
-    implicit none
-    integer, intent(inout) :: IER
-    integer :: J
-    real(kind=Real8_), intent(in) :: XX
-    real(kind=Real8_) ::  COF(6), STP, HALF, ONE, FPF, X, TMP, SER, GAMMLN
-
-      DATA COF/76.18009173D0,-86.50532033D0,24.01409822D0, &
-         -1.231739516D0,.120858003D-2,-.536382D-5/
-      DATA STP/2.50662827465D0/
-      DATA HALF,ONE,FPF/0.5D0,1.0D0,5.5D0/
-
-      IER = 0
-      X=XX-ONE
-      TMP=X+FPF
-      TMP=(X+HALF)*LOG(TMP)-TMP
-      SER=ONE
-      DO 11 J=1,6
-        X=X+ONE
-        SER=SER+COF(J)/X
-11    CONTINUE
-      GAMMLN=TMP+LOG(STP*SER)
-
-      RETURN
-   end function GAMMLN
-
-!=============================================================================
   function Gcoul(x)
     
     use ModRamMain, ONLY: Real8_
@@ -264,7 +81,7 @@ module ModRamFunctions
   !-----------------------------------------------------------------------
     ! G1 is erf(x) - x erf'(x)
     ! The derivative of erf(x) is (2/sqrt(pi))*exp(-x^2)
-    G1=ERFF(X)-2.*X/sqrt(PI)*exp(-X*X)
+    G1=erf(X)-2.*X/sqrt(PI)*exp(-X*X)
     Gcoul=G1/2./X/X
     return
   end function Gcoul
@@ -649,36 +466,6 @@ module ModRamFunctions
   END FUNCTION WeightFit
   
 !=============================================================================
-  subroutine test_erf(verbose)
-    ! Tests:
-    ! 1. ERFF and dependent functions
-    use ModRamMain,      ONLY: Real8_, test_neq_abs, nTestPassed, nTestRun
-
-    implicit none
-    logical, intent(in) :: verbose
-    integer :: ii
-    real(Real8_) :: test_err
-    real(Real8_), dimension(3) :: expect = (/0.0,0.520499876d0,0.842700790038d0/)
-    real(Real8_), dimension(3) :: answer
-    logical :: failure, all_pass
-
-    ! First test goes here
-    all_pass = .TRUE.
-    do ii=0,2
-      answer(ii+1) = erff(-1.d0*REAL(ii)/2.d0)
-      call test_neq_abs(answer(ii+1), -1.d0*expect(ii+1), 1.0d-8, failure)
-      if (failure) all_pass = .FALSE.
-    end do
-    if (verbose) then
-      write(*,"(A23,3F12.8))") "test_erf: got = ", answer
-      write(*,"(A23,3F12.8))") "     expected = ", expect
-    end if
-    nTestRun = nTestRun + 1
-    if (all_pass) then
-      nTestPassed = nTestPassed + 1
-    end if
-
-  end subroutine test_erf
 
   subroutine test_Gcoul(verbose)
     ! Tests:
@@ -722,5 +509,51 @@ module ModRamFunctions
     end if
 
   end subroutine test_Gcoul
+
+  subroutine test_NewtFit(verbose)
+    ! Tests:
+    ! 1. Newton Fit returns expected value on uniform surface
+    ! 2. Returns nearest neighbor when point outside neighbors
+    use ModRamMain,      ONLY: Real8_, test_neq_abs, nTestPassed, nTestRun
+
+    implicit none
+    logical, intent(in) :: verbose
+    real(Real8_) :: test_err, test_val
+    real(Real8_), dimension(4) :: x = (/0, 1, 2, 3/)
+    real(Real8_), dimension(4) :: y = (/0, 0, 0, 0/)
+    real(Real8_), dimension(4) :: z = (/0, 0, 0, 0/)
+    real(Real8_), dimension(4) :: val = (/1, 1, 1, 1/)
+    real(Real8_), dimension(4) :: val2= (/2, 3, 1, 0/)
+    real(Real8_), dimension(3) :: rcon = (/0.5d0, 0.5d0, 0.0d0/)
+    real(Real8_), dimension(3) :: rint = (/1.d0, 0.0d0, 0.0d0/)
+    real(Real8_), dimension(3) :: rout = (/-1.0d0, -1.0d0, 0.0d0/)
+    logical :: failure
+
+    test_val = NewtFit(x, y, z, val, rcon)
+    nTestRun = nTestRun + 1
+    if (verbose) write(*,*) "test_NewtFit (1): Evaluate constant. Expected: 1.0; Actual: ", test_val
+    call test_neq_abs(test_val, 1.d0, 1.0d-8, failure)
+    if (.not.failure) then
+      nTestPassed = nTestPassed + 1
+    end if
+
+    test_val = NewtFit(x, y, z, val2, rint)
+    nTestRun = nTestRun + 1
+    if (verbose) write(*,*) "test_NewtFit (2): Evaluate 1D interpolation at known point. Expected: 3.0; Actual: ", test_val
+    call test_neq_abs(test_val, 3.d0, 1.0d-8, failure)
+    if (.not.failure) then
+      nTestPassed = nTestPassed + 1
+    end if
+
+    ! if outside range, return nearest - NOTE points are in distance order
+    test_val = NewtFit(x, y, z, val2, rout)
+    nTestRun = nTestRun + 1
+    if (verbose) write(*,*) "test_NewtFit (3): Evaluate outside NNs. Expected: 2.0; Got: ", test_val
+    call test_neq_abs(test_val, 2.d0, 1.0d-8, failure)
+    if (.not.failure) then
+      nTestPassed = nTestPassed + 1
+    end if
+
+  end subroutine test_NewtFit
 
 end module ModRamFunctions

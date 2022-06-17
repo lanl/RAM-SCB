@@ -30,7 +30,7 @@ jobs:
         export PERL5LIB=$PERL5LIB:`pwd`
         ./Config.pl -install -compiler=gfortran -mpi=openmpi -openmp -ncdf -gsl -O3
         make
-        make testTravis
+        make testCI
     - name: unit_tests
       run: |
         make unittest
