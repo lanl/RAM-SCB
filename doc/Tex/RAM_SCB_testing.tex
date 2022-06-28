@@ -2,7 +2,7 @@ RAM-SCB comes packaged with a test suite to determine if the current installatio
 
 \section{Using and Interpreting Test Results}
 
-Tests are called through GNU \verb*lmakel. To run all available tests, simply use the command
+Tests are called through GNU \verb*lmakel. To run all available regression and functional tests, simply use the command
 \begin{verbatim}
 make test
 \end{verbatim}
@@ -12,7 +12,7 @@ make test1
 \end{verbatim}
 
 \noindent
-A test performs the following actions:
+A test simulation performs the following actions:
 \begin{enumerate}
 \item{Compile the code with any options required by the particular test.}
 \item{Create a run directory entitled \verb*lrun_testl.  If one exists, it will be deleted, so use caution when using this name for any other purpose besides automated testing.}
@@ -25,7 +25,7 @@ Each of these steps can be called individually by using {\tt make} \textit{namet
 
 If, at any point, the test fails, the details will be recorded in \textit{nametest}.diff in the installation directory. If the test is successful, this file will be created but be empty. Tests that fail at the comparitive stage will list all of the differences. When this happens, additional tools to examine the file differences are recommended. An excellent visualization of file differences can be rendered with \verb*lgvimdiffl, an open source tool that is already installed on many Linux machines.
 
-\section{Description of Available Tests}
+\section{Description of Available Regression Tests}
 
 \subsection{Test 1}
 
@@ -43,7 +43,7 @@ Test 2 repeats the previous test, but stops half way through the simulation, wri
 
 \textbf{Command:} \verb*lmakel \verb*ltest3l
 
-Test 3 activates SCB, uses the more complicated Tsyganenko 89 boundary conditions and Weimer 2000 empirical electric field. This is the base test for SCB functionality and ionosphere-to-equator electric potential mapping.
+Test 3 activates SCB, using a dipole outer boundary condition and the Weimer 2000 empirical electric field. This is the base test for SCB functionality and ionosphere-to-equator electric potential mapping.
 
 \subsection{Test 4}
 
