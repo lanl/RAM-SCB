@@ -1,45 +1,55 @@
 RAM-SCB comes packaged with many helpful scripts that aid the user.  These scripts are written either in Perl or Python with the standard libraries only. This allows them to be run on many systems without needing to install additional software as both languages are ubiquitous in Unix-like environments. The subdirectory {\tt Scripts} contains several helpful scripts that are unique to RAM-SCB while the subdirectory {\tt Share/Scripts} contains scripts designed for SWMF-like applications but often useful for RAM-SCB as well.
+\\
+For visualization scripts, please see Chapter \ref{chp:viz}.
 
-TODO:
-
-Identify which scripts we actually want to highlight (e.g. updateRAMindices)
-Visualization scripts can be talked about in viz section, but need to make sure that scripts are in the right place
-Identify any scripts which we should include but are currently not including (e.g. GetOmni)
-Identify any scripts that should be written and included for ease of use
+% TODO:
+% 
+% Identify which scripts we actually want to highlight (e.g. updateRAMindices)
+% Visualization scripts can be talked about in viz section, but need to make sure that scripts are in the right place
+% Identify any scripts which we should include but are currently not including (e.g. GetOmni)
+% Identify any scripts that should be written and included for ease of use
 %All scripts are designed to be called from the command line and have a common help feature:
 %\begin{verbatim}
 %ScriptName -h
 %\end{verbatim}
 %\noindent will print out the script's help text.  This info is typically more complete and up-to-date than the info listed here.
 
-%While all RAM-SCB scripts are listed here, only a handful of SWMF scripts are described. Be sure to explore the {\tt Share/Scripts} directory before you constructing your own solutions to common problems (e.g. endian conversions, PARAM-checking, etc.) 
+While all RAM-SCB scripts are listed here, only a handful of SWMF scripts are described. Be sure to explore the {\tt Share/Scripts} directory before you constructing your own solutions to common problems (e.g. endian conversions, PARAM-checking, etc.) 
 
-%\section{Config.pl (SWMF Script)}
-%{\tt Config.pl} is part of the SWMF \textit{Config} system for installing and pre-configuring RAM-SCB in both stand-alone and component modes. Use of {\tt Config.pl} is covered extensively in Chapter \ref{subchap:install}.
+\section{Config.pl (SWMF Script)}
+{\tt Config.pl} is part of the SWMF \textit{Config} system for installing and pre-configuring RAM-SCB in both stand-alone and component modes. Use of {\tt Config.pl} is covered extensively in Chapter \ref{subchap:install}.
 
-%\section{DiffNum.pl (SWMF Script)}
-%{\tt DiffNum.pl} is a powerful, quantitative re-write of the popular {\tt diff} utility.  It compares two files, finds and quantifies differences in any numerical entries, and, if any are found, lists the differences and raises an exception.  The main purpose of {\tt DiffNum.pl} is to find and %quantify failures in RAM-SCB tests.
+\section{DiffNum.pl (SWMF Script)}
+{\tt DiffNum.pl} is a powerful, quantitative re-write of the popular {\tt diff} utility.  It compares two files, finds and quantifies differences in any numerical entries, and, if any are found, lists the differences and raises an exception.  The main purpose of {\tt DiffNum.pl} is to find and %quantify failures in RAM-SCB tests.
 
-%Usage:
-%\begin{verbatim}
-%DiffNum.pl [options] File1 File2
-%\end{verbatim}
+Usage:
+\begin{verbatim}
+DiffNum.pl [options] File1 File2
+\end{verbatim}
 
-%Common options include {\tt -a=VALUE} and {\tt -r=VALUE}, which allow the user to ignore absolute and relative differences less than {\tt VALUE} and {\tt -t} which turns off the comparison of text.
+Common options include {\tt -a=VALUE} and {\tt -r=VALUE}, which allow the user to ignore absolute and relative differences less than {\tt VALUE} and {\tt -t} which turns off the comparison of text.
 
 
 %\section{GetOmni.py (RAM-SCB Script) \label{subchap:getomni}}
 %Script forthcoming.
 % QUESTION: We sort of have this now, should we make a section for it?
 
-%\section{CatLog.py (RAM-SCB Script)}
-%A common problem in both RAM-SCB and many SWMF modules is many fractured, separate log files from a single simulation that required several restarts. Often, these log files overlap in time because a simulation did not complete and restarting results in re-simulating a small portion of the run. %Manually concatenating these log files together into a single seamless, monotonic file can be time consuming.
+\section{CatLog.py (RAM-SCB Script)}
+A common problem in both RAM-SCB and many SWMF modules is many fractured, separate log files from a single simulation that required several restarts. Often, these log files overlap in time because a simulation did not complete and restarting results in re-simulating a small portion of the run. Manually concatenating these log files together into a single seamless, monotonic file can be time consuming.
 
-%{\tt CatLog.py} concatenates many log files into a single file.  It assumes that the first column of the log file is either run iteration or run time and uses this info to check for and remove overlapping entries.
+Usage:
+\begin{verbatim}
+CatLog.py [options] log1 log2 [log3] [log4]...[logN]
+\end{verbatim}
 
-%Usage:
-%\begin{verbatim}
-%CatLog.py [options] log1 log2 [log3] [log4]...[logN]
-%\end{verbatim}
+Files 2 through N will be appended to the first file. Unix wild-card characters can be used to get file-globbing effects.  If the headers of any of the trailing log files does not match the leading file, it is discarded. If the leading file includes a wild-card character, the files are arranged and appended in alpha-numeric order. Available options include {\tt -debug} (print debug information), {\tt -rm} (remove all but first log file), and {\tt -nocheck} (deactivate checking for overlapping entries.) See {\tt CatLog.py -h} for examples.
 
-%Files 2 through N will be appended to the first file. Unix wild-card characters can be used to get file-globbing effects.  If the headers of any of the trailing log files does not match the leading file, it is discarded. If the leading file includes a wild-card character, the files are arranged and appended in alpha-numeric order. Available options include {\tt -debug} (print debug information), {\tt -rm} (remove all but first log file), and {\tt -nocheck} (deactivate checking for overlapping entries.) See {\tt CatLog.py -h} for examples.
+\section{Updating Input Files}
+\subsection{updateRamIndices.py}
+This script retrieves definitive F10.7 flux data and Kp data and appends to the main RamIndices input file used by RAM-SCB.
+
+\subsection{provisionalIndices.py}
+This script will update the RamIndices file \textit{in a run directory} with provisional and predicted indices. This facilitates running RAM-SCB in a nowcasting or forecasting mode.
+
+\subsection{rtUpdateParam.py}
+This script will update a {\tt PARAM.in} file to enable a restart. The intended purpose was for realtime operations, but is more broadly useful. It provides an automated way of, if necessary, replacing the {\tt STARTTIME} block with a {\tt RESTART} directive, and then further updating the stop time for the simulation.
