@@ -56,3 +56,12 @@ Test 4 repeats the previous test, but stops half way through the simulation, wri
 \textbf{Command:} \verb*lmakel \verb*ltestEMICl
 
 This test is a repeat of Test 1 with FLC and EMIC scattering turned on
+
+\section{Unit Testing}
+
+In addition to the regression and functional testing, which is performed using short simulations that exercise a range of functionality to reproduce known results, RAM-SCB also includes a unit test suite.
+
+The unit test suite is called using GNU \verb*lmakel. To run, use
+\begin{verbatim}
+make unittest
+\end{verbatim}
