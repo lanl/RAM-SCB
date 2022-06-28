@@ -28,7 +28,7 @@ Researchers who use the RAM-SCB code for scientific research are asked to cite t
 For full installation details, please see the documentation folder.
 
 To install on Linux (or similar), three main steps are required:
-1. Install preqreuisites
+1. Install prerequisites
   - Fortran/C/C++ compilers are required, we recommend `gfortran`/`gcc`/`g++`
   - GSL is required
   - NetCDF-Fortran is required

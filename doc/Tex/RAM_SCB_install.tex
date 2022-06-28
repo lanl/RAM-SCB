@@ -23,29 +23,28 @@ As an example, here is what you would type on LANL's Grizzly HPC cluster to get 
 
 \begin{verbatim}
 module purge
-...
+
+module load gcc/10.3.0
+module load hdf5-serial/1.10.7 netcdf-serial/4.4.0 openmpi/4.1.1
 \end{verbatim}
 
-The first command purges all currently loaded modules to make sure there is no interference from previously loaded modules. GFortran, MPI, NetCDF and GSL are now loaded and ready to use. Place such commands your shell configuration script ({\tt \verb*l~l/.cshrc} or {\tt \verb*l~l/.bashrc} depending on your shell) to load modules upon login. Note that if you are running using a job scheduler (e.g. slurm, moab, etc...), placing the module commands in your shell configuration script may not be adequate and you they may need to be loaded in your job script.
+The first command purges all currently loaded modules to make sure there is no interference from previously loaded modules. The next command loads gcc/gfortran and GSL. Finally we load the modules for HDF5 and NetCDF4 (NetCDF4 depends on HDF5), and MPI. The Perl installation on this system includes core CPAN libraries, including the \textit{Version} package required by RAM-SCB's configuration script. All dependencies are now loaded and ready to use.
+\\
+It is often helpful to place commands to configure the environment in your shell configuration script (e.g., {\tt \verb*l~l/.bashrc} or {\tt \verb*l~l/.cshrc} depending on your shell) to load modules upon login. Note that if you are running using a job scheduler (e.g. slurm, moab, etc...), placing the module commands in your shell configuration script may not be adequate and they may need to be loaded in your job script.
+\\
+\subsubsection{Common issues}
+Most installations of NetCDF4 and GSL should come with command line utilities to help determine library locations and flags. Specifying {\tt -gsl} and {\tt -ncdf} flags when running {\tt Config.pl}should auto-detect the install locations. If the command line utilities were not built, the paths must be provided, e.g. {\tt -gsl=[...]}.\\
+\\
+On some systems the user may find that running {\tt Config.pl} shows the warning ``Can't locate share/Scripts/Config.pl in @INC''. In this case, add the RAM-SCB directory to the Perl path; in {\tt bash} this is done with {\tt export PERL5LIB=`pwd`}.\\
+\\
+Finally, not all Perl installations provide CPAN modules. In case {\tt Config.pl} reports an error about {\tt CPAN::Version}, please work with your system administrator to install the module, or see \\
+\href{http://www.cpan.org/modules/INSTALL.html}{the CPAN module installation instructions}.
 
 \subsection{Installation From Source}
 
 If installing from source, follow the instructions provided with the software, making sure to use the same compiler that you are using with RAM-SCB to install the dependencies.
 
-\section{Pointing RAM-SCB to External Libraries}
-RAM-SCB must be explicitly pointed to libraries installed in non-standard places. There are several ways for RAM-SCB to find the required external libaries, summarized in Table \ref{tab:libs}. The most permanent and convenient method is to set an environment variable that RAM-SCB will search for upon installation. They can be set with the following commands:
-
-Bash Shell: {\tt export NETCDFDIR=}\textit{installation path}
-
-C Shell: {\tt setenv NETCDFDIR ``}\textit{installation path}\verb*l''l
-
-Placing these commands into configuration files (e.g. {\tt \verb*l~l/.bashrc} or {\tt \verb*l~l/.cshrc}) will load the environment variables at login. This is preferable to typing the commands every session. Note that the installation path listed should point to the top level directory for the installation. For example, {\tt /Users/ram\_user/netcdf} is sufficient but {\tt /Users/ram\_user/netcdf/lib} will cause an error.
-
-Alternatively, it is possible to set the install paths for the external libraries using Config.pl during installation. The use of this method is detailed in the next section. Even if you have set the environment variables, using the Config.pl switches will override them. These switches are \emph{only} recognized in conjunction with the {\tt -install} switch of Config.pl.
-
-Finally, if you set neither the environment variables or the Config.pl switches, the Fortran compiler will look for the libaries in the default directories. This may be useful to test if the libraries are already properly installed by the system administrator.  
-
-\emph{If you change the library locations by any method, you must reinstall the code. These libraries are looked for at runtime, and must be in the same place as at compilation.} 
+\emph{If you change the library locations by any method, you should reinstall the code. These library paths are resolved at runtime, and changes in path may result in the code not finding dependencies or finding incompatible versions.} 
 
 \begin{table}[ht]
   \centering
@@ -111,8 +110,15 @@ Running the RAM-SCB tests is an excellent way to evaluate the success and stabil
 \begin{verbatim}
 make test
 \end{verbatim}
-This will compile RAM-SCB, create a run directory, perform a short simulation and compare the results to a reference solution. If there is a significant difference between the test and reference solution, the test will fail. Details can be found in \verb*Q*.testQ files in the RAM-SCB directory. For a full description of running and interpreting test results, see Chapter 
-\ref{chp:test}.
+This will compile RAM-SCB, create a run directory, perform a short simulation and compare the results to a reference solution. If there is a significant difference between the test and reference solution, the test will fail. Details can be found in \verb*Q*.testQ files in the RAM-SCB directory.
+
+For development there is also a unit test suite, which can be run by
+\begin{verbatim}
+make unittest
+\end{verbatim}
+As new features are added, or as bugs are fixed, new unit tests to be added to the test suite to ensure correct behavior.
+
+For a full description of running and interpreting test results, see Chapter \ref{chp:test}.
 
 \section{Building Documentation}
 To generate a PDF of the latest User Manual, type
