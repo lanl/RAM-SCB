@@ -152,6 +152,7 @@ Flag to turn on pitch angle diffusion. The default setting for the Kp-based vers
 #USEFLC
 F       DoUseFLC
 F       DoWriteFLCDiffCoeff
+
 Flag to turn on the field line curvature scattering of ions and write out the pitch angle diffusion coefficinets. By default no FLC is used. 
 </command>
 
