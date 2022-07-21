@@ -11,18 +11,20 @@ MODULE ModRamSce
 !==================================================================================================
   subroutine calculate_precip_flux_jr(IS, nTheta, nPhi, rIono, energy_flux, ave_e, &
                                       num_flux, dis_energy_flux, dis_ave_e, &
-                                      Jr, high_latboundary)
+                                      Jr, high_latboundary, diff_flux_iono)
 
-    use ModRamMain,      ONLY: DP
+    use ModRamMain,      ONLY: DP, PathSCEOut
+    use ModRamTiming,    ONLY: TimeRamElapsed
     use ModRamGrids,     ONLY: nR, nT, nE, nPa
     use ModRamVariables, ONLY: WMU, MU, UPA, EKEV, XNE, WE, LZ, FLUX, PPERE, PPARE, &
-                               DL1
+                               DL1, species
     use ModScbGrids,     ONLY: nthe, npsi, nzeta, nXRaw, nYRaw, nXRawExt
     use ModScbVariables, ONLY: x, y, z, paraj, nThetaEquator, r0Start
+    use ModSceVariables, ONLY: conductance_model
 
     use ModRamGSL,       ONLY: GSL_Interpolation_2D
     use ModScbFunctions, ONLY: Extap
-
+    use ModIoUnit,       ONLY: UnitTmp_
     use nrtype, ONLY: cElectronMass, cElectronCharge, pi_d, pio2_d, cRadtoDeg
 
     implicit none
@@ -31,13 +33,16 @@ MODULE ModRamSce
     real(DP), intent(in) :: rIono
 
     real(DP), intent(inout) :: energy_flux(:,:), ave_e(:,:), num_flux(:,:), Jr(:,:), &
-                               dis_energy_flux(:,:), dis_ave_e(:,:), high_latboundary(:)
+                                          dis_energy_flux(:,:), dis_ave_e(:,:), high_latboundary(:),&
+                                          diff_flux_iono(:,:,:)
 
     integer  :: i, j, k, kk, l, nTheta_north, GSLerr, nn, iMin, d
     real(DP) :: rr1, thangle, thangleOnIono, minl, dTheta, dPhi,Rm, eV, efactor, press, &
                 dydummy, radius, angle, beta=0.1, Nele, jpar, coordPoint(2)
 
     integer,  allocatable :: idx(:)
+    character(len=100) :: NameFile
+    logical :: DoTest = .true.
     real(DP), allocatable :: ave_flux(:,:,:), f(:,:,:,:), &
                              ave_fluxExt(:,:,:), num_fluxeq(:,:), NeExt(:,:), &
                              PPerEExt(:,:), PParEExt(:,:), rRawExt(:), aRawExt(:), &
@@ -68,14 +73,11 @@ MODULE ModRamSce
     ! This is used to pass to IE for the computation of height-integrated Hall 
     ! and Pedeson Conductances, based on the Robinson 1987 formula. 
     !
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    !\ Y. Yu, 2013, to couple with IE (Region2 Jr)
-    ! interpolate the paraj onto the ionosphere grids
-    ! like in the swmfiono_II <-- PhiIono(1:npsi,2:zeta) <-- PhiIono(nIeTheta,
-    ! nIePhi)
-    !/
-    ! paraJr is positive when along the field line into the north pole (this is 
-    ! opposite to that in GM)
+    !\
+    ! interpolate the Jpar (paraj) onto the ionosphere grids
+    ! /
+    ! -- paraJr is positive when along the field line into the north pole (this is 
+    !    opposite to that in GM)
     !----------------------------------------------------------------------------
     nTheta_north = int(nTheta/2)+1
 
@@ -226,10 +228,21 @@ MODULE ModRamSce
           energy_flux_iono(i,j) = 0.0
           num_flux_iono(i,j) = 0.0
           ave_e_iono(i,j) = 0.0
-          do k=1, nE
-             energy_flux_iono(i,j) = energy_flux_iono(i,j) + pi_d*ave_fluxEQ(i,j,k)*EKEV(k)*WE(k)
-             num_flux_iono(i,j) = num_flux_iono(i,j) + pi_d*ave_fluxEQ(i,j,k)*WE(k)
-          end do
+          if(conductance_model .eq. 9)then ! GLOW conductance
+             do k=1,nE
+                if (EKEV(k) .ge. 0.5e-3 .and. EKEV(k) .le. 46)then ! GLOW energy range: 0.5 eV to 46 keV                                           
+                   energy_flux_iono(i,j) = energy_flux_iono(i,j) + pi_d*ave_fluxEQ(i,j,k)*EKEV(k)*WE(k)
+                   num_flux_iono(i,j) = num_flux_iono(i,j) + pi_d*ave_fluxEQ(i,j,k)*WE(k)
+                end if
+             end do
+          else
+             do k=1, nE
+                if (EKEV(k) .ge. 0.5 .and. EKEV(k) .le. 50)then ! Robinson energy range: 500eV to 50 keV           
+                   energy_flux_iono(i,j) = energy_flux_iono(i,j) + pi_d*ave_fluxEQ(i,j,k)*EKEV(k)*WE(k)
+                   num_flux_iono(i,j) = num_flux_iono(i,j) + pi_d*ave_fluxEQ(i,j,k)*WE(k)
+                end if
+             end do
+          end if
           if (num_flux_iono(i,j) .eq. 0.0) then
              num_flux_iono(i,j) = 1.0e-31
              ave_e_iono(i,j) = 1.0e-31
@@ -238,6 +251,26 @@ MODULE ModRamSce
           end if
        end do
     end do
+
+    ! writing to files
+    if (DoTest)then
+       if (Mod(int(TimeRamElapsed) ,300) .eq. 0)then
+          write(NameFile,'(a,a,a,i6.6,a)')&
+               PathSCEOut//"PrecipFlux_atSCBEquator_",species(IS)%s_name,"t",nint(TimeRamElapsed/300.),".dat"
+          open( UnitTmp_, FILE=NameFile, STATUS='replace')
+          write(UnitTmp_,*)'Time: ',TimeRamElapsed
+          write(UnitTmp_,*)'nR, nMLT, nE', npsi,nzeta,nE
+          write(UnitTmp_,*)'rad    angle  Energy  Flux[/cm^2/s/sr/keV] '
+          do i=1, npsi
+             do j=2, nzeta
+                do k=1, nE
+                   write(UnitTmp_,'(f8.4,1x,f8.4,1x,f8.4,1x,E14.6)')rGrid(i,j), aGrid(i,j), EKEV(k), ave_fluxEQ(i,j,k)                   
+                end do
+             end do
+          end do
+          close(UnitTmp_)
+       end if    
+    end if
 
     ! the longitude is the same as in angleGrid (index start from the noon, 0 degree at midnight)
     lonGrid(:,2:nzeta) = aGrid(:,2:nzeta)
@@ -320,11 +353,11 @@ MODULE ModRamSce
              call GSL_Interpolation_2D(xTemp, yTemp, paraj, &
                                        coordPoint(1), coordPoint(2), Jr(i,j), &
                                        GSLerr)
-             !do kk = 1, nE
-             !   call GSL_Interpolation_2D(xTemp, yTemp, ave_fluxEQ(:,:,kk), &
-             !                             coordPoint(1), coordPoint(2), diff_flux_iono(i,j,kk), &
-             !                             GSLerr)
-             !enddo
+             do kk = 1, nE
+                call GSL_Interpolation_2D(xTemp, yTemp, ave_fluxEQ(:,:,kk), &
+                                          coordPoint(1), coordPoint(2), diff_flux_iono(i,j,kk), &
+                                          GSLerr)
+             enddo
           end if
        end do
        Jr(iMin+1,j) = 0.0_dp
@@ -344,10 +377,32 @@ MODULE ModRamSce
        num_flux(nTheta_north+i-1,:)         = num_flux(nTheta_north-i+1,:)
        dis_energy_flux(nTheta_north+i-1,:)  = dis_energy_flux(nTheta_north-i+1,:)
        dis_ave_e(nTheta_north+i-1,:)        = dis_ave_e(nTheta_north-i+1,:)
-       !diff_flux_iono(nTheta_north+i-1,:,:) = diff_flux_iono(nTheta_north-i+1,:,:)
+       diff_flux_iono(nTheta_north+i-1,:,:) = diff_flux_iono(nTheta_north-i+1,:,:)
        Jr(nTheta_north+i-1,:)               = Jr(nTheta_north-i+1,:)
     end do
 
+   !\                                                                                                                                    
+    ! write out the precipitation on the ionosphere                                                                                       
+    !/                                                                                                                                    
+    if (DoTest)then
+       if (Mod(int(TimeRamElapsed) ,300) .eq. 0)then
+          write(NameFile,'(a,a,a,i6.6,a)')&
+               PathSCEOut//"PrecipFlux_",species(IS)%s_name,"t",nint(TimeRamElapsed/300.),".dat"
+          open( UnitTmp_, FILE=NameFile, STATUS='replace')
+          write(UnitTmp_,*)'Time: ',TimeRamElapsed
+          write(UnitTmp_,*)'nTheta_north, nPhi', nTheta_north, nPhi
+          write(UnitTmp_,*)'Theta    Phi EnergyFlux[ergs/cm^2/s] Ave_eIono [keV] Num_Flux [/cm^2/s](Phi=0 at midnight)',&
+               'discreteEnergyFlux[ergs/cm^2/s] discreteAveE[keV]'
+          do i=1, nTheta_north
+             do j=1, nPhi
+                write(UnitTmp_,'(f8.4,1x,f8.4,6(1x,E13.6))')colat(i), lon(j), &
+                     Energy_flux(i,j)*1.6e-9, Ave_e(i,j), num_flux(i,j), &
+                     dis_energy_flux(i,j)*1.6e-9, dis_ave_e(i,j)
+             end do
+          end do
+          close(UnitTmp_)
+       end if
+    end if
     ! in order to couple to the ionosphere module that starts the index at
     ! noon with phi=0, shift the array about 180 degree
     Energy_fluxtmp(:, 1:nPhi/2+1) = Energy_flux(:, 1:nPhi/2+1)
