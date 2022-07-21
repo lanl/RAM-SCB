@@ -4,11 +4,13 @@ default : RAM_SCB
 include Makefile.def
 
 srcDir = src
+GlowDir= srcGlow
+
 INSTALLFILES = ${srcDir}/Makefile.DEPEND \
 	       ${srcDir}/Makefile.RULES  \
 	       srcInterface/Makefile.DEPEND \
-	       srcExternal/Makefile.DEPEND
-
+	       srcExternal/Makefile.DEPEND \
+		${GlowDir}/Makefile.DEPEND
 help:
 	@echo ' '
 	@echo ' You can "make" the following:'
@@ -30,6 +32,7 @@ PDF:
 RAM_SCB:
 	@cd ${SHAREDIR}; make LIB
 	@cd srcExternal; make LIB
+	@cd ${GlowDir}; make LIB
 	@cd ${srcDir};   make LIB
 	@cd ${srcDir};   make RAM_SCB
 
@@ -41,12 +44,14 @@ LIB:
 	cd ${srcDir};    make LIB
 	cd srcInterface; make LIB
 	cd srcExternal;  make LIB
+	cd ${GlowDir}; make LIB
 
 clean:
 	@touch ${INSTALLFILES}
 	@cd ${srcDir};          make clean
 	@cd srcInterface; make clean
 	@cd srcExternal; make clean
+	@cd ${GlowDir}; make clean
 	@(if [ -d util ];  then cd util;  make clean; fi);
 	@(if [ -d share ]; then cd share; make clean; fi);
 
@@ -59,6 +64,7 @@ allclean:
 	@(if [ -d srcPspline ]; then rm -rf srcPspline; fi);
 	@cd ${srcDir}; make distclean
 	@cd srcInterface; make distclean
+	@cd ${GlowDir}; make distclean
 	rm -f *~
 
 rundir: 
@@ -75,7 +81,7 @@ rundir:
 	cd ${RUNDIR}; \
 	ln -s ../input/bav_diffcoef_chorus_rpa_Kp*.PAonly.dat .
 	cd ${RUNDIR}/IM/output; \
-		mkdir -p ram/Dsbnd scb/Day00
+		mkdir -p ram/Dsbnd scb/Day00 sce/
 	cd ${RUNDIR}/IM; \
 		mkdir input_ram input_scb output_swmf;    \
 		mkdir restartIN restartOUT;               \
