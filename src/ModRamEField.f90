@@ -268,6 +268,7 @@ SUBROUTINE ionospheric_potential
         end do
      end if
      ! Plug self-consisent/IE potential into PhiIonoRaw (only northern)
+     write(*,*)'Solving SC electric field!'
      CALL sce_run
      PhiIonoRaw = Iono_North_Phi
 
