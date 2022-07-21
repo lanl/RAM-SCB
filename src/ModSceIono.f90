@@ -9,57 +9,35 @@ MODULE ModSceIono
 
   contains
 !==================================================================================================
-  subroutine FACs_to_fluxes_North
+  subroutine ionosphere_fluxes(iModel)
 
     !\
-    ! The goal here is to convert the ionospheric FAC pattern into a 
-    ! particle precipitation pattern, which can then be turned into
-    ! a conductance pattern.
+    ! Combine the diffusive and discrete precipitating fluxes
     !/
 
     use ModSceGrids,     ONLY: Iono_nTheta, Iono_nPsi
-    use ModSceVariables, ONLY: Hall_to_Ped_Ratio, PolarCapPedConductance, IONO_Min_Ave_E, &
+    use ModSceVariables, ONLY: IONO_Min_Ave_E, &
                                IONO_Min_EFlux, iono_north_im_eflux, iono_north_im_avee, &
                                iono_north_im_dis_eflux, iono_north_im_dis_avee, &
-                               iono_north_ave_e, iono_north_eflux
+                               iono_north_im_eflux_diff, &
+                               iono_north_ave_e, iono_north_eflux, iono_north_eflux_diff
 
     use nrtype, ONLY: DP
 
     implicit none
-
-    real(DP) :: PolarCapHallConductance, PolarCap_AveE, PolarCap_EFlux 
-    real(DP) :: MulFac_Dae, MulFac_Def, MulFac_ae, MulFac_ef
+    
+    integer, intent(in) :: iModel
     real(DP), allocatable :: discrete_ef(:,:), discrete_ae(:,:), &
                              diffuse_ef(:,:), diffuse_ae(:,:)
     !---------------------------------------------------------------------------
-    allocate(discrete_ef(Iono_nTheta,Iono_nPsi), discrete_ae(Iono_nTheta,Iono_nPsi), &
+    ! iModel = 7: IM precipitation flux + Robinson's formula
+    ! iModel = 9: IM precipitation flux + GLOW's calculation
+     allocate(discrete_ef(Iono_nTheta,Iono_nPsi), discrete_ae(Iono_nTheta,Iono_nPsi), &
              diffuse_ef(Iono_nTheta,Iono_nPsi), diffuse_ae(Iono_nTheta,Iono_nPsi))
-
-    Hall_to_Ped_Ratio = 1.5
-
-    if (PolarCapPedConductance > 0.0) then
-       PolarCapHallConductance = Hall_to_Ped_Ratio * PolarCapPedConductance
-       PolarCap_AveE = (Hall_to_Ped_Ratio/0.45)**(1.0/0.85)
-       PolarCap_EFlux = ((PolarCapPedConductance*(16.0 + PolarCap_AveE**2) / &
-            (40.0*PolarCap_AveE))**2)/1000.0 ! convert ergs/cm2/s to W/m2
-    else
-       PolarCap_AveE  = IONO_Min_Ave_E
-       PolarCap_EFlux = IONO_Min_EFlux
-    endif
-
-    MulFac_Dae = 1.0e22
-    MulFac_Def = 1.0e19
-    MulFac_ef = 0.3e6
-    MulFac_ae = 4.0e-12
-
-    !Yu: recalculate the coefficients (by comparing to J. Raeder's formulas. take F1=4)
-    MulFac_Dae = 0.0267
-    MulFac_Def = 6.0e17
 
     !\
     ! pass the diffuse energy from IM integrated over the loss cone due to WPI
     !/
-
     diffuse_ef = iono_north_im_eflux/1000.0 ! from ergs/cm^2s to W/m^2
     where (diffuse_ef < IONO_Min_EFlux) diffuse_ef = IONO_Min_EFlux
 
@@ -76,8 +54,6 @@ MODULE ModSceIono
     discrete_ae = iono_north_im_dis_avee
     where (discrete_ae > 20.0) discrete_ae = 20.0
 
-    !\
-    !/
     where (diffuse_ae < IONO_Min_Ave_E/2) diffuse_ae = IONO_Min_Ave_E/2
     where (discrete_ae < IONO_Min_Ave_E/2) discrete_ae = IONO_Min_Ave_E/2
 
@@ -89,16 +65,22 @@ MODULE ModSceIono
     iono_north_eflux = (diffuse_ef/diffuse_ae + discrete_ef/discrete_ae) * iono_north_ave_e
     where (iono_north_ave_e < IONO_Min_Ave_E) iono_north_ave_e = IONO_Min_Ave_E
 
+    if (iModel .eq. 9)then  !!! only consider diffuse if coupled to GLOW.
+       iono_north_eflux = diffuse_ef ! ergs/cm^2/s/1000. 
+       iono_north_ave_e = diffuse_ae ! keV
+       iono_north_eflux_diff = iono_north_im_eflux_diff ! differential electron flux (cm^2/s/sr/keV)
+    end if
+    
     deallocate(discrete_ef, discrete_ae, diffuse_ef, diffuse_ae)
     return
-  end subroutine FACs_to_Fluxes_North
+  end subroutine ionosphere_fluxes
 
 !==================================================================================================
   subroutine ionosphere_conductance(Sigma0, SigmaH, SigmaP, SigmaThTh, SigmaThPs, &
                                     SigmaPsPs, dSigmaThTh_dTheta, dSigmaThPs_dTheta, &
                                     dSigmaPsPs_dTheta, dSigmaThTh_dPsi, dSigmaThPs_dPsi, &
-                                    dSigmaPsPs_dPsi, Eflux, Ave_E, Theta, Psi, nTheta, &
-                                    nPsi, dTheta, dPsi, x, y, z)
+                                    dSigmaPsPs_dPsi, Eflux, Ave_E, Eflux_diff, Theta, Psi, nTheta, &
+                                    nPsi, dTheta, dPsi, x, y, z, iModel)
   
     !\
     ! This subroutine computes the height-integrated field-aligned and
@@ -107,34 +89,64 @@ MODULE ModSceIono
     ! these quantities are also computed.
     !/
 
-    use ModRamVariables, ONLY: F107
+    use ModRamVariables, ONLY: F107, EKEV
+    use ModRamMain,        ONLY: PathSceOut
+    use ModRamGrids,       ONLY: nE
+    use ModRamTiming,      ONLY: TimeRamElapsed, TimeRamNow
 
-    use ModSceGrids,     ONLY: Iono_nTheta, Iono_nPsi
-    use ModSceVariables, ONLY: IONO_NORTH_X, IONO_NORTH_Y, IONO_NORTH_Z, &
+    use ModSceGrids,        ONLY: Iono_nTheta, Iono_nPsi
+    use ModSceVariables,  ONLY: IONO_NORTH_X, IONO_NORTH_Y, IONO_NORTH_Z, &
                                StarLightPedConductance, SAVE_NORTH_SigmaH, &
-                               SAVE_NORTH_SigmaP, cosThetaTilt, sinThetaTilt
+                               SAVE_NORTH_SigmaP, cosThetaTilt, sinThetaTilt, &
+                               IONO_Radius, IONO_Height, nzGlow, DoUseFullSpec,&
+                               DoSaveGLOWConductivity
 
-    use nrtype, ONLY: DP, cDegtoRad
+    use nrtype, ONLY: DP, cDegtoRad, Pi_d
+    
+    use ModIOUnit,         ONLY: UnitTmp_
+    use CON_axes,          ONLY: transform_matrix
+    use ModCoordTransform, ONLY: sph_to_xyz, xyz_to_sph
+    use ModRamMpi
+    use ModMpi
 
     implicit none
 
+    integer, intent(in)     :: iModel
     integer, intent(in)     :: nTheta, nPsi
     real(DP), intent(inout) :: Sigma0(:,:), SigmaH(:,:), SigmaP(:,:), SigmaThTh(:,:), &
                                SigmaThPs(:,:), SigmaPsPs(:,:), dSigmaThTh_dTheta(:,:), &
                                dSigmaThPs_dTheta(:,:), dSigmaPsPs_dTheta(:,:), &
                                dSigmaThTh_dPsi(:,:), dSigmaThPs_dPsi(:,:), &
-                               dSigmaPsPs_dPsi(:,:), Eflux(:,:), Ave_E(:,:), Theta(:,:), &
-                               Psi(:,:), x(:,:), y(:,:), z(:,:), dTheta(:), dPsi(:)
-    integer  :: i, j
+                               dSigmaPsPs_dPsi(:,:), Eflux(:,:), Ave_E(:,:),  Eflux_diff(:,:,:), &
+                               Theta(:,:), Psi(:,:), x(:,:), y(:,:), z(:,:), dTheta(:), dPsi(:)
+    integer  :: i, j, k
     logical  :: old
     real(DP) :: f107p53, f107p49, cos_limit, meeting_value_p, meeting_value_h, &
                 SigmaH_EUV, SigmaP_EUV, SigmaH_SCAT, SigmaP_SCAT, SigmaH_EUV_2, &
                 SigmaP_EUV_2, SigmaH_STAR, SigmaP_STAR, sn, cs, sn2, cs2, cs3, &
-                cs4, C, SigmaH_Particles, SigmaP_Particles
+                cs4, C
+    
+    real :: ut, ap,  f107r, f107a, f107p, f107y
+    real(DP) :: rIono, XyzSmg(3), XyzGeo(3)
+    integer  :: iyear, imonth, iday, ihour, iminute, isecond, idoy, ndaymo,ap0,ipoint, idate
+    character(len=100) :: NameFile
 
     real(DP), allocatable :: cos_SZA(:,:)
 
-    allocate(cos_SZA(nTheta,nPsi))
+    real(DP), allocatable :: SigmaH_Glow(:,:), SigmaP_Glow(:,:), &
+                             SigmaH_Glow_all(:,:), SigmaP_Glow_all(:,:),&
+                             SigmaH_all(:,:), SigmaP_all(:,:),&
+                             SigmaH_Particles(:,:), SigmaP_Particles(:,:),&
+                             glat(:,:), glong(:,:)
+    real(DP), allocatable:: zz(:,:,:), ionrate(:,:,:), eDen(:,:,:),&
+                            Pedcond(:,:,:), Hallcond(:,:,:), &
+                            zz_all(:,:,:),ionrate_all(:,:,:), eDen_all(:,:,:),&
+                            Pedcond_all(:,:,:), Hallcond_all(:,:,:)
+
+    character(len=*), parameter :: NameSub='ionosphere_conductance'
+    !-------------------------------------------------------------------------
+    allocate(cos_SZA(nTheta,nPsi), SigmaH_Particles(1:IONO_nTheta,1:IONO_NPsi),    &
+            SigmaP_Particles(1:IONO_nTheta,1:IONO_NPsi))
  
     cos_SZA = (x*cosTHETATilt-z*sinTHETATilt)/sqrt(x**2 + y**2 + z**2)
   
@@ -145,7 +157,44 @@ MODULE ModSceIono
     cos_limit = cos(70.0*cDegToRad)
     meeting_value_p = f107p49*(0.34*cos_limit+0.93*sqrt(cos_limit))
     meeting_value_h = f107p53*(0.81*cos_limit+0.54*sqrt(cos_limit))
-  
+
+    if (iModel .eq. 9)then
+       ! prepare parameters 
+       iyear = TimeRamNow%iyear
+       imonth= TimeRamNow%iMonth
+       iday  = TimeRamNow%iDay
+       iHour = TimeRamNow%iHour
+       iMinute=TimeRamNow%iMinute
+       iSecond=TimeRamNow%iSecond
+       ut     = iHour * 3600. + iMinute * 60 + iSecond
+
+       call moda(0, iyear, imonth, iday, idoy, ndaymo)
+       idate = (iyear-iyear/100*100)*1000+idoy
+       
+       ! read in the parameters Ap, F107 (from irifun_2012.f) (ap0 in integer) 
+       call apf_only(iyear, imonth, iday, f107r, f107p, f107a, f107y,ap0)
+       ap = ap0*1.0
+
+       allocate(zz(1:IONO_nTheta,1:IONO_nPsi,nzGlow),  &
+            ionrate(1:IONO_nTheta,1:IONO_nPsi,nzGlow), &
+            eDen(1:IONO_nTheta,1:IONO_nPsi,nzGlow),    &
+            Pedcond(1:IONO_nTheta,1:IONO_nPsi,nzGlow), &
+            Hallcond(1:IONO_nTheta,1:IONO_nPsi,nzGlow),&
+            SigmaH_Glow(1:IONO_nTheta,1:IONO_NPsi),    &
+            SigmaP_Glow(1:IONO_nTheta,1:IONO_NPsi),    &
+            zz_all(1:IONO_nTheta,1:IONO_nPsi,nzGlow),  &
+            ionrate_all(1:IONO_nTheta,1:IONO_nPsi,nzGlow), &
+            eDen_all(1:IONO_nTheta,1:IONO_nPsi,nzGlow),    &
+            Pedcond_all(1:IONO_nTheta,1:IONO_nPsi,nzGlow), &
+            Hallcond_all(1:IONO_nTheta,1:IONO_nPsi,nzGlow),&
+            SigmaH_Glow_all(1:IONO_nTheta,1:IONO_NPsi),    & 
+            SigmaP_Glow_all(1:IONO_nTheta,1:IONO_NPsi),    &
+            SigmaH_all(1:IONO_nTheta,1:IONO_NPsi),    & 
+            SigmaP_all(1:IONO_nTheta,1:IONO_NPsi))
+    end if
+
+    
+    iPoint = -1
     do j = 1, nPsi
        do i = 1, nTheta
   
@@ -175,27 +224,149 @@ MODULE ModSceIono
   
           SigmaH_STAR = StarLightPedConductance*2.0
           SigmaP_STAR = StarLightPedConductance
+
+          if (iModel .ne. 9)then ! not use GLOW
+   
+             !\
+             ! Use Robinson's Formula to convert the Ave_E and E_Flux to SigmaP and SigmaH
+             !/
+             SigmaP_Particles(i,j) = 40.0 * Ave_E(i,j) / (16.0 + Ave_E(i,j)*Ave_E(i,j))  &
+                  * sqrt(EFlux(i,j)*1000.0)
   
-          !\
-          ! Use Robinson's Formula to convert the Ave_E and E_Flux to SigmaP and SigmaH
-          !/
-  
-          SigmaP_Particles = 40.0 * Ave_E(i,j) / (16.0 + Ave_E(i,j)*Ave_E(i,j))  &
-                                  * sqrt(EFlux(i,j)*1000.0)
-  
-          SigmaH_Particles = 0.45 * (Ave_E(i,j)**0.85) * SigmaP_Particles
-  
-          SigmaH(i,j) = sqrt(SigmaH_EUV*SigmaH_EUV + SigmaH_SCAT*SigmaH_SCAT &
-                           + SigmaH_STAR*SigmaH_STAR + SigmaH_Particles*SigmaH_Particles)
-  
-          SigmaP_EUV = SigmaP_EUV*SigmaP_EUV + SigmaP_SCAT*SigmaP_SCAT + SigmaP_STAR*SigmaP_STAR
-  
-          SigmaP_Particles = SigmaP_Particles*SigmaP_Particles
-  
-          SigmaP(i,j) = sqrt(SigmaP_EUV + SigmaP_Particles)
+             SigmaH_Particles(i,j) = 0.45 * (Ave_E(i,j)**0.85) * SigmaP_Particles(i,j)
+             
+             SigmaH(i,j) = sqrt(SigmaH_EUV*SigmaH_EUV + &
+                  SigmaH_SCAT*SigmaH_SCAT + &
+                  SigmaH_STAR*SigmaH_STAR + &
+                  SigmaH_Particles(i,j)*SigmaH_Particles(i,j))
+             
+             SigmaP(i,j) = sqrt(SigmaP_EUV*SigmaP_EUV + &
+                  SigmaP_SCAT*SigmaP_SCAT + &
+                  SigmaP_STAR*SigmaP_STAR + &
+                  + SigmaP_Particles(i,j)*SigmaP_Particles(i,j))
+
+           else
+             !\
+             ! use GLOW model for the conductance calculation including EUV etc.
+             ! For auroral: either with the single EFlux&Ave_E to assume Maxwellian or with
+             ! the FullSpetrum of the Eflux_differential. 
+             ! Pass the following: time, location, ap, f107, ef, ev 
+             !/ 
+             rIono = (IONO_Radius + IONO_Height)/IONO_Radius
+             call sph_to_xyz(rIono, Theta(i,j), Psi(i,j), xyzSmg)
+             XyzGeo = matmul(transform_matrix(TimeRamElapsed, 'SMG','GEO'), XyzSmg)
+             call xyz_to_sph(XyzGeo, rIono,glat(i,j),glong(i,j)) ! (r, theta, phi) 
+
+             glong(i,j) = glong(i,j) * 180./Pi_d
+             glat(i,j) = 90 - glat(i,j) * 180./Pi_d !(north/south the same form) 
+             
+             !\ 
+             ! parallize the glow calculation for the 2D points over ionosphere
+             !/ 
+             if(nProc>1)then
+                iPoint = iPoint + 1
+                if (mod(iPoint, nProc) /=iProc)CYCLE
+             end if
+             !\
+             ! pass the energy flux and characteristic energy (half of the mean energy)
+             ! EFlux*1000 (ergs/cm^2/s); EFlux_Diff(/cm^2/s/sr/keV); Ave_E: keV 
+             !/
+             if (EFlux(i,j)*1000. > 0.0001 .and. Ave_E(i,j)/2.*1000. >1)then
+                call glow_aurora_conductance(idate, real(ut,DP), glat(i,j), glong(i,j), &
+                     SigmaP_Glow(i,j), SigmaH_Glow(i,j), &
+                     EFlux(i,j)*1000., Ave_E(i,j)/2., EFlux_Diff(i,j,:), EkeV(:), nE, &
+                     real(ap,kind=8), real(f107r,DP), real(f107p,DP),&
+                     real(f107a,kind=8), DoUseFullSpec, &
+                     zz(i,j,1:nzGlow), ionrate(i,j,1:nzGlow), eDen(i,j,1:nzGlow), &
+                     Pedcond(i,j,1:nzGlow), Hallcond(i,j,1:nzGlow), nzGlow)
+             else
+                SigmaP_Glow(i,j) = 0.0
+                SigmaH_Glow(i,j) = 0.0
+             end if
+
+             ! If the glow model provides the solar flux & auroral flux related conductance.                                                 
+             ! SigmaH(i,j) = SigmaH_Glow(i,j)                                                                                             
+             ! SigmaP(i,j) = SigmaP_Glow(i,j)                                                                                             
+             ! else add the EUV-conductance here as follows.
+             
+             SigmaH(i,j) = sqrt(SigmaH_EUV*SigmaH_EUV + &
+                  SigmaH_SCAT*SigmaH_SCAT + &
+                  SigmaH_STAR*SigmaH_STAR + &
+                  SigmaH_Glow(i,j)*SigmaH_Glow(i,j))
+             
+             SigmaP(i,j) = sqrt(SigmaP_EUV*SigmaP_EUV + &
+                  SigmaP_SCAT*SigmaP_SCAT + &
+                  SigmaP_STAR*SigmaP_STAR + &
+                  SigmaP_Glow(i,j)*SigmaP_Glow(i,j))
+             
+          end if
+
        enddo
     enddo
-  
+
+
+    if (imodel .eq. 9 .and. nProc > 1)then
+       ! MPI reduce to the head node (iproc=0)                                                                                           
+       
+       call MPI_reduce(SigmaP, SigmaP_all, nTheta*nPsi, MPI_REAL, MPI_SUM, 0, iComm, iError)
+       call MPI_reduce(SigmaH, SigmaH_all, nTheta*nPsi, MPI_REAL, MPI_SUM, 0, iComm, iError)
+       
+       call MPI_reduce(SigmaP_Glow, SigmaP_Glow_all, nTheta*nPsi, MPI_REAL, MPI_SUM, 0, iComm, iError)
+       call MPI_reduce(SigmaH_Glow, SigmaH_Glow_all, nTheta*nPsi, MPI_REAL, MPI_SUM, 0, iComm, iError)
+       
+       call MPI_reduce(zz,      zz_all,      nTheta*nPsi*nzGlow, MPI_REAL, MPI_SUM, 0, iComm, iError)
+       call MPI_reduce(ionrate, ionrate_all, nTheta*nPsi*nzGlow, MPI_REAL, MPI_SUM, 0, iComm, iError)
+       call MPI_reduce(eDen,    eDen_all,    nTheta*nPsi*nzGlow, MPI_REAL, MPI_SUM, 0, iComm, iError)
+       call MPI_reduce(Pedcond, Pedcond_all, nTheta*nPsi*nzGlow, MPI_REAL, MPI_SUM, 0, iComm, iError)
+       call MPI_reduce(Hallcond,Hallcond_all,nTheta*nPsi*nzGlow, MPI_REAL, MPI_SUM, 0, iComm, iError)
+
+       if(iProc==0)then
+          
+          SigmaP = SigmaP_all
+          SigmaH = SigmaH_all
+          
+          SigmaP_Glow = SigmaP_Glow_all
+          SigmaH_Glow = SigmaH_Glow_all
+          
+          zz = zz_all
+          ionrate = ionrate_all
+          eDen = eDen_all
+          Pedcond = Pedcond_all
+          Hallcond= Hallcond_all
+       end if
+       !bcast to other processors
+       call MPI_bcast(SigmaP, nTheta*nPsi,MPI_REAL,0,iComm,iError)
+       call MPI_bcast(SigmaH, nTheta*nPsi,MPI_REAL,0,iComm,iError)
+
+       !! write out the conductance into file                                                                                               
+       if (iProc==0 .and. DoSaveGLOWConductivity)then
+          if (mod(TimeRamElapsed, 300.0) .eq. 0)then
+             write(namefile, '(a,i6.6,a)')PathSceOut//"Conductance_",nint(TimeRamElapsed/300.),".dat"
+             open(UnitTmp_, file=trim(namefile),status='unknown')
+             write(UnitTmp_, '(a, i3.3)')'nHeight: ', nzGlow
+             write(UnitTmp_, '(a, i4.4,1x,i2.2,1x, i2.2,1x,i2.2,1x,i2.2))')'Time: ', iyear, imonth,&
+                  iday, ihour, iminute
+             write(unitTmp_, '(a)')'Theta Psi Glat Glon EFlux Emean SigamP_all SigmaH_all SigmaP_Glow SigamH_Glow SigmaP_R SigmaH_R'
+             write(unitTmp_, '(a)')'zz ionization_rate Ne Pedconductivity Halconductivity'
+             
+             do j=1, nPsi
+                do i=1, nTheta
+                   
+                   write(UnitTmp_,'(1x, 10f9.4)')&
+                        Theta(i,j), Psi(i,j), glat(i,j), glong(i,j), EFlux(i,j)*1000, Ave_E(i,j), &
+                        SigmaP(i,j),SigmaH(i,j), SigmaP_Glow(i,j), SigmaH_Glow(i,j)
+                   
+                   do k=1,nzGlow
+                      write(UnitTmp_,'(f6.2, 4e12.3)')zz(i,j,k), ionrate(i,j,k), eDen(i,j,k), &
+                           Pedcond(i,j,k), Hallcond(i,j,k)
+                   end do
+                end do
+             end do
+             close(UnitTmp_)
+          end if
+       end if
+    end if
+    
     do j = 1, nPsi
        do i = 1, nTheta
   
@@ -258,196 +429,14 @@ MODULE ModSceIono
        end if
     end do
   
-    deallocate(cos_SZA)
+    if(iModel .eq. 9)deallocate(zz,ionrate,eDen,PedCond,HallCond,SigmaH_GLOW,SigmaP_GLOW,&
+         zz_all,ionrate_all,eDen_all,PedCond_all,HallCond_all,SigmaH_GLOW_all,SigmaP_GLOW_all,&
+         SigmaH_all,SigmaP_all)
+    
+    deallocate(cos_SZA,SigmaH_Particles,SigmaP_Particles)
     return
 
   end subroutine ionosphere_conductance
-
-!==================================================================================================
-  subroutine ionosphere_currents(Jx, Jy, Jz, Ex, Ey, Ez, ETh, EPs, Ux, Uy, Uz, &
-                                 PHI, SigmaThTh, SigmaThPs, SigmaPsPs, X, Y, Z, &
-                                 Theta, Psi, dTheta, dPsi)
-  
-    !\
-    ! For the calculated ionospheric potential solution,
-    ! this routine determines the ionospheric currents and
-    ! electric fields, as well as convection velocities.
-    !/
-  
-    use ModRamTiming,    ONLY: TimeRamElapsed
-    use ModSceGrids,     ONLY: Iono_nTheta, Iono_nPsi 
-    use ModSceVariables, ONLY: IONO_TOLER, IONO_NORTH_JTh, IONO_NORTH_JPs, &
-                               IONO_Radius, IONO_Height, Radius
-
-    use nrtype, ONLY: DP
-
-    use ModCoordTransform, ONLY: dir_to_xyz, cross_product
-    use CON_planet_field,  ONLY: get_planet_field
-
-    implicit none
-  
-    integer, parameter :: nTheta = IONO_nTheta, nPsi = IONO_nPsi
-  
-    real(DP), intent(inout) :: PHI(:,:), SigmaThTh(:,:), SigmaThPs(:,:), &
-                               SigmaPsPs(:,:), Jx(:,:), Jy(:,:), Jz(:,:), &
-                               Ex(:,:), Ey(:,:), Ez(:,:), ETh(:,:), EPs(:,:), &
-                               Ux(:,:), Uy(:,:), Uz(:,:), X(:,:), Y(:,:), &
-                               Z(:,:), Theta(:,:), Psi(:,:), dTheta(:), &
-                               dPsi(:)
-  
-    integer  :: i, j
-    real(DP) :: cosTheta, sinTheta, cosPhi, sinPhi, ER, JR, JTh, JPs, NormRadius
-    real(DP) :: Xyz_D(3), b_D(3), Vp_D(3)
-    !----------------------------------------------------------------------------
-    ! Compute the ionospheric electric field.
-    do j = 1, nPsi
-       if (j > 1 .and. j < nPsi ) then
-          do i = 2, nTheta-1
-             sinTheta = sin(Theta(i,j))
-             ETh(i,j) = -(PHI(i+1,j)-PHI(i-1,j))/(dTheta(i)*Radius)
-             EPs(i,j) = -(PHI(i,j+1)-PHI(i,j-1))/(dPsi(j)*Radius*sinTheta)
-          end do
-          ETh(1,j) = -(PHI(2,j)-PHI(1,j))/(dTheta(1)*Radius)
-          EPs(1,j) = EPs(2,j)
-          ETh(nTheta,j) = -(PHI(nTheta,j)-PHI(nTheta-1,j))/(dTheta(nTheta)*Radius)
-          EPs(nTheta,j) = EPs(nTheta-1,j)
-       else if (j == 1) then
-          do i = 2, nTheta-1
-             sinTheta = sin(Theta(i,j))
-             ETh(i,j) = -(PHI(i+1,j)-PHI(i-1,j))/(dTheta(i)*Radius)
-             EPs(i,j) = -(PHI(i,j+1)-PHI(i,nPsi-1))/(dPsi(j)*Radius*sinTheta)
-          end do
-          ETh(1,j) = -(PHI(2,j)-PHI(1,j))/(dTheta(1)*Radius)
-          EPs(1,j) = EPs(2,j)
-          ETh(nTheta,j) = -(PHI(nTheta,j)-PHI(nTheta-1,j))/(dTheta(nTheta)*Radius)
-          EPs(nTheta,j) = EPs(nTheta-1,j)
-       else
-          do i = 2, nTheta-1
-             sinTheta = sin(Theta(i,j))
-             ETh(i,j) = -(PHI(i+1,j)-PHI(i-1,j))/(dTheta(i)*Radius)
-             EPs(i,j) = -(PHI(i,2)-PHI(i,j-1))/(dPsi(j)*Radius*sinTheta)
-          end do
-          ETh(1,j) = -(PHI(2,j)-PHI(1,j))/(dTheta(1)*Radius)
-          EPs(1,j) = EPs(2,j)
-          ETh(nTheta,j) = -(PHI(nTheta,j)-PHI(nTheta-1,j))/(dTheta(nTheta)*Radius)
-          EPs(nTheta,j) = EPs(nTheta-1,j)
-       end if
-    end do
-  
-    ! Compute the ionospheric currents convection velocities.
-    do j = 1, nPsi
-       do i = 1, nTheta
-          cosTheta = cos(Theta(i,j))
-          sinTheta = sin(Theta(i,j))
-          cosPhi = cos(Psi(i,j))
-          sinPhi = sin(Psi(i,j))
-  
-          if (i == nTheta) then
-             ER = 0.00
-          else
-             ER = -0.50*(sinTheta/(cosTheta+IONO_Toler**2))*ETh(i,j)
-          end if
-  
-          Ex(i,j) = ER*sinTheta*cosPhi + ETh(i,j)*cosTheta*cosPhi - EPs(i,j)*sinPhi
-          Ey(i,j) = ER*sinTheta*sinPhi + ETh(i,j)*cosTheta*sinPhi + EPs(i,j)*cosPhi
-          Ez(i,j) = ER*cosTheta - ETh(i,j)*sinTheta
-  
-          JR = 0.00
-          JTh =  SigmaThTh(i,j)*ETh(i,j) + SigmaThPs(i,j)*EPs(i,j)
-          JPs = -SigmaThPs(i,j)*ETh(i,j) + SigmaPsPs(i,j)*EPs(i,j)
-  
-          IONO_NORTH_JTh(i,j) = JTh
-          IONO_NORTH_JPs(i,j) = JPs
-  
-          Jx(i,j) = JR*sinTheta*cosPhi + JTh*cosTheta*cosPhi - JPs*sinPhi
-          Jy(i,j) = JR*sinTheta*sinPhi + JTh*cosTheta*sinPhi + JPs*cosPhi
-          Jz(i,j) = JR*cosTheta - JTh*sinTheta
-  
-          ! Calculate location in Cartesian coordinates
-          call dir_to_xyz(SinTheta,CosTheta,SinPhi,CosPhi,Xyz_D)
-          Xyz_D = Xyz_D * (IONO_Radius + IONO_Height) / IONO_Radius
-          ! Get magnetic field and normalize it to unity
-          call get_planet_field(TimeRamElapsed,Xyz_D,'SMG NORM',b_D)
-  
-          ! Get potential V = E x B/|B^2|
-          b_D = b_D/sum(b_D**2)
-          Vp_D = cross_product((/Ex(i,j), Ey(i,j), Ez(i,j)/), b_D)
-  
-          Ux(i,j) = Vp_D(1)
-          Uy(i,j) = Vp_D(2)
-          Uz(i,j) = Vp_D(3)
-  
-       end do
-    end do
-  
-  end subroutine ionosphere_currents
-
-!==================================================================================================
-  subroutine ionosphere_jouleheating_ionflux(ETh, EPs, SigmaP, Joule, IonNumFlux)
-  
-    !\
-    ! Joule heating is determined by SigmaP * E^2
-    !/
-  
-    use ModRamTiming,    ONLY: TimeRamElapsed
-    use ModSceGrids,     ONLY: IONO_nTheta, IONO_nPsi
-    use ModSceVariables, ONLY: IONO_NORTH_Theta, IONO_NORTH_Psi, IONO_Radius, Radius, &
-                               IONO_Height
-
-    use nrtype, ONLY: DP 
-
-    use CON_planet_field
-    use ModCoordTransform, ONLY: sph_to_xyz
-
-    implicit none
-
-    real(DP), intent(inout) :: SigmaP(:,:), ETh(:,:), EPs(:,:), Joule(:,:), IonNumFlux(:,:)  
-  
-    integer  :: i, j, iHemisphere
-    real(DP) :: bIono, B, ratioOH
-
-    real(DP) :: B_D(3), bIono_D(3), XyzIono_D(3), Xyz_tmp(3)
-    real(DP), parameter :: height_fast = 4.0e6
-
-    !\
-    ! Joule heating is assumed to be equal to Poynting Flux, 
-    ! since according to the Poynting Theorem, divergence of S = J*E,
-    ! which is integral(S dA) = integral(J*E dV),
-    ! but J in the formula is current density with a unit of A/m^3.
-    ! In this routine, J is height-integrated (A/m^2), therefore, 
-    ! J * E = S in this code.
-    !/
-  
-    Joule(:,:) =0.0
-    IonNumFlux(:,:) = 0.0
-    ! Joule heating (or Poynting flux) at ionosphere altitude
-    Joule = SigmaP * (ETh**2+EPs**2)
-  
-    !\
-    ! Ion number flux at ionosphere altitude, based on Strangeway et al(2005):
-    ! At an altitude of 4000km(where the FAST orbit), f = 2.142e7 * (S)^1.265, 
-    ! where unit of f is 1/(cm^2 * s), and unit of S is mW/m^2
-    !/
-  
-    ! Mapping to the ionosphere altitude along dipole magnetic field lines
-    do i = 1, IONO_nTheta
-       do j = 1, IONO_nPsi
-          call sph_to_xyz(Radius, IONO_NORTH_Theta(i,j), IONO_NORTH_Psi(i,j), XyzIono_D)
-          call get_planet_field(TimeRamElapsed, XyzIono_D, 'SMG', bIono_D)
-          bIono = sqrt(sum(bIono_D**2))
-  
-          call map_planet_field(TimeRamElapsed, XyzIono_D, 'SMG', (height_fast + IONO_Radius),Xyz_tmp, iHemisphere)
-          call get_planet_field(TimeRamElapsed, Xyz_tmp, 'SMG', B_D)
-          b = sqrt(sum(B_D**2))
-  
-          ! Flux at ionosphere altitude by mapping both S and f down to the ionosphere 
-          ! from 4000km, caution in the units (flux in /m^2/s, jouleheating in W/m^2)
-          ! The total ion number flux = No * Vo
-          IonNumFlux(i,j) = 2.142e7 * (Joule(i,j)*1.0e3)**1.265 * (b/bIono)**0.265 * 1.0e4
-       end do
-    end do
-  
-  end subroutine ionosphere_jouleheating_ionflux
 
 !==================================================================================================
   subroutine ionosphere_solver(Jr, SigmaThTh, SigmaThPs, SigmaPsPs, &
@@ -456,6 +445,7 @@ MODULE ModSceIono
                                dSigmaThPs_dPsi, dSigmaPsPs_dPsi, &
                                Theta, Psi, dTheta, dPsi, Phi_C)
   
+    ! Modified from Ridley_serials IE solver. By Yu & Toth, 2016.
     !
     ! This subroutine solves for the ionospheric potential PHI
     ! using the field aligned currents Jr and the conductivity tensor Sigma
@@ -508,8 +498,8 @@ MODULE ModSceIono
     use ModSceGrids,     ONLY: IONO_nTheta, IONO_nPsi
     use ModSceVariables, ONLY: nThetaUsed, LatBoundary, HighLatBoundary, nThetaSolver, &
                                PhiIono_Weimer, nX, C_A, C_B, C_C, C_D, C_E, north, &
-                               Radius, MaxIteration, UseWeimer, DoPrecond, USeInitialGuess, &
-                               PhiOld_CB, cpcp_north, Tolerance, iHighBnd
+                               Radius, MaxIteration, UseWeimer, DoPrecond, UsePreconditioner,USeInitialGuess, &
+                               PhiOld_CB, cpcp, Tolerance, iHighBnd, NameSolver
 
     use nrtype, ONLY: DP, pio2_d, pi_d, cRadtoDeg
 
@@ -526,7 +516,7 @@ MODULE ModSceIono
     integer, parameter :: nTheta = IONO_nTheta, nPsi = IONO_nPsi, nPsiUsed=nPsi-1
   
     ! Local variables
-    integer  :: i, j, k, iMin, iMax, iI, nIteration, iError, iBlock
+    integer  :: i, j, k, iMin, iMax, iI, nIteration, iError
     real(DP) :: TermTheta2, TermTheta1, TermPsi2, TermPsi1, sn, cs, sn2, Residual, &
                 PhiMax, PhiMin
 
@@ -534,12 +524,10 @@ MODULE ModSceIono
                              dTheta2(:), dPsi2(:), SinTheta_I(:), CosTheta_I(:)
 
     logical :: DoTest, DoTestMe
+    character(len=*), parameter :: NameSub = 'ionosphere_solver'
     !-------------------------------------------------------------------------
     allocate(lat_weimer(nTheta,nPsi), mlt_weimer(ntheta,nPsi), & 
              dTheta2(nTheta), dPsi2(nPsi), SinTheta_I(nTheta), CosTheta_I(nTheta))
-
-    if (north) iBlock = 1
-    if (.not. north) iBlock = 2
 
     ! Count the points above the latitude boundary
     nThetaUsed = count(abs(pio2_d-Theta(1:nTheta,1)) > LatBoundary)
@@ -648,7 +636,7 @@ MODULE ModSceIono
     b = b - Bnd_I
     UseWeimer = .False.
 
-    DoPrecond = .False.
+    DoPrecond = UsePreconditioner
     if(DoPrecond)then
        ! A -> LU
        call prehepta(nX,1,nThetaSolver,nX,real(-0.5,kind=8),d_I,e_I,f_I,e1_I,f1_I)
@@ -664,26 +652,26 @@ MODULE ModSceIono
        do j = 1, nPsiUsed
           do i=iMin,iMax
              iI = iI + 1
-             x(iI) = PhiOld_CB(i,j,iBlock)
+             x(iI) = PhiOld_CB(i,j)
           end do
        end do
     else
        x = 0.0
     end if
   
-    !select case(NameSolver)
-    !case('gmres')
-    !   nIteration = MaxIteration
-    !   call gmres(matvec_ionosphere, b, x, UseInitialGuess, nX, MaxIteration, Residual, 'abs', nIteration, iError, DoTestMe)
-    !case('bicgstab')
+    select case(NameSolver)
+    case('gmres')
+       nIteration = MaxIteration
+       call gmres(matvec_ionosphere, b, x, UseInitialGuess, nX, MaxIteration, Residual, 'abs', nIteration, iError, DoTestMe)
+    case('bicgstab')
        nIteration = 3*MaxIteration
        call bicgstab(matvec_ionosphere, b, x, UseInitialGuess, nX, Residual, 'abs', nIteration, iError, DoTestMe)
-    !case default
-    !   call CON_stop(NameSub//': unknown NameSolver='//NameSolver)
-    !end select
+    case default
+       call CON_stop(NameSub//': unknown NameSolver='//NameSolver)
+    end select
   
     ! Phi_C is the solution within the solved region
-    Phi_C(1:iMin,:) = PhiIono_Weimer(1:iMin,:)
+    Phi_C(1:iMin,:) = 0.0 !PhiIono_Weimer(1:iMin,:)
     iI = 0
     do j=1, nPsiUsed
        do i = iMin, iMax
@@ -699,16 +687,16 @@ MODULE ModSceIono
     PhiMin = minval(Phi_C)
   
     ! Save the solution for next time
-    PhiOld_CB(:,:,iBlock) = Phi_C
+    PhiOld_CB(:,:) = Phi_C
     do j=1, nPsi-1
-       PhiOld_CB(1:iHighBnd(j), j, iBlock) = PhiIono_Weimer(1:iHighBnd(j),j)
+       PhiOld_CB(1:iHighBnd(j), j) = PhiIono_Weimer(1:iHighBnd(j),j)
     end do
     ! apply periodic boundary condition in Psi direction
-    PhiOld_CB(:,nPsi,iBlock) = PhiOld_CB(:,1,iBlock)
+    PhiOld_CB(:,nPsi) = PhiOld_CB(:,1)
   
     ! Apply average condition at north pole
     !Phi_C(1,:) = sum(Phi_C(2,1:nPsiUsed))/nPsiUsed
-    cpcp_north = (PhiMax - PhiMin)/1000.0
+    cpcp = (PhiMax - PhiMin)/1000.0
 
     deallocate(x, y, b, rhs,Bnd_I, d_I, e_I, f_I, e1_I, f1_I)
     deallocate(lat_weimer, mlt_weimer, dTheta2, dPsi2, SinTheta_I, CosTheta_I)
@@ -757,15 +745,15 @@ MODULE ModSceIono
        enddo
     enddo
   
-    !if (UseWeimer) then ! apply the boundary condition at high latitude
-    do j=1, nPsi-1
-       x_G(iMin-1:iHighBnd(j), j) = PhiIono_Weimer(iMin-1:iHighBnd(j),j)
-    end do
-    !else
-    !   do j=1, nPsi-1
-    !      x_G(iMin-1:iHighBnd(j), j) = 0.0
-    !   end do
-    !end if
+    if (UseWeimer) then ! apply the boundary condition at high latitude
+       do j=1, nPsi-1
+          x_G(iMin-1:iHighBnd(j), j) = PhiIono_Weimer(iMin-1:iHighBnd(j),j)
+       end do
+    else
+       do j=1, nPsi-1
+          x_G(iMin-1:iHighBnd(j), j) = 0.0
+       end do
+    end if
     x_G(iMax+1,1:nPsi-1) = 0.0
   
     ! Apply periodic boundary conditions in Psi direction
@@ -903,6 +891,56 @@ MODULE ModSceIono
     END DO
 
   end subroutine iono_potential_weimer
+
+!==================================================================================================
+subroutine glow_aurora_conductance(idate, ut, glat, glong, &
+     SigmaP, SigmaH, ef_in, ec_in, ef_diff,ekeV_diff, nE,  &
+     ap,f107,f107p, f107a, flux_spec, z, ionrate, eDen,      &
+     Pedcond, Hallcond, nz)
+
+  use ModGlowBasic, ONLY: glowbasic_ram
+  use nrtype,       ONLY: pi_d
+
+  implicit none
+
+  real(DP),    intent(in) :: glat, glong, ef_in, ec_in, &
+                             f107,f107p,f107a, ut, ap
+  integer,     intent(in) :: idate, nE, nz
+  logical,     intent(in) :: flux_spec
+  real(DP),    intent(in) :: ef_diff(nE), ekev_diff(nE)
+  real(DP),    intent(out):: SigmaP, SigmaH
+  real(DP), dimension(nz), intent(out) :: z, ionrate, eDen, Pedcond, Hallcond
+  real(DP) :: ef, ec
+  real(DP) :: logef_diff(nE), logec_diff(nE), ef_diff_tmp(nE)
+  ! ---------------------------------------------------------------------                                                         
+  ! calculate the conductance from glow model                                                                                     
+  ef    = ef_in       ! ergs/cm^2/s                                                                                               
+  ec    = ec_in*1.0e3 ! convert to eV                                                                                             
+
+  if (flux_spec == .true.)then
+     ef_diff_tmp = ef_diff
+
+     if (abs(glat - 55.026)< 0.1 .and. abs(glong - 344.779) < 0.1)then
+        write(*,*)'glat:',glat, 'glong:',glong
+        write(*,*)'ef_diff:',ef_diff
+     end if
+                                                              ! Glow asks for /cm^2/s/eV for the flux                             
+     logef_diff = log10(ef_diff_tmp/1000.*pi_d)             ! convert /cm^2/s/sr/keV to /cm^2/s/eV (integrate over pitch-angle)    
+     logec_diff = log10(ekeV_diff*1.0e3)                   ! convert keV to eV                                                    
+  end if
+
+  if (flux_spec == .false.)then
+     ! pass only flux level and characteristic energy                                                                             
+     call glowbasic_ram(idate,ut, glat, glong, ap, f107, f107p, f107a, &
+          ef, ec, SigmaP, SigmaH, nE, z, ionrate, eDen, Pedcond, Hallcond, nz)
+  else
+     ! pass the full flux spectra                                                                                                 
+     call glowbasic_ram(idate, ut, glat, glong, ap, f107, f107p, f107a, &
+          ef, ec, SigmaP, SigmaH, nE, z, ionrate, eDen, Pedcond, Hallcond, nz, &
+          logec_diff, logef_diff)
+  end if
+
+end subroutine glow_aurora_conductance
 
 !==================================================================================================
 END MODULE ModSceIono
