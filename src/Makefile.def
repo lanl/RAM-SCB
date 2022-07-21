@@ -8,6 +8,7 @@ DIR       = ${IMDIR}
 SCRIPTDIR = ${IMDIR}/share/Scripts
 LIBDIR    = ${IMDIR}/src
 SHAREDIR  = ${IMDIR}/share/Library/src
+GLOWDIR = $IMDIR}/srcGlow
 INCLDIR   = ${IMDIR}/include
 BINDIR    = ${IMDIR}/src
 RUNDIR    = ${IMDIR}/run
