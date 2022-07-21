@@ -339,6 +339,69 @@ F	PressureDetail
 
 </commandgroup>
 
+<commandgroup name="SCE">
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!SCE group!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+<command name="IONOSPHERE">
+         <parameter name="iConductanceModel" type="integer" default="7"/>
+	 <parameter name="StarLightPedConductance" type="float" default="2.5"/>
+	 <parameter name="DoUseFullSpec" type="logical" default="F"/>
+	 <parameter name="DoSaveGLOWConductivity" type="logical" default="F"/>
+#IONOSPHERE
+7              iConductanceModel
+2.5           StarLightPedConductance
+F              DoUseFullSpec
+F              DoSaveGLOWConductivity
+
+\begin{itemize}
+        \item iConductanceModel: 7 uses Robinson's statistical conductance model; 9 uses S. Solomon's GLOW model. If "9" is used, the last two commands are needed.
+	\item StarLightPedConductance: the background conductance due to star light
+	\item DoUseFullSpec: only needed when iConductanceModel=9; It uses full precipitating spectrum as input to the GLOW
+	\item DoSaveGLOWConductivity: only needed when iConductanceModel=9; It saves height-dependent conductivity from GLOW
+</command>
+
+<command name="BOUNDARY">
+         <parameter name="LatBoundary" type="float" default="50"/>
+#BOUNDARY
+50            LatBoundary
+
+Specify the low latitudinal boundary for the ionospheric potential solver. Default is set at 50 degree magnetic latitude.
+</command>
+
+<command name="SOLVER">
+         <parameter name="NameSolver" type="string" default="GMRES"/>
+#SOLVER
+GMRES         NameSolver (gmres or bicgstab)
+
+Specify the scheme for the ionospheric potential solver. 
+</command>
+
+<command name="KRYLOV">
+	<parameter name="UsePreconditioner" type="logical" default="T"/>
+	<parameter name="UseInitialGuess"   type="logical" default="T"/>
+	<parameter name="Tolerance" type="real" min="0" default="0.01"/>
+	<parameter name="MaxIteration" type="integer" min="1" default="100"/>
+
+#KRYLOV
+T			UsePreconditioner
+T			UseInitialGuess
+0.01			Tolerance
+100			MaxIteration
+
+This command controls the parameters for the Krylov solver used to
+solve the Poisson type equation for the electric potential.
+If UsePreconditioner is true the solver uses a preconditioner.
+If UseInitialGuess is true, the previous solution is used as an 
+initial guess. The Tolerance parameter sets the second norm of
+the final (preconditioned) residual. The MaxIteration parameter sets the
+maximum number of iterations before the linear solver gives up.
+In most cases the default values should work fine.
+
+The default values are shown above.
+</command>
+
 <commandgroup name="COMPONENTS">
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!Components group!!!!!!!!!
@@ -476,6 +539,7 @@ Set the source for the convective electric field in RAM-SCB.  The choice made wi
 	\item \textbf{VOLS}: $K_{P}$-based Volland-Stern empirical electric field (internal VS calculation).
 	\item \textbf{WESC}: Weimer 2001 empirical electric field mapped to the	equatorial plane via RAM-SCB field lines (internal W01 calculation).
 	\item \textbf{W5SC}: Weimer 2005 empirical electric field mapped to the	equatorial plane via RAM-SCB field lines (internal W05 calculation).
+	\item \textbf{RSCE}: self-consistently calculated electric field mapped to the equatorial plane via RAM-SCB field lines. If this option is chosen, the following commands are needed: IONOSPHERE, BOUNDARY, SOLVER, KRYLOV. The description of these commands are provided below.
 \end{enumerate}
 
 The parameter UseEfInd turns the use of induced electric field on or off. Default is no induced electric field.
