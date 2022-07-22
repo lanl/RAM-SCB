@@ -972,7 +972,7 @@ C-----------------------------------------------------------------------
 C       CALCULATE G(L) FUNCTION 
 C       Upper Thermosphere Parameters
       REAL LAT, LONG
-      DIMENSION P(200),SV(25),AP(7)
+      DIMENSION P(*),SV(25),AP(*)
       COMMON/TTEST/TINF,GB,ROUT,T(15)
       COMMON/CSW/SW(25),ISW,SWC(25)
       COMMON/LPOLY/PLG(9,4),CTLOC,STLOC,C2TLOC,S2TLOC,C3TLOC,S3TLOC,
