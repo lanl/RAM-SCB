@@ -917,7 +917,7 @@ subroutine glow_aurora_conductance(idate, ut, glat, glong, &
   ef    = ef_in       ! ergs/cm^2/s                                                                                               
   ec    = ec_in*1.0e3 ! convert to eV                                                                                             
 
-  if (flux_spec == .true.)then
+  if (flux_spec .eqv. .true.)then
      ef_diff_tmp = ef_diff
 
      if (abs(glat - 55.026)< 0.1 .and. abs(glong - 344.779) < 0.1)then
@@ -929,7 +929,7 @@ subroutine glow_aurora_conductance(idate, ut, glat, glong, &
      logec_diff = log10(ekeV_diff*1.0e3)                   ! convert keV to eV                                                    
   end if
 
-  if (flux_spec == .false.)then
+  if (flux_spec .eqv. .false.)then
      ! pass only flux level and characteristic energy                                                                             
      call glowbasic_ram(idate,ut, glat, glong, ap, f107, f107p, f107a, &
           ef, ec, SigmaP, SigmaH, nE, z, ionrate, eDen, Pedcond, Hallcond, nz)
