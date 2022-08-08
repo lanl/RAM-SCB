@@ -30,6 +30,13 @@ class RamParser(ArgumentParser):
 
 
 def parserSetup():
+    """
+    Define and set up argument parser
+
+    Returns
+    -------
+    parser : argparse.ArgumentParser object
+    """
     # Define a command-line option parser and add the options we need
     parser = RamParser()
     parser.add_argument('rundir', metavar='rundir',
@@ -47,6 +54,8 @@ def parserSetup():
 
 
 def plotDst(options):
+    """Make default plot of RAM simulated Dst
+    """
     logcands = glob.glob(os.path.join(options.rundir,
                                       'output_ram',
                                       'log*log'))

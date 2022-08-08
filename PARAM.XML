@@ -398,9 +398,17 @@ Sets a flux cap at the boundary for both electrons and protons
 		<option name="DIPL" default="T"/>
 		<option name="DIPS"/>
 		<option name="T89D"/>
+		<option name="T89I"/>
+		<option name="T89L"/>
 		<option name="T96D"/>
+		<option name="T96I"/>
+		<option name="T96L"/>
 		<option name="T02D"/>
+		<option name="T02I"/>
+		<option name="T02L"/>
 		<option name="T04D"/>
+		<option name="T04I"/>
+		<option name="T04L"/>
 		<option name="SWMF"/>
 	</parameter>
 	<parameter name="NameDistribution" type="string" input="select">
@@ -427,10 +435,18 @@ Set the outer boundary conditions for RAM-SCB. Based on these settings, differen
 	\item \textbf{DIPS}: Use a simple dipole to constrain the SCB field.
 	\item \textbf{DIPL}: Use a simple dipole throughout; no SCB calculation.
 	\item \textbf{SWMF}: Use the magnetic field from the Space Weather Modeling Framework. If RAM-SCB is in coupled mode, these values are	calculated and obtained on-the-fly rather than read from input files.
-	\item \textbf{T89D}: Use the Tsyganenko 89c empirical model. As this field depends only on Kp, input files are provided in the RAM-SCB distribution.
-	\item \textbf{T96D}: Use the Tsyganenko 1996 empirical model.
-	\item \textbf{T02D}: Use the Tsyganenko 2002 empirical model.
-	\item \textbf{T04D}: Use the Tsyganenko 2004 empirical model.
+	\item \textbf{T89D}: Use the Tsyganenko 89c empirical model. As this field depends only on Kp, input files are provided in the RAM-SCB distribution. The ``D'' suffix indicates that a centered dipole internal field is used. SCB is enabled for this setting.
+	\item \textbf{T96D}: Use the Tsyganenko 1996 empirical model, with a centered dipole internal field, as the outer boundary for SCB.
+	\item \textbf{T02D}: Use the Tsyganenko 2002 empirical model, with a centered dipole internal field, as the outer boundary for SCB.
+	\item \textbf{T04D}: Use the Tsyganenko and Sitnov 2004 empirical model, with a centered dipole internal field, as the outer boundary for SCB.
+	\item \textbf{T89I}: Use the Tsyganenko 1989 empirical model, with the IGRF as internal field, as the outer boundary for SCB.
+	\item \textbf{T96I}: Use the Tsyganenko 1996 empirical model, with the IGRF as internal field, as the outer boundary for SCB.
+	\item \textbf{T02I}: Use the Tsyganenko 2002 empirical model, with the IGRF as internal field, as the outer boundary for SCB.
+	\item \textbf{T04I}: Use the Tsyganenko and Sitnov 2004 empirical model, with the IGRF as internal field, as the outer boundary for SCB.
+	\item \textbf{T89L}: Use the Tsyganenko 1989 empirical model with a centered dipole internal field to represent the full magnetic field. SCB is disabled for this setting.
+	\item \textbf{T96L}: Use the Tsyganenko 1996 empirical model with a centered dipole internal field to represent the full magnetic field. SCB is disabled for this setting.
+	\item \textbf{T02L}: Use the Tsyganenko 2002 empirical model with a centered dipole internal field to represent the full magnetic field. SCB is disabled for this setting.
+	\item \textbf{T04L}: Use the Tsyganenko and Sitnov 2004 empirical model with a centered dipole internal field to represent the full magnetic field. SCB is disabled for this setting.
 \end{enumerate}
 
 \noindent
@@ -443,6 +459,10 @@ Set the outer boundary conditions for RAM-SCB. Based on these settings, differen
 
 <command name="EFIELD">
 	<parameter name="NameEfield" type="string" length="4"/>
+		<option name="VOLS" default="T"/>
+		<option name="WESC"/>
+		<option name="W5SC"/>
+		<option name="IESC"/>
 	<parameter name="UseEfInd"   type="logical" default="F"/>
 #EFIELD
 IESC		NameEfield
@@ -454,12 +474,13 @@ Set the source for the convective electric field in RAM-SCB.  The choice made wi
 \begin{enumerate}
 	\item \textbf{IESC}: SWMF IE-component electric field mapped to the equatorial plane via RAM-SCB field lines.
 	\item \textbf{VOLS}: $K_{P}$-based Volland-Stern empirical electric field (internal VS calculation).
-	\item \textbf{WESC}: Weimer 2001 empirical electric field mapped to the	equatorial plane via RAM-SCB field lines (internal W2K calculation).
+	\item \textbf{WESC}: Weimer 2001 empirical electric field mapped to the	equatorial plane via RAM-SCB field lines (internal W01 calculation).
+	\item \textbf{W5SC}: Weimer 2005 empirical electric field mapped to the	equatorial plane via RAM-SCB field lines (internal W05 calculation).
 \end{enumerate}
 
 The parameter UseEfInd turns the use of induced electric field on or off. Default is no induced electric field.
 
-The \textbf{VOLS} and \textbf{WESC} are \textit{internal} calculations and do not require these additional files, but carry the requirements of their respective underlying models.  The Volland-Stern model requires the $K_{P}$ index, which is provided for historical simulations.  The Weimer 2000 empirical model requires upstream solar wind conditions, which can be obtained from the OMNI database.  This data must be placed into the run directory in a file named \textit{omni.txt}.  
+The \textbf{VOLS} and \textbf{WESC} are \textit{internal} calculations and do not require these additional files, but carry the requirements of their respective underlying models.  The Volland-Stern model requires the $K_{P}$ index, which is provided for historical simulations.  The Weimer 2001 and 2005 empirical models require upstream solar wind conditions, which can be obtained from the OMNI database.  This data must be placed into the run directory in a file named \textit{omni.txt}.  
 </command>
 
 </commandgroup>
@@ -474,7 +495,7 @@ The \textbf{VOLS} and \textbf{WESC} are \textit{internal} calculations and do no
 #OMNIFILE
 omni.txt	NameOmniFile
 
-The WESC (Weimer electric field traced along SCB field lines) electric field selection calculates Weimer's empirical electric field on-the-fly. To do this, solar wind inputs are required from the Omni database. The ascii file that contains these inputs should either be called "omni.txt" and be located in the run directory (default behavior) or this command should be used to point the code in the correct location.
+The WESC and W5SC (Weimer models traced along SCB field lines) electric field selections calculate Weimer's empirical electric field on-the-fly. To do this, solar wind inputs are required from the OMNI database. The ASCII file that contains these inputs should either be called "omni.txt" and be located in the run directory (default behavior) or this command should be used to point the code in the correct location.
 </command>
 
 <command name="INDICES_FILE">
