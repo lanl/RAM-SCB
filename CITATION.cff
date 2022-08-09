@@ -1,0 +1,46 @@
+cff-version: 1.2.0
+title: RAM-SCB
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file. Please also cite the paper
+  by Engel et al. (2019; doi:10.1029/2018JA026260) and
+  other relevant papers describing the model featues
+  used.
+type: software
+authors:
+  - given-names: Vania K.
+    family-names: Jordanova
+    email: vania@lanl.gov
+    affiliation: Los Alamos National Laboratory
+    orcid: 'https://orcid.org/0000-0003-0475-8743'
+  - given-names: Miles A.
+    family-names: Engel
+    affiliation: Los Alamos National Laboratory
+    orcid: 'https://orcid.org/0000-0003-4248-9636'
+  - given-names: Steven K.
+    family-names: Morley
+    affiliation: Los Alamos National Laboratory
+    orcid: 'https://orcid.org/0000-0001-8520-0199'
+  - given-names: Daniel T.
+    family-names: Welling
+    affiliation: University of Michigan
+    orcid: 'https://orcid.org/0000-0002-0590-1022'
+  - given-names: Yiqun
+    family-names: Yu
+    affiliation: Beihang University
+    orcid: 'https://orcid.org/0000-0002-1013-6505'
+  - given-names: Kateryna
+    family-names: Yakymenko
+    affiliation: Los Alamos National Laboratory
+    orcid: 'https://orcid.org/0000-0002-7663-8006'
+  - given-names: Rehana
+    family-names: Mahfuz
+    orcid: 'https://orcid.org/0000-0002-9974-1137'
+  - given-names: Humberto C.
+    family-names: Godinez
+    affiliation: Los Alamos National Laboratory
+    orcid: 'https://orcid.org/0000-0001-7138-3481'
+  - given-names: Louis
+    family-names: Vernon
+  - given-names: Cristoph
+    family-names: Junghans
