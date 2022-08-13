@@ -358,7 +358,7 @@ F              DoUseFullSpec
 F              DoSaveGLOWConductivity
 
 \begin{itemize}
-        \item iConductanceModel: 7 uses Robinson's statistical conductance model; 9 uses S. Solomon's GLOW model. If "9" is used, the last two commands are needed.
+        \item iConductanceModel: 7 uses Robinson's statistical conductance model; 9 uses S. Solomon's GLOW model. If "9" is used, the last two commands are needed. When the GLOW model is used, parallelizing is recommended.
 	\item StarLightPedConductance: the background conductance due to star light
 	\item DoUseFullSpec: only needed when iConductanceModel=9; It uses full precipitating spectrum as input to the GLOW
 	\item DoSaveGLOWConductivity: only needed when iConductanceModel=9; It saves height-dependent conductivity from GLOW
