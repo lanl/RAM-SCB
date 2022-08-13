@@ -23,19 +23,20 @@ module ModGlowBasic
        logec_diff, logef_diff, pf_in, pc_in, logpc_diff, logpf_diff)
 
 
-! Modified from GLOW model (developed by Stan Solomon) to couple with RAM. 
-! By Yiqun Yu 2016
-!
+! Modified from GLOW's original program: glowbasic.f90 in order to couple with RAM. 
+! By Yiqun Yu 2022
+
 ! optional input variables: 
-! logec_diff, logef_diff: if present, then use the full spectrum as input
+! logec_diff, logef_diff:                     if present, then use the full spectrum as input
 ! pf_in, pc_in, logpc_diff, logpf_diff: if present, then calculate proton impact
 
-
+!====================================================================
 ! This software is part of the GLOW model.  Use is governed by the Open Source
-! Academic Research License Agreement contained in the file glowlicense.txt.
-! For more information see the file glow.txt.
+! Academic Research License Agreement contained in the file Glowlicense.txt.
+! For more information see the file Glow.txt.
 
-! Version 0.98 beta, 1/2017
+! Version 0.982, 2/2018
+! Adapted from glowdriver by Stan Solomon, 2/2016
 
 ! Basic single-processor driver for the GLOW model.
 ! Uses MSIS/IRI for input.
@@ -121,8 +122,8 @@ module ModGlowBasic
 !
 ! Set data directories:
 !
-  data_dir    = 'data/'
-  iri90_dir   = 'data/iri90/'
+  data_dir    = 'IM/input_sce/glow_data/'
+  iri90_dir   = 'IM/input_sce/glow_data/iri90/'
 !
 ! Set number of altitude levels:
 !
