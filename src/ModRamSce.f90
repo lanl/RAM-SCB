@@ -254,9 +254,9 @@ MODULE ModRamSce
 
     ! writing to files
     if (DoTest)then
-       if (Mod(int(TimeRamElapsed) ,300) .eq. 0)then
+       if (Mod(int(TimeRamElapsed) ,1800) .eq. 0)then
           write(NameFile,'(a,a,a,i6.6,a)')&
-               PathSCEOut//"PrecipFlux_atSCBEquator_",species(IS)%s_name,"t",nint(TimeRamElapsed/300.),".dat"
+               PathSCEOut//"PrecipFlux_atSCBEquator_",species(IS)%s_name,"_t",nint(TimeRamElapsed/1800.),".dat"
           open( UnitTmp_, FILE=NameFile, STATUS='replace')
           write(UnitTmp_,*)'Time: ',TimeRamElapsed
           write(UnitTmp_,*)'nR, nMLT, nE', npsi,nzeta,nE
@@ -385,9 +385,9 @@ MODULE ModRamSce
     ! write out the precipitation on the ionosphere                                                                                       
     !/                                                                                                                                    
     if (DoTest)then
-       if (Mod(int(TimeRamElapsed) ,300) .eq. 0)then
+       if (Mod(int(TimeRamElapsed) ,1800) .eq. 0)then
           write(NameFile,'(a,a,a,i6.6,a)')&
-               PathSCEOut//"PrecipFlux_",species(IS)%s_name,"t",nint(TimeRamElapsed/300.),".dat"
+               PathSCEOut//"PrecipFlux_",species(IS)%s_name,"_t",nint(TimeRamElapsed/1800.),".dat"
           open( UnitTmp_, FILE=NameFile, STATUS='replace')
           write(UnitTmp_,*)'Time: ',TimeRamElapsed
           write(UnitTmp_,*)'nTheta_north, nPhi', nTheta_north, nPhi
