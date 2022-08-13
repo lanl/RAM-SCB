@@ -30,7 +30,7 @@ module ModRamMain
   character(len=*), parameter :: PathSWMFOut = 'IM/output_swmf/'
   character(len=*), parameter :: PathRAMIn   = 'IM/input_ram/'
   character(len=*), parameter :: PathSCBIn   = 'IM/input_scb/'
-  character(len=*), parameter :: PathSCEIn   = 'IM/input_scb/'
+  character(len=*), parameter :: PathSCEIn   = 'IM/input_sce/'
 !!!!!
 
 !!!!! ITERATIONS
