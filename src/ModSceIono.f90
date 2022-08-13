@@ -445,7 +445,7 @@ MODULE ModSceIono
                                dSigmaThPs_dPsi, dSigmaPsPs_dPsi, &
                                Theta, Psi, dTheta, dPsi, Phi_C)
   
-    ! Modified from Ridley_serials IE solver. By Yu & Toth, 2016.
+    ! Modified from SWMF/Ridley_serials IE solver. By Yu & Toth, 2016.
     !
     ! This subroutine solves for the ionospheric potential PHI
     ! using the field aligned currents Jr and the conductivity tensor Sigma
