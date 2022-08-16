@@ -29,16 +29,22 @@ MODULE ModSceRun
     use ModScbVariables, ONLY: pjconst
     use ModSceGrids,     ONLY: Iono_nTheta, Iono_nPsi
     use ModSceVariables
-
     use ModSceIono, ONLY: ionosphere_conductance,  ionosphere_solver, ionosphere_fluxes
     use ModRamSce, ONLY: calculate_precip_flux_jr
-
+    use ModRamVariables, ONLY: species
+    use ModRamGrids, ONLY: nS
     use nrtype, ONLY: DP, cDegtoRad, cRadtoDeg
     implicit none
 
     real(DP) :: rIonosphere
-    integer :: IS
+    integer :: IS, S
     !--------------------------------------------------------------------------
+    do IS=1,nS
+       if (species(IS)%s_name .eq. 'Electron')then ! only the electron precipitation is used for SCE calculation
+          S=IS
+          exit
+       end if
+    end do
 
     SinThetaTilt = sin(ThetaTilt)
     CosThetaTilt = cos(ThetaTilt)
@@ -48,8 +54,8 @@ MODULE ModSceRun
     ! these grids are from the ionosphere. In the following routine, 
     ! the variables should be mapped down the iono. grids.
     rIonosphere = 1.0+0.0172
-    IS = 4
-    call calculate_precip_flux_jr(IS, 2*Iono_nTheta-1, Iono_nPsi, rIonosphere, &
+
+    call calculate_precip_flux_jr(S, 2*Iono_nTheta-1, Iono_nPsi, rIonosphere, &
                                   Energy_FluxIono, Ave_eIono, Num_FluxIono, &
                                   Dis_Energy_FluxIono, Dis_Ave_eIono, &
                                   JrIono, HighLatBoundaryIM, Diff_FluxIono) ! only for electrons
