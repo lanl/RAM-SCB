@@ -80,7 +80,7 @@ MODULE ModSceIono
                                     SigmaPsPs, dSigmaThTh_dTheta, dSigmaThPs_dTheta, &
                                     dSigmaPsPs_dTheta, dSigmaThTh_dPsi, dSigmaThPs_dPsi, &
                                     dSigmaPsPs_dPsi, Eflux, Ave_E, Eflux_diff, Theta, Psi, nTheta, &
-                                    nPsi, dTheta, dPsi, x, y, z, iModel)
+                                    nPsi, dTheta, dPsi, iono_x, iono_y, iono_z, iModel)
   
     !\
     ! This subroutine computes the height-integrated field-aligned and
@@ -118,7 +118,7 @@ MODULE ModSceIono
                                dSigmaThPs_dTheta(:,:), dSigmaPsPs_dTheta(:,:), &
                                dSigmaThTh_dPsi(:,:), dSigmaThPs_dPsi(:,:), &
                                dSigmaPsPs_dPsi(:,:), Eflux(:,:), Ave_E(:,:),  Eflux_diff(:,:,:), &
-                               Theta(:,:), Psi(:,:), x(:,:), y(:,:), z(:,:), dTheta(:), dPsi(:)
+                               Theta(:,:), Psi(:,:), iono_x(:,:), iono_y(:,:), iono_z(:,:), dTheta(:), dPsi(:)
     integer  :: i, j, k
     logical  :: old
     real(DP) :: f107p53, f107p49, cos_limit, meeting_value_p, meeting_value_h, &
@@ -126,9 +126,10 @@ MODULE ModSceIono
                 SigmaP_EUV_2, SigmaH_STAR, SigmaP_STAR, sn, cs, sn2, cs2, cs3, &
                 cs4, C
     
-    real :: ut, ap,  f107r, f107a, f107p, f107y
-    real(DP) :: rIono, XyzSmg(3), XyzGeo(3)
-    integer  :: iyear, imonth, iday, ihour, iminute, isecond, idoy, ndaymo,ap0,ipoint, idate
+    real :: ut
+    real(DP) :: rIono, XyzSmg(3), XyzGeo(3),iap(7),hr, ap,  f107r, f107a, f107p, f107y
+    integer  :: iyear, imonth, iday, ihour, iminute, isecond, idoy, ndaymo,ap0, &
+         ipoint, idate,isdate
     character(len=100) :: NameFile
 
     real(DP), allocatable :: cos_SZA(:,:)
@@ -148,7 +149,7 @@ MODULE ModSceIono
     allocate(cos_SZA(nTheta,nPsi), SigmaH_Particles(1:IONO_nTheta,1:IONO_NPsi),    &
             SigmaP_Particles(1:IONO_nTheta,1:IONO_NPsi))
  
-    cos_SZA = (x*cosTHETATilt-z*sinTHETATilt)/sqrt(x**2 + y**2 + z**2)
+    cos_SZA = (iono_x*cosTHETATilt-iono_z*sinTHETATilt)/sqrt(iono_x**2 + iono_y**2 + iono_z**2)
   
     ! We are going to need F10.7 ^ 0.53 and F10.7 ^ 0.49 a lot,
     ! So, let's just store them straight away:  
@@ -167,13 +168,15 @@ MODULE ModSceIono
        iMinute=TimeRamNow%iMinute
        iSecond=TimeRamNow%iSecond
        ut     = iHour * 3600. + iMinute * 60 + iSecond
+       hr = iHour + iMinute/60.0+iSecond/3600.
 
        call moda(0, iyear, imonth, iday, idoy, ndaymo)
        idate = (iyear-iyear/100*100)*1000+idoy
        
        ! read in the parameters Ap, F107 (from irifun_2012.f) (ap0 in integer) 
-       call apf_only(iyear, imonth, iday, f107r, f107p, f107a, f107y,ap0)
-       ap = ap0*1.0
+       call apf_only(iyear, imonth, iday, f107r, f107p, f107a, f107y,ap0,isdate)
+       call apfmsis(isdate,hr,iap)
+       ap = iap(2) ! 3-hour ap index at current time
 
        allocate(zz(1:IONO_nTheta,1:IONO_nPsi,nzGlow),  &
             ionrate(1:IONO_nTheta,1:IONO_nPsi,nzGlow), &
@@ -190,7 +193,9 @@ MODULE ModSceIono
             SigmaH_Glow_all(1:IONO_nTheta,1:IONO_NPsi),    & 
             SigmaP_Glow_all(1:IONO_nTheta,1:IONO_NPsi),    &
             SigmaH_all(1:IONO_nTheta,1:IONO_NPsi),    & 
-            SigmaP_all(1:IONO_nTheta,1:IONO_NPsi))
+            SigmaP_all(1:IONO_nTheta,1:IONO_NPsi), &
+            glat(1:IONO_nTheta,1:IONO_NPsi), &
+            glong(1:IONO_nTheta,1:IONO_NPsi))
     end if
 
     
@@ -263,7 +268,7 @@ MODULE ModSceIono
              !\ 
              ! parallize the glow calculation for the 2D points over ionosphere
              !/ 
-             if(nProc>1)then
+             if(nProc .gt. 1)then
                 iPoint = iPoint + 1
                 if (mod(iPoint, nProc) /=iProc)CYCLE
              end if
@@ -271,12 +276,12 @@ MODULE ModSceIono
              ! pass the energy flux and characteristic energy (half of the mean energy)
              ! EFlux*1000 (ergs/cm^2/s); EFlux_Diff(/cm^2/s/sr/keV); Ave_E: keV 
              !/
-             if (EFlux(i,j)*1000. > 0.0001 .and. Ave_E(i,j)/2.*1000. >1)then
+             if (EFlux(i,j)*1000. > 0.001 .and. Ave_E(i,j)/2.*1000. >1)then
                 call glow_aurora_conductance(idate, real(ut,DP), glat(i,j), glong(i,j), &
                      SigmaP_Glow(i,j), SigmaH_Glow(i,j), &
                      EFlux(i,j)*1000., Ave_E(i,j)/2., EFlux_Diff(i,j,:), EkeV(:), nE, &
-                     real(ap,kind=8), real(f107r,DP), real(f107p,DP),&
-                     real(f107a,kind=8), DoUseFullSpec, &
+                     real(ap,DP), real(f107r,DP), real(f107p,DP),&
+                     real(f107a,DP), DoUseFullSpec, &
                      zz(i,j,1:nzGlow), ionrate(i,j,1:nzGlow), eDen(i,j,1:nzGlow), &
                      Pedcond(i,j,1:nzGlow), Hallcond(i,j,1:nzGlow), nzGlow)
              else
@@ -337,8 +342,9 @@ MODULE ModSceIono
        !bcast to other processors
        call MPI_bcast(SigmaP, nTheta*nPsi,MPI_REAL,0,iComm,iError)
        call MPI_bcast(SigmaH, nTheta*nPsi,MPI_REAL,0,iComm,iError)
-
-       !! write out the conductance into file                                                                                               
+    end if
+    !! write out the conductance into file
+    if(iModel .eq. 9)then
        if (iProc==0 .and. DoSaveGLOWConductivity)then
           if (mod(TimeRamElapsed, 300.0) .eq. 0)then
              write(namefile, '(a,i6.6,a)')PathSceOut//"Conductance_",nint(TimeRamElapsed/300.),".dat"
@@ -346,8 +352,7 @@ MODULE ModSceIono
              write(UnitTmp_, '(a, i3.3)')'nHeight: ', nzGlow
              write(UnitTmp_, '(a, i4.4,1x,i2.2,1x, i2.2,1x,i2.2,1x,i2.2))')'Time: ', iyear, imonth,&
                   iday, ihour, iminute
-             write(unitTmp_, '(a)')'Theta Psi Glat Glon EFlux Emean SigamP_all SigmaH_all SigmaP_Glow SigamH_Glow SigmaP_R SigmaH_R'
-             write(unitTmp_, '(a)')'zz ionization_rate Ne Pedconductivity Halconductivity'
+             write(unitTmp_, '(a)')'Theta Psi Glat Glon EFlux Emean SigamP_all SigmaH_all SigmaP_Glow SigamH_Glow'
              
              do j=1, nPsi
                 do i=1, nTheta
@@ -355,11 +360,15 @@ MODULE ModSceIono
                    write(UnitTmp_,'(1x, 10f9.4)')&
                         Theta(i,j), Psi(i,j), glat(i,j), glong(i,j), EFlux(i,j)*1000, Ave_E(i,j), &
                         SigmaP(i,j),SigmaH(i,j), SigmaP_Glow(i,j), SigmaH_Glow(i,j)
-                   
-                   do k=1,nzGlow
-                      write(UnitTmp_,'(f6.2, 4e12.3)')zz(i,j,k), ionrate(i,j,k), eDen(i,j,k), &
-                           Pedcond(i,j,k), Hallcond(i,j,k)
-                   end do
+
+                   !only write out height-dependent result if GLOW is called.
+                   if (EFlux(i,j)*1000. > 0.001 .and. Ave_E(i,j)/2.*1000. >1)then                   
+                      write(unitTmp_, '(a)')'  zz     ionization_rate    Ne     Pedconductivity  Halconductivity'
+                      do k=1,nzGlow
+                         write(UnitTmp_,'(f10.4, 4e12.3)')zz(i,j,k), ionrate(i,j,k), eDen(i,j,k), &
+                              Pedcond(i,j,k), Hallcond(i,j,k)
+                      end do
+                   end if
                 end do
              end do
              close(UnitTmp_)
@@ -431,7 +440,7 @@ MODULE ModSceIono
   
     if(iModel .eq. 9)deallocate(zz,ionrate,eDen,PedCond,HallCond,SigmaH_GLOW,SigmaP_GLOW,&
          zz_all,ionrate_all,eDen_all,PedCond_all,HallCond_all,SigmaH_GLOW_all,SigmaP_GLOW_all,&
-         SigmaH_all,SigmaP_all)
+         SigmaH_all,SigmaP_all, glat, glong)
     
     deallocate(cos_SZA,SigmaH_Particles,SigmaP_Particles)
     return
@@ -920,10 +929,10 @@ subroutine glow_aurora_conductance(idate, ut, glat, glong, &
   if (flux_spec .eqv. .true.)then
      ef_diff_tmp = ef_diff
 
-     if (abs(glat - 55.026)< 0.1 .and. abs(glong - 344.779) < 0.1)then
-        write(*,*)'glat:',glat, 'glong:',glong
-        write(*,*)'ef_diff:',ef_diff
-     end if
+!     if (abs(glat - 55.026)< 0.1 .and. abs(glong - 344.779) < 0.1)then
+!        write(*,*)'glat:',glat, 'glong:',glong
+!        write(*,*)'ef_diff:',ef_diff
+!     end if
                                                               ! Glow asks for /cm^2/s/eV for the flux                             
      logef_diff = log10(ef_diff_tmp/1000.*pi_d)             ! convert /cm^2/s/sr/keV to /cm^2/s/eV (integrate over pitch-angle)    
      logec_diff = log10(ekeV_diff*1.0e3)                   ! convert keV to eV                                                    
