@@ -190,12 +190,12 @@ module ModGlowBasic
           ! from ef and ec get a maxiwellian function (ef, ec) [ergs/cm^2/s, eV] --> phitop: /cm^2/s/eV
           call maxt (ef,ec,ener,del,nbins,itail,fmono,emono,phitop)
 
-          do i=1,nbins
-             if(ener(i) .lt. 500 .or. ener(i) .gt. 50000.)then
-                phitop(i) = 0.0
-             end if
-          end do
-
+!         do i=1,nbins
+!            if(ener(i) .lt. 500 .or. ener(i) .gt. 50000.)then
+!               phitop(i) = 0.0
+!            end if
+!         end do
+!
        else
           !interpolate in energy space (logE, logflux) (eV, /cm^2/s/eV)
           k = 0
