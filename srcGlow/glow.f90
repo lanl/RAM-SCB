@@ -149,9 +149,9 @@
       call solzen (idate, ut, glat, glong, sza)
       sza = sza * pi/180.
 
-! Scale solar flux:
+! Scale solar flux: (not used for SCE; SCE only takes precipition's impact; YU@2022)
 
-      call ssflux (iscale, f107, f107a, xuvfac, wave1, wave2, sflux)
+ !     call ssflux (iscale, f107, f107a, xuvfac, wave1, wave2, sflux)
 
 ! Pack major species density array:
       do j=1,jmax
@@ -161,15 +161,15 @@
       enddo
 
 ! Calculate slant path column densities of major species in the
-! direction of the sun:
+! direction of the sun: (not used for SCE; SCE only takes precipition's impact; YU@2022)
 
-      call rcolum (sza, zz, zmaj, ztn, zcol, zvcd, jmax, nmaj)
+!      call rcolum (sza, zz, zmaj, ztn, zcol, zvcd, jmax, nmaj)
 
 ! Call subroutine EPHOTO to calculate the photoelectron production
 ! spectrum and photoionization rates as a function of altitude,
 ! unless all altitudes are dark, in which case zero arrays:
 
-      !!! test: do not use photoelectrons
+      !!!  do not use photoelectrons (not used for SCE; SCE only takes precipition's impact; YU@2022)
       sza = 5
       if (sza < 1.85) then
         call ephoto
