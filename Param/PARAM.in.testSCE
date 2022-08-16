@@ -26,7 +26,7 @@ STOP
 3                       iMonth
 17                      iDay
 00                      iHour
-30                      iMinute
+10                      iMinute
 0                       iSecond
 0.0                     FracSecond
 
@@ -158,22 +158,22 @@ T			FixedPolarBoundary	! Whether to use a fixed polar boundary (field line end p
 ****************** SCE BLOCK ******************
 
 #IONOSPHERE
-7			ConductanceModel
-2.5			StarLightPedConductance
-F			DoUseFullSpec
-F			DoSaveGLOWConductivity
+7			ConductanceModel	! choose conductance method: 7--use Robinson's formula; 9--use GLOW model (parallized)
+2.5			StarLightPedConductance	! set up the background Pedersen conductance
+F			DoUseFullSpec		! Whether to pass the full energy spectrum of precipitating flux to GLOW model
+F			DoSaveGLOWConductivity	! Whether to output the GLOW result of height-dependent profiles
 
 #SOLVER
-GMRES			NameSolver
+GMRES			NameSolver		! Choose a solver for electric potential calculation (GMRES or bicgstab)
 
 #KRYLOV
-T			UsePreconditioner
-T			UseInitialGuess
-0.01			Tolerance
-100			MaxIteration
+T			UsePreconditioner	! Whether to use Preconditioner in the Krylov solver
+T			UseInitialGuess		! Whether to use an initial guess
+0.01			Tolerance		! Set the tolerance parameter for the secodn norm of the residual
+100			MaxIteration		! Set the maximum iteraction of the solver
 
 #BOUNDARY		
-50.0			LatBoundary
+50.0			LatBoundary		! Set the lower-latitude boundary for the electric potential solver
 
 ***********************************************
 
