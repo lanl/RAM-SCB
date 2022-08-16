@@ -615,7 +615,8 @@ MODULE ModRamInit
     !!!! Share Modules
     use ModIOUnit,      ONLY: UNITTMP_
     use ModTimeConvert, ONLY: TimeType
-  
+    use ModSceVariables,ONLY: Conductance_model
+    
     implicit none
   
     integer :: i, j, j1, i1, iS, methodTemp
@@ -711,14 +712,18 @@ MODULE ModRamInit
           PlasmasphereModel = "Carpenter"
           call plasmasphere(0._dp)
           PlasmasphereModel = pmt
-       endif
+       else
+          if(Conductance_model .eq. 9)then
+             call readapf107
+          end if
+       end if
 
        ! Call initial outputs
        call compute3DFlux
        call write2DFlux
        call writeLosses
     end if
-  !!!!!!!!
+  !!!!!!!!.
   
    return
   
