@@ -254,10 +254,10 @@ module ModRamIndices
     ! If using the Young et al. composition model, recalculate the composition
     ! fractions based on new Kp and F10.7
     if (.not.FixedComposition) then
-       BEXP=(4.5E-2)*EXP(0.17*KP+0.01*F107)
+       BEXP=(4.5E-2)*EXP(0.17*KP+0.01*F107)  ! O/H ratio, eqn 5.
        AHE0=6.8E-3
        AHE1=0.084
-       GEXP=0.011*EXP(0.24*KP+0.011*F107)
+       GEXP=0.011*EXP(0.24*KP+0.011*F107)  ! n(O), eqn. 2
        GEXP=BEXP*(AHE0/GEXP+AHE1)
        do i = 1, nS
           select case(species(i)%s_name)
