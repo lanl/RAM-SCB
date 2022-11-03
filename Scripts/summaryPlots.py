@@ -12,7 +12,10 @@ import spacepy.plot as splot
 
 @contextmanager
 def cd(newdir):
-    '''Context-managed chdir; changes back to original directory on exit or failure'''
+    '''Context-managed chdir
+
+    changes back to original directory on exit or failure
+    '''
     prevdir = os.getcwd()
     os.chdir(os.path.expanduser(newdir))
     try:
@@ -23,7 +26,9 @@ def cd(newdir):
 
 class RamParser(ArgumentParser):
     def error(self, message):
-        """Overload error handler to write help in case of any error in usage"""
+        """Overload error handler to write help
+
+        Useful in case of any error in usage"""
         sys.stderr.write('error: {}\n'.format(message))
         self.print_help()
         sys.exit(2)
@@ -45,8 +50,6 @@ def parserSetup():
                         help="Start time for plots (YYYY-MM-DDThh:mm:ss)")
     parser.add_argument("-e", "--endTime", dest="endTime",
                         help="End time for plots (YYYY-MM-DDThh:mm:ss)")
-    parser.add_argument("-g", "--greedylogs", dest="greedy", action="store_true",
-                        help="If set, combine all logs into a single file.")
     parser.add_argument("-o", "--outdir", dest="outdir",
                         help="Folder to save summary plots")
 
@@ -56,12 +59,19 @@ def parserSetup():
 def plotDst(options):
     """Make default plot of RAM simulated Dst
     """
-    logcands = glob.glob(os.path.join(options.rundir,
-                                      'output_ram',
-                                      'log*log'))
-    if options.greedy and len(logcands) > 1:
-        subprocess.run(["python", "CatLog.py", *logcands])
-    log = ram.LogFile(logcands[0])
+    logcands = sorted(glob.glob(os.path.join(options.rundir,
+                                             'output_ram',
+                                             'log*log')))
+    outfile = os.path.join(options.rundir, 'output_ram',
+                           'log_combined.log')
+    if len(logcands) > 1:
+        subprocess.run(["python", "CatLog.py",
+                        f"-o={outfile}",
+                        *logcands])
+        uselog = outfile
+    else:
+        uselog = logcands[0]
+    log = ram.LogFile(uselog)
 
     # put figure together here
     fig = plt.figure(tight_layout=True, figsize=(8, 4.5))
@@ -98,4 +108,6 @@ if __name__ == "__main__":
             plotDst(in_args)
 
     if bailflag:
-        parser.error('Run directory {} does not exist or has no log files'.format(in_args.rundir))
+        errmsg = 'Run directory {} does not exist '.format(in_args.rundir)
+        errmsg += 'or has no log files'
+        parser.error(errmsg)
