@@ -83,6 +83,7 @@ def plotDst(log, options):
     """
     fig = plt.figure(tight_layout=True, figsize=(8, 4.5))
     fig, ax = log.add_dst_quicklook(target=fig, showBiot=False)
+    # move tstart/tend into options struct
     tstart = log['time'][0]
     tstart_ISO = spt.Ticktock(tstart).ISO[0]
     tend = log['time'][-1]
@@ -120,11 +121,19 @@ def plotDst(log, options):
     plt.savefig(outfile)
 
 
+def plot_pressure(options):
+    pass
+    #loop over all files in expected time range and make plot
+    # default pressure plot should have 4 dials, one each for
+    # electrons, protons, helium, oxygen.
+    # Need to check before adding the figure whether the species
+    # is in the output file
+
 if __name__ == "__main__":
     parser = parserSetup()
     in_args = parser.parse_args()
 
-    bailflag = False
+    flagstatus = [False, False, False]
     if os.path.isdir(in_args.rundir):
         # make sure we don't have a trailing separator
         if (in_args.rundir[-1] == os.path.sep) and \
@@ -136,10 +145,17 @@ if __name__ == "__main__":
             splot.style('default')
             uselog = load_logs(in_args)
             plotDst(uselog, in_args)
+        else:
+            flagstatus[1] = True
     else:
-        bailflag = True
+        flagstatus[0] = True
 
-    if bailflag:
-        errmsg = 'Run directory {} does not exist '.format(in_args.rundir)
-        errmsg += 'or has no log files'
+    if True in flagstatus:
+        errmsg = ''
+        if flagstatus[0]:
+            errmsg += '\nRun directory {} does not exist\n'.format(in_args.rundir)
+        if flagstatus[1]:
+            errmsg += '\nNo log files found\n'
+        if flagstatus[2]:
+            errmsg += '\nNo pressure files found\n'
         parser.error(errmsg)
