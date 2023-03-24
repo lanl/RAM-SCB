@@ -471,7 +471,7 @@ testSCE_rundir:
 	rm -rf ${TESTDIRC}
 	make rundir RUNDIR=${TESTDIRC} STANDALONE="YES"
 	cp Param/${PARAMFILE} ${TESTDIRC}/PARAM.in
-	cp -r input/data ${TESTDIRC}/=
+	cp -r input/glow_data ${TESTDIRC}/=
 
 testSCE_run:
 	cd ${TESTDIRC}; ${MPIRUN} ./ram_scb.exe | tee runlog;
