@@ -26,7 +26,7 @@ def setup_parser():
     # Create argument parser & set up arguments:
     parser = ArgumentParser(description=__doc__,
                             formatter_class=RawDescriptionHelpFormatter)
-    parser.add_argument("-d", "--destdir", default=None,
+    parser.add_argument("-d", "--destdir", default=None, required=True,
                         help="Destination path for run directory")
     parser.add_argument("configfile", nargs='+', help="Run config")
     parser.add_argument("-o", "--overwrite", action="store_true",
@@ -57,6 +57,8 @@ def parse_config(config_file):
     end_date = dt.datetime(2015, 3, 18)  # get from config file
     lastramind = get_ramindices_end()
     if end_date >= lastramind:
+        # if run ends after the last date in the Ramindices file,
+        # update it
         with cd("Scripts"):
             subprocess.run(['python', 'updateRamIndices.py'])
 
@@ -68,10 +70,27 @@ def setup_rundir(args):
     parse_config(args.configfile)
     # Now copy in everything we need
     # and move rundir to final location
-    compl = subprocess.run(['make', 'rundir'], check=True, capture_output=True)
-    shutil.move('rundir', args.destdir)
+    compl = subprocess.run(['make', 'rundir', 'RUNDIR=run_ram_ror'],
+                           check=True, capture_output=True)
+    if args.overwrite:
+        shutil.rmtree(args.destdir)
+    shutil.move('run_ram_ror', args.destdir)
+
+
+def run_model(args):
+    '''Launch RAM-SCB as a detached process so it keeps running
+       and the launch script exits
+    '''
+    with cd(args.destdir):
+        print(os.getcwd())
+        if not os.path.isfile('ram_scb.exe'):
+            raise RuntimeError(' '.join(['RAM-SCB not found in specified',
+                                         'directory, or directory not',
+                                         'created properly']))
+        subprocess.Popen(['./ram_scb.exe'], close_fds=True)
 
 
 if __name__ == '__main__':
     args = setup_parser()
     setup_rundir(args)
+    run_model(args)
