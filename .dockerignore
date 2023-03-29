@@ -3,3 +3,7 @@
 .github
 Dockerfile*
 docker-compose*
+*/__pycache__
+*/*/__pycache__
+*/*/images
+*/*/vtk_files
