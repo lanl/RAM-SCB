@@ -28,7 +28,7 @@ def setup_parser():
                             formatter_class=RawDescriptionHelpFormatter)
     parser.add_argument("-d", "--destdir", default=None, required=True,
                         help="Destination path for run directory")
-    parser.add_argument("configfile", nargs='+', help="Run config")
+    parser.add_argument("configfile", nargs=1, help="Run config")
     parser.add_argument("-o", "--overwrite", action="store_true",
                         help="Clobber an existing run directory" +
                         "with the same name/path.")
@@ -72,14 +72,14 @@ def setup_rundir(args):
     # and move rundir to final location
     compl = subprocess.run(['make', 'rundir', 'RUNDIR=run_ram_ror'],
                            check=True, capture_output=True)
+    shutil.copyfile(args.configfile[0], 'run_ram_ror/PARAM.in')
     if args.overwrite:
         shutil.rmtree(args.destdir)
     shutil.move('run_ram_ror', args.destdir)
 
 
 def run_model(args):
-    '''Launch RAM-SCB as a detached process so it keeps running
-       and the launch script exits
+    '''Launch RAM-SCB and wait so the launch script won't exit
     '''
     with cd(args.destdir):
         print(os.getcwd())
@@ -87,7 +87,12 @@ def run_model(args):
             raise RuntimeError(' '.join(['RAM-SCB not found in specified',
                                          'directory, or directory not',
                                          'created properly']))
-        subprocess.Popen(['./ram_scb.exe'], close_fds=True)
+        # launch RAM-SCB, requires all relevant data in run dir
+        # and appropriate subdirectories
+        pram = subprocess.Popen(['./ram_scb.exe'])
+        # entrypoint process in docker must be kept in foreground
+        # to prevent container stopping
+        pram.wait()
 
 
 if __name__ == '__main__':
