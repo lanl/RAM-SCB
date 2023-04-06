@@ -3,7 +3,9 @@
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from contextlib import contextmanager
 import datetime as dt
+import io
 import os
+import re
 import shutil
 import subprocess
 
@@ -51,30 +53,68 @@ def get_ramindices_end(fname='input/RamIndices.txt'):
     return lastdate
 
 
+def parse_block(config_file, srch='#STARTTIME'):
+    expr = re.compile(srch)
+    with open(config_file, 'r') as fh:
+        lines = fh.readlines()
+        lines = [line.rstrip() for line in lines]
+        for idx, line in enumerate(lines):
+            searchyn = re.match(expr, line)
+            if searchyn:  # target line
+                useidx = idx
+    store = [ll.split()[0] for ll in lines[useidx:useidx+7]]
+    year = int(store[1])
+    month = int(store[2])
+    day = int(store[3])
+    hour = int(store[4])
+    minute = int(store[5])
+    second = int(store[6])
+    return dt.datetime(year, month, day, hour, minute, second)
+
+
 def parse_config(config_file):
     '''Placeholder, pending web interface
     '''
-    end_date = dt.datetime(2015, 3, 18)  # get from config file
+    st_date = parse_block(config_file, srch='#STARTTIME')
+    end_date = parse_block(config_file, srch='#STOPTIME')
+    print('LAUNCH_RUN: Requested {} to {}'.format(st_date, end_date))
     lastramind = get_ramindices_end()
+    print('LAUNCH_RUN: RamIndices ends at {}'.format(lastramind))
     if end_date >= lastramind:
         # if run ends after the last date in the Ramindices file,
         # update it
         with cd("Scripts"):
             subprocess.run(['python', 'updateRamIndices.py'])
+    return st_date, end_date
 
 
 def setup_rundir(args):
     '''Make, populate, and move RAM-SCB run directory
     '''
     # first check whether Kp/F10.7 need updating
-    parse_config(args.configfile)
-    # Now copy in everything we need
-    # and move rundir to final location
+    st_date, end_date = parse_config(args.configfile[0])
+    # Now make rundir and copy in everything we need
+    stYYMMDD = '{:04d}-{:02d}-{:02d}'.format(st_date.year,
+                                             st_date.month,
+                                             st_date.day)
+    enYYMMDD = '{:04d}-{:02d}-{:02d}'.format(end_date.year,
+                                             end_date.month,
+                                             end_date.day)
+    if args.overwrite:
+        shutil.rmtree('run_ram_ror', ignore_errors=True)
     compl = subprocess.run(['make', 'rundir', 'RUNDIR=run_ram_ror'],
                            check=True, capture_output=True)
+    # then make flux boundary files
+    cmdline = ' '.join(['python', '../flux-model/makeGEOboundary.py',
+                        f'-s {stYYMMDD}', f'-e {enYYMMDD} -m 0',
+                        '-r input'])
+    compl = subprocess.run(cmdline, shell=True,
+                           check=True, stdout=subprocess.PIPE)
+    # add supplied PARAM file
     shutil.copyfile(args.configfile[0], 'run_ram_ror/PARAM.in')
+    # and move rundir to final location
     if args.overwrite:
-        shutil.rmtree(args.destdir)
+        shutil.rmtree(args.destdir, ignore_errors=True)
     shutil.move('run_ram_ror', args.destdir)
 
 

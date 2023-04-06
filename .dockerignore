@@ -1,9 +1,17 @@
 .git
 .gitignore
 .github
+*/.git
+*/.gitignore
+*/.github
 Dockerfile*
+*/Dockerfile*
 docker-compose*
+*/docker-compose*
 */__pycache__
 */*/__pycache__
+*/*/*/__pycache__
 */*/images
+*/*/*/images
 */*/vtk_files
+*/*/*/vtk_files

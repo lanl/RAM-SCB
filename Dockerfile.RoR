@@ -1,10 +1,20 @@
+# To build for RoR, first check out the flux-model repository
+# so that the RAM-SCB and flux-model repos have a common
+# parent directory. Then copy .dockerignore into the parent.
+# To build:
+# docker build -t git.smce.nasa.gov:5050/ccmc-ram-scb/ram-scb -f RAM-SCB/Dockerfile.RoR .
 FROM ubuntu:20.04
 ENV PERL5LIB=.
 ENV DEBIAN_FRONTEND=noninteractive 
 
-RUN apt-get update && apt-get install -y ssh make gcc git g++ gfortran libopenmpi-dev openmpi-bin libgsl-dev libgsl23 gsl-bin libgsl-dbg libnetcdf-dev libnetcdff-dev nco netcdf-bin python3 python-is-python3
+RUN apt-get update && apt-get install -y ssh make gcc git g++ gfortran libopenmpi-dev openmpi-bin libgsl-dev libgsl23 gsl-bin libgsl-dbg libnetcdf-dev libnetcdff-dev nco netcdf-bin python3 python3-pip python-is-python3
 
-COPY . /SHIELDS
+RUN pip install numpy==1.18 && pip install spacepy==0.4.1
+
+COPY flux-model /SHIELDS/flux-model
+WORKDIR /SHIELDS/flux-model
+RUN pip install .
+COPY RAM-SCB /SHIELDS
 WORKDIR /SHIELDS
 RUN ./Config.pl -install -compiler=gfortran -mpi=openmpi -openmp -gsl -ncdf && make
 
