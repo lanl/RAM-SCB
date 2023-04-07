@@ -3,6 +3,8 @@
 # parent directory. Then copy .dockerignore into the parent.
 # To build:
 # docker build -t git.smce.nasa.gov:5050/ccmc-ram-scb/ram-scb -f RAM-SCB/Dockerfile.RoR .
+# To run locally (from a directory containing a suitable PARAM.in file):
+# docker run -v $(pwd):/input [image ID] -d /runror /input/PARAM.in
 FROM ubuntu:20.04
 ENV PERL5LIB=.
 ENV DEBIAN_FRONTEND=noninteractive 
