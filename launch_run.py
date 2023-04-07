@@ -3,8 +3,8 @@
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from contextlib import contextmanager
 import datetime as dt
-import io
 import os
+import sys
 import re
 import shutil
 import subprocess
@@ -80,6 +80,7 @@ def parse_config(config_file):
     print('LAUNCH_RUN: Requested {} to {}'.format(st_date, end_date))
     lastramind = get_ramindices_end()
     print('LAUNCH_RUN: RamIndices ends at {}'.format(lastramind))
+    sys.stdout.flush()
     if end_date >= lastramind:
         # if run ends after the last date in the Ramindices file,
         # update it
@@ -105,11 +106,12 @@ def setup_rundir(args):
     compl = subprocess.run(['make', 'rundir', 'RUNDIR=run_ram_ror'],
                            check=True, capture_output=True)
     # then make flux boundary files
-    cmdline = ' '.join(['python', '../flux-model/makeGEOboundary.py',
+    cmdline = ' '.join(['python', '/SHIELDS/flux-model/makeGEOboundary.py',
                         f'-s {stYYMMDD}', f'-e {enYYMMDD} -m 0',
-                        '-r input'])
+                        '-r input -o run_ram_ror/input_ram'])
     compl = subprocess.run(cmdline, shell=True,
                            check=True, stdout=subprocess.PIPE)
+    sys.stdout.flush()
     # add supplied PARAM file
     shutil.copyfile(args.configfile[0], 'run_ram_ror/PARAM.in')
     # and move rundir to final location
