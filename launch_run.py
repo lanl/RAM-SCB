@@ -24,6 +24,17 @@ def cd(newdir):
         os.chdir(prevdir)
 
 
+def runningInDocker():
+    '''Function to check whether script is running in a container
+    '''
+    with open('/proc/self/cgroup', 'r') as procfile:
+        for line in procfile:
+            fields = line.strip().split('/')
+            if 'docker' in fields:
+                return True
+    return False
+
+
 def setup_parser():
     # Create argument parser & set up arguments:
     parser = ArgumentParser(description=__doc__,
@@ -89,11 +100,9 @@ def parse_config(config_file):
     return st_date, end_date
 
 
-def setup_rundir(args):
+def setup_rundir(args, st_date, end_date, gen_fluxbound=True):
     '''Make, populate, and move RAM-SCB run directory
     '''
-    # first check whether Kp/F10.7 need updating
-    st_date, end_date = parse_config(args.configfile[0])
     # Now make rundir and copy in everything we need
     stYYMMDD = '{:04d}-{:02d}-{:02d}'.format(st_date.year,
                                              st_date.month,
@@ -106,12 +115,14 @@ def setup_rundir(args):
     compl = subprocess.run(['make', 'rundir', 'RUNDIR=run_ram_ror'],
                            check=True, capture_output=True)
     # then make flux boundary files
-    cmdline = ' '.join(['python', '/SHIELDS/flux-model/makeGEOboundary.py',
-                        f'-s {stYYMMDD}', f'-e {enYYMMDD} -m 0',
-                        '-r input -o run_ram_ror/input_ram'])
-    compl = subprocess.run(cmdline, shell=True,
-                           check=True, stdout=subprocess.PIPE)
-    sys.stdout.flush()
+    if gen_fluxbound:
+        fmdir = '/SHIELDS/flux-model' if runningInDocker() else '../flux-model'
+        cmdline = ' '.join(['python', f'{fmdir}/makeGEOboundary.py',
+                            f'-s {stYYMMDD}', f'-e {enYYMMDD} -m 0',
+                            '-r input -o run_ram_ror/input_ram'])
+        compl = subprocess.run(cmdline, shell=True,
+                               check=True, stdout=subprocess.PIPE)
+        sys.stdout.flush()
     # add supplied PARAM file
     shutil.copyfile(args.configfile[0], 'run_ram_ror/PARAM.in')
     # and move rundir to final location
@@ -137,7 +148,26 @@ def run_model(args):
         pram.wait()
 
 
+def make_plots(args, st_date, en_date):
+    '''
+    '''
+    stdt = st_date.isoformat()[:10]
+    endt = end_date.isoformat()[:10]
+    with cd('Scripts'):
+        cmdline = ' '.join(['python', 'summaryPlots.py', f'-s {stdt}',
+                           f'-e {endt}', f'-o {args.destdir}',
+                           f'{args.destdir}'])
+        subprocess.run(cmdline, shell=True, check=True,
+                       stdout=subprocess.PIPE)
+
+
 if __name__ == '__main__':
+    # get arguments this program was called with
     args = setup_parser()
-    setup_rundir(args)
+
+    # get date range and update Kp/F10.7 if req'd
+    st_date, end_date = parse_config(args.configfile[0])
+
+    setup_rundir(args, st_date, end_date)
     run_model(args)
+    make_plots(args, st_date, end_date)
