@@ -11,6 +11,8 @@ docker-compose*
 */__pycache__
 */*/__pycache__
 */*/*/__pycache__
+*/*.png
+*/*.png
 */*/images
 */*/*/images
 */*/vtk_files
