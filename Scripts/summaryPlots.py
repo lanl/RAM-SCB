@@ -1,7 +1,9 @@
 from contextlib import contextmanager
+import datetime as dt
 import glob
 from argparse import ArgumentParser
 import os
+import re
 import subprocess
 import sys
 import warnings
@@ -121,13 +123,39 @@ def plotDst(log, options):
     plt.savefig(outfile)
 
 
+def parse_ptime(in_str):
+    '''Parse date/time in pressure file names and return datetime
+    '''
+    tparts = re.search('pressure_d(\d{4})(\d{2})(\d{2})_t(\d{2})(\d{2})(\d{2})',
+                       in_str).groups()
+    return dt.datetime(*[int(tp) for tp in tparts])
+
+
 def plot_pressure(options):
-    pass
-    #loop over all files in expected time range and make plot
-    # default pressure plot should have 4 dials, one each for
-    # electrons, protons, helium, oxygen.
-    # Need to check before adding the figure whether the species
-    # is in the output file
+    presscands = sorted(glob.glob(os.path.join(options.rundir,
+                                               'output_ram',
+                                               'press*dat')))
+    # loop over all files, if in expected time range make plot
+    for pcfn in presscands:
+        fpath, fmain = os.path.split(pcfn)
+        fmain = fmain.split('.')[0]
+        ftime = parse_ptime(fmain)
+        opt_tst = spt.Ticktock(options.startTime).UTC[0]
+        opt_ten = spt.Ticktock(options.endTime).UTC[0]
+        if (ftime <= opt_ten) and (ftime >= opt_tst):
+            pressf = ram.PressureFile(pcfn)
+            plotlist = [key for key in pressf if key.startswith('tot')]
+            # Convenience plotting routines in spacepy currently assume a log-transform
+            # but this is not useful for anisotropy. When control for that is added to
+            # spacepy we can do this more easily...
+            # plotlist = [key for key in pressf if (key.startswith('tot') or key.startswith('ani'))]
+            for pl in plotlist:
+                # TODO: maybe make combined plots, look at axis limits, etc.
+                fig, ax, cm, _ = pressf.add_pcol_press(var=pl, add_cbar=True)
+                outfn = os.path.join(options.outdir, fmain + f'_{pl}.png')
+                plt.savefig(outfn, dpi=200)
+                plt.close()
+
 
 if __name__ == "__main__":
     parser = parserSetup()
@@ -147,6 +175,9 @@ if __name__ == "__main__":
             plotDst(uselog, in_args)
         else:
             flagstatus[1] = True
+        pfcand = os.path.join(in_args.rundir, 'output_ram', 'press*')
+        if len(glob.glob(pfcand)) > 0:
+            plot_pressure(in_args)
     else:
         flagstatus[0] = True
 
