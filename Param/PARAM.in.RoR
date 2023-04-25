@@ -142,7 +142,7 @@ F			TimedRestartFiles	! Whether to time stamp the restart files. If F only one r
 60.0			DtLogFileWrite		! How often the log file should be appended (in seconds).
 
 #OUTPUT_FREQUENCY
-3600.0			DtPressureFileWrite	! How often RAM equatorial pressures should be written (in seconds)
+300.0			DtPressureFileWrite	! How often RAM equatorial pressures should be written (in seconds)
 3600.0			DthIFileWrite		! How often SCB hI files should be written (in seconds)
 3600.0			DtEFieldFileWrite	! How often electric field files should be written
 3600.0			DtMAGxyzFileWrite	! How often x, y, and z from SCB should be written
