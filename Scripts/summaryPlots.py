@@ -101,7 +101,7 @@ def plotDst(log, options):
     if options.endTime:
         opt_ten = spt.Ticktock(options.endTime).UTC[0]
         # end needs to be in valid range
-        if (opt_ten > tstart) and (opt_ten < tend):
+        if (opt_ten >= tstart) and (opt_ten <= tend):
             tend = opt_ten
         else:
             warnings.warn(f'Supplied end time ({options.endTime}) ' +
@@ -151,8 +151,11 @@ def plot_pressure(options):
             # plotlist = [key for key in pressf if (key.startswith('tot') or key.startswith('ani'))]
             for pl in plotlist:
                 # TODO: maybe make combined plots, look at axis limits, etc.
-                fig, ax, cm, _ = pressf.add_pcol_press(var=pl, add_cbar=True)
+                title = '{}'.format(pressf[pl].attrs['label'])
+                tstamp = '{}'.format(ftime.isoformat()[:19])
+                fig, ax, cm, _ = pressf.add_pcol_press(var=pl, add_cbar=True, title=title)
                 outfn = os.path.join(options.outdir, fmain + f'_{pl}.png')
+                plt.figtext(0.05, 0.95, tstamp, fontsize=11)
                 plt.savefig(outfn, dpi=200)
                 plt.close()
 

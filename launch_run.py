@@ -151,12 +151,13 @@ def run_model(args):
 def make_plots(args, st_date, en_date):
     '''
     '''
-    stdt = st_date.isoformat()[:10]
-    endt = end_date.isoformat()[:10]
+    stdt = st_date.isoformat()[:19]
+    endt = end_date.isoformat()[:19]
     with cd('Scripts'):
         cmdline = ' '.join(['python', 'summaryPlots.py', f'-s {stdt}',
                            f'-e {endt}', f'-o {args.destdir}',
                            f'{args.destdir}'])
+        print(cmdline)
         subprocess.run(cmdline, shell=True, check=True,
                        stdout=subprocess.PIPE)
 
