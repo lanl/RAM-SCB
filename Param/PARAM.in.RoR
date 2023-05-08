@@ -42,9 +42,6 @@ T			DoVarDt			! If set to T RAM will adjust its time step based on the current f
 300.0			BCTimeStep		! Amount of time (in seconds) between reading boundary flux files (or from SWMF). If set to 1.0 will update on every RAM time step
 300.0			EFTimeStep		! Amount of time (in seconds) between updating electric fields. If set to 1.0 it will update every RAM time step
 
-! If this is present then the SCBTimeStep will be read as number of RAM iterations to do, not seconds
-#TIE_SCB_TO_RAM
-			
 ***********************************************
 
 *************** COMPONENT BLOCK ***************
@@ -148,7 +145,7 @@ F			TimedRestartFiles	! Whether to time stamp the restart files. If F only one r
 3600.0			DtMAGxyzFileWrite	! How often x, y, and z from SCB should be written
 
 #SAVEFLUX
-3600.0			DoSaveFlux		! Output frequency [s] for writing RAM flux files (-1 turns output off)
+300.0			DoSaveFlux		! Output frequency [s] for writing RAM flux files (-1 turns output off)
 
 #DUMP3DFLUX
 F			DoDump3DFlux		! Whether SCB 3D flux files should be written or not (currently outputs 3D flux every hour)
