@@ -1,7 +1,8 @@
+from argparse import ArgumentParser
 from contextlib import contextmanager
 import datetime as dt
 import glob
-from argparse import ArgumentParser
+import itertools as it
 import os
 import re
 import subprocess
@@ -9,9 +10,14 @@ import sys
 import warnings
 
 import matplotlib.pyplot as plt
+import netCDF4 as nc4
+import numpy as np
+import spacepy.datamodel as dm
+from spacepy.pybats import PbData
 from spacepy.pybats import ram
 import spacepy.plot as splot
 import spacepy.time as spt
+import spacepy.toolbox as tb
 
 
 @contextmanager
@@ -80,6 +86,111 @@ def load_logs(options):
     return log
 
 
+class Flux2DFile(PbData):
+    def __init__(self, filename):
+        # Filename:
+        super().__init__()
+        self.filename = filename
+        self._read()
+
+    def _read(self):
+        '''
+        Load the NCDF4 file.  Should only be called by __init__().
+        '''
+        with nc4.Dataset(self.filename, "r", format="NETCDF4") as ncf:
+            # global attrs
+            for attname in ncf.ncattrs():
+                self.attrs[attname] = ncf.getncattr(attname)
+            # get copies of all variables
+            for varname in ncf.variables:
+                self[varname] = dm.dmarray(ncf.variables[varname][...].filled())
+                # RAM-SCB variables don't have metadata yet, so skip
+                # RAM-SCB also doesn't have nested groups, so don't recurse
+            # and add netCDF4 "dimensions" as variables
+            for dimname in ncf.dimensions:
+                self[dimname] = dm.dmarray(np.atleast_1d(ncf.dimensions[dimname].size))
+            self.namevars = list(ncf.variables.keys())
+
+        # Get start time, set default if not found.
+        try:
+            stringtime = self.attrs['start_time'].decode()
+        except AttributeError:
+            # unicode str already
+            stringtime = self.attrs['start_time']
+        except KeyError:
+            stringtime = '20000101000000'
+
+        # parse start time and use it to create time object.
+        self.starttime = dt.datetime.strptime(stringtime, '%Y%m%d%H%M%S')
+
+        # Because timestamp isn't stored in flux file yet...
+        # we need to read it from the filename
+        fnpart = os.path.split(self.filename)[-1]
+        self['Time'] = parse_ftime(fnpart)
+
+    def get_energy_index(self, targ_en):
+        '''return index of nearest grid point in energy
+
+        Arguments
+        ---------
+        targ_en : float
+            Target energy (in keV)
+
+        Returns
+        -------
+        en_idx : integer
+            Index of nearest energy in RAM grid
+        en_val : float
+            Value of nearest energy in RAM grid
+        '''
+        diffs = np.abs(self['EnergyGrid'] - targ_en)
+        en_idx = diffs.argmin()
+        en_val = self['EnergyGrid'][en_idx]
+        return en_idx, en_val
+
+    def add_flux_plot(self, species='Hydrogen', energy=10, target=None,
+                      maxz=1.0, minz=1e-15, add_cbar=True, loc=111,
+                      add_tstamp=True, labelsize=15, title='auto'):
+        '''
+        '''
+        from matplotlib.colors import LogNorm
+        from matplotlib.cm import get_cmap
+        from matplotlib.pyplot import colorbar
+        from matplotlib.ticker import LogLocator, LogFormatterMathtext
+
+        fig, ax = splot.set_target(target, loc=loc, polar=True)
+        var = f'Flux{species}'
+        en_idx, en_val = self.get_energy_index(energy)
+        alp_idx = 0
+        alpha = self['PitchAngleGrid'][alp_idx]
+        # Set title.
+        if title == 'auto':
+            title = f'{species} flux at {en_val:0.2f}keV, '
+            title = title + r'$\alpha$='
+            title = title + f'{alpha}' + '$^{\circ}$'
+
+        # Set up grid centered on gridpoints.
+        T_deg = 15*tb.bin_center_to_edges(self['MLTGrid'][:-1])
+        T_rad = np.deg2rad(T_deg) - np.pi/2  # offset is for compat. with adjust_dialplot
+        R = tb.bin_center_to_edges(self['RadialGrid'])
+        p = self[var][alp_idx, en_idx, :-1, :]
+        ax.grid(False)  # as of mpl 3.5 grid must be turned off before calling pcolormesh
+        pcol = ax.pcolormesh(T_rad, R, p.T, norm=LogNorm(vmin=minz, vmax=maxz),
+                             cmap=get_cmap('inferno'))
+        ram._adjust_dialplot(ax, R, title=title, labelsize=15)
+        if add_cbar:
+            cbar = colorbar(pcol, pad=0.1, ticks=LogLocator(), ax=ax,
+                            format=LogFormatterMathtext(), shrink=0.8)
+            cbar.set_label('$s^{-1} sr^{-1} cm^{-3} keV^{-1}$')
+        else:
+            cbar = None
+        if add_tstamp:
+            tstamp = '{}'.format(self['Time'].isoformat()[:19])
+            plt.figtext(0.65, 0.05, tstamp, fontsize=11)
+
+        return fig, ax, pcol, cbar
+
+
 def plotDst(log, options):
     """Make default plot of RAM simulated Dst
     """
@@ -123,6 +234,14 @@ def plotDst(log, options):
     plt.savefig(outfile)
 
 
+def parse_ftime(in_str):
+    '''Parse date/time in flux file names and return datetime
+    '''
+    tparts = re.search('ram_flux_d(\d{4})(\d{2})(\d{2})_t(\d{2})(\d{2})(\d{2})',
+                       in_str).groups()
+    return dt.datetime(*[int(tp) for tp in tparts])
+
+
 def parse_ptime(in_str):
     '''Parse date/time in pressure file names and return datetime
     '''
@@ -160,11 +279,40 @@ def plot_pressure(options):
                 plt.close()
 
 
+def plot_flux(options):
+    fluxcands = sorted(glob.glob(os.path.join(options.rundir,
+                                              'output_ram',
+                                              'ram_flux*nc')))
+    # loop over all files, if in expected time range make plot
+    for flfn in fluxcands:
+        fpath, fmain = os.path.split(flfn)
+        fmain = fmain.split('.')[0]
+        ftime = parse_ftime(fmain)
+        opt_tst = spt.Ticktock(options.startTime).UTC[0]
+        opt_ten = spt.Ticktock(options.endTime).UTC[0]
+        if (ftime <= opt_ten) and (ftime >= opt_tst):
+            fluxf = Flux2DFile(flfn)
+            plotlist = ['Hydrogen', 'OxygenP1']
+            splims = {'Hydrogen': [5e2, 1e7],
+                      'HeliumP1': [5e1, 1e7],
+                      'OxygenP1': [5e0, 5e6]}
+            enlist = [0.1, 1]  # plot energies in keV
+            for pl, enval in it.product(plotlist, enlist):
+                # TODO: maybe make combined plots, look at axis limits, etc.
+                fig, ax, cm, _ = fluxf.add_flux_plot(species=pl, add_cbar=True,
+                                                     energy=enval,
+                                                     minz=splims[pl][0],
+                                                     maxz=splims[pl][1])
+                outfn = os.path.join(options.outdir, fmain + f'_{pl}_E{enval:0.2f}.png')
+                plt.savefig(outfn, dpi=200)
+                plt.close()
+
+
 if __name__ == "__main__":
     parser = parserSetup()
     in_args = parser.parse_args()
 
-    flagstatus = [False, False, False]
+    flagstatus = [False, False, False, False]
     if os.path.isdir(in_args.rundir):
         # make sure we don't have a trailing separator
         if (in_args.rundir[-1] == os.path.sep) and \
@@ -181,6 +329,13 @@ if __name__ == "__main__":
         pfcand = os.path.join(in_args.rundir, 'output_ram', 'press*')
         if len(glob.glob(pfcand)) > 0:
             plot_pressure(in_args)
+        else:
+            flagstatus[2] = True
+        flcand = os.path.join(in_args.rundir, 'output_ram', 'ram_flux*')
+        if len(glob.glob(flcand)) > 0:
+            plot_flux(in_args)
+        else:
+            flagstatus[3] = True
     else:
         flagstatus[0] = True
 
@@ -192,4 +347,6 @@ if __name__ == "__main__":
             errmsg += '\nNo log files found\n'
         if flagstatus[2]:
             errmsg += '\nNo pressure files found\n'
+        if flagstatus[2]:
+            errmsg += '\nNo 2D flux files found\n'
         parser.error(errmsg)
