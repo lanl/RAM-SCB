@@ -150,7 +150,8 @@ class Flux2DFile(PbData):
 
     def add_flux_plot(self, species='Hydrogen', energy=10, target=None,
                       maxz=1.0, minz=1e-15, add_cbar=True, loc=111,
-                      add_tstamp=True, labelsize=15, title='auto'):
+                      add_tstamp=True, labelsize=15, title='auto',
+                      drop_ghost=False):
         '''
         '''
         from matplotlib.colors import LogNorm
@@ -172,8 +173,12 @@ class Flux2DFile(PbData):
         # Set up grid centered on gridpoints.
         T_deg = 15*tb.bin_center_to_edges(self['MLTGrid'][:-1])
         T_rad = np.deg2rad(T_deg) - np.pi/2  # offset is for compat. with adjust_dialplot
-        R = tb.bin_center_to_edges(self['RadialGrid'])
-        p = self[var][alp_idx, en_idx, :-1, :]
+        if not drop_ghost:
+            R = tb.bin_center_to_edges(self['RadialGrid'])
+            p = self[var][alp_idx, en_idx, :-1, :]
+        else:
+            R = tb.bin_center_to_edges(self['RadialGrid'][1:])
+            p = self[var][alp_idx, en_idx, :-1, 1:]
         ax.grid(False)  # as of mpl 3.5 grid must be turned off before calling pcolormesh
         pcol = ax.pcolormesh(T_rad, R, p.T, norm=LogNorm(vmin=minz, vmax=maxz),
                              cmap=get_cmap('inferno'))
@@ -263,16 +268,28 @@ def plot_pressure(options):
         opt_ten = spt.Ticktock(options.endTime).UTC[0]
         if (ftime <= opt_ten) and (ftime >= opt_tst):
             pressf = ram.PressureFile(pcfn)
+            # get all total pressures for plot
             plotlist = [key for key in pressf if key.startswith('tot')]
+            # hold back Helium for summaries
+            plotlist = [key for key in plotlist if not key.endswith('He')]
             # Convenience plotting routines in spacepy currently assume a log-transform
             # but this is not useful for anisotropy. When control for that is added to
             # spacepy we can do this more easily...
-            # plotlist = [key for key in pressf if (key.startswith('tot') or key.startswith('ani'))]
+            # plotlist = [key for key in pressf if (key.startswith('tot')
+            #             or key.startswith('ani'))]
             for pl in plotlist:
+                if pl == 'tote':
+                    # electron pressure is ~10% so shift range 1 order lower
+                    minz = 1e-1
+                    maxz = 1e2
+                else:
+                    minz = 1
+                    maxz = 1e3
                 # TODO: maybe make combined plots, look at axis limits, etc.
                 title = '{}'.format(pressf[pl].attrs['label'])
                 tstamp = '{}'.format(ftime.isoformat()[:19])
-                fig, ax, cm, _ = pressf.add_pcol_press(var=pl, add_cbar=True, title=title)
+                fig, ax, cm, _ = pressf.add_pcol_press(var=pl, add_cbar=True, title=title,
+                                                       minz=minz, maxz=maxz)
                 outfn = os.path.join(options.outdir, fmain + f'_{pl}.png')
                 plt.figtext(0.05, 0.95, tstamp, fontsize=11)
                 plt.savefig(outfn, dpi=200)
@@ -292,17 +309,22 @@ def plot_flux(options):
         opt_ten = spt.Ticktock(options.endTime).UTC[0]
         if (ftime <= opt_ten) and (ftime >= opt_tst):
             fluxf = Flux2DFile(flfn)
-            plotlist = ['Hydrogen', 'OxygenP1']
+            plotlist = ['Hydrogen', 'OxygenP1', 'Electron']
             splims = {'Hydrogen': [5e2, 1e7],
                       'HeliumP1': [5e1, 1e7],
-                      'OxygenP1': [5e0, 5e6]}
-            enlist = [0.1, 1]  # plot energies in keV
+                      'OxygenP1': [5e0, 5e6],
+                      'Electron': [1e2, 1e7]}
+            enlist = [1, 10, 30]  # plot energies in keV
             for pl, enval in it.product(plotlist, enlist):
                 # TODO: maybe make combined plots, look at axis limits, etc.
-                fig, ax, cm, _ = fluxf.add_flux_plot(species=pl, add_cbar=True,
-                                                     energy=enval,
-                                                     minz=splims[pl][0],
-                                                     maxz=splims[pl][1])
+                fpdict = {'species': pl, 'add_cbar': True, 'energy': enval,
+                          'minz': splims[pl][0], 'maxz': splims[pl][1]}
+                if pl == 'Electron':
+                    fpdict['drop_ghost'] = True
+                    if enval < 5:
+                        fpdict['minz'] = 1e3
+                        fpdict['maxz'] = 1e8
+                fig, ax, cm, _ = fluxf.add_flux_plot(**fpdict)
                 outfn = os.path.join(options.outdir, fmain + f'_{pl}_E{enval:0.2f}.png')
                 plt.savefig(outfn, dpi=200)
                 plt.close()
