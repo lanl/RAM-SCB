@@ -432,10 +432,10 @@ Set the outer boundary conditions for RAM-SCB. Based on these settings, differen
 \noindent
 \emph{\textbf{Current options for magnetic field boundary conditions:}}
 \begin{enumerate}
-	\item \textbf{DIPS}: Use a simple dipole to constrain the SCB field.
+	\item \textbf{DIPS}: Use a simple dipole to constrain the SCB field. SCB is enabled for this setting.
 	\item \textbf{DIPL}: Use a simple dipole throughout; no SCB calculation.
-	\item \textbf{SWMF}: Use the magnetic field from the Space Weather Modeling Framework. If RAM-SCB is in coupled mode, these values are	calculated and obtained on-the-fly rather than read from input files.
-	\item \textbf{T89D}: Use the Tsyganenko 89c empirical model. As this field depends only on Kp, input files are provided in the RAM-SCB distribution. The ``D'' suffix indicates that a centered dipole internal field is used. SCB is enabled for this setting.
+	\item \textbf{SWMF}: Use the magnetic field from the Space Weather Modeling Framework. If RAM-SCB is in coupled mode, these values are calculated and obtained on-the-fly rather than read from input files.
+	\item \textbf{T89D}: Use the Tsyganenko 89c empirical model, with a centered dipole internal field (indicated with the ``D'' suffix), as the outer boundary for SCB. As this field depends only on Kp, input files are provided in the RAM-SCB distribution.  
 	\item \textbf{T96D}: Use the Tsyganenko 1996 empirical model, with a centered dipole internal field, as the outer boundary for SCB.
 	\item \textbf{T02D}: Use the Tsyganenko 2002 empirical model, with a centered dipole internal field, as the outer boundary for SCB.
 	\item \textbf{T04D}: Use the Tsyganenko and Sitnov 2004 empirical model, with a centered dipole internal field, as the outer boundary for SCB.
