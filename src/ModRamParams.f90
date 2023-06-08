@@ -44,7 +44,7 @@ module ModRamParams
   ! Include induced E field?  Default is no!
   logical :: UseEfind = .false.
  
-  ! Include wave-particle diffusion?  Default is no!
+  ! Include whistler wave-particle diffusion?  Default is no!
   logical :: DoUseWPI = .false.
  
   ! Use BAS wave-particle diffusion?  Default is no!
@@ -128,6 +128,7 @@ module ModRamParams
 
   ! File write logicals:
   logical :: DoSaveRamSats=.false.
+  logical :: DoSaveLwgr=.false.
  
   ! Type of file name format, default will be to use new standard
   ! once the new standard is ready.

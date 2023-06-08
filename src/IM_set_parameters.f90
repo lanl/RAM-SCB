@@ -124,6 +124,8 @@ subroutine IM_set_parameters
         if (TempLogical) DoUseKpDiff = .true.
         call read_var('DoUseEMIC',  TempLogical)
         if (TempLogical) DoUseEMIC = .true.
+        call read_var('DoSaveLwgr',  TempLogical)
+        if (TempLogical) DoSaveLwgr = .true.
 
      case('#USEFLC')
         call read_var('DoUseFLC',DoUseFLC)
