@@ -108,7 +108,7 @@ module ModRamIO
 
     !!!! Module Variables
     use ModRamMain,      ONLY: DP
-    use ModRamParams,    ONLY: DoSaveRamSats, NameBoundMag
+    use ModRamParams,    ONLY: DoSaveRamSats, NameBoundMag, DoSaveLwgr
     use ModRamTiming,    ONLY: Dt_hI, DtRestart, DtWriteSat, TimeRamNow, &
                                TimeRamElapsed, DtW_Pressure, DtW_hI, DtW_Efield, &
                                DtW_MAGxyz, DtLogFile, DtW_2DFlux, DtW_Losses
@@ -188,13 +188,16 @@ module ModRamIO
     ! Write restarts.
     if (abs(mod(TimeIn,DtRestart)).le.1e-9) call write_restart()
 
-    ! Write hourly file
+    ! Write RAM flux as netcdf output file 
     if (abs(mod(TimeIn,DtW_2DFlux)).le.1e-9) then
-       call write2DFlux            ! ME netcdf output
-!    if (abs(mod(TimeIn,3600.0)).le.1e-9) then
-!       do iS = 1, nS
-!         call ram_hour_write(iS)   ! VJ ascii output
-!       enddo
+       call write2DFlux            
+    endif
+
+    ! Write hourly ascii output for linear wave growth calcs
+    if (DoSaveLwgr .and. (abs(mod(TimeIn,3600.0)).le.1e-9)) then
+       do iS = 1, nS
+         call ram_hour_write(iS)
+       enddo
     endif
 
     if (abs(mod(TimeIn,DtW_Losses)).le.1e-9) then
@@ -724,7 +727,7 @@ end subroutine read_geomlt_file
 !============================!
 !==========================================================================
   subroutine write2DFlux
-    ! Write the 2D flux (F2/FFACTOR/FNHS)
+    ! Write the 2D flux (F2/FFACTOR/FNHS) [1/s/cm2/sr/keV]
 
     use ModRamMain,  ONLY: DP, PathRamOut
     use ModRamTiming, ONLY: TimeRamNow
@@ -802,7 +805,7 @@ end subroutine read_geomlt_file
 
 !==================================================================================================
   subroutine writeLosses
-    ! Write losses from RAM
+    ! Write losses due to some processes from RAM
 
     use ModRamMain,      ONLY: DP, PathRamOut
     use ModRamTiming,    ONLY: TimeRamNow, TimeRamElapsed
@@ -830,7 +833,7 @@ end subroutine read_geomlt_file
 
     allocate(ESUM(nS), NSUM(nS))
 
-    ! Compute losses
+    ! Compute particle and energy losses
     DO S=1,nS
       DO I=2,NR
         XNNO=XNN(S,I)
@@ -874,7 +877,7 @@ end subroutine read_geomlt_file
       LSATM(S) = LSATM(S)*RFACTOR*100/ESUM(S) ! Atmospheric Loss
       LSCOE(S) = LSCOE(S)*RFACTOR*100/ESUM(S) ! Coulomb Energy Loss
       LSCSC(S) = LSCSC(S)*RFACTOR*100/ESUM(S) ! Coulomb Pitch Angle Scattering
-      LSWAE(S) = LSWAE(S)*RFACTOR*100/ESUM(S) ! WPI Loss
+      LSWAE(S) = LSWAE(S)*RFACTOR*100/ESUM(S) ! Wave-particle interactions Loss
       ESUM(S) = ESUM(S)/RFACTOR
       NSUM(S) = NSUM(S)/RFACTOR
     enddo
@@ -1013,9 +1016,9 @@ end subroutine read_geomlt_file
                                ENERD, EkeV, UPA, LNCN, LNCD, Kp, MLT, LZ, &
                                LSDR, LSCHA, LSATM, LSCOE, LSCSC, LSWAE, &
                                LECD, LECN, outsideMGNP, NECR, IAPO, RZ, &
-                               IR1, IP1, PHI, MU, RFACTOR, ESUM, NSUM
+                               IR1, IP1, PHI, MU, RFACTOR, ESUM, NSUM, species
     use ModRamTiming,    ONLY: TimeRamNow,TimeRamElapsed
-    use ModRamParams,    ONLY: DoUseWPI, DoUsePlasmasphere
+    use ModRamParams,    ONLY: DoUseWPI, DoUsePlasmasphere, DoUseEMIC
     use ModRamFunctions
     use ModRamConst
     use ModIOUnit, ONLY: UNITTMP_, io_unit_new
@@ -1097,7 +1100,6 @@ end subroutine read_geomlt_file
       LSWAE(S) = LSWAE(S)*RFACTOR*100/ESUM(S)
 
     ! Write the trapped equatorial flux [1/s/cm2/sr/keV]
-!      IF (MOD(INT(T),2*3600).EQ.0.) THEN
         IF (S.eq.1.or.S.eq.4) THEN
 	  if (NT.EQ.49) JW=2
 	  if (NT.EQ.25) JW=1
@@ -1107,12 +1109,12 @@ end subroutine read_geomlt_file
 	  if (NT.EQ.25) JW=3
           IW=4
         ENDIF
-!      ENDIF
+
     NameFileOut=trim(PathRamOut)//RamFileName('ram'//st2,'flx',TimeRamNow)
     open(unit=UnitTMP_, file=trim(NameFileOut), status='UNKNOWN')
     DO I=4,NR,IW
       DO 25 J=1,NT-1,JW
-        WRITE(UNITTMP_,32) StringDate,LZ(I),KP,MLT(J)
+        WRITE(UNITTMP_,32) StringDate,LZ(I),KP,MLT(J), species(S)%s_code
         if (outsideMGNP(I,J) == 1) F(I,J,:,:) = 1e-31
         DO 27 K=4,NE-1
 27      WRITE(UNITTMP_,30) EKEV(K),(F(I,J,K,L),L=2,NPA-2)
@@ -1122,7 +1124,53 @@ end subroutine read_geomlt_file
 
 30  FORMAT(F7.2,72(1PE11.3))
 31  FORMAT(F6.2,1X,F6.2,2X,F6.2,1X,F7.2,1X,F7.2,1X,1PE11.3)
-32  FORMAT(' EKEV/PA, Date=',a,' L=',F6.2,' Kp=',F6.2,' MLT=',F4.1)
+32  FORMAT(' EKEV/PA, Date=',a,' L=',F6.2,' Kp=',F6.2,' MLT=',F4.1,' Species=',4A)
+
+    ! VJ Write the total precipitating flux [1/cm2/s]
+    IF (DoUseWPI .or. DoUseEMIC) THEN
+    NameFileOut=trim(PathRamOut)//RamFileName('ram'//st2,'tpp',TimeRamNow)
+    open(unit=UnitTMP_, file=trim(NameFileOut), status='UNKNOWN')
+      WRITE(UNITTMP_,71) T/3600,KP
+      DO I=2,NR
+        DO J=1,NT
+          PRECFL=0.
+          DO K=2,NE ! 0.15 - 430 keV
+            AVEFL(I,J,K)=0.
+            DO L=UPA(I),NPA
+              AVEFL(I,J,K)=AVEFL(I,J,K)+F(I,J,K,L)*WMU(L)
+            ENDDO
+            AVEFL(I,J,K)=AVEFL(I,J,K)/(MU(NPA)-MU(UPA(I)))
+            PRECFL=PRECFL+AVEFL(I,J,K)*PI*WE(K)
+          ENDDO
+          WRITE(UNITTMP_,70) LZ(I),PHI(J),PRECFL
+        END DO
+      END DO
+      close(UNITTMP_)
+    ENDIF
+71   FORMAT(2X,3HT =,F8.0,2X,4HKp =,F6.2,2X, &
+     ' Total Precip Flux [1/cm2/s]')
+
+    ! VJ Write the RAM flux [1/s/cm2/sr/keV] at given pitch angle
+    IF (DoUseWPI .or. DoUseEMIC) THEN
+!    NameFileOut=trim(PathRamOut)//RamFileName('out'//st2,'dat',TimeRamNow)
+!    open(unit=20, file=trim(NameFileOut), status='UNKNOWN')
+    NameFileOut=trim(PathRamOut)//RamFileName('outm'//st2,'dat',TimeRamNow)
+    open(unit=30, file=trim(NameFileOut), status='UNKNOWN')
+!    NameFileOut=trim(PathRamOut)//RamFileName('outp'//st2,'dat',TimeRamNow)
+!    open(unit=40, file=trim(NameFileOut), status='UNKNOWN')
+      DO I=1,NR
+        DO 822 J=1,NT-1
+        if (outsideMGNP(I,J) == 1) F(I,J,:,:) = 1e-31
+          DO 822 K=2,NE
+!            WRITE(20,31) T/3600.,LZ(I),KP,MLT(J),EKEV(K),F(I,J,K,2)
+           WRITE(30,31) T/3600.,LZ(I),KP,MLT(J),EKEV(K),F(I,J,K,27)
+!	    WRITE(40,31) T/3600.,LZ(I),KP,MLT(J),EKEV(K),F(I,J,K,UPA(I))
+822         CONTINUE
+      ENDDO
+      CLOSE(20)
+      CLOSE(30)
+      CLOSE(40)
+    ENDIF
 
 !.......Write the plasmaspheric electron density [cm-3] (.in)
 	  if(DoUsePlasmasphere)then
@@ -1185,7 +1233,7 @@ end subroutine read_geomlt_file
              TimeRamElapsed/3600.0 + TimeRamStart%iHour, ' Kp=', Kp
     write(UNITTMP_,'(2a)') ' Lsh MLT PPER_H PPAR_H PPER_O PPAR_O PPER_He PPAR_He', &
                            ' PPER_E  PPAR_E   PTotal   [keV/cm3]'
-    ! NEED TO FIX THE STRING OUTPUT to REFLECT SPECIES NAMES!!!! -ME
+    ! THE STRING OUTPUT should REFLECT SPECIES NAMES!!!!
 
     do i=2, NR
        do j=1, NT
