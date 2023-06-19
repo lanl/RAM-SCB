@@ -672,8 +672,9 @@ end subroutine read_geomlt_file
       iMLT(J)=(J-1)*DPHI
     END DO
 
-    iEkeV = EkeV
-    iPaVar = Pa
+    ! We don't currently interpolate across energy or pitch angle
+    !iEkeV = EkeV
+    !iPaVar = Pa
 
     ! Now we need to check the dimensions of the initialization file and
     ! interpolate if they are different
@@ -756,10 +757,6 @@ end subroutine read_geomlt_file
     iStatus = nf90_def_dim(iFileID, 'nE',     nE,     nEDim)
     iStatus = nf90_def_dim(iFileID, 'nPa',    nPa,    nPaDim)
 
-    iStatus = nf90_def_var(iFileID, 'EnergyGrid', nf90_double, &
-                           (/nEDim/), iGridVar)
-    iStatus = nf90_put_var(iFileID, iGridVar, EKEV(:))
-
     iStatus = nf90_def_var(iFileID, 'PitchAngleGrid', nf90_double, &
                            (/nPaDim/), iGridVar)
     iStatus = nf90_put_var(iFileID, iGridVar, PA(:))
@@ -775,6 +772,10 @@ end subroutine read_geomlt_file
     !! FLUXES
     allocate(F(nR,nT,nE,nPa))
     do S = 1, nS
+       iStatus = nf90_def_var(iFileID, 'EnergyGrid'//species(S)%s_name, nf90_double, &
+                           (/nEDim/), iGridVar)
+       iStatus = nf90_put_var(iFileID, iGridVar, EKEV(S,:))
+
        iStatus = nf90_def_var(iFileID, 'Flux'//species(S)%s_name, nf90_double, &
                               (/nRDim,nTDim,nEDim,nPaDim/), iFluxVar)
        iStatus = nf90_def_var_deflate(iFileID, iFluxVar, 0, yDeflate, iDeflate)
@@ -845,13 +846,13 @@ end subroutine read_geomlt_file
           DO L=1,NPA
             DO J=1,NT-1
               IF (L.LT.UPA(I)) THEN
-                WEIGHT=F2(S,I,J,K,L)*WE(K)*WMU(L)/FFACTOR(S,I,K,L)/FNHS(I,J,L)
+                WEIGHT=F2(S,I,J,K,L)*WE(S,K)*WMU(L)/FFACTOR(S,I,K,L)/FNHS(I,J,L)
                 IF (MLT(J).LE.6.OR.MLT(J).GE.18.) THEN
                   XNN(S,I)=XNN(S,I)+WEIGHT
-                  ENERN(S,I)=ENERN(S,I)+EKEV(K)*WEIGHT
+                  ENERN(S,I)=ENERN(S,I)+EKEV(S,K)*WEIGHT
                 ELSE
                   XND(S,I)=XND(S,I)+WEIGHT
-                  ENERD(S,I)=ENERD(S,I)+EKEV(K)*WEIGHT
+                  ENERD(S,I)=ENERD(S,I)+EKEV(S,K)*WEIGHT
                 ENDIF
               ENDIF
             END DO
@@ -1063,13 +1064,13 @@ end subroutine read_geomlt_file
             if (f2(S,i,j,k,l).lt.1E-5) f2(S,i,j,k,l)=1E-5
             if (f(i,j,k,l).lt.1E-5) f(i,j,k,l)=1E-5
             IF (L.LT.UPA(I)) THEN
-              WEIGHT=F2(S,I,J,K,L)*WE(K)*WMU(L)
+              WEIGHT=F2(S,I,J,K,L)*WE(S,K)*WMU(L)
               IF (MLT(J).LE.6.OR.MLT(J).GE.18.) THEN
                 XNN(S,I)=XNN(S,I)+WEIGHT
-                ENERN(S,I)=ENERN(S,I)+EKEV(K)*WEIGHT
+                ENERN(S,I)=ENERN(S,I)+EKEV(S,K)*WEIGHT
               ELSE
                 XND(S,I)=XND(S,I)+WEIGHT
-                ENERD(S,I)=ENERD(S,I)+EKEV(K)*WEIGHT
+                ENERD(S,I)=ENERD(S,I)+EKEV(S,K)*WEIGHT
               ENDIF
             ENDIF
           END DO
@@ -1115,7 +1116,7 @@ end subroutine read_geomlt_file
         WRITE(UNITTMP_,32) StringDate,LZ(I),KP,MLT(J)
         if (outsideMGNP(I,J) == 1) F(I,J,:,:) = 1e-31
         DO 27 K=4,NE-1
-27      WRITE(UNITTMP_,30) EKEV(K),(F(I,J,K,L),L=2,NPA-2)
+27      WRITE(UNITTMP_,30) EKEV(S,K),(F(I,J,K,L),L=2,NPA-2)
 25    CONTINUE
     END DO
     close(UNITTMP_)
@@ -1265,7 +1266,7 @@ subroutine write_dsbnd(S)
   OPEN(UNIT=UNITTMP_,FILE=NameFluxFile, STATUS='UNKNOWN')
   WRITE(UNITTMP_,*)'EKEV FGEOSB [1/cm2/s/ster/keV] T=',TimeRamElapsed/3600,Kp,F107
   DO K=2,NE
-     WRITE(UNITTMP_,*) EKEV(K),(FGEOS(S,J,K,2)/FFACTOR(S,NR,K,2),J=1,NT)
+     WRITE(UNITTMP_,*) EKEV(S,K),(FGEOS(S,J,K,2)/FFACTOR(S,NR,K,2),J=1,NT)
   END DO
   CLOSE(UNITTMP_)
 

@@ -59,7 +59,7 @@ module ModRamFunctions
        if(l.ge.uPa(i))cycle
        do j=1, nT-1
           if (outsideMGNP(i,j) == 0) then
-             sumEnergy=sumEnergy+f2(s,i,j,k,l)*wE(k)*wMu(L)*eKeV(k)
+             sumEnergy=sumEnergy+f2(s,i,j,k,l)*wE(S,k)*wMu(L)*eKeV(s,k)
           endif
        end do
     end do; end do; end do; end do

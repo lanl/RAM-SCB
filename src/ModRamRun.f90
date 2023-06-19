@@ -241,8 +241,8 @@ MODULE ModRamRun
       DO K=2,NE
         DO L=2,NPA
           DO J=1,NT-1
-            WEIGHT=F2(S,I,J,K,L)*WE(K)*WMU(L)
-            SETRC(S)=SETRC(S)+EKEV(K)*WEIGHT
+            WEIGHT=F2(S,I,J,K,L)*WE(S,K)*WMU(L)
+            SETRC(S)=SETRC(S)+EKEV(S,K)*WEIGHT
           END DO
         END DO
       END DO
@@ -353,7 +353,7 @@ MODULE ModRamRun
             PPER=PPER+EPP(S,K)*SUME
             PPAR=PPAR+EPP(S,K)*SUMA
             RNHT=RNHT+ERNH(S,K)*SUMN
-            EDEN=EDEN+ERNH(S,K)*EKEV(K)*SUMN
+            EDEN=EDEN+ERNH(S,K)*EKEV(S,K)*SUMN
           ENDDO
           ANIS=PPER/2./PPAR-1.
           EPAR=2*PPAR/RNHT
@@ -456,7 +456,7 @@ MODULE ModRamRun
                      ENDDO
                   ENDDO
                   DO K=2,NE
-                     ER1=LOG10(EKEV(K))
+                     ER1=LOG10(EKEV(S, K))
                      CALL GSL_Interpolation_2D(ALENOR,fpofc,DUMP,ER1,xfrl,Y,GSLerr)
                      DWAVE(L)=10.**Y*fnorm/GREL(S,K)**2*(1.-MUBOUN*MUBOUN)/MUBOUN ! denorm pa [1/s]
                      ATAW(I,J,K,L)=DWAVE(L)           ! call WPADIF twice, implicit
@@ -522,7 +522,7 @@ MODULE ModRamRun
                    END DO
                 END DO
                 DO K=2,NE
-                   ER1 = log10(EKEV(K))
+                   ER1 = log10(EKEV(S,K))
                    ! EkeV_emic: 0.1 keV to 1000 keV 
                    call GSL_Interpolation_2D(logEkeV_emic, fp2c_emic, &
                         DUMP2_h, ER1, xfrl, Y, GSLerr)

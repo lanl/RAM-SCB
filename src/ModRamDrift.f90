@@ -68,7 +68,7 @@ MODULE ModRamDrift
         P1(I)=DTs/DPHI/2/MDR/RLZ(I)
       END DO
       DO K=1,NE
-        P2(I,K)=DTs*EKEV(K)*1000*(GREL(S,K)+1)/GREL(S,K)/RLZ(I)**2/DPHI/QS
+        P2(I,K)=DTs*EKEV(S,K)*1000*(GREL(S,K)+1)/GREL(S,K)/RLZ(I)**2/DPHI/QS
       END DO
     END DO
 
@@ -80,7 +80,7 @@ MODULE ModRamDrift
       END DO
       MUDOT(I,NPA)=0.
       DO K=1,NE
-        EDOT(I,K)=EBND(K)*DTs/RLZ(I)*(GRBND(S,K)+1)/GRBND(S,K)/2.
+        EDOT(I,K)=EBND(S,K)*DTs/RLZ(I)*(GRBND(S,K)+1)/GRBND(S,K)/2.
       END DO
     END DO
 
@@ -128,7 +128,7 @@ MODULE ModRamDrift
 
     ! Gradient Curvature Radial Drift
     DO K=1,NE
-       P4=DTs*EKEV(K)*1000.0*(GREL(S,K)+1)/GREL(S,K)/DPHI/MDR/QS
+       P4=DTs*EKEV(S,K)*1000.0*(GREL(S,K)+1)/GREL(S,K)/DPHI/MDR/QS
        DO L=1,NPA
           DO J=1,NT
              F(1:NR) = F2(S,:,J,K,L)
@@ -307,7 +307,7 @@ MODULE ModRamDrift
 
     DtDriftE(S)=10000.0
     OME=7.3E-5
-    EZERO=EKEV(1)-WE(1)
+    EZERO=EKEV(S,1)-WE(S,1)
     GRZERO(S)=1.+EZERO*1000.*Q/RMAS(S)/CS/CS
     F(NE+1)=0.
     F(NE+2)=0.
@@ -334,7 +334,7 @@ MODULE ModRamDrift
              F(1) = F(2)*GREL(S,1)/GREL(S,2)*SQRT((GREL(S,2)**2-1)/(GREL(S,1)**2-1))
              F(0) = F(1)*GRZERO(S)/GREL(S,1)*SQRT((GREL(S,1)**2-1)/(GRZERO(S)**2-1))
              DO K=1,NE
-                EDT1  = EBND(K)*1e3*(GRBND(S,K)+1)/2/GRBND(S,K)/FNHS(I,J,L)/RLZ(I)/BNES(I,J)/QS
+                EDT1  = EBND(S,K)*1e3*(GRBND(S,K)+1)/2/GRBND(S,K)/FNHS(I,J,L)/RLZ(I)/BNES(I,J)/QS
                 DRDT  = DRD1+EDT1*DRD2*RLZ(I)
                 DPDT  = DPD1-EDT1*DPD2
                 dBdt1 = dBdt(I,J)*(1.-FNIS(I,J,L)/2./FNHS(I,J,L))*RLZ(I)/BNES(I,J)
@@ -342,7 +342,7 @@ MODULE ModRamDrift
                 CDriftE(I,J,K,L) = EDOT(I,K)*((GPR1+GPR2+GPR3)*DRDT+(GPP1+GPP2)*DPDT+dBdt1+dIdt1)
                 if (outsideMGNP(i,j) == 0) then
                    ctemp = max(abs(CDriftE(I,J,K,L)),1E-10)
-                   DtDriftE(S) = min(DtDriftE(S), FracCFL*DTs*DE(K)/ctemp)
+                   DtDriftE(S) = min(DtDriftE(S), FracCFL*DTs*DE(S,K)/ctemp)
                 endif
                 sgn = 1
                 if (CDriftE(I,J,K,L).lt.0) sgn = -1
@@ -355,13 +355,13 @@ MODULE ModRamDrift
                    IF (R.LE.0) FBND(K)=FUP
                    IF (R.GT.0) THEN
                       LIMITER=MAX(MIN(BetaLim*R,1.),MIN(R,BetaLim))
-                      CORR=-0.5*(CDriftE(I,J,K,L)/DE(K)-sgn)*X
+                      CORR=-0.5*(CDriftE(I,J,K,L)/DE(S,K)-sgn)*X
                       FBND(K)=FUP+LIMITER*CORR
                    END IF
                 END IF
              END DO
              DO K=2,NE
-                F2(S,I,J,K,L)=F2(S,I,J,K,L)-CDriftE(I,J,K,L)/WE(K)*FBND(K)+CDriftE(I,J,K-1,L)/WE(K)*FBND(K-1)
+                F2(S,I,J,K,L)=F2(S,I,J,K,L)-CDriftE(I,J,K,L)/WE(S,K)*FBND(K)+CDriftE(I,J,K-1,L)/WE(S,K)*FBND(K-1)
                 if (f2(s,i,j,k,l).lt.0) then
 !                   write(*,*) 'in DRIFTE f2<0 ', S,i,j,k,l, f2(S,i,j,k,l)
                    f2(S,i,j,k,l)=1E-15
@@ -421,7 +421,7 @@ MODULE ModRamDrift
                 GMR3 = (BOUNIS(I+1,J,L)-BOUNIS(I-1,J,L))/2/MDR/BOUNIS(I,J,L)
                 GMP1 = (BNES(I,J1)-BNES(I,J0))/4/DPHI/BNES(I,J)
                 GMP2 = (BOUNIS(I,J1,L)-BOUNIS(I,J0,L))/2/DPHI/BOUNIS(I,J,L)
-                EDT  = EKEV(K)*1e3*(GREL(S,K)+1)/2/GREL(S,K)/BOUNHS(I,J,L)/RLZ(I)/BNES(I,J)/QS
+                EDT  = EKEV(S,K)*1e3*(GREL(S,K)+1)/2/GREL(S,K)/BOUNHS(I,J,L)/RLZ(I)/BNES(I,J)/QS
                 DRM2 = (BOUNIS(I,J1,L)-BOUNIS(I,J0,L))/2/DPHI+(BOUNIS(I,J,L)-2*BOUNHS(I,J,L)) &
                       *(BNES(I,J1)-BNES(I,J0))/4/BNES(I,J)/DPHI
                 DPM2 = BOUNIS(I,J,L)+(BOUNIS(I+1,J,L)-BOUNIS(I-1,J,L))*RLZ(I)/2/MDR &

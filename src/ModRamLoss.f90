@@ -41,7 +41,7 @@ MODULE ModRamLoss
           DO K=2,NE
              DO I=2,NR
                 DO J=1,NT
-                   X=LOG10(EKEV(K))
+                   X=LOG10(EKEV(S,K))
                    IF (X.LT.-2.) X=-2.
                    Y=-18.767-0.11017*X-3.8173e-2*X**2-0.1232*X**3-5.0488e-2*X**4
                    ALPHA=10.**Y*V(S,K)*HDNS(I,J,L)*DTs
@@ -56,7 +56,7 @@ MODULE ModRamLoss
           DO K=2,NE
              DO I=2,NR
                 DO J=1,NT
-                   X=LOG10(EKEV(K))
+                   X=LOG10(EKEV(S,K))
                    IF(X.LT.-2.) X=-2.
                    Y=-20.789+0.92316*X-0.68017*X**2+0.66153*X**3-0.20998*X**4
                    ALPHA=10.**Y*V(S,K)*HDNS(I,J,L)*DTs
@@ -71,7 +71,7 @@ MODULE ModRamLoss
           DO K=2,NE
              DO I=2,NR
                 DO J=1,NT
-                   X=LOG10(EKEV(K))
+                   X=LOG10(EKEV(S,K))
                    IF(X.LT.-2.) X=-2.
                    Y=-18.987-0.10613*X-5.4841E-3*X**2-1.6262E-2*X**3-7.0554E-3*X**4
                    ALPHA=10.**Y*V(S,K)*HDNS(I,J,L)*DTs
@@ -438,7 +438,7 @@ MODULE ModRamLoss
              
              if(DoWriteFLCDiffCoeff)then
                 do l=1, nPA-1
-                   write(unittmp_, '(2(2x, f11.3),5(2x,e11.3))') EkeV(k), acos(MU(l)+0.5*WMU(l)), r_gyro(i,j,k), &
+                   write(unittmp_, '(2(2x, f11.3),5(2x,e11.3))') EkeV(S,k), acos(MU(l)+0.5*WMU(l)), r_gyro(i,j,k), &
                         r_curvEq(i,j)/REarth, epsil(i,j,k),tau_bounce(l),FLC_coef(S,i,j,k,l)
                 end do
              end if
