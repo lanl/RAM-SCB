@@ -117,7 +117,7 @@ MODULE ModRamSce
                 ave_flux(i,j,k) = ave_flux(i,j,k)+f(i,j,k,l)*WMU(l)
              end do
              ave_flux(i,j,k) = ave_flux(i,j,k)/(mu(NPA)-mu(UPA(i)))
-             num_fluxeq(i,j) = num_fluxeq(i,j) + pi_d*ave_flux(i,j,k)*WE(k)
+             num_fluxeq(i,j) = num_fluxeq(i,j) + pi_d*ave_flux(i,j,k)*WE(IS,k)
           end do
        end do
     end do
@@ -227,8 +227,8 @@ MODULE ModRamSce
           num_flux_iono(i,j) = 0.0
           ave_e_iono(i,j) = 0.0
           do k=1, nE
-             energy_flux_iono(i,j) = energy_flux_iono(i,j) + pi_d*ave_fluxEQ(i,j,k)*EKEV(k)*WE(k)
-             num_flux_iono(i,j) = num_flux_iono(i,j) + pi_d*ave_fluxEQ(i,j,k)*WE(k)
+             energy_flux_iono(i,j) = energy_flux_iono(i,j) + pi_d*ave_fluxEQ(i,j,k)*EKEV(IS,k)*WE(IS,k)
+             num_flux_iono(i,j) = num_flux_iono(i,j) + pi_d*ave_fluxEQ(i,j,k)*WE(IS,k)
           end do
           if (num_flux_iono(i,j) .eq. 0.0) then
              num_flux_iono(i,j) = 1.0e-31

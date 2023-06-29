@@ -484,8 +484,6 @@ contains
 
     ! Convert from moments to fluxes:
     do iE=1, nE
-       eCent = 1000.0 * Ekev(iE) ! Center of energy bin in eV.
-       factor=4.0E6*Ekev(iE)     ! Unit conversion factor * eCent in KeV.
        do iT=1, nT
           select case(TypeMhd)
           case('single')
@@ -493,6 +491,8 @@ contains
                 ! Assuming a maxwellian distribution about MHD temperature, divide
                 ! densities into energy bins and calculate fluxes.
                 do iS = 1, nS
+                   eCent = 1000.0 * Ekev(iS,iE) ! Center of energy bin in eV.
+                   factor=4.0E6*Ekev(iS,iE)     ! Unit conversion factor * eCent in KeV.
                    FluxBats_IIS(iE,iT,iS) = 1./sqrt(species(iS)%s_mass) &
                                           *exp(-1.0*eCent/MhdDensPres_VII(2,iT,iS)) &
                                           *factor*MhdDensPres_VII(1,iT,iS) &

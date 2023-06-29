@@ -27,9 +27,10 @@ MODULE ModRamSpecies
      real(DP), allocatable :: CEX_nO(:)
      real(DP), allocatable :: CEX_nN(:)
      real(DP) :: plasmasphereRatio
+     real(DP) :: Emin, Emax ! Min and Max energy range of species
   end type SpeciesType
 
-  integer, parameter :: nSpecies = 6
+  integer, parameter :: nSpecies = 7
   type(SpeciesType), dimension(nSpecies) :: RAMSpecies
 
   contains
@@ -54,6 +55,8 @@ MODULE ModRamSpecies
      RAMSpecies(1)%CEX_species = 'na'
      RAMSpecies(1)%Initialization = 'InitializationFile'
      RAMSpecies(1)%plasmasphereRatio = 1.0
+     RAMSpecies(1)%Emin = 0.1
+     RAMSpecies(1)%Emax = 500.0
 
      ! Protons
      RAMSpecies(2)%s_name = "Hydrogen"
@@ -70,6 +73,8 @@ MODULE ModRamSpecies
      RAMSpecies(2)%CEX_species = 'na'
      RAMSpecies(2)%Initialization = 'InitializationFile'
      RAMSpecies(2)%plasmasphereRatio = 0.77
+     RAMSpecies(2)%Emin = 0.1
+     RAMSpecies(2)%Emax = 500.0
 
      ! Helium +1
      RAMSpecies(3)%s_name = "HeliumP1"
@@ -86,6 +91,8 @@ MODULE ModRamSpecies
      RAMSpecies(3)%CEX_species = 'na'
      RAMSpecies(3)%Initialization = 'InitializationFile'
      RAMSpecies(3)%plasmasphereRatio = 0.2
+     RAMSpecies(3)%Emin = 0.1
+     RAMSpecies(3)%Emax = 500.0
 
      ! Oxygen +1
      RAMSpecies(4)%s_name = "OxygenP1"
@@ -102,6 +109,8 @@ MODULE ModRamSpecies
      RAMSpecies(4)%CEX_species = 'na'
      RAMSpecies(4)%Initialization = 'InitializationFile'
      RAMSpecies(4)%plasmasphereRatio = 0.03
+     RAMSpecies(4)%Emin = 0.1
+     RAMSpecies(4)%Emax = 500.0
 
      ! Nitrogen +1
      RAMSpecies(5)%s_name = "Nitrogen"
@@ -118,6 +127,8 @@ MODULE ModRamSpecies
      RAMSpecies(5)%CEX_species = 'nH'
      RAMSpecies(5)%Initialization = 'na'
      RAMSpecies(5)%plasmasphereRatio = 0.0
+     RAMSpecies(5)%Emin = 0.1
+     RAMSpecies(5)%Emax = 500.0
 
      ! Strontium +1
      RAMSpecies(6)%s_name = "Strontium"
@@ -134,6 +145,26 @@ MODULE ModRamSpecies
      RAMSpecies(6)%CEX_species = 'nH nO nN'
      RAMSpecies(6)%Initialization = 'StrontiumPlusOneIons.dat'
      RAMSpecies(6)%plasmasphereRatio = 0.0
+     RAMSpecies(6)%Emin = 0.1
+     RAMSpecies(6)%Emax = 500.0
+
+     ! Relativistic Electrons
+     RAMSpecies(7)%s_name = "Relative"
+     RAMSpecies(7)%s_code = "Re"
+     RAMSpecies(7)%s_mass = 5.4462E-4
+     RAMSpecies(7)%s_comp = 1.0
+     RAMSpecies(7)%s_charge = -1
+     RAMSpecies(7)%SCB = .false.
+     RAMSpecies(7)%WPI = .true.
+     RAMSpecies(7)%CEX = .false.
+     RAMSpecies(7)%FLC = .false.
+     RAMSpecies(7)%EMIC = .false.
+     RAMSpecies(7)%CEX_file = 'na'
+     RAMSpecies(7)%CEX_species = 'na'
+     RAMSpecies(7)%Initialization = 'RelativisticElectrons.dat'
+     RAMSpecies(7)%plasmasphereRatio = 1.0
+     RAMSpecies(7)%Emin = 1000.0
+     RAMSpecies(7)%Emax = 10000.0
 
   end subroutine DefineSpecies
 

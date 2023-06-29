@@ -6,7 +6,10 @@
 module ModRamRestart
 
   implicit none
-  
+!!!!!!!!!!!!!!!!!!!!!!!!
+!!!! RESTART Files need to be updated to handle multiple different species
+!!!! and the different energy binning for different species -ME
+!!!!!!!!!!!!!!!!!!!!!!!!  
   contains
   !==========================================================================
   subroutine write_restart
@@ -309,7 +312,7 @@ module ModRamRestart
 
     ! START WRITE MODE
     !! TEMP STUFF
-    iStatus = nf90_put_var(iFileID, iEGridVar, EKEV(:))
+    iStatus = nf90_put_var(iFileID, iEGridVar, EKEV(1,:))
     iStatus = nf90_put_var(iFileID, iPaGridVar, PA(:))
 
     !! FLUXES
