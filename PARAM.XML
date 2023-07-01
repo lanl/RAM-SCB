@@ -137,13 +137,15 @@ If using nitrogen in the species this command will convert a percent of the oxyg
 	<parameter name="DoUseBASdiff" type="logical" default="F"/>
 	<parameter name="DoUseKpdiff" type="logical" default="F"/>
 	<parameter name="DoUseEMIC" type="logical" default="F"/>
+	<parameter name="DoSaveLwgr" type="logical" default="F"/>
 #USEWPI
 F	DoUseWPI
 F	DoUseBASdiff
 F	DoUseKpdiff
 F	DoUseEMIC
+F	DoSaveLwgr
 
-Flag to turn on pitch angle diffusion. The default setting for the Kp-based version uses Kp=0 coefficients. Turning this flag on interpolates Kp-dependent diffusion coefficents for Kp in the range (0-4). Different options are available if selecting DoUseBASDiff. EMIC wave pitch angle diffusion is used for ions wave-particle interaction.
+Flag to turn on pitch angle diffusion. The default setting for the Kp-based version uses Kp=0 coefficients. Turning this flag on interpolates Kp-dependent diffusion coefficents for Kp in the range (0-4). Different options are available if selecting DoUseBASDiff. EMIC wave pitch angle diffusion is used for ions wave-particle interaction. DoSaveLwgr is used to save hourly output for linear wave growth calculations.
 </command>
 
 <command name="USEFLC">
