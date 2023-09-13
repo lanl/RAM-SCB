@@ -482,7 +482,7 @@ testSCE_check:
 	        ${IMDIR}/output/testSCE/log.ref                           \
 	        > testSCE.diff
 	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                              \
-	        ${TESTDIRC}/output_ram/pressure_d20130317_t001500.dat   \
+	        ${TESTDIRC}/output_ram/pressure_d20130317_t001000.dat   \
 	        ${IMDIR}/output/testSCE/pressure.ref                      \
 	        >> testSCE.diff
 	@echo "Test Successful!"
