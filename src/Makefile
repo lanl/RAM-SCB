@@ -16,6 +16,7 @@ MY_LIB = libRAM_SCB.a
 LIBSHARE = ${LIBDIR}/libSHARE.a
 LIBEXT   = ${LIBDIR}/libEXT.a
 LIBNOMPI  = ${LIBDIR}/libNOMPI.a
+LIBGLOW  = ${LIBDIR}/libGLOW.a
 
 # Extra search directories for -I option (-p for Absoft!!!)
 # Set twice to work with old and new SWMF versions.
@@ -135,12 +136,13 @@ combine:
 	echo 'addlib ${MY_LIB}' >> mergelibs.mri
 	echo 'addlib ${LIBSHARE}' >> mergelibs.mri
 	echo 'addlib ${LIBEXT}' >> mergelibs.mri
+	echo 'addlib ${LIBGLOW}' >> mergelibs.mri
 	echo 'save' >> mergelibs.mri
 	echo 'end' >> mergelibs.mri
 	ar -M < mergelibs.mri
 
 # Libraries should be compiled first, because modules are used in main
-${EXE}: ${OBJECTS_EXE} ${MY_LIB} ${LIBSHARE} ${LIBEXT}
+${EXE}: ${OBJECTS_EXE} ${MY_LIB} ${LIBSHARE} ${LIBEXT} ${LIBGLOW}
 	make combine
 	rm mergelibs.mri
 	${LINK.f90} -o ${EXE} ${OBJECTS_EXE} libAll.a ${LBLAS} ${Lflag1}

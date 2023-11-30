@@ -16,6 +16,7 @@ subroutine IM_set_parameters
   use ModScbGrids, ONLY: nthe, npsi, nzeta
   use ModRamParams
   use ModScbParams
+  use ModSceVariables
 
 !!!! Module Subroutines and Functions
   use ModRamIO,   ONLY: write_prefix
@@ -270,6 +271,28 @@ subroutine IM_set_parameters
         call read_var('BlendMin'            , blendMin)
         call read_var('BlendMax'            , blendMax)
 
+!!!!!! SCE Parameters 
+     case("#IONOSPHERE")
+        call read_var('iConductanceModel',conductance_model)
+        call read_var('StarLightPedConductance',StarLightPedConductance)
+        if (conductance_model .eq.9)then
+           call read_var('DoUseFullSpec', DoUseFullSpec)
+           call read_var('DoSaveGLOWConductivity', DoSaveGLOWConductivity)
+        end if
+
+     case("#BOUNDARY") 
+        call read_var('LatBoundary',LatBoundary)
+        LatBoundary = LatBoundary * cDegToRad
+        
+     case("#SOLVER")
+        call read_var('NameSolver',        NameSolver, IsLowerCase=.true.)
+
+     case("#KRYLOV")
+        call read_var('UsePreconditioner', UsePreconditioner)
+        call read_var('UseInitialGuess',   UseInitialGuess)
+        call read_var('Tolerance',         Tolerance)
+        call read_var('MaxIteration',      MaxIteration)
+        
 !!!!!! Input Parameters
      case('#TS07_DIRECTORY')
         call read_var('TS07Directory', TS07Path)

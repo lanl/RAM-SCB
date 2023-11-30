@@ -4,11 +4,13 @@ default : RAM_SCB
 include Makefile.def
 
 srcDir = src
+GlowDir= srcGlow
+
 INSTALLFILES = ${srcDir}/Makefile.DEPEND \
 	       ${srcDir}/Makefile.RULES  \
 	       srcInterface/Makefile.DEPEND \
-	       srcExternal/Makefile.DEPEND
-
+	       srcExternal/Makefile.DEPEND \
+		${GlowDir}/Makefile.DEPEND
 help:
 	@echo ' '
 	@echo ' You can "make" the following:'
@@ -30,6 +32,7 @@ PDF:
 RAM_SCB:
 	@cd ${SHAREDIR}; make LIB
 	@cd srcExternal; make LIB
+	@cd ${GlowDir}; make LIB
 	@cd ${srcDir};   make LIB
 	@cd ${srcDir};   make RAM_SCB
 
@@ -41,12 +44,14 @@ LIB:
 	cd ${srcDir};    make LIB
 	cd srcInterface; make LIB
 	cd srcExternal;  make LIB
+	cd ${GlowDir}; make LIB
 
 clean:
 	@touch ${INSTALLFILES}
 	@cd ${srcDir};          make clean
 	@cd srcInterface; make clean
 	@cd srcExternal; make clean
+	@cd ${GlowDir}; make clean
 	@(if [ -d util ];  then cd util;  make clean; fi);
 	@(if [ -d share ]; then cd share; make clean; fi);
 
@@ -59,6 +64,7 @@ allclean:
 	@(if [ -d srcPspline ]; then rm -rf srcPspline; fi);
 	@cd ${srcDir}; make distclean
 	@cd srcInterface; make distclean
+	@cd ${GlowDir}; make distclean
 	rm -f *~
 
 rundir: 
@@ -75,9 +81,9 @@ rundir:
 	cd ${RUNDIR}; \
 	ln -s ../input/bav_diffcoef_chorus_rpa_Kp*.PAonly.dat .
 	cd ${RUNDIR}/IM/output; \
-		mkdir -p ram/Dsbnd scb/Day00
+		mkdir -p ram/Dsbnd scb/Day00 sce/
 	cd ${RUNDIR}/IM; \
-		mkdir input_ram input_scb output_swmf;    \
+		mkdir input_ram input_scb input_sce output_swmf;    \
 		mkdir restartIN restartOUT;               \
 		tar xzf ${IMDIR}/input/ramscb_inputs.tgz; \
 		mv Input_git/EMIC_model input_ram/; \
@@ -89,7 +95,8 @@ rundir:
 		mv Input_git/*geomlt*.txt input_ram/; \
                 mv initialization.nc input_ram/;            \
 		mv QinDenton_20130317_1min.txt input_scb/;  \
-		mv NitrogenCrossSections.dat input_ram/;
+		mv NitrogenCrossSections.dat input_ram/; \
+		cp -r ${IMDIR}/input/glow_data input_sce/;	
 	@(if [ "$(STANDALONE)" != "NO" ]; then \
 		cd ${RUNDIR} ; \
 		cp ${IMDIR}/Param/PARAM.in.default ./PARAM.in; \
@@ -98,6 +105,7 @@ rundir:
 		rm -f output; \
 		ln -s IM/output/ram output_ram; \
 		ln -s IM/output/scb output_scb; \
+		ln -s IM/output/sce output_sce;\
 	fi)
 
 
@@ -440,4 +448,41 @@ testEMIC_check:
 	        ${TESTDIRC}/output_ram/pressure_d20130317_t001500.dat   \
 	        ${IMDIR}/output/testEMIC/pressure.ref                      \
 	        >> testEMIC.diff
+	@echo "Test Successful!"
+
+
+
+#TEST SCE----------------------------------
+testSCE:
+	@echo "starting..." > testSCE.diff
+	@echo "testSCE_compile..." >> testSCE.diff
+	make testSCE_compile
+	@echo "testSCE_rundir..." >> testSCE.diff
+	make testSCE_rundir PARAMFILE=PARAM.in.testSCE
+	@echo "testSCE_run..." >> testSCE.diff
+	make testSCE_run MPIRUN=
+	@echo "testSCE_check..." >> testSCE.diff
+	make testSCE_check
+
+testSCE_compile:
+	make
+
+testSCE_rundir:
+	rm -rf ${TESTDIRC}
+	make rundir RUNDIR=${TESTDIRC} STANDALONE="YES"
+	cp Param/${PARAMFILE} ${TESTDIRC}/PARAM.in
+	cp -r input/glow_data ${TESTDIRC}/=
+
+testSCE_run:
+	cd ${TESTDIRC}; ${MPIRUN} ./ram_scb.exe | tee runlog;
+
+testSCE_check:
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                              \
+	        ${TESTDIRC}/output_ram/log_d20130317_t000000.log        \
+	        ${IMDIR}/output/testSCE/log.ref                           \
+	        > testSCE.diff
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                              \
+	        ${TESTDIRC}/output_ram/pressure_d20130317_t001000.dat   \
+	        ${IMDIR}/output/testSCE/pressure.ref                      \
+	        >> testSCE.diff
 	@echo "Test Successful!"

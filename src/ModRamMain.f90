@@ -26,11 +26,11 @@ module ModRamMain
   ! File paths to fix hardcoding of path issues.
   character(len=*), parameter :: PathRAMOut  = 'IM/output/ram/'
   character(len=*), parameter :: PathSCBOut  = 'IM/output/scb/'
-  character(len=*), parameter :: PathSCEOut  = 'IM/output/scb/'
+  character(len=*), parameter :: PathSCEOut  = 'IM/output/sce/'
   character(len=*), parameter :: PathSWMFOut = 'IM/output_swmf/'
   character(len=*), parameter :: PathRAMIn   = 'IM/input_ram/'
   character(len=*), parameter :: PathSCBIn   = 'IM/input_scb/'
-  character(len=*), parameter :: PathSCEIn   = 'IM/input_scb/'
+  character(len=*), parameter :: PathSCEIn   = 'IM/input_sce/'
 !!!!!
 
 !!!!! ITERATIONS
