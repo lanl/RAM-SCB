@@ -14,13 +14,15 @@ The RAM-SCB manual with extended installation and usage information can be found
 
 Researchers who use the RAM-SCB code for scientific research are asked to cite the papers listed below.
 
-1. Engel, M. A., Morley, S. K., Henderson, M. G., Jordanova, V. K., Woodroffe, J. R., & Mahfuz, R. (2019). Improved simulations of the inner magnetosphere during high geomagnetic activity with the RAM-SCB model. Journal of Geophysical Research: Space Physics, 124, 4233–4248. doi:10.1029/2018JA026260
+1. Jordanova, V. K., S. K. Morley, M. A. Engel, H. C. Godinez, K. Yakymenko, M. G. Henderson, Y. Yu, and Y. Miyoshi (2023), The RAM-SCB model and its applications to advance space weather forecasting, Advances in Space Research, 72, 5596-5606, https://doi.org/10.1016/j.asr.2022.08.077.
+   
+2. Engel, M. A., Morley, S. K., Henderson, M. G., Jordanova, V. K., Woodroffe, J. R., & Mahfuz, R. (2019). Improved simulations of the inner magnetosphere during high geomagnetic activity with the RAM-SCB model. Journal of Geophysical Research: Space Physics, 124, 4233–4248. doi:10.1029/2018JA026260.
 
-2. Jordanova, V. K., S. Zaharia, and D. T. Welling (2010), Comparative study of ring current development using empirical, dipolar, and self-consistent magnetic field simulations, J. Geophys. Res., 115(A14):A00J11, doi:10.1029/2010JA015671.
+3. Jordanova, V. K., S. Zaharia, and D. T. Welling (2010), Comparative study of ring current development using empirical, dipolar, and self-consistent magnetic field simulations, J. Geophys. Res., 115(A14):A00J11, doi:10.1029/2010JA015671.
 
-3. Welling, D. T., V. K. Jordanova, S. G. Zaharia, A. Glocer, and G. Toth (2011), The effects of dynamic ionospheric outflow on the ring current, J. Geophys. Res., 116, doi:10.1029/2010JA015642.
+4. Welling, D. T., V. K. Jordanova, S. G. Zaharia, A. Glocer, and G. Toth (2011), The effects of dynamic ionospheric outflow on the ring current, J. Geophys. Res., 116, doi:10.1029/2010JA015642.
 
-4. Jordanova, V. K. et al. (2006), Kinetic simulations of ring current evolution during the Geospace Environment Modeling challenge events, J. Geophys. Res., 111, A11S10, doi:10.1029/2006JA011644.
+5. Jordanova, V. K. et al. (2006), Kinetic simulations of ring current evolution during the Geospace Environment Modeling challenge events, J. Geophys. Res., 111, A11S10, doi:10.1029/2006JA011644.
 
 
 ## Installation
@@ -61,4 +63,4 @@ The RAM-SCB License can be found at [RAM-SCB/LICENSE.txt](LICENSE.txt).
 
 ## Contact
 
-For questions about using RAM-SCB please contact [Vania Jordanova](http://www.lanl.gov/expertise/profiles/view/vania-jordanova).
+For questions about using RAM-SCB please contact [Steve Morley](https://github.com/drsteve).
