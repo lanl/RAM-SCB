@@ -36,6 +36,7 @@ F			DoUseWPI		! Whether to use wave particle interactions or not (Note, wave par
 F			DoUseBASDiff		! Whether to use BAS diffusion coefficients for wave particle interactions
 F			doUseKpDiff		! Whether to use KP based diffusion coefficients for wave particle interactions
 T           DoUseEMIC       !  Whether to turn on AE based EMIC wave pitch angle diffusion
+F           DoSaveLwgr
 
 *************************************************
 
