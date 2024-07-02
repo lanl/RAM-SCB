@@ -148,8 +148,8 @@ MODULE ModRamSpecies
      RAMSpecies(6)%Emin = 0.1
      RAMSpecies(6)%Emax = 500.0
 
-     ! Relativistic Electrons
-     RAMSpecies(7)%s_name = "Relative"
+     ! High Energy Electrons
+     RAMSpecies(7)%s_name = "RadBeltE"
      RAMSpecies(7)%s_code = "Re"
      RAMSpecies(7)%s_mass = 5.4462E-4
      RAMSpecies(7)%s_comp = 1.0
@@ -161,7 +161,7 @@ MODULE ModRamSpecies
      RAMSpecies(7)%EMIC = .false.
      RAMSpecies(7)%CEX_file = 'na'
      RAMSpecies(7)%CEX_species = 'na'
-     RAMSpecies(7)%Initialization = 'RelativisticElectrons.dat'
+     RAMSpecies(7)%Initialization = 'InitializationFile'
      RAMSpecies(7)%plasmasphereRatio = 1.0
      RAMSpecies(7)%Emin = 1000.0
      RAMSpecies(7)%Emax = 10000.0

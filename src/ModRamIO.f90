@@ -558,7 +558,7 @@ end subroutine read_geomlt_file
 
     integer :: i, j, k, l, iS, GSLerr, iRDim, iTDim, iEDim, iPaDim, &
                iR, iT, iE, iPa, S
-    integer :: iFluxEVar, iFluxHVar, iFluxHeVar, iFluxOVar, &
+    integer :: iFluxVar, iFluxEVar, iFluxHVar, iFluxHeVar, iFluxOVar, &
                iFileID, iStatus, iPParTVar, iPPerTVar
     real(DP), allocatable :: iF2(:,:,:,:,:), iFNHS(:,:,:), iFNIS(:,:,:), iBOUNHS(:,:,:), &
                              iBOUNIS(:,:,:), iEIR(:,:), iEIP(:,:), iBNES(:,:), &
@@ -601,62 +601,85 @@ end subroutine read_geomlt_file
              tPPerT(4,iR,iT),iPParT(nS,iR,iT),iPPerT(nS,iR,iT))
 
     ! GET VARIABLE IDS
-    !! FLUXES
-    iStatus = nf90_inq_varid(iFileID, 'FluxE',  iFluxEVar)
-    iStatus = nf90_inq_varid(iFileID, 'FluxH',  iFluxHVar)
-    iStatus = nf90_inq_varid(iFileID, 'FluxHe', iFluxHeVar)
-    iStatus = nf90_inq_varid(iFileID, 'FluxO',  iFluxOVar)
+    iStatus = nf90_inq_varid(iFileID, 'FluxE', iFluxVar)
+    if (iStatus == nf90_noerr) then
+        iStatus = nf90_inq_varid(iFileID, 'FluxE',  iFluxEVar)
+        iStatus = nf90_inq_varid(iFileID, 'FluxH',  iFluxHVar)
+        iStatus = nf90_inq_varid(iFileID, 'FluxHe', iFluxHeVar)
+        iStatus = nf90_inq_varid(iFileID, 'FluxO',  iFluxOVar)
+        iStatus = nf90_inq_varid(iFileID, 'PParT', iPParTVar)
+        iStatus = nf90_inq_varid(iFileID, 'PPerT', iPPerTVar)
+        do i = 1, nS
+            select case(species(i)%s_name)
+            case('Electron')
+                iStatus = nf90_get_var(iFileID, iFluxEVar,  iF2(i,:,:,:,:))
+            case('Hydrogen')
+                iStatus = nf90_get_var(iFileID, iFluxHVar,  iF2(i,:,:,:,:))
+            case('HeliumP1')
+                iStatus = nf90_get_var(iFileID, iFluxHeVar, iF2(i,:,:,:,:))
+            case('OxygenP1')
+                iStatus = nf90_get_var(iFileID, iFluxOVar,  iF2(i,:,:,:,:))
+                iF2(i,:,:,:,:) = (1. - OfracN)*iF2(i,:,:,:,:)
+            case('Nitrogen')
+                ! If we want to initialize some nitrogen, we assume that a percentage
+                ! of the oxygen in the initialization file is actually nitrogen
+                iStatus = nf90_get_var(iFileID, iFluxOVar,  iF2(i,:,:,:,:))
+                iF2(i,:,:,:,:) = OfracN*iF2(i,:,:,:,:)
+            case default
+                iF2(i,:,:,:,:) = 0._dp
+            end select
+        enddo
+        iStatus = nf90_get_var(iFileID, iPParTVar, tPParT(:,:,:))
+        iStatus = nf90_get_var(iFileID, iPPerTVar, tPPerT(:,:,:))
+        do i = 1, nS
+            select case(species(i)%s_name)
+            case('Electron')
+                iPPerT(i,:,:) = tPPerT(1,:,:)
+                iPParT(i,:,:) = tPParT(1,:,:)
+            case('Hydrogen')
+                iPPerT(i,:,:) = tPPerT(2,:,:)
+                iPParT(i,:,:) = tPParT(2,:,:)
+            case('HeliumP1')
+                iPPerT(i,:,:) = tPPerT(3,:,:)
+                iPParT(i,:,:) = tPParT(3,:,:)
+            case('OxygenP1')
+                iPPerT(i,:,:) = tPPerT(4,:,:)
+                iPParT(i,:,:) = tPParT(4,:,:)
+            case default
+                iPPerT(i,:,:) = 0._dp
+                iPParT(i,:,:) = 0._dp
+            end select
+        enddo
+    else
+        do iS = 1, nS
+            iStatus = nf90_inq_varid(iFileID, 'Flux_'//species(iS)%s_name, iFluxVar)
+            if (iStatus /= nf90_noerr) then
+                iF2(i,:,:,:,:) = 0.0
+            else
+                iStatus = nf90_get_var(iFileID, iFluxVar, iF2(i,:,:,:,:))
+            endif
 
-    !! PRESSURES
-    iStatus = nf90_inq_varid(iFileID, 'PParT', iPParTVar)
-    iStatus = nf90_inq_varid(iFileID, 'PPerT', iPPerTVar)
+            select case(species(iS)%s_name)
+            case('OxygenP1')
+                iF2(i,:,:,:,:) = (1. - OfracN)*iF2(i,:,:,:,:)
+            case('Nitrogen')
+                iF2(i,:,:,:,:) = OfracN*iF2(i,:,:,:,:)
+            end select
 
-    ! READ DATA
-    !! FLUXES
-    do i = 1, nS
-       select case(species(i)%s_name)
-       case('Electron')
-          iStatus = nf90_get_var(iFileID, iFluxEVar,  iF2(i,:,:,:,:))
-       case('Hydrogen')
-          iStatus = nf90_get_var(iFileID, iFluxHVar,  iF2(i,:,:,:,:))
-       case('HeliumP1')
-          iStatus = nf90_get_var(iFileID, iFluxHeVar, iF2(i,:,:,:,:))
-       case('OxygenP1')
-          iStatus = nf90_get_var(iFileID, iFluxOVar,  iF2(i,:,:,:,:))
-          iF2(i,:,:,:,:) = (1. - OfracN)*iF2(i,:,:,:,:)
-       case('Nitrogen')
-          ! If we want to initialize some nitrogen, we assume that a percentage
-          ! of the oxygen in the initialization file is actually nitrogen
-          iStatus = nf90_get_var(iFileID, iFluxOVar,  iF2(i,:,:,:,:))
-          iF2(i,:,:,:,:) = OfracN*iF2(i,:,:,:,:)
-       case default
-          iF2(i,:,:,:,:) = 0._dp
-       end select
-    enddo
-
-    !! PRESSURES
-    iStatus = nf90_get_var(iFileID, iPParTVar, tPParT(:,:,:))
-    iStatus = nf90_get_var(iFileID, iPPerTVar, tPPerT(:,:,:))
-    do i = 1, nS
-       select case(species(i)%s_name)
-       case('Electron')
-          iPPerT(i,:,:) = tPPerT(1,:,:)
-          iPParT(i,:,:) = tPParT(1,:,:)
-       case('Hydrogen')
-          iPPerT(i,:,:) = tPPerT(2,:,:)
-          iPParT(i,:,:) = tPParT(2,:,:)
-       case('HeliumP1')
-          iPPerT(i,:,:) = tPPerT(3,:,:)
-          iPParT(i,:,:) = tPParT(3,:,:)
-       case('OxygenP1')
-          iPPerT(i,:,:) = tPPerT(4,:,:)
-          iPParT(i,:,:) = tPParT(4,:,:)
-       case default
-          iPPerT(i,:,:) = 0._dp
-          iPParT(i,:,:) = 0._dp
-       end select
-    enddo
-
+            iStatus = nf90_inq_varid(iFileID, 'PParT_'//species(iS)%s_name, iPParTVar)
+            if (iStatus /= nf90_noerr) then
+                iPParT(iS,:,:) = 0.0
+            else
+                iStatus = nf90_get_var(iFileID, iPParTVar, iPParT(iS,:,:))
+            endif
+            iStatus = nf90_inq_varid(iFileID, 'PPerT_'//species(iS)%s_name, iPPerTVar)
+            if (iStatus /= nf90_noerr) then
+                iPPerT(iS,:,:) = 0.0
+            else
+                iStatus = nf90_get_var(iFileID, iPPerTVar, iPPerT(iS,:,:))
+            endif
+        enddo
+    endif
 
     ! CLOSE INITIALIZATION FILE
     iStatus = nf90_close(iFileID)

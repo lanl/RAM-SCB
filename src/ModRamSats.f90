@@ -408,19 +408,17 @@ module ModRamSats
 
     ! ENERGY GRID
     do iS = 1, nS
-        iStatus = nf90_def_var(iFileID, 'energy_grid', nf90_float, &
+        iStatus = nf90_def_var(iFileID, 'energy_grid_'//species(iS)%s_code, nf90_float, &
              iEnDim, iEgridVar)
         iStatus = nf90_put_att(iFileID, iEgridVar, 'title', &
              'Energy grid as values at window centers.')
         iStatus = nf90_put_att(iFileID, iEgridVar, 'units', 'KeV')
-        iStatus = nf90_put_var(iFileID, iEgridVar, Ekev(iS,:))
 
-        iStatus = nf90_def_var(iFileID, 'energy_width', nf90_float, &
+        iStatus = nf90_def_var(iFileID, 'energy_width_'//species(iS)%s_code, nf90_float, &
              iEnDim, iEwidVar)
         iStatus = nf90_put_att(iFileID, iEwidVar, 'title', &
              'Widths of each energy bin whose centers are listed in energy_grid.')
         iStatus = nf90_put_att(iFileID, iEwidVar, 'units', 'KeV')
-        iStatus = nf90_put_var(iFileID, iEwidVar,  wE(iS,:))
     enddo
 
     ! PITCH-ANGLE GRID
@@ -443,7 +441,13 @@ module ModRamSats
     iStatus = nf90_enddef(iFileID)
 
     ! Write static (no time dimension) variables.
-    iStatus = nf90_put_var(iFileID, iEwidVar,  wE)
+    do iS = 1, nS
+        iStatus = nf90_inq_varid(iFileID, 'energy_grid_'//species(iS)%s_code, iEgridVar)
+        iStatus = nf90_put_var(iFileID, iEgridVar, Ekev(iS,:))
+
+        iStatus = nf90_inq_varid(iFileID, 'energy_grid_'//species(iS)%s_code, iEwidVar)
+        iStatus = nf90_put_var(iFileID, iEwidVar,  wE(iS,:))
+    enddo
     iStatus = nf90_put_var(iFileID, iPgridVar, Mu)
     iStatus = nf90_put_var(iFileID, iPwidVar,  wMu)
     iStatus = nf90_put_var(iFileID, iDtVar,    DtWriteSat)  

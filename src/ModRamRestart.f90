@@ -6,12 +6,8 @@
 module ModRamRestart
 
   implicit none
-!!!!!!!!!!!!!!!!!!!!!!!!
-!!!! RESTART Files need to be updated to handle multiple different species
-!!!! and the different energy binning for different species -ME
-!!!!!!!!!!!!!!!!!!!!!!!!  
-  contains
-  !==========================================================================
+  contains  
+!==========================================================================
   subroutine write_restart
     use ModRamParams, ONLY: TimedRestarts
     !!!! Module Variables
@@ -19,10 +15,10 @@ module ModRamRestart
     use ModRamFunctions, ONLY: RamFileName
     use ModRamTiming,    ONLY: TimeRamElapsed, TimeRamStart, TimeRamNow, DtsNext, &
                                TOld
-    use ModRamGrids,     ONLY: NR, NT, NE, NPA
+    use ModRamGrids,     ONLY: NR, NT, NE, NPA, nS
     use ModRamVariables, ONLY: F2, PParT, PPerT, FNHS, FNIS, BOUNHS, BOUNIS, &
                                BNES, HDNS, EIR, EIP, dBdt, dIdt, dIbndt, VTN, &
-                               VTOL, VT, EIR, EIP, EKEV, PA, NECR, TAU
+                               VTOL, VT, EIR, EIP, EKEV, PA, NECR, TAU, species
     use ModScbGrids,     ONLY: nthe, npsi, nzeta
     use ModScbParams,    ONLY: constZ, constTheta
     use ModScbVariables, ONLY: x, y, z, alphaVal, psiVal, chiVal, xpsiout, &
@@ -37,8 +33,7 @@ module ModRamRestart
 
     implicit none
     
-    integer :: iFluxEVar, iFluxHVar, iFluxHeVar, iFluxOVar, iPParTVar, &
-               iPPerTVar, iHVar, iBHVar, iEGridVar, iPaGridVar, &
+    integer :: iFluxVar, iPParTVar, iPPerTVar, iHVar, iBHVar, iEGridVar, iPaGridVar, &
                iIVar, iBIVar, iBNESVar, iHDNSVar, iEIRVar, iEIPVar, &
                iDtVar, iXVar, iYVar, iZVar, iBxVar, iByVar, iBzVar, &
                iVTNVar, iAValVar, iBValVar, iVTOLVar, &
@@ -48,7 +43,7 @@ module ModRamRestart
                iNECRVar, itauVar
 
     integer :: nRDim, nTDim, nEDim, nPaDim, nSDim, nThetaDim, nPsiDim, &
-               nZetaDim
+               nZetaDim, iS
     integer, parameter :: iDeflate = 2, yDeflate = 1
 
     character(len=999) :: NameFile
@@ -100,44 +95,32 @@ module ModRamRestart
 
     ! START DEFINE MODE
     !! TEMP STUFF
-    iStatus = nf90_def_var(iFileID, 'EnergyGrid', nf90_double, &
-                           (/nEDim/), iEGridVar)
+    do iS = 1, nS
+        iStatus = nf90_def_var(iFileID, 'EnergyGrid_'//species(iS)%s_name, nf90_double, &
+                               (/nEDim/), iEgridVar)
+    enddo
     iStatus = nf90_def_var(iFileID, 'PitchAngleGrid', nf90_double, &
                            (/nPaDim/), iPaGridVar)
     !! FLUXES
-    !!! Electron Flux
-    iStatus = nf90_def_var(iFileID, 'FluxE', nf90_double, &
-                           (/nRdim,nTDim,nEDim,nPaDim/), iFluxEVar)
-    iStatus = nf90_def_var_deflate(iFileID, iFluxEVar, 0, yDeflate, iDeflate)
-
-    iStatus = nf90_put_att(iFileID, iFluxEVar, 'title', &
-                           'This is an example title')
-
-    !!! Proton Flux
-    iStatus = nf90_def_var(iFileID, 'FluxH', nf90_double, &
-                           (/nRdim,nTDim,nEDim,nPaDim/), iFluxHVar)
-    iStatus = nf90_def_var_deflate(iFileID, iFluxHVar, 0, yDeflate, iDeflate)
-
-    !!! Oxygen Flux
-    iStatus = nf90_def_var(iFileID, 'FluxO', nf90_double, &
-                           (/nRdim,nTDim,nEDim,nPaDim/), iFluxOVar)
-    iStatus = nf90_def_var_deflate(iFileID, iFluxOVar, 0, yDeflate, iDeflate)
-
-    !!! Helium Flux
-    iStatus = nf90_def_var(iFileID, 'FluxHe', nf90_double, &
-                           (/nRdim,nTDim,nEDim,nPaDim/), iFluxHeVar)
-    iStatus = nf90_def_var_deflate(iFileID, iFluxHeVar, 0, yDeflate, iDeflate)
+    do iS = 1, nS
+        iStatus = nf90_def_var(iFileID, 'Flux_'//species(iS)%s_name, nf90_double, &
+                               (/nRDim, nTDim, nEDim, nPaDim/), iFluxVar)
+        iStatus = nf90_def_var_deflate(iFileID, iFluxVar, 0, yDeflate, iDeflate)
+    enddo
 
     !! PRESSURES
     !!! Total Parallel Pressures
-    iStatus = nf90_def_var(iFileID, 'PParT', nf90_double, &
-                           (/nSdim,nRDim,nTDim/), iPParTVar)
-    iStatus = nf90_def_var_deflate(iFileID, iPParTVar, 0, yDeflate, iDeflate)
+    do iS = 1, nS
+        !!! Total Parallel Pressures
+        iStatus = nf90_def_var(iFileID, 'PParT_'//species(iS)%s_name, nf90_double, &
+                               (/nRDim,nTDim/), iPParTVar)
+        iStatus = nf90_def_var_deflate(iFileID, iPParTVar, 0, yDeflate, iDeflate)
 
-    !!! Total Perpendicular Pressures
-    iStatus = nf90_def_var(iFileID, 'PPerT', nf90_double, &
-                           (/nSdim,nRDim,nTDim/), iPPerTVar)
-    iStatus = nf90_def_var_deflate(iFileID, iPPerTVar, 0, yDeflate, iDeflate)
+        !!! Total Perpendicular Pressures
+        iStatus = nf90_def_var(iFileID, 'PPerT_'//species(iS)%s_name, nf90_double, &
+                               (/nRDim,nTDim/), iPPerTVar)
+        iStatus = nf90_def_var_deflate(iFileID, iPPerTVar, 0, yDeflate, iDeflate)
+    enddo
 
     !! MAGNETIC FIELD
     !! Bx
@@ -312,18 +295,25 @@ module ModRamRestart
 
     ! START WRITE MODE
     !! TEMP STUFF
-    iStatus = nf90_put_var(iFileID, iEGridVar, EKEV(1,:))
+    do iS = 1, nS
+        iStatus = nf90_inq_varid(iFileID, 'EnergyGrid_'//species(iS)%s_name, iEGridVar)
+        iStatus = nf90_put_var(iFileID, iEGridVar, EKEV(iS,:))
+    enddo
     iStatus = nf90_put_var(iFileID, iPaGridVar, PA(:))
 
     !! FLUXES
-    iStatus = nf90_put_var(iFileID, iFluxEVar,  F2(1,:,:,:,:))
-    iStatus = nf90_put_var(iFileID, iFluxHVar,  F2(2,:,:,:,:))
-    iStatus = nf90_put_var(iFileID, iFluxHeVar, F2(3,:,:,:,:))
-    iStatus = nf90_put_var(iFileID, iFluxOVar,  F2(4,:,:,:,:))
+    do iS = 1, nS
+        iStatus = nf90_inq_varid(iFileID, 'Flux_'//species(iS)%s_name, iFluxVar)
+        iStatus = nf90_put_var(iFileID, iFluxVar,  F2(iS,:,:,:,:))
+    enddo
 
     !! PRESSURES
-    iStatus = nf90_put_var(iFileID, iPParTVar, PParT(:,:,:))
-    iStatus = nf90_put_var(iFileID, iPPerTVar, PPerT(:,:,:))
+    do iS = 1, nS
+        iStatus = nf90_inq_varid(iFileID, 'PParT_'//species(iS)%s_name, iPParTVar)
+        iStatus = nf90_put_var(iFileID, iPParTVar, PParT(iS,:,:))
+        iStatus = nf90_inq_varid(iFileID, 'PPerT_'//species(iS)%s_name, iPPerTVar)
+        iStatus = nf90_put_var(iFileID, iPPerTVar, PPerT(iS,:,:))
+    enddo
 
     !! MAGNETIC FIELD
     iStatus = nf90_put_var(iFileID, iBxVar, bX(:,:,:))
@@ -389,14 +379,14 @@ module ModRamRestart
   subroutine read_restart
     !!!! Module Variables
     use ModRamMain,      ONLY: PathRestartIn
-    use ModRamGrids,     ONLY: nPa, nT, nR
+    use ModRamGrids,     ONLY: nPa, nT, nR, nS, nE
     use ModRamFunctions, ONLY: RamFileName
     use ModRamTiming,    ONLY: DtsNext, TOld
     use ModRamVariables, ONLY: F2, PParT, PPerT, FNHS, FNIS, BOUNHS, BOUNIS, &
                                BNES, HDNS, EIR, EIP, dBdt, dIdt, dIbndt, VTN, &
                                VTOL, VT, EIR, EIP, PParH, PPerH, PParO, PAbn, &
                                PPerO, PParHe, PPerHe, PParE, PPerE, LZ, MU, &
-                               NECR, tau
+                               NECR, tau, EKEV, species
     use ModScbGrids,     ONLY: npsi, nzeta
     use ModScbParams,    ONLY: constTheta, constZ
     use ModScbVariables, ONLY: x, y, z, alphaVal, psiVal, chiVal, xpsiout, &
@@ -411,8 +401,8 @@ module ModRamRestart
     use nrtype, ONLY: DP, pi_d, twopi_d
     implicit none
     
-    integer :: j, L
-    integer :: iFluxEVar, iFluxHVar, iFluxHeVar, iFluxOVar, iPParTVar, &
+    integer :: j, L, iS
+    integer :: iFluxVar, iPParTVar, iEGridVar, &
                iPPerTVar, iHVar, iBHVar, iBxVar, iByVar, iBzVar, &
                iIVar, iBIVar, iBNESVar, iHDNSVar, iEIRVar, iEIPVar, &
                iDtVar, iXVar, iYVar, iZVar, &
@@ -436,16 +426,6 @@ module ModRamRestart
     call ncdf_check(iStatus, NameSub)
 
     ! GET VARIABLE IDS
-    !! FLUXES
-    iStatus = nf90_inq_varid(iFileID, 'FluxE',  iFluxEVar)
-    iStatus = nf90_inq_varid(iFileID, 'FluxH',  iFluxHVar)
-    iStatus = nf90_inq_varid(iFileID, 'FluxHe', iFluxHeVar)
-    iStatus = nf90_inq_varid(iFileID, 'FluxO',  iFluxOVar)
-
-    !! PRESSURES
-    iStatus = nf90_inq_varid(iFileID, 'PParT', iPParTVar)
-    iStatus = nf90_inq_varid(iFileID, 'PPerT', iPPerTVar)
-
     !! MAGNETIC FIELD
     iStatus = nf90_inq_varid(iFileID, 'Bx', iBxVar)
     iStatus = nf90_inq_varid(iFileID, 'By', iByVar)
@@ -497,24 +477,41 @@ module ModRamRestart
     iStatus = nf90_inq_varid(iFileID, 'necr', iNECRVar)
     iStatus = nf90_inq_varid(iFileID, 'tau', itauVar)
 
-    ! READ DATA
-    !! FLUXES
-    iStatus = nf90_get_var(iFileID, iFluxEVar,  F2(1,:,:,:,:))
-    iStatus = nf90_get_var(iFileID, iFluxHVar,  F2(2,:,:,:,:))
-    iStatus = nf90_get_var(iFileID, iFluxHeVar, F2(3,:,:,:,:))
-    iStatus = nf90_get_var(iFileID, iFluxOVar,  F2(4,:,:,:,:))
+    ! Check which version we are reading
+    iStatus = nf90_inq_varid(iFileID, 'FluxE', iFluxVar)
+    if (iStatus == nf90_noerr) then
+        iStatus = nf90_inq_varid(iFileID, 'FluxE',  iFluxVar)
+        iStatus = nf90_get_var(iFileID, iFluxVar,  F2(1,:,:,:,:))
 
-    !! PRESSURES
-    iStatus = nf90_get_var(iFileID, iPParTVar, PParT(:,:,:))
-    iStatus = nf90_get_var(iFileID, iPPerTVar, PPerT(:,:,:))
-    PPerO = PPerT(4,:,:)
-    PParO = PParT(4,:,:)
-    PPerHe = PPerT(3,:,:)
-    PParHe = PParT(3,:,:)
-    PPerE = PPerT(1,:,:)
-    PParE = PParT(1,:,:)
-    PPerH = PPerT(2,:,:)
-    PParH = PParT(2,:,:)
+        iStatus = nf90_inq_varid(iFileID, 'FluxH',  iFluxVar)
+        iStatus = nf90_get_var(iFileID, iFluxVar,  F2(2,:,:,:,:))
+
+        iStatus = nf90_inq_varid(iFileID, 'FluxHe',  iFluxVar)
+        iStatus = nf90_get_var(iFileID, iFluxVar,  F2(3,:,:,:,:))
+
+        iStatus = nf90_inq_varid(iFileID, 'FluxO',  iFluxVar)
+        iStatus = nf90_get_var(iFileID, iFluxVar,  F2(4,:,:,:,:))
+
+        iStatus = nf90_inq_varid(iFileID, 'PParT', iPParTVar)
+        iStatus = nf90_get_var(iFileID, iPParTVar, PParT(:,:,:))
+
+        iStatus = nf90_inq_varid(iFileID, 'PPerT', iPPerTVar)
+        iStatus = nf90_get_var(iFileID, iPPerTVar, PPerT(:,:,:))
+    else 
+        do iS = 1, nS
+            iStatus = nf90_inq_varid(iFileID, 'EnergyGrid_'//species(iS)%s_name, iEGridVar)
+            iStatus = nf90_get_var(iFileID, iEGridVar, EKEV(iS,:))
+
+            iStatus = nf90_inq_varid(iFileID, 'Flux_'//species(iS)%s_name, iFluxVar)
+            iStatus = nf90_get_var(iFileID, iFluxVar,  F2(iS,:,:,:,:))
+
+            iStatus = nf90_inq_varid(iFileID, 'PParT_'//species(iS)%s_name, iPParTVar)
+            iStatus = nf90_get_var(iFileID, iPParTVar, PParT(iS,:,:))
+
+            iStatus = nf90_inq_varid(iFileID, 'PPerT_'//species(iS)%s_name, iPPerTVar)
+            iStatus = nf90_get_var(iFileID, iPPerTVar, PPerT(iS,:,:))
+        enddo
+    endif
 
     !! MAGNETIC FIELD
     iStatus = nf90_get_var(iFileID, iBxVar, bX(:,:,:))
