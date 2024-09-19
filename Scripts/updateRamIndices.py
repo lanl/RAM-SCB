@@ -6,6 +6,7 @@ import datetime as dt
 import ftplib
 import io
 import re
+import ssl
 from urllib import request
 import numpy as np
 
@@ -51,7 +52,8 @@ if __name__ == '__main__':
     # download updated F10.7 from http://spaceweather.gc.ca/solar_flux_data/daily_flux_values/fluxtable.txt
     # only has data from 2004-10-28 (prior data are in different files)
     f107url = 'http://spaceweather.gc.ca/solar_flux_data/daily_flux_values/fluxtable.txt'
-    conts = request.urlopen(f107url).read().decode()
+    gcontext = ssl.SSLContext()  # Some systems have certification issues for https - workaround
+    conts = request.urlopen(f107url, context=gcontext).read().decode()
 
     # get first line of data (needs regex as no linebreaks & odd spacing
     # then split up, read dates, interpolate to requested JDs
