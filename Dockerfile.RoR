@@ -10,8 +10,8 @@ ENV PERL5LIB=.
 ENV DEBIAN_FRONTEND=noninteractive 
 
 RUN apt-get update && apt-get install -y ssh make gcc git g++ gfortran libopenmpi-dev openmpi-bin libgsl-dev libgsl23 gsl-bin libgsl-dbg libnetcdf-dev libnetcdff-dev nco netcdf-bin python3 python3-pip python-is-python3
-
-RUN pip install numpy==1.21 && pip install spacepy==0.4.1 && pip install netCDF4
+RUN pip install --upgrade pip
+RUN pip install numpy==1.21 && pip install spacepy==0.6.0 && pip install netCDF4
 
 COPY flux-model /SHIELDS/flux-model
 WORKDIR /SHIELDS/flux-model
