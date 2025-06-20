@@ -78,7 +78,7 @@ module ModRamInjection
 
         iE = 1
         do i = 2,nE
-          if ((energy > EkeV(i-1)).and.(energy < EkeV(i))) then
+          if ((energy > EkeV(S,i-1)).and.(energy < EkeV(S,i))) then
              iE = i
              exit
           endif
@@ -93,8 +93,8 @@ module ModRamInjection
         enddo
 
         ! Add the number density to the grid assuming a maxwellian distribution in energy 
-        factor = 4.0E6*EkeV(iE)
-        den = 1._dp/sqrt(species(S)%s_mass)*exp(-1._dp*EkeV(iE)/energy)*factor*den*energy**(-1.5)
+        factor = 4.0E6*EkeV(S,iE)
+        den = 1._dp/sqrt(species(S)%s_mass)*exp(-1._dp*EkeV(S,iE)/energy)*factor*den*energy**(-1.5)
         !den = FFactor(S,iR,iE,iPa)*FNHS(iR,iT,iPa)*den/dE(iE)/dMu(iPa)
         num_density(iR,iT,iE,iPa) = num_density(iR,iT,iE,iPa) + den*FFactor(S,iR,iE,iPa)*FNHS(iR,iT,iPa)
      enddo read_file

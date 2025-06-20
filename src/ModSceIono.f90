@@ -9,7 +9,7 @@ MODULE ModSceIono
 
   contains
 !==================================================================================================
-  subroutine ionosphere_fluxes(iModel)
+  subroutine ionosphere_fluxes(iS, iModel)
 
     !\
     ! Combine the diffusive and discrete precipitating fluxes
@@ -26,7 +26,7 @@ MODULE ModSceIono
 
     implicit none
     
-    integer, intent(in) :: iModel
+    integer, intent(in) :: iS, iModel
     real(DP), allocatable :: discrete_ef(:,:), discrete_ae(:,:), &
                              diffuse_ef(:,:), diffuse_ae(:,:)
     !---------------------------------------------------------------------------
@@ -76,7 +76,7 @@ MODULE ModSceIono
   end subroutine ionosphere_fluxes
 
 !==================================================================================================
-  subroutine ionosphere_conductance(Sigma0, SigmaH, SigmaP, SigmaThTh, SigmaThPs, &
+  subroutine ionosphere_conductance(iS, Sigma0, SigmaH, SigmaP, SigmaThTh, SigmaThPs, &
                                     SigmaPsPs, dSigmaThTh_dTheta, dSigmaThPs_dTheta, &
                                     dSigmaPsPs_dTheta, dSigmaThTh_dPsi, dSigmaThPs_dPsi, &
                                     dSigmaPsPs_dPsi, Eflux, Ave_E, Eflux_diff, Theta, Psi, nTheta, &
@@ -111,7 +111,7 @@ MODULE ModSceIono
 
     implicit none
 
-    integer, intent(in)     :: iModel
+    integer, intent(in)     :: iS, iModel
     integer, intent(in)     :: nTheta, nPsi
     real(DP), intent(inout) :: Sigma0(:,:), SigmaH(:,:), SigmaP(:,:), SigmaThTh(:,:), &
                                SigmaThPs(:,:), SigmaPsPs(:,:), dSigmaThTh_dTheta(:,:), &
@@ -279,7 +279,7 @@ MODULE ModSceIono
              if (EFlux(i,j)*1000. > 0.001 .and. Ave_E(i,j)/2.*1000. >1)then
                 call glow_aurora_conductance(idate, real(ut,DP), glat(i,j), glong(i,j), &
                      SigmaP_Glow(i,j), SigmaH_Glow(i,j), &
-                     EFlux(i,j)*1000., Ave_E(i,j)/2., EFlux_Diff(i,j,:), EkeV(:), nE, &
+                     EFlux(i,j)*1000., Ave_E(i,j)/2., EFlux_Diff(i,j,:), EkeV(iS,:), nE, &
                      real(ap,DP), real(f107r,DP), real(f107p,DP),&
                      real(f107a,DP), DoUseFullSpec, &
                      zz(i,j,1:nzGlow), ionrate(i,j,1:nzGlow), eDen(i,j,1:nzGlow), &
@@ -448,7 +448,7 @@ MODULE ModSceIono
   end subroutine ionosphere_conductance
 
 !==================================================================================================
-  subroutine ionosphere_solver(Jr, SigmaThTh, SigmaThPs, SigmaPsPs, &
+  subroutine ionosphere_solver(iS, Jr, SigmaThTh, SigmaThPs, SigmaPsPs, &
                                dSigmaThTh_dTheta, dSigmaThPs_dTheta, &
                                dSigmaPsPs_dTheta, dSigmaThTh_dPsi, &
                                dSigmaThPs_dPsi, dSigmaPsPs_dPsi, &
@@ -516,6 +516,7 @@ MODULE ModSceIono
 
     implicit none
  
+    integer, intent(in) :: iS
     real(DP), intent(inout) :: Jr(:,:), SigmaThTh(:,:), SigmaThPs(:,:), SigmaPsPs(:,:), &
                                dSigmaThTh_dTheta(:,:), dSigmaThPs_dTheta(:,:), &
                                dSigmaPsPs_dTheta(:,:), dSigmaThTh_dPsi(:,:), &

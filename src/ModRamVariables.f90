@@ -41,8 +41,8 @@ Module ModRamVariables
 
 ! ModRamInit variables
   real(DP), ALLOCATABLE :: RMAS(:), V(:,:), VBND(:,:), GREL(:,:), GRBND(:,:), &
-                           FACGR(:,:), EPP(:,:), ERNH(:,:), UPA(:), WE(:), DE(:), &
-                           EKEV(:), EBND(:), PHI(:), LT(:), MLT(:), MU(:), DMU(:), &
+                           FACGR(:,:), EPP(:,:), ERNH(:,:), UPA(:), WE(:,:), DE(:,:), &
+                           EKEV(:,:), EBND(:,:), PHI(:), LT(:), MLT(:), MU(:), DMU(:), &
                            WMU(:), PAbn(:), LZ(:), RLZ(:), AMLA(:), BE(:,:), &
                            GridExtend(:), ZRPabn(:,:,:), FFACTOR(:,:,:,:), PA(:)
   real(DP) :: PHIOFS, IR1, DL1, MDR, IP1, CONF1, CONF2, RFACTOR

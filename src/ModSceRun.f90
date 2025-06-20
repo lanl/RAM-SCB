@@ -82,8 +82,8 @@ MODULE ModSceRun
     iono_north_im_eflux_diff(:,Iono_nPsi,:) = iono_north_im_eflux_diff(:,1,:)
     
     IONO_NORTH_JR  = iono_north_im_jr
-    call ionosphere_fluxes(Conductance_Model)
-    call ionosphere_conductance(IONO_NORTH_Sigma0, IONO_NORTH_SigmaH, IONO_NORTH_SigmaP, &
+    call ionosphere_fluxes(S, Conductance_Model)
+    call ionosphere_conductance(S, IONO_NORTH_Sigma0, IONO_NORTH_SigmaH, IONO_NORTH_SigmaP, &
                                 IONO_NORTH_SigmaThTh, IONO_NORTH_SigmaThPs, IONO_NORTH_SigmaPsPs, &
                                 IONO_NORTH_dSigmaThTh_dTheta, IONO_NORTH_dSigmaThPs_dTheta, &
                                 IONO_NORTH_dSigmaPsPs_dTheta, IONO_NORTH_dSigmaThTh_dPsi, &
@@ -92,7 +92,7 @@ MODULE ModSceRun
                                 IONO_NORTH_Theta, IONO_NORTH_Psi, IONO_nTheta, IONO_nPsi, &
                                 dTheta_North, dPsi_North, IONO_NORTH_X, IONO_NORTH_Y, IONO_NORTH_Z,&
                                 Conductance_Model)
-    call ionosphere_solver(IONO_NORTH_JR, IONO_NORTH_SigmaThTh, IONO_NORTH_SigmaThPs, &
+    call ionosphere_solver(S, IONO_NORTH_JR, IONO_NORTH_SigmaThTh, IONO_NORTH_SigmaThPs, &
                            IONO_NORTH_SigmaPsPs, IONO_NORTH_dSigmaThTh_dTheta, &
                            IONO_NORTH_dSigmaThPs_dTheta, IONO_NORTH_dSigmaPsPs_dTheta, &
                            IONO_NORTH_dSigmaThTh_dPsi, IONO_NORTH_dSigmaThPs_dPsi, &

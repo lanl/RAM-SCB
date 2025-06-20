@@ -74,7 +74,7 @@ MODULE ModRamWPI
     ! Calculates the losses due to the w-p interaction
     DO K=2,NE
       DO II=2,NR
-        xE=EKEV(K)/1000.
+        xE=EKEV(S,K)/1000.
         xL=LZ(II)
         if (xL.ge.1.65.and.xL.le.5.0) then
           do i=8,2,-1
@@ -150,7 +150,7 @@ MODULE ModRamWPI
 
     DO K=2,NE
       DO I=2,NR
-        EMEV=EKEV(K)*0.001
+        EMEV=EKEV(S,K)*0.001
         R1=0.08*EMEV**(-1.32)
         R2=0.4*10.**(2.*LZ(I)-6.+0.4*log10(29.*EMEV))
         tau_wave=min(R1,R2)
@@ -612,16 +612,16 @@ MODULE ModRamWPI
             IF (LZ(I).LE.RLpp(J)) THEN
               TAU_LIF=WALOS1(I,K)*((10./Bw)**2)
             ELSEIF (LZ(I).GT.RLpp(J)) THEN
-              IF (EKEV(K).LE.1000.) THEN
+              IF (EKEV(S,K).LE.1000.) THEN
                 TAU_LIF=WALOS2(I,K)*(1+WALOS3(I,K)/WALOS2(I,K))
-                if (ekev(k).le.1.1) then
-                  tau_lif=tau_lif*37.5813*exp(-1.81255*ekev(k))
-                elseif (ekev(k).gt.1.1.and.ekev(k).le.5.) then
-                  tau_lif=tau_lif*(7.5-1.15*ekev(k))
+                if (ekev(S,k).le.1.1) then
+                  tau_lif=tau_lif*37.5813*exp(-1.81255*ekev(S,k))
+                elseif (ekev(S,k).gt.1.1.and.ekev(S,k).le.5.) then
+                  tau_lif=tau_lif*(7.5-1.15*ekev(S,k))
                 else
                   tau_lif=tau_lif
                 endif
-              ELSEIF(EKEV(K).GT.1000.) THEN
+              ELSEIF(EKEV(S,K).GT.1000.) THEN
                 TAU_LIF=5.*3600*24/KP
               ENDIF
             ENDIF

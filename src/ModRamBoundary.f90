@@ -116,8 +116,8 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   ! outside of the files energy range.
   rE = 0
   lE = 0
-  if (eGrid_SI(iSpec,1).gt.EkeV(1))     lE = 1
-  if (eGrid_SI(iSpec,NEL_).lt.EkeV(nE)) rE = 1
+  if (eGrid_SI(iSpec,1).gt.EkeV(iSpec, 1))     lE = 1
+  if (eGrid_SI(iSpec,NEL_).lt.EkeV(iSpec, nE)) rE = 1
   pE = rE + lE
   allocate(flux_II(0:NTL,NEL_+pE), logFlux_II(nT,NEL_+pE), logELan(NEL_+pE), logERam(nE))
   flux_II = 0.0; logFlux_II = 0.0; logELan = 0.0; logERam = 0.0
@@ -201,7 +201,7 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   logELan(1+lE:NEL_+le) = log10(eGrid_SI(iSpec,1:NEL_))
   if (lE.eq.1) logELan(1)       = log10(0.1000)
   if (rE.eq.1) logELan(NEL_+pE) = log10(1000.00)
-  logERam = log10(Ekev)
+  logERam = log10(Ekev(iSpec,:))
 
   ! Interpolate/Extrapolate in energy space; return to normal units.
   ! Interpolation in Log space isn't really needed with the GSL interpolation
