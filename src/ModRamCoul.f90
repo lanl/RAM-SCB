@@ -87,8 +87,8 @@ MODULE ModRamCoul
 !...Collisions with plasmaspheric ions
        COULI(S,K,1)=-CCI*VBND(S,K)*CCO*GRBND(S,K)**2
 !...Energy deposition rate [eV/cm2/s] in 1 hemisphere, check:
-       CEDR(S,K,1)=EDRCO*EKEV(K)*EDRE*(GREL(S,K)+1)/GREL(S,K)**2/V(S,K)**2
-       CIDR(S,K,1)=EDRCO*EKEV(K)*EDRI*(GREL(S,K)+1)/GREL(S,K)**2/V(S,K)**2
+       CEDR(S,K,1)=EDRCO*EKEV(S,K)*EDRE*(GREL(S,K)+1)/GREL(S,K)**2/V(S,K)**2
+       CIDR(S,K,1)=EDRCO*EKEV(S,K)*EDRI*(GREL(S,K)+1)/GREL(S,K)**2/V(S,K)**2
 !...Coulomb scattering 
        CCDE=CCD*CDE*GREL(S,K)/(GREL(S,K)**2-1)**(1.5)
        CCDI=CCD*CDI*GREL(S,K)/(GREL(S,K)**2-1)**(1.5)
@@ -152,7 +152,7 @@ MODULE ModRamCoul
 
     T=TimeRamElapsed
 
-        EZERO=EKEV(1)-WE(1)
+        EZERO=EKEV(S,1)-WE(S,1)
         GRZERO(S)=1.+EZERO*1000.*Q/RMAS(S)/CS/CS
         F(NE+1)=0.
         F(NE+2)=0.
@@ -201,14 +201,14 @@ MODULE ModRamCoul
             IF (R.LE.0) FBND(K)=FUP
             IF (R.GT.0) THEN
                LIMITER=MAX(MIN(BetaLim*R,1.),MIN(R,BetaLim))
-               CORR=-0.5*(CccolE(K)/DE(K)-ISIGN)*X   
+               CORR=-0.5*(CccolE(K)/DE(S,K)-ISIGN)*X   
                FBND(K)=FUP+LIMITER*CORR
             END IF
           END IF  
          END DO
 
          DO K=2,NE
-           F2(S,I,J,K,L)=F2(S,I,J,K,L)-CccolE(K)/WE(K)*FBND(K)+CccolE(K-1)/WE(K)*FBND(K-1)
+           F2(S,I,J,K,L)=F2(S,I,J,K,L)-CccolE(K)/WE(S,K)*FBND(K)+CccolE(K-1)/WE(S,K)*FBND(K-1)
            if (f2(s,i,j,k,l) < 0._dp) then
 !              write(*,*) 'in COULEN f2<0 ', S,i,j,k,l, f2(S,i,j,k,l)
               f2(S,i,j,k,l)=1E-15

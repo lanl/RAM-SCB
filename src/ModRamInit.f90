@@ -95,7 +95,7 @@ MODULE ModRamInit
 
   ! ModRamInit Variables
     ALLOCATE(RMAS(NS), V(NS,NE), VBND(NS,NE), GREL(NS,NE), GRBND(NS,NE), FACGR(NS,NE), &
-             EPP(NS,NE), ERNH(NS,NE), UPA(NR), WE(NE), DE(NE), EKEV(NE), EBND(NE), &
+             EPP(NS,NE), ERNH(NS,NE), UPA(NR), WE(NS,NE), DE(NS,NE), EKEV(NS,NE), EBND(NS,NE), &
              PHI(NT), LT(NT), MLT(NT), MU(NPA), DMU(NPA), WMU(NPA), PAbn(NPA), LZ(NR+1), &
              RLZ(NR+1), AMLA(Slen), BE(NR+1,Slen), GridExtend(NRExtend), ZRPabn(NR,NPA,Slen), &
              FFACTOR(NS,NR,NE,NPA), PA(NPA))
@@ -107,7 +107,7 @@ MODULE ModRamInit
   ! ModRamWPI Variables
     ALLOCATE(WALOS1(NR,NE), WALOS2(NR,NE), WALOS3(NR,NE), fpofc(NCF), NDVVJ(NR,ENG,NPA,NCF), &
              NDAAJ(NR,ENG,NPA,NCF), ENOR(ENG), ECHOR(ENG), BDAAR(NR,NT,ENG,NPA), &
-             CDAAR(NR,NT,NE,NPA))
+             CDAAR(NR,NT,NE,NPA), CDAER(NR,NT,NE,NPA), CDEER(NR,NT,NE,NPA))
     WALOS1 = 0._dp; WALOS2 = 0._dp; WALOS3 = 0._dp; fpofc = 0._dp; NDVVJ = 0._dp; NDAAJ = 0._dp
     ENOR = 0._dp; ECHOR = 0._dp; BDAAR = 0._dp; CDAAR = 0._dp
 
@@ -158,6 +158,7 @@ MODULE ModRamInit
     ! Deallocate all allocated arrays for cleanup
  
     use ModRamVariables ! Need to deallocate all variables
+    use ModRamParams,    ONLY: DoUseBASdiff
  
     implicit none
   
@@ -176,7 +177,7 @@ MODULE ModRamInit
                ZRPabn, FFACTOR)
   ! ModRamWPI Variables
     DEALLOCATE(WALOS1, WALOS2, WALOS3, fpofc, NDVVJ, NDAAJ, ENOR, ECHOR, BDAAR, &
-               CDAAR)
+               CDAAR, CDAER, CDEER)
     DEALLOCATE(Daa_emic_h, Daa_emic_he, EKEV_emic, fp2c_emic, Ihs_emic, Ihes_emic)
   ! ModRamLoss Variables
   !  DEALLOCATE(ATLOS, ACHAR)
@@ -191,7 +192,13 @@ MODULE ModRamInit
     DEALLOCATE(SETRC, ELORC, LSDR, LSCHA, LSATM, LSCOE, LSCSC, LSWAE, XNN, XND, &
                LNCN, LNCD, LECN, LECD, ENERN, ENERD, ATEW, ATAW, ATAC, ATEC, &
                XNE, ATMC, ATAW_emic_h, ATAW_emic_he,ESUM, NSUM)
+  ! Variables that may not have been allocated:
+    if (ALLOCATED(CDAAR_chorus)) then
+        DEALLOCATE(CDAAR_chorus, CDAER_chorus, CDEER_chorus, RCHOR_Dxx, &
+                   TCHOR_Dxx, ECHOR_Dxx, PACHOR_Dxx)
+    endif
   !!!!!!!!!
+
  
  
   end subroutine ram_deallocate
@@ -214,7 +221,7 @@ MODULE ModRamInit
     use ModScbVariables, ONLY: radRaw, azimRaw
     !!!! Modules Subroutines/Functions
     use ModRamWPI,     ONLY: WAPARA_HISS, WAPARA_BAS, WAPARA_CHORUS, WAVEPARA1, WAVEPARA2,&
-                             WAPARA_EMIC
+                             WAPARA_EMIC, WAPARA_Kp
     use ModRamIndices, ONLY: init_indices, update_indices
     !!!! Share Modules
     use ModTimeConvert, ONLY: TimeType, time_real_to_int, time_int_to_real
@@ -344,6 +351,7 @@ MODULE ModRamInit
              CALL WAPARA_HISS(iS)
              IF (DoUseBASdiff) then
                 CALL WAPARA_BAS(iS)
+                CALL WAPARA_Kp(iS) ! populate CDXXR arrays
              ELSE
                 CALL WAPARA_CHORUS(iS)
              ENDIF
@@ -419,44 +427,49 @@ MODULE ModRamInit
       PHI(J)=(J-1)*DPHI    ! Magnetic local time in radian
       MLT(J)=PHI(J)*12./PI ! Magnetic local time in hour
     END DO
-    IP1=(MLT(2)-MLT(1))/0.5
+    IP=(MLT(2)-MLT(1))/0.5
 
-    DO iS=1,nS
-      RMAS(iS)=MP*species(iS)%s_mass ! rest mass of each species (kg)
-    END DO
+    RMAS(S)=MP*species(S)%s_mass ! rest mass of each species (kg)
 
     ! Calculate Kinetic Energy EKEV [keV] at cent, RW depends on NE
-    ELB=EnergyMin ! Lower limit of energy in keV
-    IF (abs(ELB-0.01).le.1e-9) THEN
-      WE(1)=2.8E-3 !  |_._|___.___|____.____|______.______|
-      RW=1.36      !    .     <   DE   >    <      WE     >
-    END IF         !   EKEV                EBND
-    IF (abs(ELB-0.1).le.1e-9) THEN ! relativistic
-      WE(1)=3E-2
-      RW=1.27
-    END IF
-    IF (abs(ELB-1.0).le.1e-9) THEN
-      WE(1)=0.31
-      RW=1.16
-    END IF
+    ELB=species(S)%Emin
+    if (species(S)%Emax < 0.0) then
+        RW = 1.27
+        WE(S,1) = 3E-2
+    else
+        RW = EXP(LOG(ELB) + (LOG(species(S)%Emax) - LOG(ELB))/nE)/ELB
+        WE(S,1) = ELB*RW - ELB
+    endif
+    !IF (abs(ELB-0.01).le.1e-9) THEN
+    !  WE(1)=2.8E-3 !  |_._|___.___|____.____|______.______|
+    !  RW=1.36      !    .     <   DE   >    <      WE     >
+    !END IF         !   EKEV                EBND
+    !IF (abs(ELB-0.1).le.1e-9) THEN ! relativistic
+    !  WE(1)=3E-2
+    !  RW=1.27
+    !END IF
+    !IF (abs(ELB-1.0).le.1e-9) THEN
+    !  WE(1)=0.31
+    !  RW=1.16
+    !END IF
 
-    EKEV(1)=ELB+0.5*WE(1)
-    GREL(S,1)=1.+EKEV(1)*1000.*Q/RMAS(S)/CS/CS
+    EKEV(S,1)=ELB+0.5*WE(S,1)
+    GREL(S,1)=1.+EKEV(S,1)*1000.*Q/RMAS(S)/CS/CS
     V(S,1)=CS*SQRT(GREL(S,1)**2-1.)/GREL(S,1)
-    EBND(1)=ELB+WE(1)
-    GRBND(S,1)=1.+EBND(1)*1000.*Q/RMAS(S)/CS/CS
+    EBND(S,1)=ELB+WE(S,1)
+    GRBND(S,1)=1.+EBND(S,1)*1000.*Q/RMAS(S)/CS/CS
     VBND(S,1)=CS*SQRT(GRBND(S,1)**2-1.)/GRBND(S,1)
     DO K=1,NE-1
-      WE(K+1)=WE(K)*RW            ! WE(K) [keV] is a power series
-      EBND(K+1)=EBND(K)+WE(K+1)   ! E[keV] at bound of grid
-      DE(K)=0.5*(WE(K)+WE(K+1))
-      EKEV(K+1)=EKEV(K)+DE(K)     ! E[keV] at cent of grid
-      GREL(S,K+1)=1.+EKEV(K+1)*1000.*Q/RMAS(S)/CS/CS
+      WE(S,K+1)=WE(S,K)*RW            ! WE(K) [keV] is a power series
+      EBND(S,K+1)=EBND(S,K)+WE(S,K+1)   ! E[keV] at bound of grid
+      DE(S,K)=0.5*(WE(S,K)+WE(S,K+1))
+      EKEV(S,K+1)=EKEV(S,K)+DE(S,K)     ! E[keV] at cent of grid
+      GREL(S,K+1)=1.+EKEV(S,K+1)*1000.*Q/RMAS(S)/CS/CS
       V(S,K+1)=CS*SQRT(GREL(S,K+1)**2-1.)/GREL(S,K+1)      ! Veloc [m/s] at cent
-      GRBND(S,K+1)=1.+EBND(K+1)*1000.*Q/RMAS(S)/CS/CS
+      GRBND(S,K+1)=1.+EBND(S,K+1)*1000.*Q/RMAS(S)/CS/CS
       VBND(S,K+1)=CS*SQRT(GRBND(S,K+1)**2-1.)/GRBND(S,K+1) ! Veloc [m/s] at bound
     END DO
-    DE(NE)=0.5*WE(NE)*(1.+RW)
+    DE(S,NE)=0.5*WE(S,NE)*(1.+RW)
 
     ! CONE - pitch angle loss cone in degree
     ! Dipole loss cone. This needs to be changed in future version to support a
@@ -571,8 +584,8 @@ MODULE ModRamInit
 
     ! Energy factors used in RAM equations
     DO K=1,NE
-      ERNH(S,K)=WE(K)*GREL(S,K)/SQRT((GREL(S,K)-1.)*(GREL(S,K)+1.)) ! [1/cm3]
-      EPP(S,K)=ERNH(S,K)*EKEV(K)
+      ERNH(S,K)=WE(S,K)*GREL(S,K)/SQRT((GREL(S,K)-1.)*(GREL(S,K)+1.)) ! [1/cm3]
+      EPP(S,K)=ERNH(S,K)*EKEV(S,K)
       FACGR(S,K)=GREL(S,K)*SQRT((GREL(S,K)-1.)*(GREL(S,K)+1.))
     END DO
 
@@ -694,6 +707,7 @@ MODULE ModRamInit
               .and.(trim(species(i)%Initialization).ne.'na')) then
              call load_injection_file(i, trim(species(i)%Initialization), F2(i,:,:,:,:))
           endif
+          call ANISCH(i)
        enddo
 
        ! Reset dipole initialization for SWMF runs

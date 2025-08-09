@@ -39,7 +39,7 @@ subroutine get_boundary_flux
 end subroutine get_boundary_flux
 
 !==============================================================================
-subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
+subroutine get_geomlt_flux(NameParticleIn, fluxOut_II, S)
 ! Converts a LANL geomlt file into RAM boundary flux
 
 !!!! Module Variables
@@ -58,6 +58,7 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
 
   implicit none
 
+  integer, intent(in) :: S
   integer :: GSLerr
   character(len=4), intent(in) :: NameParticleIn
   real(DP),intent(out):: fluxOut_II(nT, nE)
@@ -116,8 +117,8 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   ! outside of the files energy range.
   rE = 0
   lE = 0
-  if (eGrid_SI(iSpec,1).gt.EkeV(1))     lE = 1
-  if (eGrid_SI(iSpec,NEL_).lt.EkeV(nE)) rE = 1
+  if (eGrid_SI(iSpec,1).gt.EkeV(S, 1))     lE = 1
+  if (eGrid_SI(iSpec,NEL_).lt.EkeV(S, nE)) rE = 1
   pE = rE + lE
   allocate(flux_II(0:NTL,NEL_+pE), logFlux_II(nT,NEL_+pE), logELan(NEL_+pE), logERam(nE))
   flux_II = 0.0; logFlux_II = 0.0; logELan = 0.0; logERam = 0.0
@@ -171,6 +172,8 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
 
   if (rE.eq.1) then
      do j=1,NTL-1
+        ! FIX NEEDED: for the case of energy grid extending to high energies,
+        ! 0.1 is probably too high
         flux_II(j,NEL_+pE) = 0.1
      enddo
   endif
@@ -200,8 +203,9 @@ subroutine get_geomlt_flux(NameParticleIn, fluxOut_II)
   ! Place energy grids into log space.
   logELan(1+lE:NEL_+le) = log10(eGrid_SI(iSpec,1:NEL_))
   if (lE.eq.1) logELan(1)       = log10(0.1000)
-  if (rE.eq.1) logELan(NEL_+pE) = log10(1000.00)
-  logERam = log10(Ekev)
+  if (rE.eq.1) logELan(NEL_+pE) = log10(EkeV(S,NE))
+!  logERam = log10(Ekev(iSpec,:)) ! VJ: this is wrong
+  logERam = log10(Ekev(S,:))
 
   ! Interpolate/Extrapolate in energy space; return to normal units.
   ! Interpolation in Log space isn't really needed with the GSL interpolation
@@ -271,12 +275,12 @@ end subroutine get_geomlt_flux
       ! LANL interpolated flux files.
       select case(species(S)%s_name)
       case ("Electron")
-        call get_geomlt_flux('elec', FluxLanl)
+        call get_geomlt_flux('elec', FluxLanl, S)
       case ("Hydrogen", "OxygenP1", "HeliumP1", "Nitrogen")
         ! We assume a fraction of the oxygen is actually nitrogen
         ! The specific percentage is configurable in the PARAM file
         ! By default the nitrogen fraction is assumed to be zero
-        call get_geomlt_flux('prot', FluxLanl)
+        call get_geomlt_flux('prot', FluxLanl, S)
       case default
         FluxLanl = 0._dp
       end select

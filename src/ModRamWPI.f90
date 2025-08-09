@@ -74,7 +74,7 @@ MODULE ModRamWPI
     ! Calculates the losses due to the w-p interaction
     DO K=2,NE
       DO II=2,NR
-        xE=EKEV(K)/1000.
+        xE=EKEV(S,K)/1000.
         xL=LZ(II)
         if (xL.ge.1.65.and.xL.le.5.0) then
           do i=8,2,-1
@@ -150,7 +150,7 @@ MODULE ModRamWPI
 
     DO K=2,NE
       DO I=2,NR
-        EMEV=EKEV(K)*0.001
+        EMEV=EKEV(S,K)*0.001
         R1=0.08*EMEV**(-1.32)
         R2=0.4*10.**(2.*LZ(I)-6.+0.4*log10(29.*EMEV))
         tau_wave=min(R1,R2)
@@ -352,7 +352,7 @@ MODULE ModRamWPI
       write(ST4,'(I3.3)') INT(LZ(I)*100)
       DO IX=1,NCF
         write(ST3,'(I2.2)') INT(fpofc(ix))
-        OPEN(UNIT=UNITTMP_,FILE=trim(PathRamIn)//'/whis_L'//ST4//'_'//ST3//ST2//'.aan',STATUS='old')
+        OPEN(UNIT=UNITTMP_,FILE=trim(PathRamIn)//'PlHiss/whis_L'//ST4//'_'//ST3//ST2//'.aan',STATUS='old')
         READ(UNITTMP_,20) HEADER
         DO KN=1,ENG
           read(UNITTMP_,17) ENOR(KN)
@@ -462,27 +462,56 @@ MODULE ModRamWPI
 !**************************************************************************
   SUBROUTINE WAPARA_Kp(S)
 
-    use ModRamVariables, ONLY: KP, CDAAR, CDAAR_chorus, NKpDiff, Kp_chorus
-
+    use ModRamVariables, ONLY: KP, CDAAR, CDAAR_chorus, &
+                                   CDAER, CDAER_chorus, &
+                                   CDEER, CDEER_chorus, &
+                                   NKpDiff, Kp_chorus
+    use ModRamGrids,     ONLY: NT
     implicit none
     integer, intent(in) :: S
 
-    integer :: i1,i2
+    integer :: i1, i2
 
-    if (Kp.gt.maxval(Kp_chorus)) then
-      CDAAR(:,:,:,:) = CDAAR_chorus(:,:,1:35,:,NKpDiff)
+    ! This is a version in which we assume that diffusion tensors
+    ! represent the center of each Kp bin, thus 
+    ! Kp_chorus = /0.5, 1.5, 2.5, 3.5, 5.5, 8.0/
+    ! No interpolation when run-time Kp_chorus(NKpDIff) <Kp < Kp_chorus(1)
+    if (KP <= Kp_chorus(1)) then
+        CDAAR = CDAAR_chorus(:,:,:,:,1)
+        CDAER = CDAER_chorus(:,:,:,:,1)
+        CDEER = CDEER_chorus(:,:,:,:,1)
+
+    elseif (KP >= Kp_chorus(NKpDiff-1)) then ! ignore max Kp bin because lack of data
+        CDAAR = CDAAR_chorus(:,:,:,:, NKpDiff-1)
+        CDAER = CDAER_chorus(:,:,:,:, NKpDiff-1)
+        CDEER = CDEER_chorus(:,:,:,:, NKpDiff-1)
+
+    ! If KP lies between two centres, linear interpolation
     else
-      i1 = minloc(abs(Kp-Kp_chorus),dim=1)
-      if (Kp.lt.Kp_chorus(i1)) then
-        i1 = i1-1
-      end if
-      i2 = i1+1
-      ! Linear interpolation of Kp
-      CDAAR(:,:,:,:) = (Kp-Kp_chorus(i1))*CDAAR_chorus(:,:,1:35,:,i2) &
-                     + (Kp_chorus(i2)-Kp)*CDAAR_chorus(:,:,1:35,:,i1)
-      CDAAR = CDAAR/(Kp_chorus(i2) - Kp_chorus(i1))
+        ! find lower-bound index i1 such that centre(i1) ≤ KP < centre(i1+1)
+        do i1 = 1, NKpDiff-2
+            if (KP < Kp_chorus(i1+1)) exit
+        end do
+        i2 = i1 + 1
+
+        CDAAR = (Kp_chorus(i2) - KP) * CDAAR_chorus(:,:,:,:, i1)  &
+              + (KP - Kp_chorus(i1)) * CDAAR_chorus(:,:,:,:, i2)
+
+        CDAER = (Kp_chorus(i2) - KP) * CDAER_chorus(:,:,:,:, i1)  &
+              + (KP - Kp_chorus(i1)) * CDAER_chorus(:,:,:,:, i2)
+
+        CDEER = (Kp_chorus(i2) - KP) * CDEER_chorus(:,:,:,:, i1)  &
+              + (KP - Kp_chorus(i1)) * CDEER_chorus(:,:,:,:, i2)
+
+        CDAAR = CDAAR / (Kp_chorus(i2) - Kp_chorus(i1))
+        CDAER = CDAER / (Kp_chorus(i2) - Kp_chorus(i1))
+        CDEER = CDEER / (Kp_chorus(i2) - Kp_chorus(i1))
+
     end if
-    CDAAR(:,25,:,:) = CDAAR(:,1,:,:)
+
+    CDAAR(:,NT,:,:) = CDAAR(:,1,:,:)
+    CDAER(:,NT,:,:) = CDAER(:,1,:,:)
+    CDEER(:,NT,:,:) = CDEER(:,1,:,:)
 
     return
   end SUBROUTINE WAPARA_Kp
@@ -493,84 +522,90 @@ MODULE ModRamWPI
 !**************************************************************************
   SUBROUTINE WAPARA_BAS(S)
     !!!! Module Variables
-    use ModRamMain,      ONLY: DP
-    use ModRamParams,    ONLY: DoUseKpDiff, BASFilePath
+    use ModRamMain,      ONLY: DP, PathRamIn
+    use ModRamParams,    ONLY: DoUseKpDiff
     use ModRamGrids,     ONLY: NPA, NT, NE, NR
-    use ModRamVariables, ONLY: MU, nR_Dxx, nE_Dxx, nPa_Dxx, RCHOR_Dxx, &
-                               TCHOR_Dxx, ECHOR_Dxx, CDAAR_chorus, &
-                               PACHOR_Dxx, CDAAR, nKpDiff, nT_Dxx
-    !!!! Module Subroutines/Functions
-    use ModRamFunctions, ONLY: ACOSD
+    use ModRamVariables, ONLY: MU, nR_Dxx, nE_Dxx, nPa_Dxx, nT_Dxx, &
+                               RCHOR_Dxx, TCHOR_Dxx, ECHOR_Dxx, PACHOR_Dxx, &
+                               CDAAR_chorus, CDAER_chorus, CDEER_chorus, &
+                               nKpDiff
+    use netcdf
+
     !!!! Share Modules
     use ModIoUnit, ONLY: UNITTMP_
 
     implicit none
     integer, intent(in) :: S
 
-    integer :: i,j,k,l,nkp,nloop
-    character(len=32) :: H1,H2,H3,nchar
-    character(len=200) :: fname
-    real(DP), ALLOCATABLE :: Dxx_hold(:,:,:), PA(:)
+    integer :: ncid, vid, ierr, iStatus, dimid, len
+    integer :: Kp_bins(nKpDiff)
+    character(len=*), parameter :: fname = 'bav_diffcoef_chorus.nc'
 
-    ALLOCATE(Dxx_hold(NR_Dxx,NE_Dxx,NPA_Dxx), PA(NPA))
-    Dxx_hold = 0.0; Pa = 0.0
+    ! open 
+    ierr = nf90_open(trim(PathRamIn)//'BAS_bavDxx/'//fname, nf90_nowrite, ncid)
+    if (ierr /= nf90_noerr) stop 'Cannot open bav_diffcoef_chorus.nc'
 
-    write(*,*) "Starting WAPARA_BAS"
+    ! --- Get dimensions ---
+    iStatus = nf90_inq_dimid(ncid, 'nR', dimid)
+    iStatus = nf90_inquire_dimension(ncid, dimid, len=len)
+    nR_Dxx = len
 
-    DO L=1,NPA
-      PA(L)=ACOSD(MU(L))
-    END DO
+    iStatus = nf90_inq_dimid(ncid, 'nT', dimid)
+    iStatus = nf90_inquire_dimension(ncid, dimid, len=len)
+    nT_Dxx = len
 
-    if (DoUseKpDiff) then
-      nloop = NKpDiff
-    else
-      nloop = 1
-    endif
+    iStatus = nf90_inq_dimid(ncid, 'nE', dimid)
+    iStatus = nf90_inquire_dimension(ncid, dimid, len=len)
+    nE_Dxx = len
 
-    do nkp=1,nloop
-      write(nchar,'(i1)') nkp-1
-      fname = trim(BASFilePath)//'bav_diffcoef_chorus_rpa_Kp'//trim(nchar)//'.PAonly.dat'
-      OPEN(UNIT=UNITTMP_,FILE=trim(fname),STATUS='old')
-      ! First skip over header
-      do i=1,12,1
-        read(UNITTMP_,*)
-      end do
-      do i=1,NR_Dxx
-        do j=1,NT_Dxx
-          do k=1,NE_Dxx
-            read(UNITTMP_,'(A19,F6.4,A9,F6.4,A12,F8.2)') H1,RCHOR_Dxx(i), H2, &
-                           TCHOR_Dxx(j), H3, ECHOR_Dxx(k)
-            do l=1,NPA_Dxx
-              read(UNITTMP_,'(F15.6,3E18.6)') PACHOR_Dxx(l),CDAAR_chorus(i,j,k,l,nkp)
-            end do
-            ! skip over blank lines
-            do l=1,4
-              read(UNITTMP_,*)
-            end do
-          end do
-        end do
-      end do
-      CLOSE(UNIT=UNITTMP_)
-      ! Interpolate onto L-shell, energy and pitch angle, assuming time is
-      ! normal
-      if ((NT.ne.25).and.(NE.ne.35)) then
-        write(*,*) "We have a problem... assuming NT=25 & NE=35"
-        stop
-      end if
+    iStatus = nf90_inq_dimid(ncid, 'nPa', dimid)
+    iStatus = nf90_inquire_dimension(ncid, dimid, len=len)
+    nPa_Dxx = len
 
-      if ((NR_Dxx.eq.NR).and.(NPA.eq.NPA_Dxx)) then
-        write(*,*) "No interpolation of diffusion coeff for", fname
-      end if
+    iStatus = nf90_inq_dimid(ncid, 'nKp', dimid)
+    iStatus = nf90_inquire_dimension(ncid, dimid, len=len)
+    allocate(RCHOR_Dxx(nR_Dxx))
+    allocate(TCHOR_Dxx(nT_Dxx))
+    allocate(ECHOR_Dxx(nE_Dxx))
+    allocate(PACHOR_Dxx(nPa_Dxx))
+    !-- read 1-D axes ------------------------------------------
+    iStatus = nf90_inq_varid(ncid, 'r_grid', vid)
+    iStatus = nf90_get_var(ncid, vid, RCHOR_Dxx)
+    iStatus = nf90_inq_varid(ncid, 'mlt_grid', vid)
+    iStatus = nf90_get_var(ncid, vid, TCHOR_Dxx)
+    iStatus = nf90_inq_varid(ncid, 'energy_grid', vid)
+    iStatus = nf90_get_var(ncid, vid, ECHOR_Dxx)
+    iStatus = nf90_inq_varid(ncid, 'pa_grid', vid)
+    iStatus = nf90_get_var(ncid, vid, PACHOR_Dxx)
+    iStatus = nf90_inq_varid(ncid, 'Kp_bins', vid)
+    iStatus = nf90_get_var(ncid, vid, Kp_bins)
 
-    end do   ! end NKpDiff loop
+    allocate(CDAAR_chorus(nR_Dxx, nT_Dxx, nE_Dxx, nPa_Dxx, nKpDiff))
+    allocate(CDAER_chorus(nR_Dxx, nT_Dxx, nE_Dxx, nPa_Dxx, nKpDiff))
+    allocate(CDEER_chorus(nR_Dxx, nT_Dxx, nE_Dxx, nPa_Dxx, nKpDiff))
+    !-- read full 5-D diffusion tensors ------------------------
+    iStatus = nf90_inq_varid(ncid, 'Daa', vid)
+    iStatus = nf90_get_var(ncid, vid, CDAAR_chorus)   
+    iStatus = nf90_inq_varid(ncid, 'Dae', vid)
+    iStatus = nf90_get_var(ncid, vid, CDAER_chorus)
 
-    ! Initialization
-    CDAAR(:,:,:,:) = CDAAR_chorus(:,:,1:35,:,1)
+    iStatus = nf90_inq_varid(ncid, 'Dee', vid)
+    iStatus = nf90_get_var(ncid, vid, CDEER_chorus)
 
-    write(*,*) "Finished WAPARA_BAS"
+    iStatus = nf90_close(ncid)
 
-    DEALLOCATE(Dxx_hold, PA)
-    RETURN
+    write(*,*) '   diffusion tensors loaded (netCDF)'
+    return
+
+    ! Should add interpolations if Dxx grids are different from RAM grids
+    ! For now, just catch if dimensions are different
+    if ( (nR_Dxx  .ne. NR)  .or. &
+         (nT_Dxx  .ne. NT)  .or. &
+         (nE_Dxx  .ne. NE)  .or. &
+         (nPa_Dxx .ne. NPA) ) then
+        stop 'Current version assumes that Dxx grids are the same as RAM grids'
+    end if
+
   END SUBROUTINE WAPARA_BAS
 
 !************************************************************************
@@ -612,16 +647,16 @@ MODULE ModRamWPI
             IF (LZ(I).LE.RLpp(J)) THEN
               TAU_LIF=WALOS1(I,K)*((10./Bw)**2)
             ELSEIF (LZ(I).GT.RLpp(J)) THEN
-              IF (EKEV(K).LE.1000.) THEN
+              IF (EKEV(S,K).LE.1000.) THEN
                 TAU_LIF=WALOS2(I,K)*(1+WALOS3(I,K)/WALOS2(I,K))
-                if (ekev(k).le.1.1) then
-                  tau_lif=tau_lif*37.5813*exp(-1.81255*ekev(k))
-                elseif (ekev(k).gt.1.1.and.ekev(k).le.5.) then
-                  tau_lif=tau_lif*(7.5-1.15*ekev(k))
+                if (ekev(S,k).le.1.1) then
+                  tau_lif=tau_lif*37.5813*exp(-1.81255*ekev(S,k))
+                elseif (ekev(S,k).gt.1.1.and.ekev(S,k).le.5.) then
+                  tau_lif=tau_lif*(7.5-1.15*ekev(S,k))
                 else
                   tau_lif=tau_lif
                 endif
-              ELSEIF(EKEV(K).GT.1000.) THEN
+              ELSEIF(EKEV(S,K).GT.1000.) THEN
                 TAU_LIF=5.*3600*24/KP
               ENDIF
             ENDIF
@@ -657,7 +692,6 @@ MODULE ModRamWPI
     integer :: i, j, k, l
     real(DP) :: AN,BN,GN,RP,DENOM
     real(DP), ALLOCATABLE :: F(:), RK(:), RL(:), FACMU(:)
-
     ALLOCATE(F(NPA),RK(NPA),RL(NPA),FACMU(NPA))
     F = 0.0; RK = 0.0; RL = 0.0; FACMU = 0.0
 
@@ -708,10 +742,80 @@ MODULE ModRamWPI
         ENDDO
       ENDDO
     ENDDO
-
     DEALLOCATE(F,RK,RL,FACMU)
     RETURN
   END SUBROUTINE WPADIF
+
+!*************************************************************************
+!			 	WENDIF
+!     Routine calculates the changes of the distribution function
+!            due to wave induced energy diffusion using implicit scheme
+!*************************************************************************
+	SUBROUTINE WENDIF(S)
+
+  !!!! Module Variables
+  use ModRamMain,      ONLY: DP, PathRamOut
+  use ModRamGrids,     ONLY: NT, NR, NE, NPA
+  use ModRamTiming,    ONLY: Dts, T
+  use ModRamVariables, ONLY: F2, DE, WE, ATEC, FACGR        
+  !!!! Share Modules
+  use ModIoUnit, ONLY: UNITTMP_
+
+  implicit none
+
+  integer, intent(in) :: S
+	integer :: i, j, k, l
+  real(DP) :: AN,BN,GN,RP,DENOM
+  real(DP), ALLOCATABLE :: F(:), EK(:), EL(:)
+  ALLOCATE(F(NE),EK(NE),EL(NE))
+  F = 0.0; EK = 0.0; EL = 0.0
+
+	DO J=1,NT  
+	DO I=2,NR
+	DO L=2,NPA
+	  DO K=2,NE
+	    F(K)=F2(S,I,J,K,L)/FACGR(S,K)
+	  ENDDO
+
+	  F(1)=F(2)				! lower b.c.	
+	  EK(1)=0.	
+	  EL(1)=-1.
+	  DO K=2,NE
+!	   AN=ATEW(I,J,K,L)/FACGR(K)/WE(K)             ! only hiss
+!	   GN=ATEW(I,J,K-1,L)/FACGR(K)/WE(K)
+	   AN=(ATEC(I,J,K,L))*DTs/FACGR(S,K)/WE(S,K)/DE(S,K)     ! Only chorus
+	   GN=(ATEC(I,J,K-1,L))*DTs/FACGR(S,K)/WE(S,K)/DE(S,K-1)
+	   BN=AN+GN
+	if (abs(-1-bn).lt.(abs(an)+abs(gn))) then
+	 open(20,file=trim(PathRamOut)//'diffcf_e.dat',status='unknown', &
+          position='append')
+	 write(20,*) ' in WENDIF T=',T/3600,' hr'
+	 write(20,*) 'i=',i,' j=',j,' k=',k,' l=',l
+	 write(20,*) 'an=',AN,' -1-bn=',(-1-BN),' gn=',GN
+	 close(20)
+	endif
+!	   RP=AN*F(K+1)+(1.-BN)*F(K)+GN*F(K-1)		! Cr-Nic
+	   RP=F(K)
+	   DENOM=BN+GN*EL(K-1)+1
+	   EK(K)=(RP+GN*EK(K-1))/DENOM
+	   EL(K)=-AN/DENOM
+	  ENDDO	   
+
+	  F(NE)=EK(NE)					! upper b.c. is F(NE+1)=0
+	  DO K=NE-1,1,-1
+	   F(K)=EK(K)-EL(K)*F(K+1)
+	  ENDDO
+	  DO K=1,NE
+	  F2(S,I,J,K,L)=F(K)*FACGR(S,K)
+	  ENDDO
+
+  ENDDO
+  ENDDO
+  ENDDO
+  DEALLOCATE(F,EK,EL)
+	RETURN
+	END SUBROUTINE WENDIF
+
 
 !*************************************************************************
 !                               EMIC wave amplitude

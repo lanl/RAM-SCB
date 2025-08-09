@@ -119,7 +119,7 @@ MODULE ModRamSce
                 ave_flux(i,j,k) = ave_flux(i,j,k)+f(i,j,k,l)*WMU(l)
              end do
              ave_flux(i,j,k) = ave_flux(i,j,k)/(mu(NPA)-mu(UPA(i)))
-             num_fluxeq(i,j) = num_fluxeq(i,j) + pi_d*ave_flux(i,j,k)*WE(k)
+             num_fluxeq(i,j) = num_fluxeq(i,j) + pi_d*ave_flux(i,j,k)*WE(IS,k)
           end do
        end do
     end do
@@ -228,18 +228,22 @@ MODULE ModRamSce
           energy_flux_iono(i,j) = 0.0
           num_flux_iono(i,j) = 0.0
           ave_e_iono(i,j) = 0.0
+          do k=1, nE
+             energy_flux_iono(i,j) = energy_flux_iono(i,j) + pi_d*ave_fluxEQ(i,j,k)*EKEV(IS,k)*WE(IS,k)
+             num_flux_iono(i,j) = num_flux_iono(i,j) + pi_d*ave_fluxEQ(i,j,k)*WE(IS,k)
+          end do
           if(conductance_model .eq. 9)then ! GLOW conductance
              do k=1,nE
-                if (EKEV(k) .ge. 0.5e-3 .and. EKEV(k) .le. 46)then ! GLOW energy range: 0.5 eV to 46 keV                                           
-                   energy_flux_iono(i,j) = energy_flux_iono(i,j) + pi_d*ave_fluxEQ(i,j,k)*EKEV(k)*WE(k)
-                   num_flux_iono(i,j) = num_flux_iono(i,j) + pi_d*ave_fluxEQ(i,j,k)*WE(k)
+                if (EKEV(iS,k) .ge. 0.5e-3 .and. EKEV(iS,k) .le. 46)then ! GLOW energy range: 0.5 eV to 46 keV                                           
+                   energy_flux_iono(i,j) = energy_flux_iono(i,j) + pi_d*ave_fluxEQ(i,j,k)*EKEV(iS,k)*WE(iS,k)
+                   num_flux_iono(i,j) = num_flux_iono(i,j) + pi_d*ave_fluxEQ(i,j,k)*WE(iS,k)
                 end if
              end do
           else
              do k=1, nE
-                if (EKEV(k) .ge. 0.5 .and. EKEV(k) .le. 50)then ! Robinson energy range: 500eV to 50 keV           
-                   energy_flux_iono(i,j) = energy_flux_iono(i,j) + pi_d*ave_fluxEQ(i,j,k)*EKEV(k)*WE(k)
-                   num_flux_iono(i,j) = num_flux_iono(i,j) + pi_d*ave_fluxEQ(i,j,k)*WE(k)
+                if (EKEV(iS,k) .ge. 0.5 .and. EKEV(iS,k) .le. 50)then ! Robinson energy range: 500eV to 50 keV           
+                   energy_flux_iono(i,j) = energy_flux_iono(i,j) + pi_d*ave_fluxEQ(i,j,k)*EKEV(iS,k)*WE(iS,k)
+                   num_flux_iono(i,j) = num_flux_iono(i,j) + pi_d*ave_fluxEQ(i,j,k)*WE(iS,k)
                 end if
              end do
           end if
@@ -264,7 +268,7 @@ MODULE ModRamSce
           do i=1, npsi
              do j=2, nzeta
                 do k=1, nE
-                   write(UnitTmp_,'(f8.4,1x,f8.4,1x,f8.4,1x,E14.6)')rGrid(i,j), aGrid(i,j), EKEV(k), ave_fluxEQ(i,j,k)                   
+                   write(UnitTmp_,'(f8.4,1x,f8.4,1x,f8.4,1x,E14.6)')rGrid(i,j), aGrid(i,j), EKEV(iS,k), ave_fluxEQ(i,j,k) 
                 end do
              end do
           end do

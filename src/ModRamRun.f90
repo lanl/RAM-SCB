@@ -31,7 +31,7 @@ MODULE ModRamRun
     use ModRamPlasmasphere, ONLY: plasmasphere
     use ModRamDrift, ONLY: DRIFTPARA, DRIFTR, DRIFTP, DRIFTE, DRIFTMU, DRIFTEND
     use ModRamLoss,  ONLY: CEPARA, CHAREXCHANGE, ATMOL, FLC_Radius, PARA_FLC, FLCScatter
-    use ModRamWPI,   ONLY: WAPARA_KP, WPADIF, WAVELO
+    use ModRamWPI,   ONLY: WAPARA_KP, WPADIF, WAVELO, WENDIF
     !!!! Share Modules
     use ModTimeConvert, ONLY: TimeType
     use ModRamCoul,  ONLY: COULPARA, COULEN, COULMU
@@ -91,6 +91,7 @@ MODULE ModRamRun
        if (species(iS)%WPI) then
           IF (DoUseWPI) THEN
              CALL WPADIF(iS) ! pitch angle diffusion
+             IF(species(iS)%s_name.eq.'Electron') CALL WENDIF(iS) ! energy diffusion
           ELSE
              CALL WAVELO(iS) ! electron lifetimes
           ENDIF
@@ -150,6 +151,7 @@ MODULE ModRamRun
 
        if (species(iS)%WPI) then
           IF (DoUseWPI) THEN
+             IF(species(iS)%s_name.eq.'Electron') CALL WENDIF(iS) ! energy diffusion
              CALL WPADIF(iS) ! pitch angle diffusion
           ELSE
              CALL WAVELO(iS) ! electron lifetimes
@@ -175,7 +177,7 @@ MODULE ModRamRun
        LSDR(iS)=LSDR(iS)+ELORC(iS)
 
        ! Interpolate diffusivity as funtion of Kp, if necessary
-       if (DoUseWPI.and.DoUseBASdiff.and.DoUseKpDiff) then
+       if (species(iS)%WPI.and.DoUseBASdiff.and.DoUseKpDiff) then
           call WAPARA_Kp(iS)
        end if
 
@@ -247,8 +249,8 @@ MODULE ModRamRun
       DO K=2,NE
         DO L=2,NPA
           DO J=1,NT-1
-            WEIGHT=F2(S,I,J,K,L)*WE(K)*WMU(L)
-            SETRC(S)=SETRC(S)+EKEV(K)*WEIGHT
+            WEIGHT=F2(S,I,J,K,L)*WE(S,K)*WMU(L)
+            SETRC(S)=SETRC(S)+EKEV(S,K)*WEIGHT
           END DO
         END DO
       END DO
@@ -276,7 +278,8 @@ MODULE ModRamRun
                                ENOR, NDAAJ, fpofc, Kp, BOUNHS, FNHS, BNES, XNE, &
                                NECR, PPerT, PParT, F2, ATAW, ATAC, species, AE, &
                                ATAW_emic_h, ATAW_emic_he, EKEV_emic, fp2c_emic, &
-                               Daa_emic_h, Daa_emic_he
+                               Daa_emic_h, Daa_emic_he, EBND, ATEC, &
+                               CDEER, GRBND
     ! Module Subroutines/Functions
     use ModRamGSL,       ONLY: GSL_Interpolation_1D, GSL_Interpolation_2D
     use ModRamFunctions, ONLY: ACOSD, RamFileName
@@ -294,7 +297,8 @@ MODULE ModRamRun
                              DAA(:,:,:),DUMP(:,:),XFR(:,:),XFRe(:),ALENOR(:),&
                              DUME(:,:),DVV(:,:,:),AVDVV(:),TAVDVV(:),WCDT(:,:),&
                              XFRT(:,:),PA(:),DAMR(:,:),DAMR1(:),GREL_new(:), &
-                             DUMP2_h(:,:), DUMP2_he(:,:), logEkeV_emic(:)
+                             DUMP2_h(:,:), DUMP2_he(:,:), logEkeV_emic(:), &
+                             DEMR1(:), logEkeV(:)
     INTEGER :: KHI(5)
     character(len=2)  :: ST2
     character(len=214) :: NameFileOut
@@ -306,13 +310,13 @@ MODULE ModRamRun
     ALLOCATE(DWAVE(NPA),CMRA(SLEN),BWAVE(NR,NT),AVDAA(NPA),TAVDAA(NPA), &
              DAA(NE,NPA,Slen),DUMP(ENG,NCF),XFR(NR,NT),XFRe(NCF),ALENOR(ENG), &
              DUME(ENG,NCF),DVV(NE,NPA,Slen),AVDVV(NPA),TAVDVV(NPA),WCDT(NR,NT), &
-             XFRT(NR,NT),PA(NPA),DAMR(NPA,NCO),DAMR1(NPA),GREL_new(Ny), &
+             XFRT(NR,NT),PA(NPA),DAMR(NPA,NCO),DAMR1(NPA),DEMR1(NE),GREL_new(Ny), &
              DUMP2_h(ENG_emic, NCF_emic), DUMP2_he(ENG_emic,NCF_emic), &
-             logEkeV_emic(ENG_emic))
+             logEkeV_emic(ENG_emic), logEkeV(NE))
     DWAVE = 0.0; CMRA = 0.0; BWAVE = 0.0; AVDAA = 0.0; TAVDAA = 0.0; DAA = 0.0
     DUMP = 0.0; XFR = 0.0; XFRe = 0.0; ALENOR = 0.0; DUME = 0.0; DVV = 0.0
     AVDVV = 0.0; TAVDVV = 0.0; WCDT = 0.0; XFRT = 0.0; PA = 0.0; DAMR = 0.0
-    DAMR1 = 0.0; GREL_new = 0.0
+    DAMR1 = 0.0; GREL_new = 0.0; DEMR1 = 0.0
 
     ST2 = speciesString(S)
     cv=CS*100 ! speed of light in [cm/s]
@@ -379,7 +383,7 @@ MODULE ModRamRun
             PPER=PPER+EPP(S,K)*SUME
             PPAR=PPAR+EPP(S,K)*SUMA
             RNHT=RNHT+ERNH(S,K)*SUMN
-            EDEN=EDEN+ERNH(S,K)*EKEV(K)*SUMN
+            EDEN=EDEN+ERNH(S,K)*EKEV(S,K)*SUMN
           ENDDO
           ANIS=PPER/2./PPAR-1.
           EPAR=2*PPAR/RNHT
@@ -427,6 +431,7 @@ MODULE ModRamRun
                 DO L=1,NPA
                    ATAW(I,J,K,L)=0.0 ! hiss
                    ATAC(I,J,K,L)=0.0 ! chorus
+                   ATEC(I,J,K,L)=0.0 ! chorus
                 ENDDO
              ENDDO
           ENDDO
@@ -440,33 +445,64 @@ MODULE ModRamRun
           ENDDO
           DAMR1(L)=0.
        ENDDO
+
+       DO K=1, NE
+         logEkeV(K) = LOG10(EKEV(S,K))
+       ENDDO
+
        DO I=2,NR
           DO J=1,NT
              IF (XNE(I,J).LE.50.) THEN ! outside pp
-                xfrl=CS*SQRT(XNE(I,J)*RMAS(S)*40*PI)/10./BNES(I,J) ! Fpe/Fcyc
+                !xfrl=CS*SQRT(XNE(I,J)*RMAS(S)*40*PI)/10./BNES(I,J) ! Fpe/Fcyc
                 fnorm=1 ! b-av, no Bw-dep
                 ! interpolate PA diffusion coefficients for implicit scheme
                 DO K=2,NE
                    DO L=1,NPA
                       IF (DoUseBASdiff) THEN
-                         DAMR1(L)=LOG10(CDAAR(I,J,K,nPa-L+1))
+                           IF (CDAAR(I,J,K,nPa-L+1)>1.0e-20) THEN
+                              DAMR1(L)=LOG10(CDAAR(I,J,K,nPa-L+1))
+                           ELSE
+                              DAMR1(L)=-20 ! daa = 1.0e-20
+                           ENDIF
                       ELSE
                          DAMR1(L)=LOG10(BDAAR(I,J,K,L))
                       ENDIF
                    ENDDO
                    DO L=1,NPA
-                      MUBOUN=MU(L)+0.5*WMU(L)
-                      CALL GSL_Interpolation_1D(PA,DAMR1,PAbn(L),Y,GSLerr)
-                      taudaa=10.**Y*fnorm ! <Daa/p2> [1/s]
-                      if (taudaa.gt.1e0) then
-                         print*,'taudaa=',taudaa,' L=',LZ(I),' MLT=',MLT(J)
-                         taudaa=1e-1
-                      endif
-                      if (taudaa.lt.1e-30) taudaa=1e-30
-                      DWAVE(L)=taudaa*(1.-MUBOUN*MUBOUN)*MUBOUN*BOUNHS(I,J,L)
-                      ATAC(I,J,K,L)=DWAVE(L)      ! call WPADIF twice, implicit
+                     MUBOUN=MU(L)+0.5*WMU(L)
+                     CALL GSL_Interpolation_1D(PA,DAMR1,PAbn(L),Y,GSLerr)
+                     taudaa=10.**Y*fnorm ! <Daa/p2> [1/s]
+                     if (taudaa.gt.1e0) then
+                        print*,'taudaa=',taudaa,' L=',LZ(I),' MLT=',MLT(J)
+                        taudaa=1e-1
+                     endif
+                     DWAVE(L)=taudaa*(1.-MUBOUN*MUBOUN)*MUBOUN*BOUNHS(I,J,L)
+                     ATAC(I,J,K,L)=DWAVE(L)
                    END DO
                 END DO
+
+                ! now interpolate energy diffusion rates for implicit scheme
+                DO L=1, NPA
+                   DO K=1, NE
+                      IF (DoUseBASdiff.AND.CDEER(I,J,K,L)>1.0e-20) THEN
+                         DEMR1(K)=LOG10(CDEER(I,J,K,L))
+                      ELSE
+                         DEMR1(K)=-20 ! dee = 1.0e-20
+                      ENDIF
+                   ENDDO
+                   DO K=1,NE
+                     ER1 = LOG10(EBND(S,K))! interpolate in log10(E)
+                     CALL GSL_Interpolation_1D(logEkeV(:),DEMR1,ER1,Y,GSLerr)
+                     taudaa=10.**Y ! <Dee/e2> [1/s]
+                     if (taudaa.gt.1e0) then
+                        print*,'taudee=',taudaa,' L=',LZ(I),' MLT=',MLT(J)
+                        taudaa=1e-1
+                     endif
+                     ATEC(I,J,K,L)= taudaa * EBND(S,K) * EBND(S,K) * &
+                                    GRBND(S,K)*SQRT((GRBND(S,K)-1.)*(GRBND(S,K)+1.)) ! = dee * FACGR eval. at K+0.5      
+                   END DO
+                END DO
+
              ENDIF
           ENDDO
        ENDDO
@@ -497,7 +533,7 @@ MODULE ModRamRun
                      ENDDO
                   ENDDO
                   DO K=2,NE
-                     ER1=LOG10(EKEV(K))
+                     ER1=LOG10(EKEV(S, K))
                      CALL GSL_Interpolation_2D(ALENOR,fpofc,DUMP,ER1,xfrl,Y,GSLerr)
                      DWAVE(L)=10.**Y*fnorm/GREL(S,K)**2*(1.-MUBOUN*MUBOUN)/MUBOUN ! denorm pa [1/s]
                      ATAW(I,J,K,L)=DWAVE(L)           ! call WPADIF twice, implicit
@@ -567,7 +603,7 @@ MODULE ModRamRun
                    END DO
                 END DO
                 DO K=2,NE
-                   ER1 = log10(EKEV(K))
+                   ER1 = log10(EKEV(S,K))
                    ! EkeV_emic: 0.1 keV to 1000 keV 
                    call GSL_Interpolation_2D(logEkeV_emic, fp2c_emic, &
                         DUMP2_h, ER1, xfrl, Y, GSLerr)
@@ -588,7 +624,7 @@ MODULE ModRamRun
                    taudaa_he = ATAW_emic_he(I,J,K,L)/MUBOUN/BOUNHS(I,J,L)/(1.-MUBOUN*MUBOUN)
                    
                    IF(DoSaveLwgr .and. (MOD(INT(T),3600).EQ.0.)) THEN
-                   write(24,556)ekev(k), PABn(L), taudaa_h, taudaa_he, &
+                   write(24,556)ekev(S,k), PABn(L), taudaa_h, taudaa_he, &
                         1./taudaa_h, 1./taudaa_he
                    ENDIF
 
@@ -607,7 +643,7 @@ MODULE ModRamRun
     DEALLOCATE(DWAVE,CMRA,BWAVE,AVDAA,TAVDAA, &
                DAA,DUMP,XFR,XFRe,ALENOR, &
                DUME,DVV,AVDVV,TAVDVV,WCDT, &
-               XFRT,PA,DAMR,DAMR1,GREL_new)
+               XFRT,PA,DAMR,DAMR1,GREL_new, logEkeV)
   RETURN
   end subroutine ANISCH
 

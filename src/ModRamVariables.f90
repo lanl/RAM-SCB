@@ -41,8 +41,8 @@ Module ModRamVariables
 
 ! ModRamInit variables
   real(DP), ALLOCATABLE :: RMAS(:), V(:,:), VBND(:,:), GREL(:,:), GRBND(:,:), &
-                           FACGR(:,:), EPP(:,:), ERNH(:,:), UPA(:), WE(:), DE(:), &
-                           EKEV(:), EBND(:), PHI(:), LT(:), MLT(:), MU(:), DMU(:), &
+                           FACGR(:,:), EPP(:,:), ERNH(:,:), UPA(:), WE(:,:), DE(:,:), &
+                           EKEV(:,:), EBND(:,:), PHI(:), LT(:), MLT(:), MU(:), DMU(:), &
                            WMU(:), PAbn(:), LZ(:), RLZ(:), AMLA(:), BE(:,:), &
                            GridExtend(:), ZRPabn(:,:,:), FFACTOR(:,:,:,:), PA(:)
   real(DP) :: PHIOFS, IR1, DL1, MDR, IP1, CONF1, CONF2, RFACTOR
@@ -50,18 +50,20 @@ Module ModRamVariables
 ! ModRamWPI variables
   real(DP), ALLOCATABLE :: WALOS1(:,:), WALOS2(:,:), WALOS3(:,:), fpofc(:), &
                            NDVVJ(:,:,:,:), NDAAJ(:,:,:,:), ENOR(:), ECHOR(:), &
-                           BDAAR(:,:,:,:), CDAAR(:,:,:,:),&
+                           BDAAR(:,:,:,:), CDAAR(:,:,:,:), &
+                           CDAER(:,:,:,:), CDEER(:,:,:,:), &
                            Daa_emic_h(:,:,:,:), Daa_emic_he(:,:,:,:), &
                            EKEV_emic(:), fp2c_emic(:), Ihs_emic(:,:,:), Ihes_emic(:,:,:)
-  integer, parameter :: NKpDiff = 5, &
-                        NR_Dxx  = 20, &
-                        NT_Dxx  = 25, &
-                        NE_Dxx  = 45, &
-                        NPA_Dxx = 72  
-  integer, dimension(5) :: Kp_Chorus = (/0,1,2,3,4/) 
-  real(DP) :: CDAAR_Chorus(NR_Dxx,NT_Dxx,NE_Dxx,NPA_Dxx,NKpDiff)
-  real(DP) :: RCHOR_Dxx(NR_Dxx), TCHOR_Dxx(NT_Dxx), ECHOR_Dxx(NE_Dxx), &
-              PACHOR_Dxx(NPA_Dxx)
+  integer :: NR_Dxx, NT_Dxx, NE_Dxx, NPA_Dxx  
+  integer, parameter :: NKpDiff = 6
+  real(DP), dimension(6) :: Kp_Chorus = (/0.5, 1.5, 2.5, 3.5, 5.5, 8.0/) 
+
+  real(DP), allocatable :: CDAAR_Chorus(:,:,:,:,:), &
+                           CDAER_Chorus(:,:,:,:,:), &
+                           CDEER_Chorus(:,:,:,:,:)
+
+  real(DP), allocatable :: RCHOR_Dxx(:), TCHOR_Dxx(:), ECHOR_Dxx(:), &
+                           PACHOR_Dxx(:)
 
 ! ModRamLoss variables
   real(DP), ALLOCATABLE :: ATLOS(:,:,:), CHARGE(:,:,:,:,:), &

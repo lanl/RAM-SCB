@@ -96,6 +96,7 @@ rundir:
                 mv initialization.nc input_ram/;            \
 		mv QinDenton_20130317_1min.txt input_scb/;  \
 		mv NitrogenCrossSections.dat input_ram/; \
+		mkdir -p input_ram/BAS_bavDxx; \
 		cp -r ${IMDIR}/input/glow_data input_sce/;	
 	@(if [ "$(STANDALONE)" != "NO" ]; then \
 		cd ${RUNDIR} ; \
@@ -236,14 +237,10 @@ test1_run:
 	cd ${TESTDIR1}; ${MPIRUN} ./ram_scb.exe | tee runlog
 
 test1_check:
-	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9				\
-		${TESTDIR1}/output_ram/log_d20130317_t000000.log	\
-		${IMDIR}/output/test1/log.ref				\
-		> test1.diff
 	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9	                        \
 		${TESTDIR1}/output_ram/pressure_d20130317_t001500.dat   \
 		${IMDIR}/output/test1/pressure.ref                      \
-		>> test1.diff			        
+		> test1.diff			        
 	ncdump -v "Flux_H","B_xyz"                              	\
                ${TESTDIR1}/output_ram/sat1_d20130317_t000000.nc 	\
                | sed -e '1,/data:/d' >                          	\
@@ -450,7 +447,38 @@ testEMIC_check:
 	        >> testEMIC.diff
 	@echo "Test Successful!"
 
+testSpecies:
+	@echo "starting..." > testSpecies.diff
+	@echo "testSpecies_compile..." >> testSpecies.diff
+	make testSpecies_compile
+	@echo "testSpecies_rundir..." >> testSpecies.diff
+	make testSpecies_rundir PARAMFILE=PARAM.in.testSpecies
+	@echo "testSpecies_run..." >> testSpecies.diff
+	make testSpecies_run MPIRUN=
+	@echo "testSpecies_check..." >> testSpecies.diff
+	make testSpecies_check
 
+testSpecies_compile:
+	make
+
+testSpecies_rundir:
+	rm -rf ${TESTDIRC}
+	make rundir RUNDIR=${TESTDIRC} STANDALONE="YES"
+	cp Param/${PARAMFILE} ${TESTDIRC}/PARAM.in
+	cp input/sat*.dat ${TESTDIRC}/
+
+testSpecies_run:
+	cd ${TESTDIRC}; ${MPIRUN} ./ram_scb.exe | tee runlog;
+
+testSpecies_check:
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                              \
+	        ${TESTDIRC}/output_ram/log_d20130317_t000000.log        \
+	        ${IMDIR}/output/testSpecies/log.ref                           \
+	        > testSpecies.diff
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                              \
+	        ${TESTDIRC}/output_ram/pressure_d20130317_t001500.dat   \
+	        ${IMDIR}/output/testSpecies/pressure.ref                      \
+	        >> testSpecies.diff
 
 #TEST SCE----------------------------------
 testSCE:
@@ -485,4 +513,5 @@ testSCE_check:
 	        ${TESTDIRC}/output_ram/pressure_d20130317_t001000.dat   \
 	        ${IMDIR}/output/testSCE/pressure.ref                      \
 	        >> testSCE.diff
+
 	@echo "Test Successful!"
