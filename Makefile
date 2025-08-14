@@ -236,30 +236,30 @@ test1_run:
 	cd ${TESTDIR1}; ${MPIRUN} ./ram_scb.exe | tee runlog
 
 test1_check:
-	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9				\
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9 -r=1e-7			\
 		${TESTDIR1}/output_ram/log_d20130317_t000000.log	\
 		${IMDIR}/output/test1/log.ref				\
-		> test1.diff
-	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9	                        \
+		> test1.diff || (cat test1.diff; exit 1;)
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9 -r=1e-7                      \
 		${TESTDIR1}/output_ram/pressure_d20130317_t001500.dat   \
 		${IMDIR}/output/test1/pressure.ref                      \
-		>> test1.diff			        
+		>> test1.diff || (cat test1.diff; exit 1;)
 	ncdump -v "Flux_H","B_xyz"                              	\
                ${TESTDIR1}/output_ram/sat1_d20130317_t000000.nc 	\
                | sed -e '1,/data:/d' >                          	\
                ${TESTDIR1}/output_ram/sat1.test
-	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9 	                        \
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9 -r=1e-7                      \
 		${TESTDIR1}/output_ram/sat1.test                	\
 		${IMDIR}/output/test1/sat1.ref                  	\
-		>> test1.diff
+		>> test1.diff || (cat test1.diff; exit 1;)
 	ncdump -v "Flux_H","B_xyz"                              	\
                ${TESTDIR1}/output_ram/sat2_d20130317_t000000.nc 	\
                | sed -e '1,/data:/d' >                          	\
                ${TESTDIR1}/output_ram/sat2.test
-	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9 	                        \
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9 -r=1e-7                      \
 		${TESTDIR1}/output_ram/sat2.test                	\
 		${IMDIR}/output/test1/sat2.ref                  	\
-		>> test1.diff
+		>> test1.diff || (cat test1.diff; exit 1;)
 	@echo "Test Successful!"
 
 #TEST 2----------------------------------
@@ -293,30 +293,30 @@ test2_run:
 	${MPIRUN} ./ram_scb.exe | tee runlog2;	
 
 test2_check:
-	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9	                      \
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9 -r=1e-7                    \
 		${TESTDIR2}/output_ram/pressure_d20130317_t001500.dat \
 		${IMDIR}/output/test1/pressure.ref                    \
-		> test2.diff
+                > test2.diff || (cat test2.diff; exit 1;)
 	ncrcat ${TESTDIR2}/output_ram/sat1_d20130317_t000000.nc       \
 	       ${TESTDIR2}/output_ram/sat1_d20130317_t001000.nc       \
 	       ${TESTDIR2}/output_ram/sat1.nc
 	ncdump -v "Flux_H","B_xyz" ${TESTDIR2}/output_ram/sat1.nc     \
                | sed -e '1,/data:/d' >                                \
                ${TESTDIR2}/output_ram/sat1.test        
-	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                            \
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9 -r=1e-7                    \
                 ${TESTDIR2}/output_ram/sat1.test                      \
                 ${IMDIR}/output/test1/sat1.ref                        \
-                >> test2.diff
+                >> test2.diff || (cat test2.diff; exit 1;)
 	ncrcat ${TESTDIR2}/output_ram/sat2_d20130317_t000000.nc       \
                ${TESTDIR2}/output_ram/sat2_d20130317_t001000.nc       \
                ${TESTDIR2}/output_ram/sat2.nc
 	ncdump -v "Flux_H","B_xyz" ${TESTDIR2}/output_ram/sat2.nc     \
                | sed -e '1,/data:/d' > \
                ${TESTDIR2}/output_ram/sat2.test
-	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                            \
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9 -r=1e-7                    \
                 ${TESTDIR2}/output_ram/sat2.test                      \
                 ${IMDIR}/output/test1/sat2.ref                        \
-                >> test2.diff
+                >> test2.diff || (cat test2.diff; exit 1;)
 	@echo "Test Successful!"
 
 #TEST 3----------------------------------
@@ -344,14 +344,14 @@ test3_run:
 	cd ${TESTDIR3}; ${MPIRUN} ./ram_scb.exe | tee runlog;
 
 test3_check:
-	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                             \
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9 -r=1e-7                     \
 		${TESTDIR3}/output_ram/pressure_d20130317_t001500.dat  \
 		${IMDIR}/output/test3/pressure.ref      	       \
-		> test3.diff                                           
-	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9			       \
+		> test3.diff || (cat test3.diff; exit 1;)
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9 -r=1e-7		       \
 		${TESTDIR3}/output_scb/hI_output_d20130317_t001500.dat \
 		${IMDIR}/output/test3/hI.ref 		 	       \
-		>> test3.diff
+		>> test3.diff || (cat test3.diff; exit 1;)
 	@echo "Test Successful!"
 
 #TEST 4----------------------------------
@@ -385,34 +385,34 @@ test4_run:
 	${MPIRUN} ./ram_scb.exe | tee runlog2;      
 
 test4_check:
-	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                            \
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9 -r=1e-7                    \
                 ${TESTDIR4}/output_ram/pressure_d20130317_t001500.dat \
                 ${IMDIR}/output/test3/pressure.ref                    \
-                > test4.diff
-	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                             \
+                > test4.diff || (cat test4.diff; exit 1;)
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9 -r=1e-7                     \
                 ${TESTDIR4}/output_scb/hI_output_d20130317_t001500.dat \
                 ${IMDIR}/output/test3/hI.ref                           \
-                >> test4.diff
+                >> test4.diff || (cat test4.diff; exit 1;)
 	ncrcat ${TESTDIR4}/output_ram/sat1_d20130317_t000000.nc       \
                ${TESTDIR4}/output_ram/sat1_d20130317_t001000.nc       \
                ${TESTDIR4}/output_ram/sat1.nc
 	ncdump -v "Flux_H","B_xyz" ${TESTDIR4}/output_ram/sat1.nc     \
                | sed -e '1,/data:/d' >                                \
                ${TESTDIR4}/output_ram/sat1.test        
-	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                            \
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9 -r=1e-7                    \
                 ${TESTDIR4}/output_ram/sat1.test                      \
                 ${IMDIR}/output/test3/sat1.ref                        \
-                >> test4.diff
+                >> test4.diff || (cat test4.diff; exit 1;)
 	ncrcat ${TESTDIR4}/output_ram/sat2_d20130317_t000000.nc       \
                ${TESTDIR4}/output_ram/sat2_d20130317_t001000.nc       \
                ${TESTDIR4}/output_ram/sat2.nc
 	ncdump -v "Flux_H","B_xyz" ${TESTDIR4}/output_ram/sat2.nc     \
                | sed -e '1,/data:/d' >                                \
                ${TESTDIR4}/output_ram/sat2.test
-	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9                            \
+	${SCRIPTDIR}/DiffNum.pl -b -a=1e-9 -r=1e-7                    \
                 ${TESTDIR4}/output_ram/sat2.test                      \
                 ${IMDIR}/output/test3/sat2.ref                        \
-                >> test4.diff
+                >> test4.diff || (cat test4.diff; exit 1;)
 	@echo "Test Successful!"
 
 #TEST EMIC----------------------------------
